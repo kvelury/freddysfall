@@ -57,7 +57,7 @@ class Driver extends Node:
 					phase = "jump_hold"
 			"a_exit":
 				player.scripted_x = 1.0
-				if room == "b" and player.input_enabled and player.is_on_floor():
+				if room == "2" and player.input_enabled and player.is_on_floor():
 					phase = "b_mid"
 			"b_mid":
 				player.scripted_x = 1.0
@@ -73,7 +73,7 @@ class Driver extends Node:
 					phase = "b_exit"
 			"b_exit":
 				player.scripted_x = 1.0
-				if room == "c" and player.input_enabled and player.is_on_floor():
+				if room == "3" and player.input_enabled and player.is_on_floor():
 					phase = "c_in"
 			"c_in":
 				player.scripted_x = 1.0
@@ -86,7 +86,7 @@ class Driver extends Node:
 					phase = "c_back"
 			"c_back":
 				player.scripted_x = -1.0
-				if room == "b" and player.input_enabled and player.is_on_floor() and local.y > 155.0:
+				if room == "2" and player.input_enabled and player.is_on_floor() and local.y > 155.0:
 					phase = "up_ready"
 			"up_ready":
 				player.scripted_x = -1.0
@@ -106,13 +106,13 @@ class Driver extends Node:
 					phase = "jump_hold"
 			"b_to_a":
 				player.scripted_x = -1.0
-				if room == "a" and player.input_enabled and player.is_on_floor():
+				if room == "1" and player.input_enabled and player.is_on_floor():
 					phase = "a_done"
 					jumped_at = frames
 			"a_done":
 				player.scripted_x = 0.0
 				if frames > jumped_at + 70:
-					_finish(_seen("a", "b", "c", "b", "a"))
+					_finish(_seen("1", "2", "3", "2", "1"))
 			"jump_hold":
 				player.scripted_x = _hold_x()
 				if frames > jumped_at + 8 and player.is_on_floor() and player.input_enabled:
@@ -171,12 +171,8 @@ class Driver extends Node:
 		return String(host.root.get_node("GameState").current_room_id)
 
 	func _local(room: String) -> Vector2:
-		var origin := 0.0
-		if room == "b":
-			origin = 320.0
-		elif room == "c":
-			origin = 640.0
-		return player.position - Vector2(origin, 0.0)
+		var info = host.root.get_node("WorldData").get_room(room)
+		return player.position - Vector2(info.grid_pos) * Grid.SCREEN_SIZE
 
 	func _seen(a: String, b: String, c: String, d: String, e: String) -> bool:
 		return seen == [a, b, c, d, e]
