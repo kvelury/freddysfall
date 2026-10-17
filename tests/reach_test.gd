@@ -17,6 +17,9 @@ func _run() -> bool:
 	passed = _room_a(cfg, data) and passed
 	passed = _room_c(cfg, data) and passed
 	passed = _links(data) and passed
+	passed = _vertical(data) and passed
+	passed = _room_d(cfg, data) and passed
+	passed = _sensors(data) and passed
 	passed = _camera() and passed
 	print("RESULT %s" % ("pass" if passed else "fail"))
 	return passed
@@ -99,6 +102,79 @@ func _links(data) -> bool:
 	ok = _check(not c.is_solid(into_c.x, into_c.y) and c.is_solid(into_c.x, into_c.y + 1), "room C entry %s is a standable cell" % into_c) and ok
 	ok = _check(String(c.exit_on("up").get("dest_id", "")) == "b", "room C ceiling exit leads back to B") and ok
 	return ok
+
+
+func _vertical(data) -> bool:
+	var b = data.get_room("b")
+	var c = data.get_room("c")
+	var ok := true
+	var into_c: Dictionary = c.vertical_landing(c.exit_on("up")["rect"])
+	ok = _landing(c, into_c, Vector2i(34, 11), "right", "room C from above") and ok
+	var back_b: Dictionary = b.vertical_landing(b.exit_on("down")["rect"])
+	ok = _landing(b, back_b, Vector2i(22, 12), "left", "room B from below") and ok
+	ok = _check(int(back_b["right"]) == 0, "room B has no ground right of the pit") and ok
+	var down: Dictionary = c.exit_on("down")
+	var back_c: Dictionary = c.vertical_landing(down["rect"])
+	ok = _landing(c, back_c, Vector2i(43, 16), "left", "room C from below") and ok
+	ok = _check(int(back_c["left"]) > int(back_c["right"]), "room C floor exit has more ground on the left") and ok
+	return ok
+
+
+func _landing(info, landing: Dictionary, cell: Vector2i, side: String, label: String) -> bool:
+	var ok := not landing.is_empty()
+	ok = _check(ok, "%s finds a landing" % label) and ok
+	if landing.is_empty():
+		return false
+	var got: Vector2i = landing["cell"]
+	ok = _check(got == cell, "%s lands at %s (got %s, L%d R%d)" % [label, cell, got, int(landing["left"]), int(landing["right"])]) and ok
+	ok = _check(String(landing["side"]) == side, "%s uses the wider side %s" % [label, landing["side"]]) and ok
+	ok = _check(not info.is_solid(got.x, got.y) and info.is_solid(got.x, got.y + 1) and not info.is_solid(got.x, got.y - 1), "%s cell has space" % label) and ok
+	ok = _check(info.drop_lift(got) >= 8.0, "%s drops onto the platform (%.0f px)" % [label, info.drop_lift(got)]) and ok
+	return ok
+
+
+func _room_d(cfg: MovementConfig, data) -> bool:
+	var d = data.get_room("d")
+	var c = data.get_room("c")
+	var rects := _pixels(d)
+	var ok := true
+	ok = _check(d.screens == Vector2i(1, 1), "room D is one screen") and ok
+	ok = _check(data.id_at(Vector2i(2, 2)) == "d", "room D sits under room C's right screen") and ok
+	ok = _check(String(c.exit_on("down").get("dest_id", "")) == "d", "room C ground exit leads to D") and ok
+	ok = _check(String(d.exit_on("up").get("dest_id", "")) == "c", "room D ceiling leads back to C") and ok
+	var into_d: Dictionary = d.vertical_landing(d.exit_on("up")["rect"])
+	ok = _landing(d, into_d, Vector2i(11, 7), "left", "room D from above") and ok
+	ok = _check(int(into_d.get("left", 0)) > int(into_d.get("right", 0)), "room D has more ground on the left") and ok
+	# Right end of the left platform, running toward the pad under the door.
+	ok = _check(_lands(cfg, rects, Vector2(115, 75), 1.0, 90, 50.0, 160.0, 240.0), "room D landing reaches the return pad") and ok
+	var up := MovementSim.simulate_jump(cfg, rects, Vector2(175, 45), Vector2.ZERO, 0.0, 90)
+	ok = _check(float(up["min_feet"]) <= Room.HALO_REACH, "room D return jump enters the door sprite (feet %.1f)" % float(up["min_feet"])) and ok
+	return ok
+
+
+func _sensors(data) -> bool:
+	var ok := true
+	var a = data.get_room("a")
+	var b = data.get_room("b")
+	var c = data.get_room("c")
+	ok = _check(_sensor_size(a, "right") == Vector2(14, 20), "horizontal sensor stays a thin edge") and ok
+	ok = _check(_sensor_size(b, "down") == Vector2(70, Room.HALO_REACH), "room B pit sensor covers the door sprite") and ok
+	ok = _check(_sensor_size(c, "up") == Vector2(70, Room.HALO_REACH), "room C ceiling sensor covers the door sprite") and ok
+	ok = _check(_sensor_size(c, "down") == Vector2(70, Room.HALO_REACH), "room C floor sensor covers the door sprite") and ok
+	return ok
+
+
+func _sensor_size(info, edge: String) -> Vector2:
+	var room := Room.new()
+	room.build(info)
+	var size := Vector2.ZERO
+	for child in room.get_children():
+		if child is Area2D and String(child.get_meta("edge")) == edge:
+			var shape := (child.get_child(0) as CollisionShape2D).shape as RectangleShape2D
+			size = shape.size
+			break
+	room.free()
+	return size
 
 
 func _camera() -> bool:

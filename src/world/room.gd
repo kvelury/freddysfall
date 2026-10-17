@@ -3,8 +3,13 @@ extends Node2D
 
 signal exit_triggered(edge: String, dest_id: String, dest_rect: Rect2i)
 
+## How far a vertical door's sprite reaches into the room. The halo is centered
+## on the opening and pulses about this deep; touching it commits the exit.
+const HALO_REACH := 28.0
+
 var info
 var _areas: Array[Area2D] = []
+var _latched := false
 
 
 func build(room_info) -> void:
@@ -29,9 +34,23 @@ func build(room_info) -> void:
 
 
 func set_exits_active(active: bool) -> void:
+	if active:
+		_latched = false
 	for area in _areas:
 		area.set_deferred("monitoring", active)
 		area.set_deferred("monitorable", active)
+
+
+func _physics_process(_delta: float) -> void:
+	if _latched:
+		return
+	for area in _areas:
+		if not area.monitoring:
+			continue
+		for body in area.get_overlapping_bodies():
+			if body is Player and (body as Player).exit_lock <= 0.0:
+				_emit_exit(area)
+				return
 
 
 func _rects_in_screen(solids: Array[Rect2i], sx: int, sy: int) -> Array[Rect2i]:
@@ -53,33 +72,47 @@ func _add_exit(ex: Dictionary) -> void:
 	area.collision_mask = 2
 	area.monitoring = false
 	area.monitorable = false
+	var edge := String(ex["edge"])
 	var pixel: Rect2 = Grid.cell_rect(ex["rect"])
-	match String(ex["edge"]):
+	match edge:
 		"right":
 			pixel.position.x -= 4.0
 			pixel.size.x += 4.0
 		"left":
 			pixel.size.x += 4.0
 		"up":
-			pixel.size.y += 4.0
+			pixel.size.y = HALO_REACH
 		"down":
-			pixel.position.y -= 4.0
-			pixel.size.y += 4.0
+			var bottom := pixel.end.y
+			pixel.position.y = bottom - HALO_REACH
+			pixel.size.y = HALO_REACH
 	var shape_node := CollisionShape2D.new()
 	var shape := RectangleShape2D.new()
 	shape.size = pixel.size
 	shape_node.shape = shape
 	shape_node.position = pixel.get_center()
 	area.add_child(shape_node)
-	var edge := String(ex["edge"])
 	var dest := String(ex["dest_id"])
 	var dest_rect: Rect2i = ex["dest_rect"]
+	area.set_meta("edge", edge)
+	area.set_meta("dest_id", dest)
+	area.set_meta("dest_rect", dest_rect)
 	area.body_entered.connect(func(body: Node) -> void:
-		if body is Player and not dest.is_empty():
-			exit_triggered.emit(edge, dest, dest_rect)
+		if body is Player and (body as Player).exit_lock <= 0.0:
+			_emit_exit(area)
 	)
 	add_child(area)
 	_areas.append(area)
+
+
+func _emit_exit(area: Area2D) -> void:
+	if _latched:
+		return
+	var dest := String(area.get_meta("dest_id"))
+	if dest.is_empty():
+		return
+	_latched = true
+	exit_triggered.emit(String(area.get_meta("edge")), dest, area.get_meta("dest_rect"))
 
 
 func _add_halo(ex: Dictionary) -> void:

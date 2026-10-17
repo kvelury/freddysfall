@@ -355,6 +355,9 @@ class RoomInfo extends RefCounted:
 				if not is_solid(c, row) and is_solid(c, row + 1):
 					return Vector2i(c, row)
 		else:
+			var landed := vertical_landing(gap)
+			if not landed.is_empty():
+				return landed["cell"]
 			var col := gap.position.x + int(gap.size.x / 2.0)
 			var row := gap.position.y
 			var step_dir := 1 if edge == "up" else -1
@@ -363,3 +366,127 @@ class RoomInfo extends RefCounted:
 				if not is_solid(col, r) and is_solid(col, r + 1):
 					return Vector2i(col, r)
 		return spawn_cell
+
+	## Where a vertical door puts the player down.
+	## Ground is every cell the body can occupy with air above it and floor
+	## under it. Cells inside the shaft are skipped so the door cannot
+	## immediately take the player back. The side with more of that ground
+	## wins, and the landing is the closest cell on the winning side.
+	func vertical_landing(rect: Rect2i) -> Dictionary:
+		var ex := _exit_with_rect(rect)
+		if ex.is_empty():
+			return {}
+		var edge := String(ex["edge"])
+		if edge != "up" and edge != "down":
+			return {}
+		var door: Rect2i = ex["rect"]
+		var left_cells: Array[Vector2i] = []
+		var right_cells: Array[Vector2i] = []
+		for y in rows.size():
+			var row := rows[y]
+			for x in row.length():
+				if not _has_stand_space(x, y):
+					continue
+				var beside := _door_side(x, door)
+				if beside < 0:
+					left_cells.append(Vector2i(x, y))
+				elif beside > 0:
+					right_cells.append(Vector2i(x, y))
+		if left_cells.is_empty() and right_cells.is_empty():
+			return {}
+		var use_left := true
+		if left_cells.is_empty():
+			use_left = false
+		elif right_cells.is_empty():
+			use_left = true
+		elif left_cells.size() != right_cells.size():
+			use_left = left_cells.size() > right_cells.size()
+		else:
+			use_left = _closest_dist(left_cells, door) <= _closest_dist(right_cells, door)
+		var pool: Array[Vector2i] = left_cells if use_left else right_cells
+		var best: Vector2i = pool[0]
+		var best_d := _dist_sq(best, door)
+		for i in pool.size():
+			var cell: Vector2i = pool[i]
+			var score := _dist_sq(cell, door)
+			var closer := score < best_d
+			var tie := score == best_d and _gap_x(cell.x, door) < _gap_x(best.x, door)
+			if closer or tie:
+				best = cell
+				best_d = score
+		return {
+			"cell": best,
+			"side": "left" if use_left else "right",
+			"left": left_cells.size(),
+			"right": right_cells.size(),
+		}
+
+	func plant_position(cell: Vector2i) -> Vector2:
+		var pos := Grid.cell_center(cell)
+		var solid_left := is_solid(cell.x - 1, cell.y + 1)
+		var solid_right := is_solid(cell.x + 1, cell.y + 1)
+		# Step one pixel onto the rest of the floor so the body is not flush
+		# with a lip or the door beside it.
+		if solid_left and not solid_right:
+			pos.x -= 1.0
+		elif solid_right and not solid_left:
+			pos.x += 1.0
+		return pos
+
+	func drop_lift(cell: Vector2i) -> float:
+		var air := 0
+		var y := cell.y - 1
+		while y >= 0 and not is_solid(cell.x, y):
+			air += 1
+			y -= 1
+		var pixels := float(air * Grid.CELL) - 2.0
+		if air < 1:
+			return 0.0
+		return clampf(pixels, 8.0, 36.0)
+
+	func _exit_with_rect(rect: Rect2i) -> Dictionary:
+		for ex in exits:
+			if ex["rect"] == rect:
+				return ex
+		return {}
+
+	func _has_stand_space(x: int, y: int) -> bool:
+		if y < 1 or y >= rows.size() - 1:
+			return false
+		var row := rows[y]
+		if x < 0 or x >= row.length():
+			return false
+		if row[x] == "#" or row[x] == "X":
+			return false
+		if not is_solid(x, y + 1):
+			return false
+		if is_solid(x, y - 1):
+			return false
+		return true
+
+	func _door_side(x: int, door: Rect2i) -> int:
+		if x < door.position.x:
+			return -1
+		if x >= door.position.x + door.size.x:
+			return 1
+		return 0
+
+	func _gap_x(x: int, door: Rect2i) -> int:
+		var left := door.position.x
+		var right := door.position.x + door.size.x - 1
+		if x < left:
+			return left - x
+		if x > right:
+			return x - right
+		return 0
+
+	func _dist_sq(cell: Vector2i, door: Rect2i) -> int:
+		var dx := _gap_x(cell.x, door)
+		var dy := absi(cell.y - door.position.y)
+		return dx * dx + dy * dy
+
+	func _closest_dist(cells: Array[Vector2i], door: Rect2i) -> int:
+		var best := 1 << 30
+		for i in cells.size():
+			best = mini(best, _dist_sq(cells[i], door))
+		return best

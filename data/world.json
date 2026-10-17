@@ -3,6 +3,7 @@
   "rooms": [
     {"id": "a", "file": "res://data/rooms/a.txt", "grid_pos": [0, 0]},
     {"id": "b", "file": "res://data/rooms/b.txt", "grid_pos": [1, 0]},
-    {"id": "c", "file": "res://data/rooms/c.txt", "grid_pos": [1, 1]}
+    {"id": "c", "file": "res://data/rooms/c.txt", "grid_pos": [1, 1]},
+    {"id": "d", "file": "res://data/rooms/d.txt", "grid_pos": [2, 2]}
   ]
 }

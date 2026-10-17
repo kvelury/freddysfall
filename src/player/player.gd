@@ -4,6 +4,10 @@ extends CharacterBody2D
 @export var config: MovementConfig
 
 var input_enabled := true
+## Seconds after a transition during which another door cannot grab the player.
+var exit_lock := 0.0
+## Gravity-only drop onto the platform a vertical door picked.
+var settling := false
 ## Used by the headless physics test. Gameplay leaves this off.
 var scripted := false
 var scripted_x := 0.0
@@ -39,8 +43,13 @@ func _ready() -> void:
 
 
 func _physics_process(delta: float) -> void:
+	if exit_lock > 0.0:
+		exit_lock = maxf(0.0, exit_lock - delta)
 	if not input_enabled:
-		velocity = Vector2.ZERO
+		if settling:
+			_settle(delta)
+		else:
+			velocity = Vector2.ZERO
 		return
 	var input_x := scripted_x if scripted else Input.get_axis("move_left", "move_right")
 	var jump_pressed := scripted_jump_pressed if scripted else Input.is_action_just_pressed("jump")
@@ -81,6 +90,22 @@ func _process(delta: float) -> void:
 		_squash = minf(0.0, _squash + delta * 8.0)
 	else:
 		_visual.scale = Vector2.ONE
+
+
+func _settle(delta: float) -> void:
+	var was_floor := is_on_floor()
+	velocity.x = 0.0
+	velocity.y += config.gravity * config.fall_gravity_scale * delta
+	velocity.y = minf(velocity.y, config.max_fall_speed)
+	move_and_slide()
+	if is_on_floor():
+		if not was_floor:
+			_squash = -1.0
+			_spawn_dust()
+		settling = false
+		_launched = false
+		_cut = false
+		_was_on_floor = true
 
 
 func _on_ground() -> bool:
