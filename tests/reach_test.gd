@@ -37,7 +37,7 @@ func _feel(cfg: MovementConfig) -> bool:
 
 
 func _room_a(cfg: MovementConfig, data) -> bool:
-	var info = data.get_room("a")
+	var info = data.get_room("1")
 	var rects := _pixels(info)
 	var ok := true
 	ok = _check(_has_rect(info, Rect2i(6, 13, 5, 1)), "left platform rect") and ok
@@ -50,54 +50,60 @@ func _room_a(cfg: MovementConfig, data) -> bool:
 	ok = _check(not _lands(cfg, rects, Vector2(70, 125), 1.0, 90, 90.0, 140.0, 190.0), "jumping early from the left platform misses") and ok
 	ok = _check(_lands(cfg, rects, Vector2(180, 85), 1.0, 90, 50.0, 230.0, 320.0), "middle platform reaches the exit ledge") and ok
 	ok = _check(not _lands(cfg, rects, Vector2(150, 85), 1.0, 90, 50.0, 230.0, 320.0), "jumping early from the middle misses the exit ledge") and ok
-	var b = data.get_room("b")
+	var b = data.get_room("2")
 	var brects := _pixels(b)
-	ok = _check(_lands(cfg, brects, Vector2(120, 165), 1.0, 90, 130.0, 160.0, 230.0), "room B floor reaches the low step") and ok
-	ok = _check(_lands(cfg, brects, Vector2(175, 125), -1.0, 90, 90.0, 80.0, 150.0), "room B low step reaches the mid step") and ok
-	ok = _check(_lands(cfg, brects, Vector2(95, 85), -1.0, 90, 50.0, 0.0, 70.0), "room B mid step reaches the entry ledge") and ok
+	ok = _check(_lands(cfg, brects, Vector2(120, 165), 1.0, 90, 130.0, 160.0, 230.0), "room 2 floor reaches the low step") and ok
+	ok = _check(_lands(cfg, brects, Vector2(175, 125), -1.0, 90, 90.0, 80.0, 150.0), "room 2 low step reaches the mid step") and ok
+	ok = _check(_lands(cfg, brects, Vector2(95, 85), -1.0, 90, 50.0, 0.0, 70.0), "room 2 mid step reaches the entry ledge") and ok
 	return ok
 
 
 func _room_c(cfg: MovementConfig, data) -> bool:
-	var info = data.get_room("c")
+	var info = data.get_room("3")
 	var rects := _pixels(info)
 	var ok := true
-	ok = _check(_lands(cfg, rects, Vector2(270, 75), 1.0, 90, 120.0, 340.0, 480.0), "room C landing reaches the middle step") and ok
-	ok = _check(_lands(cfg, rects, Vector2(450, 115), 1.0, 90, 150.0, 520.0, 630.0), "room C middle step reaches the far ledge") and ok
-	ok = _check(_lands(cfg, rects, Vector2(150, 165), 1.0, 90, 150.0, 200.0, 320.0), "room C floor reaches the low step") and ok
-	ok = _check(_lands(cfg, rects, Vector2(290, 145), 1.0, 90, 120.0, 340.0, 480.0), "room C low step reaches the middle") and ok
-	ok = _check(_lands(cfg, rects, Vector2(350, 115), -1.0, 90, 80.0, 160.0, 300.0), "room C middle step reaches the landing") and ok
+	ok = _check(_lands(cfg, rects, Vector2(270, 75), 1.0, 90, 120.0, 340.0, 480.0), "room 3 landing reaches the middle step") and ok
+	ok = _check(_lands(cfg, rects, Vector2(450, 115), 1.0, 90, 150.0, 520.0, 630.0), "room 3 middle step reaches the far ledge") and ok
+	ok = _check(_lands(cfg, rects, Vector2(150, 165), 1.0, 90, 150.0, 200.0, 320.0), "room 3 floor reaches the low step") and ok
+	ok = _check(_lands(cfg, rects, Vector2(290, 145), 1.0, 90, 120.0, 340.0, 480.0), "room 3 low step reaches the middle") and ok
+	ok = _check(_lands(cfg, rects, Vector2(350, 115), -1.0, 90, 80.0, 160.0, 300.0), "room 3 middle step reaches the landing") and ok
 	var room := Room.new()
 	room.build(info)
 	var chunks := 0
 	for child in room.get_children():
 		if String(child.name).begins_with("Chunk_"):
 			chunks += 1
-	ok = _check(chunks == 2, "room C builds one chunk per screen (%d)" % chunks) and ok
+	ok = _check(chunks == 2, "room 3 builds one chunk per screen (%d)" % chunks) and ok
 	room.free()
 	return ok
 
 
 func _links(data) -> bool:
-	var a = data.get_room("a")
-	var b = data.get_room("b")
+	var a = data.get_room("1")
+	var b = data.get_room("2")
 	var ok := true
-	ok = _check(String(a.exit_on("right").get("dest_id", "")) == "b", "room A right exit leads to B") and ok
-	ok = _check(String(b.exit_on("left").get("dest_id", "")) == "a", "room B left exit leads to A") and ok
+	ok = _check(String(a.exit_on("right").get("dest_id", "")) == "2", "room 1 right exit leads to 2") and ok
+	ok = _check(String(b.exit_on("left").get("dest_id", "")) == "1", "room 2 left exit leads to 1") and ok
 	var into_b: Vector2i = b.stand_cell_for_entry("left")
 	var back_to_a: Vector2i = a.stand_cell_for_entry("right")
-	ok = _check(not b.is_solid(into_b.x, into_b.y) and b.is_solid(into_b.x, into_b.y + 1), "room B entry %s is a standable cell" % into_b) and ok
-	ok = _check(not a.is_solid(back_to_a.x, back_to_a.y) and a.is_solid(back_to_a.x, back_to_a.y + 1), "room A return %s is a standable cell" % back_to_a) and ok
-	var c = data.get_room("c")
-	ok = _check(c.screens == Vector2i(2, 1), "room C spans two screens") and ok
-	ok = _check(c.bounds_cells == Rect2i(0, 0, 64, 18), "room C bounds cover the whole room") and ok
-	ok = _check(data.id_at(Vector2i(1, 1)) == "c" and data.id_at(Vector2i(2, 1)) == "c", "room C occupies both of its screens") and ok
-	var down: Dictionary = b.exit_on("down")
-	ok = _check(String(down.get("dest_id", "")) == "c", "room B bottom exit leads to C") and ok
-	ok = _check(Vector2i(down.get("screen", Vector2i.ZERO)) == Vector2i(1, 0), "room B bottom exit sits on the second screen") and ok
-	var into_c: Vector2i = c.stand_cell_for_rect(down.get("dest_rect", Rect2i()))
-	ok = _check(not c.is_solid(into_c.x, into_c.y) and c.is_solid(into_c.x, into_c.y + 1), "room C entry %s is a standable cell" % into_c) and ok
-	ok = _check(String(c.exit_on("up").get("dest_id", "")) == "b", "room C ceiling exit leads back to B") and ok
+	ok = _check(not b.is_solid(into_b.x, into_b.y) and b.is_solid(into_b.x, into_b.y + 1), "room 2 entry %s is a standable cell" % into_b) and ok
+	ok = _check(not a.is_solid(back_to_a.x, back_to_a.y) and a.is_solid(back_to_a.x, back_to_a.y + 1), "room 1 return %s is a standable cell" % back_to_a) and ok
+	var c = data.get_room("3")
+	ok = _check(c.screens == Vector2i(2, 1), "room 3 spans two screens") and ok
+	ok = _check(c.bounds_cells == Rect2i(0, 0, 64, 18), "room 3 bounds cover the whole room") and ok
+	ok = _check(data.id_at(Vector2i(2, 0)) == "3" and data.id_at(Vector2i(3, 0)) == "3", "room 3 occupies both of its screens") and ok
+	var side: Dictionary = b.exit_on("right")
+	var side_rect: Rect2i = side.get("rect", Rect2i())
+	ok = _check(b.exit_on("down").is_empty(), "room 2 floor stays solid") and ok
+	ok = _check(String(side.get("dest_id", "")) == "3", "room 2 floor exit leads to 3") and ok
+	ok = _check(side_rect.position.y == 15 and side_rect.size == Vector2i(1, 2), "room 2 exit is a floor-level side door (%s)" % side_rect) and ok
+	var into_c: Vector2i = c.stand_cell_for_rect(side.get("dest_rect", Rect2i()))
+	ok = _check(not c.is_solid(into_c.x, into_c.y) and c.is_solid(into_c.x, into_c.y + 1), "room 3 entry %s is a standable cell" % into_c) and ok
+	var back: Dictionary = c.exit_on("left")
+	var back_rect: Rect2i = back.get("rect", Rect2i())
+	ok = _check(c.exit_on("up").is_empty(), "room 3 ceiling stays solid") and ok
+	ok = _check(String(back.get("dest_id", "")) == "2", "room 3 side entrance leads back to 2") and ok
+	ok = _check(back_rect.position.y == 15 and back_rect.size == Vector2i(1, 2), "room 3 entrance is a floor-level side door (%s)" % back_rect) and ok
 	return ok
 
 

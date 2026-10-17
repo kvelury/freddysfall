@@ -1,6 +1,6 @@
 extends SceneTree
 
-## Drives the real player through room A, to confirm move_and_slide can make
+## Drives the real player through room 1, to confirm move_and_slide can make
 ## the running jump the kinematic test allows.
 
 func _initialize() -> void:
@@ -52,7 +52,7 @@ class Driver extends Node:
 			player.scripted_x = 1.0
 			player.scripted_jump_held = false
 			var room_id := String(host.root.get_node("GameState").current_room_id)
-			if room_id == "b" and camera.position.x >= 470.0 and player.input_enabled:
+			if room_id == "2" and camera.position.x >= 470.0 and player.input_enabled:
 				_finish(player.position.x > 320.0)
 		if frames > 700:
 			_finish(false)

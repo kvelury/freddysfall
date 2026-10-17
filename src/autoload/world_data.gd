@@ -1,6 +1,6 @@
 extends Node
 
-var start_room := "a"
+var start_room := "1"
 var rooms := {}
 var _by_pos := {}
 var _loaded := false
