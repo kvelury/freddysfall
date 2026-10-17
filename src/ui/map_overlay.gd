@@ -55,7 +55,7 @@ func refresh() -> void:
 	var info = WorldData.rooms.get(GameState.current_room_id)
 	var center := Vector2.ZERO
 	if info != null:
-		center = Vector2(info.grid_pos) * MapLayer.STRIDE + MapLayer.ROOM_PX * 0.5
+		center = MapLayer.room_rect(info).get_center()
 		var bounds := _visited_bounds()
 		var view := Vector2(VIEW_SIZE)
 		if bounds.size.x > view.x:
@@ -76,10 +76,9 @@ func marker_position() -> Vector2:
 	var info = WorldData.rooms.get(GameState.current_room_id)
 	if player == null or info == null:
 		return Vector2(-10, -10)
-	var room_origin := Vector2(info.grid_pos) * Grid.ROOM_SIZE
+	var room_origin := Vector2(info.grid_pos) * Grid.SCREEN_SIZE
 	var local := player.global_position - room_origin
-	var map_pos := Vector2(info.grid_pos) * MapLayer.STRIDE
-	map_pos += Vector2(local.x / Grid.ROOM_SIZE.x, local.y / Grid.ROOM_SIZE.y) * MapLayer.ROOM_PX
+	var map_pos := MapLayer.marker_pos(info, local)
 	return map_pos - camera_position + Vector2(VIEW_SIZE) * 0.5
 
 
@@ -90,7 +89,7 @@ func _visited_bounds() -> Rect2:
 		var info = WorldData.rooms.get(room_id)
 		if info == null:
 			continue
-		var rect := Rect2(Vector2(info.grid_pos) * MapLayer.STRIDE, MapLayer.ROOM_PX)
+		var rect := MapLayer.room_rect(info)
 		bounds = rect if first else bounds.merge(rect)
 		first = false
 	if first:
@@ -164,58 +163,77 @@ class MapLayer extends Node2D:
 	const ROOM_PX := Vector2(32, 18)
 	const STRIDE := Vector2(40, 26)
 
+	static func map_size(info) -> Vector2:
+		# A multi-screen room is one continuous rectangle. The stride gap
+		# stays outside the room, between it and its neighbors.
+		return Vector2(info.screens) * STRIDE - (STRIDE - ROOM_PX)
+
+	static func room_rect(info) -> Rect2:
+		return Rect2(Vector2(info.grid_pos) * STRIDE, map_size(info))
+
+	static func marker_pos(info, local_px: Vector2) -> Vector2:
+		var cells := local_px / float(Grid.CELL)
+		var sx := clampi(int(cells.x / float(Grid.SCREEN_CELLS.x)), 0, info.screens.x - 1)
+		var sy := clampi(int(cells.y / float(Grid.SCREEN_CELLS.y)), 0, info.screens.y - 1)
+		var lx := cells.x - float(sx * Grid.SCREEN_CELLS.x)
+		var ly := cells.y - float(sy * Grid.SCREEN_CELLS.y)
+		return Vector2(info.grid_pos) * STRIDE + Vector2(sx, sy) * STRIDE + Vector2(lx, ly)
+
 	func _draw() -> void:
 		for room_id in GameState.visited.keys():
 			var info = WorldData.rooms.get(room_id)
 			if info == null:
 				continue
-			var origin := Vector2(info.grid_pos) * STRIDE
+			var rect := room_rect(info)
 			if String(room_id) == GameState.current_room_id:
 				# Opaque gray. A transparent white fill is premultiplied twice on the
 				# web export and disappears into the panel.
-				draw_rect(Rect2(origin, ROOM_PX), Color(0.42, 0.42, 0.42, 1), true)
-			_outline(origin, info)
-			_connectors(origin, info)
+				draw_rect(rect, Color(0.42, 0.42, 0.42, 1), true)
+			_outline(rect, info)
+			_connectors(rect, info)
 
-	func _outline(origin: Vector2, info) -> void:
-		_horizontal(origin.x, origin.y, ROOM_PX.x, _gaps(info, "up"))
-		_horizontal(origin.x, origin.y + ROOM_PX.y - 1.0, ROOM_PX.x, _gaps(info, "down"))
-		_vertical(origin.x, origin.y, ROOM_PX.y, _gaps(info, "left"))
-		_vertical(origin.x + ROOM_PX.x - 1.0, origin.y, ROOM_PX.y, _gaps(info, "right"))
+	func _outline(rect: Rect2, info) -> void:
+		_horizontal(rect.position.x, rect.position.y, rect.size.x, _gaps(info, "up"))
+		_horizontal(rect.position.x, rect.position.y + rect.size.y - 1.0, rect.size.x, _gaps(info, "down"))
+		_vertical(rect.position.x, rect.position.y, rect.size.y, _gaps(info, "left"))
+		_vertical(rect.position.x + rect.size.x - 1.0, rect.position.y, rect.size.y, _gaps(info, "right"))
 
-	func _connectors(origin: Vector2, info) -> void:
+	func _connectors(rect: Rect2, info) -> void:
 		for ex in info.exits:
 			var edge := String(ex["edge"])
 			var dest := String(ex["dest_id"])
 			if dest.is_empty() or not GameState.visited.has(dest):
 				continue
-			var rect: Rect2i = ex["rect"]
+			var span := _edge_span(ex["rect"], edge)
 			var gap := STRIDE - ROOM_PX
+			var mid := (span.x + span.y) * 0.5
 			match edge:
 				"right":
-					var y := origin.y + rect.position.y + rect.size.y * 0.5
-					draw_rect(Rect2(origin.x + ROOM_PX.x, y, gap.x, 1), Color.WHITE)
+					draw_rect(Rect2(rect.end.x, rect.position.y + mid, gap.x, 1), Color.WHITE)
 				"left":
-					var y := origin.y + rect.position.y + rect.size.y * 0.5
-					draw_rect(Rect2(origin.x - gap.x, y, gap.x, 1), Color.WHITE)
+					draw_rect(Rect2(rect.position.x - gap.x, rect.position.y + mid, gap.x, 1), Color.WHITE)
 				"down":
-					var x := origin.x + rect.position.x + rect.size.x * 0.5
-					draw_rect(Rect2(x, origin.y + ROOM_PX.y, 1, gap.y), Color.WHITE)
+					draw_rect(Rect2(rect.position.x + mid, rect.end.y, 1, gap.y), Color.WHITE)
 				"up":
-					var x := origin.x + rect.position.x + rect.size.x * 0.5
-					draw_rect(Rect2(x, origin.y - gap.y, 1, gap.y), Color.WHITE)
+					draw_rect(Rect2(rect.position.x + mid, rect.position.y - gap.y, 1, gap.y), Color.WHITE)
 
 	func _gaps(info, edge: String) -> Array:
 		var gaps: Array = []
 		for ex in info.exits:
 			if String(ex["edge"]) != edge:
 				continue
-			var rect: Rect2i = ex["rect"]
-			if edge == "left" or edge == "right":
-				gaps.append(Vector2(rect.position.y, rect.position.y + rect.size.y))
-			else:
-				gaps.append(Vector2(rect.position.x, rect.position.x + rect.size.x))
+			gaps.append(_edge_span(ex["rect"], edge))
 		return gaps
+
+	func _edge_span(rect: Rect2i, edge: String) -> Vector2:
+		var screen := Grid.SCREEN_CELLS
+		if edge == "left" or edge == "right":
+			var sy := int(rect.position.y / screen.y)
+			var y0 := rect.position.y % screen.y
+			return Vector2(sy * STRIDE.y + y0, sy * STRIDE.y + y0 + rect.size.y)
+		var sx := int(rect.position.x / screen.x)
+		var x0 := rect.position.x % screen.x
+		return Vector2(sx * STRIDE.x + x0, sx * STRIDE.x + x0 + rect.size.x)
 
 	func _horizontal(x: float, y: float, length: float, gaps: Array) -> void:
 		var cursor := 0.0

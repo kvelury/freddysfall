@@ -15,7 +15,9 @@ func _run() -> bool:
 	var passed := true
 	passed = _feel(cfg) and passed
 	passed = _room_a(cfg, data) and passed
+	passed = _room_c(cfg, data) and passed
 	passed = _links(data) and passed
+	passed = _camera() and passed
 	print("RESULT %s" % ("pass" if passed else "fail"))
 	return passed
 
@@ -56,6 +58,26 @@ func _room_a(cfg: MovementConfig, data) -> bool:
 	return ok
 
 
+func _room_c(cfg: MovementConfig, data) -> bool:
+	var info = data.get_room("c")
+	var rects := _pixels(info)
+	var ok := true
+	ok = _check(_lands(cfg, rects, Vector2(270, 75), 1.0, 90, 120.0, 340.0, 480.0), "room C landing reaches the middle step") and ok
+	ok = _check(_lands(cfg, rects, Vector2(450, 115), 1.0, 90, 150.0, 520.0, 630.0), "room C middle step reaches the far ledge") and ok
+	ok = _check(_lands(cfg, rects, Vector2(150, 165), 1.0, 90, 150.0, 200.0, 320.0), "room C floor reaches the low step") and ok
+	ok = _check(_lands(cfg, rects, Vector2(290, 145), 1.0, 90, 120.0, 340.0, 480.0), "room C low step reaches the middle") and ok
+	ok = _check(_lands(cfg, rects, Vector2(350, 115), -1.0, 90, 80.0, 160.0, 300.0), "room C middle step reaches the landing") and ok
+	var room := Room.new()
+	room.build(info)
+	var chunks := 0
+	for child in room.get_children():
+		if String(child.name).begins_with("Chunk_"):
+			chunks += 1
+	ok = _check(chunks == 2, "room C builds one chunk per screen (%d)" % chunks) and ok
+	room.free()
+	return ok
+
+
 func _links(data) -> bool:
 	var a = data.get_room("a")
 	var b = data.get_room("b")
@@ -66,6 +88,27 @@ func _links(data) -> bool:
 	var back_to_a: Vector2i = a.stand_cell_for_entry("right")
 	ok = _check(not b.is_solid(into_b.x, into_b.y) and b.is_solid(into_b.x, into_b.y + 1), "room B entry %s is a standable cell" % into_b) and ok
 	ok = _check(not a.is_solid(back_to_a.x, back_to_a.y) and a.is_solid(back_to_a.x, back_to_a.y + 1), "room A return %s is a standable cell" % back_to_a) and ok
+	var c = data.get_room("c")
+	ok = _check(c.screens == Vector2i(2, 1), "room C spans two screens") and ok
+	ok = _check(c.bounds_cells == Rect2i(0, 0, 64, 18), "room C bounds cover the whole room") and ok
+	ok = _check(data.id_at(Vector2i(1, 1)) == "c" and data.id_at(Vector2i(2, 1)) == "c", "room C occupies both of its screens") and ok
+	var down: Dictionary = b.exit_on("down")
+	ok = _check(String(down.get("dest_id", "")) == "c", "room B bottom exit leads to C") and ok
+	ok = _check(Vector2i(down.get("screen", Vector2i.ZERO)) == Vector2i(1, 0), "room B bottom exit sits on the second screen") and ok
+	var into_c: Vector2i = c.stand_cell_for_rect(down.get("dest_rect", Rect2i()))
+	ok = _check(not c.is_solid(into_c.x, into_c.y) and c.is_solid(into_c.x, into_c.y + 1), "room C entry %s is a standable cell" % into_c) and ok
+	ok = _check(String(c.exit_on("up").get("dest_id", "")) == "b", "room C ceiling exit leads back to B") and ok
+	return ok
+
+
+func _camera() -> bool:
+	var ok := true
+	var one := Grid.camera_focus(Vector2(320, 0), Vector2(320, 180), Vector2(400, 90))
+	ok = _check(one == Vector2(480, 90), "one-screen room keeps the camera centered (%s)" % one) and ok
+	var wide := Grid.camera_focus(Vector2(320, 180), Vector2(640, 180), Vector2(900, 200))
+	ok = _check(wide == Vector2(800, 270), "two-screen room clamps the camera (%s)" % wide) and ok
+	var followed := Grid.camera_focus(Vector2(320, 180), Vector2(640, 180), Vector2(600, 250))
+	ok = _check(followed == Vector2(600, 270), "two-screen room follows within the span (%s)" % followed) and ok
 	return ok
 
 
