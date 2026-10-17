@@ -33,7 +33,7 @@ class Driver extends Node:
 		player.scripted_jump_pressed = false
 		player.scripted_jump_held = phase.ends_with("hold")
 		_drive(room)
-		if frames > 2400:
+		if frames > 4000:
 			_finish(false)
 
 	func _drive(room: String) -> void:
@@ -77,12 +77,36 @@ class Driver extends Node:
 					phase = "c_in"
 			"c_in":
 				player.scripted_x = 1.0
-				if local.x > 150.0 and player.is_on_floor():
+				if _try_jump_local(135.0, 165.0, "c_low"):
+					phase = "jump_hold"
+			"c_mid":
+				player.scripted_x = 1.0
+				if _try_jump_local(285.0, 310.0, "c_mid"):
+					phase = "jump_hold"
+			"c_far":
+				player.scripted_x = 1.0
+				if _try_jump_local(440.0, 470.0, "c_far"):
+					phase = "jump_hold"
+			"c_end":
+				player.scripted_x = 1.0
+				if player.is_on_floor() and local.x > 580.0 and local.y > 130.0 and local.y < 155.0:
 					phase = "c_show"
 					jumped_at = frames
 			"c_show":
 				player.scripted_x = 0.0
-				if frames > jumped_at + 50:
+				if frames > jumped_at + 40:
+					phase = "c_from_far"
+			"c_from_far":
+				player.scripted_x = -1.0
+				if player.is_on_floor() and local.y > 155.0 and local.x < 515.0 and local.x > 330.0:
+					phase = "c_gap"
+			"c_gap":
+				player.scripted_x = -1.0
+				if _try_jump_local(322.0, 348.0, "c_left_low"):
+					phase = "jump_hold"
+			"c_drop":
+				player.scripted_x = -1.0
+				if player.is_on_floor() and local.y > 155.0 and local.x < 190.0:
 					phase = "c_back"
 			"c_back":
 				player.scripted_x = -1.0
@@ -119,7 +143,7 @@ class Driver extends Node:
 					phase = _after_land()
 
 	func _hold_x() -> float:
-		if goal == "up_mid" or goal == "up_entry":
+		if goal == "up_mid" or goal == "up_entry" or goal.begins_with("c_left"):
 			return -1.0
 		return 1.0
 
@@ -142,6 +166,14 @@ class Driver extends Node:
 			return "up_entry"
 		if goal == "up_entry" and local.y < 60.0 and local.x < 80.0:
 			return "b_to_a"
+		if goal == "c_low" and local.y > 130.0 and local.y < 155.0 and local.x > 190.0 and local.x < 325.0:
+			return "c_mid"
+		if goal == "c_mid" and local.y > 100.0 and local.y < 130.0 and local.x > 340.0 and local.x < 485.0:
+			return "c_far"
+		if goal == "c_far" and local.y > 130.0 and local.y < 155.0 and local.x > 510.0:
+			return "c_end"
+		if goal == "c_left_low" and local.y > 130.0 and local.y < 155.0 and local.x > 190.0 and local.x < 325.0:
+			return "c_drop"
 		_finish(false)
 		return "jump_hold"
 
