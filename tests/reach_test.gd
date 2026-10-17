@@ -91,13 +91,19 @@ func _links(data) -> bool:
 	var c = data.get_room("c")
 	ok = _check(c.screens == Vector2i(2, 1), "room C spans two screens") and ok
 	ok = _check(c.bounds_cells == Rect2i(0, 0, 64, 18), "room C bounds cover the whole room") and ok
-	ok = _check(data.id_at(Vector2i(1, 1)) == "c" and data.id_at(Vector2i(2, 1)) == "c", "room C occupies both of its screens") and ok
-	var down: Dictionary = b.exit_on("down")
-	ok = _check(String(down.get("dest_id", "")) == "c", "room B bottom exit leads to C") and ok
-	ok = _check(Vector2i(down.get("screen", Vector2i.ZERO)) == Vector2i(1, 0), "room B bottom exit sits on the second screen") and ok
-	var into_c: Vector2i = c.stand_cell_for_rect(down.get("dest_rect", Rect2i()))
+	ok = _check(data.id_at(Vector2i(2, 0)) == "c" and data.id_at(Vector2i(3, 0)) == "c", "room C occupies both of its screens") and ok
+	var side: Dictionary = b.exit_on("right")
+	var side_rect: Rect2i = side.get("rect", Rect2i())
+	ok = _check(b.exit_on("down").is_empty(), "room B floor stays solid") and ok
+	ok = _check(String(side.get("dest_id", "")) == "c", "room B floor exit leads to C") and ok
+	ok = _check(side_rect.position.y == 15 and side_rect.size == Vector2i(1, 2), "room B exit is a floor-level side door (%s)" % side_rect) and ok
+	var into_c: Vector2i = c.stand_cell_for_rect(side.get("dest_rect", Rect2i()))
 	ok = _check(not c.is_solid(into_c.x, into_c.y) and c.is_solid(into_c.x, into_c.y + 1), "room C entry %s is a standable cell" % into_c) and ok
-	ok = _check(String(c.exit_on("up").get("dest_id", "")) == "b", "room C ceiling exit leads back to B") and ok
+	var back: Dictionary = c.exit_on("left")
+	var back_rect: Rect2i = back.get("rect", Rect2i())
+	ok = _check(c.exit_on("up").is_empty(), "room C ceiling stays solid") and ok
+	ok = _check(String(back.get("dest_id", "")) == "b", "room C side entrance leads back to B") and ok
+	ok = _check(back_rect.position.y == 15 and back_rect.size == Vector2i(1, 2), "room C entrance is a floor-level side door (%s)" % back_rect) and ok
 	return ok
 
 
