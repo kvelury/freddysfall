@@ -27,14 +27,20 @@ func ensure_loaded() -> void:
 		var pos: Array = entry["grid_pos"]
 		info.grid_pos = Vector2i(int(pos[0]), int(pos[1]))
 		info.rows = _read_rows(String(entry["file"]), info.id)
+		_apply_size(info)
 		rooms[info.id] = info
-		_by_pos[info.grid_pos] = info.id
+		for cell in info.occupied_cells():
+			if _by_pos.has(cell):
+				push_error("Room %s overlaps %s at screen %s" % [info.id, String(_by_pos[cell]), cell])
+			else:
+				_by_pos[cell] = info.id
 		pending.append(info)
 	for info in pending:
 		info.solids = _merge_solids(info.rows)
-		info.exits = _parse_exits(info.rows, info.grid_pos)
+		info.exits = _parse_exits(info)
 		info.spawn_cell = _find_spawn(info.rows)
 		info.no_imprint = _find_cells(info.rows, "~")
+	_link_exits(pending)
 
 
 func get_room(id: String) -> RoomInfo:
@@ -54,13 +60,31 @@ func _read_rows(path: String, room_id: String) -> Array[String]:
 		if line.is_empty():
 			continue
 		rows.append(line)
-	var expected := Grid.ROOM_CELLS
-	if rows.size() != expected.y:
-		push_error("Room %s has %d rows, expected %d" % [room_id, rows.size(), expected.y])
+	if rows.is_empty():
+		push_error("Room %s is empty" % room_id)
+		return rows
+	var width := rows[0].length()
+	var height := rows.size()
+	var screen := Grid.SCREEN_CELLS
+	if width % screen.x != 0 or height % screen.y != 0:
+		push_error("Room %s is %d x %d cells; size must be a whole number of %d x %d screens" % [room_id, width, height, screen.x, screen.y])
 	for y in rows.size():
-		if rows[y].length() != expected.x:
-			push_error("Room %s row %d has width %d, expected %d" % [room_id, y, rows[y].length(), expected.x])
+		if rows[y].length() != width:
+			push_error("Room %s row %d has width %d, expected %d" % [room_id, y, rows[y].length(), width])
 	return rows
+
+
+func _apply_size(info: RoomInfo) -> void:
+	if info.rows.is_empty():
+		info.cell_size = Grid.SCREEN_CELLS
+	else:
+		info.cell_size = Vector2i(info.rows[0].length(), info.rows.size())
+	var screen := Grid.SCREEN_CELLS
+	info.screens = Vector2i(maxi(1, int(info.cell_size.x / screen.x)), maxi(1, int(info.cell_size.y / screen.y)))
+	info.pixel_size = Vector2(info.cell_size) * float(Grid.CELL)
+	# Imprint platforms must fit inside the whole room, not just the screen
+	# the camera happens to be showing.
+	info.bounds_cells = Rect2i(Vector2i.ZERO, info.cell_size)
 
 
 func _find_spawn(rows: Array[String]) -> Vector2i:
@@ -82,7 +106,9 @@ func _find_cells(rows: Array[String], glyph: String) -> Array[Vector2i]:
 
 
 func _merge_solids(rows: Array[String]) -> Array[Rect2i]:
-	var width := Grid.ROOM_CELLS.x
+	if rows.is_empty():
+		return []
+	var width := rows[0].length()
 	var runs: Array[Vector3i] = []
 	for y in rows.size():
 		var row := rows[y]
@@ -122,14 +148,22 @@ func _merge_solids(rows: Array[String]) -> Array[Rect2i]:
 	return rects
 
 
-func _parse_exits(rows: Array[String], grid_pos: Vector2i) -> Array:
-	var width := Grid.ROOM_CELLS.x
-	var height := Grid.ROOM_CELLS.y
+func _parse_exits(info: RoomInfo) -> Array:
+	var rows := info.rows
+	if rows.is_empty():
+		return []
+	var width := rows[0].length()
+	var height := rows.size()
 	var cells_by_edge := {"left": [], "right": [], "up": [], "down": []}
-	for y in mini(height, rows.size()):
+	for y in height:
 		var row := rows[y]
 		for x in mini(width, row.length()):
 			if row[x] != "X":
+				continue
+			var on_x := x == 0 or x == width - 1
+			var on_y := y == 0 or y == height - 1
+			if on_x and on_y:
+				push_error("Room %s exit at %d,%d sits on a corner" % [info.id, x, y])
 				continue
 			var edge := ""
 			if x == 0:
@@ -141,10 +175,11 @@ func _parse_exits(rows: Array[String], grid_pos: Vector2i) -> Array:
 			elif y == height - 1:
 				edge = "down"
 			else:
-				push_error("Exit at %d,%d is not on a room edge" % [x, y])
+				push_error("Room %s exit at %d,%d is not on the room edge" % [info.id, x, y])
 				continue
 			cells_by_edge[edge].append(Vector2i(x, y))
 	var exits: Array = []
+	var screen := Grid.SCREEN_CELLS
 	for edge in ["left", "right", "up", "down"]:
 		var cells: Array = cells_by_edge[edge]
 		if cells.is_empty():
@@ -162,21 +197,90 @@ func _parse_exits(rows: Array[String], grid_pos: Vector2i) -> Array:
 				var prev: Vector2i = cells[i - 1]
 				var cur: Vector2i = cells[i]
 				if vertical:
-					split = cur.y != prev.y + 1 or cur.x != prev.x
+					var crossed_row := int(cur.y / screen.y) != int(prev.y / screen.y)
+					split = cur.y != prev.y + 1 or cur.x != prev.x or crossed_row
 				else:
-					split = cur.x != prev.x + 1 or cur.y != prev.y
+					var crossed_col := int(cur.x / screen.x) != int(prev.x / screen.x)
+					split = cur.x != prev.x + 1 or cur.y != prev.y or crossed_col
 			if split:
 				var first: Vector2i = cells[group_start]
 				var count := i - group_start
 				var rect := Rect2i(first.x, first.y, 1, count) if vertical else Rect2i(first.x, first.y, count, 1)
-				var dest_pos := grid_pos + _edge_dir(edge)
+				var screen_cell := _screen_cell(info, rect, edge)
 				exits.append({
 					"edge": edge,
 					"rect": rect,
-					"dest_id": id_at(dest_pos),
+					"screen": screen_cell,
+					"dest_id": id_at(screen_cell + _edge_dir(edge)),
+					"dest_rect": Rect2i(),
 				})
 				group_start = i
 	return exits
+
+
+func _screen_cell(info: RoomInfo, rect: Rect2i, edge: String) -> Vector2i:
+	var screen := Grid.SCREEN_CELLS
+	match edge:
+		"left":
+			return info.grid_pos + Vector2i(0, int(rect.position.y / screen.y))
+		"right":
+			return info.grid_pos + Vector2i(info.screens.x - 1, int(rect.position.y / screen.y))
+		"up":
+			return info.grid_pos + Vector2i(int(rect.position.x / screen.x), 0)
+		"down":
+			return info.grid_pos + Vector2i(int(rect.position.x / screen.x), info.screens.y - 1)
+	return info.grid_pos
+
+
+func _link_exits(pending: Array[RoomInfo]) -> void:
+	for info in pending:
+		for ex in info.exits:
+			var dest_id := String(ex["dest_id"])
+			if dest_id.is_empty():
+				continue
+			var dest: RoomInfo = rooms[dest_id]
+			var matches: Array = []
+			var span := _world_span(info, ex)
+			for other in dest.exits:
+				if String(other["edge"]) != _opposite(String(ex["edge"])):
+					continue
+				if Vector2i(other["screen"]) != Vector2i(ex["screen"]) + _edge_dir(String(ex["edge"])):
+					continue
+				if _spans_overlap(span, _world_span(dest, other)):
+					matches.append(other)
+			if matches.size() != 1:
+				push_error("Room %s %s exit at %s has %d matching doors in %s" % [info.id, String(ex["edge"]), ex["rect"], matches.size(), dest_id])
+				ex["dest_id"] = ""
+				continue
+			ex["dest_rect"] = matches[0]["rect"]
+
+
+func _world_span(info: RoomInfo, ex: Dictionary) -> Vector2i:
+	var rect: Rect2i = ex["rect"]
+	var origin := info.grid_pos * Grid.SCREEN_CELLS
+	var vertical: bool = String(ex["edge"]) == "left" or String(ex["edge"]) == "right"
+	if vertical:
+		var y0 := origin.y + rect.position.y
+		return Vector2i(y0, y0 + rect.size.y)
+	var x0 := origin.x + rect.position.x
+	return Vector2i(x0, x0 + rect.size.x)
+
+
+func _spans_overlap(a: Vector2i, b: Vector2i) -> bool:
+	return a.x < b.y and b.x < a.y
+
+
+func _opposite(edge: String) -> String:
+	match edge:
+		"left":
+			return "right"
+		"right":
+			return "left"
+		"up":
+			return "down"
+		"down":
+			return "up"
+	return edge
 
 
 func _edge_dir(edge: String) -> Vector2i:
@@ -195,11 +299,23 @@ func _edge_dir(edge: String) -> Vector2i:
 class RoomInfo extends RefCounted:
 	var id := ""
 	var grid_pos := Vector2i.ZERO
+	var screens := Vector2i.ONE
+	var cell_size := Vector2i(32, 18)
+	var pixel_size := Vector2(320, 180)
+	## Local cells an imprint platform must lie fully inside.
+	var bounds_cells := Rect2i(0, 0, 32, 18)
 	var spawn_cell := Vector2i(2, 16)
 	var rows: Array[String] = []
 	var solids: Array[Rect2i] = []
 	var exits: Array = []
 	var no_imprint: Array[Vector2i] = []
+
+	func occupied_cells() -> Array[Vector2i]:
+		var cells: Array[Vector2i] = []
+		for sy in screens.y:
+			for sx in screens.x:
+				cells.append(grid_pos + Vector2i(sx, sy))
+		return cells
 
 	func is_solid(x: int, y: int) -> bool:
 		if y < 0 or y >= rows.size():
@@ -219,6 +335,16 @@ class RoomInfo extends RefCounted:
 		var ex := exit_on(edge)
 		if ex.is_empty():
 			return spawn_cell
+		return _stand_on(ex)
+
+	func stand_cell_for_rect(rect: Rect2i) -> Vector2i:
+		for ex in exits:
+			if ex["rect"] == rect:
+				return _stand_on(ex)
+		return spawn_cell
+
+	func _stand_on(ex: Dictionary) -> Vector2i:
+		var edge := String(ex["edge"])
 		var gap: Rect2i = ex["rect"]
 		if edge == "left" or edge == "right":
 			var row := gap.position.y + gap.size.y - 1
