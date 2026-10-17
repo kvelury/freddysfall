@@ -126,14 +126,18 @@ func _spawn_dust() -> void:
 		return
 	for _i in 3:
 		var dust := Dust.new()
-		parent.add_child(dust)
-		dust.global_position = global_position + Vector2(randf_range(-4.0, 4.0), 5.0)
+		dust.position = parent.to_local(global_position + Vector2(randf_range(-4.0, 4.0), 5.0))
 		dust.velocity = Vector2(randf_range(-28.0, 28.0), randf_range(-40.0, -12.0))
+		parent.add_child(dust)
 
 
 class Dust extends Node2D:
 	var velocity := Vector2.ZERO
 	var life := 0.22
+
+	func _init() -> void:
+		# Animated in _process; interpolating it smears new pixels from the parent origin.
+		physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 
 	func _process(delta: float) -> void:
 		life -= delta

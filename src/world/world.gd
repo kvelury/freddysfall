@@ -17,6 +17,7 @@ func _ready() -> void:
 	camera.make_current()
 	current = _make_room(WorldData.start_room)
 	player.global_position = current.position + Grid.cell_center(current.info.spawn_cell)
+	player.reset_physics_interpolation()
 	player.velocity = Vector2.ZERO
 	camera.position = _camera_center(current)
 	current.set_exits_active(true)
@@ -50,6 +51,7 @@ func _begin_transition(edge: String, dest_id: String) -> void:
 	_pending.set_exits_active(false)
 	var entry: Vector2i = _pending.info.stand_cell_for_entry(_opposite(edge))
 	player.global_position = _pending.position + Grid.cell_center(entry)
+	player.reset_physics_interpolation()
 	GameState.visit(dest_id)
 	var tween := create_tween()
 	tween.set_process_mode(Tween.TWEEN_PROCESS_PHYSICS)
