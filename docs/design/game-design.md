@@ -55,6 +55,7 @@ The camera snaps to whole pixels. The player stays interpolated. A camera sittin
 | Map | Hold Tab, or hold M. M exists because a browser may steal Tab for focus. |
 | Palettes | P, once that is built. Cycles and remembers the choice. |
 | Frame rate | F3. Shows FPS and frame time. A development readout, not a player feature. |
+| Warp | F4, a room number, Enter. Debug builds only. A development tool, not a player feature. |
 
 Letting go of jump early is a short hop. Holding it is the full leap. A running jump goes farther than a standing one, because air friction is low and the jump keeps the speed you had on the ground.
 
@@ -91,7 +92,7 @@ A room is an ASCII file, `data/rooms/<id>.txt`. Its id is a number (`1`, `2`, `3
 | `#` | Solid. Rows of `#` merge into rectangles, one static body, so cell edges do not snag the player. |
 | `.` | Empty. |
 | `X` | An exit opening. It has to sit on the room's outer edge, and not on a corner. An opening that crosses a screen boundary is split into one exit per screen. |
-| `P` | Where the player starts, the first time, in the start room. Also a standable mark used when entering. |
+| `P` | Where the player starts, the first time, in the start room. Also a standable mark used when entering, and where the player is put when a room is started in directly. |
 | `~` | A cell that refuses an Imprint. Collected now. Used when Imprint is built. |
 
 Every glyph lives in one table, `src/world/tiles.gd`. A character that is not in it is a load error, not an empty cell. Every cell on a room's outer border has to be `#` or `X`, so the player cannot walk out of the world. Load collects every problem it finds (`WorldData.errors`) instead of stopping at the first. `tools/validate.sh` prints them and exits non-zero, and a debug build lists them on screen.
@@ -115,6 +116,10 @@ Three rooms, as content, not as the limit of the format.
 - **1**, one screen at `(0, 0)`. Three tiers of platforms, each a running jump apart, and an exit in the right wall. This is the movement test.
 - **2**, one screen at `(1, 0)`. The landing from 1's door, steps down to the right, and a floor-level door in the right wall.
 - **3**, two screens wide at `(2, 0)`. Entered through that floor-level door. Platforms carry the route across the second screen. The same door is the way back. There is no door on the far right.
+
+### Starting in a room
+
+For testing, the game can begin in any room: `--room=<id>` on the command line, `?room=<id>` on the web, or F4 in a debug build while playing. The player is put on that room's `P`, or just inside its first door if it has none. An unknown id is reported and the start room is used.
 
 ### Checking rooms
 

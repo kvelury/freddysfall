@@ -12,6 +12,8 @@ Godot 4.7 game. What the game is, and the rules it is built to, are in [docs/des
 
 Open the project in the editor and press Play. The main scene is `res://src/world/world.tscn`.
 
+Start in any room instead of the first: `godot --path . -- --room=3`. In a debug build, F4, then a room number and Enter, jumps to that room while playing. On the web build, add `?room=3` to the address.
+
 ## Web
 
 The Web preset in `export_presets.cfg` turns thread support off, so the page does not need cross-origin isolation headers. A static server is enough.
@@ -34,6 +36,7 @@ godot --headless --path . --script tests/reach_test.gd
 godot --headless --path . --script tests/physics_test.gd
 ./tools/validate.sh
 ./tools/render.sh
+./tools/snap.sh 3
 ```
 
 | Script | What it drives |
@@ -41,6 +44,7 @@ godot --headless --path . --script tests/physics_test.gd
 | `tests/reach_test.gd` | `MovementSim` against the room rectangles, door links, and camera clamp. Prints `RESULT pass`. |
 | `tests/physics_test.gd` | The player scene through room 1 with `move_and_slide`. Prints `PHYSICS pass`. |
 | `tests/validate.gd` | Loads the whole world, then solves it: every room and door reachable from the start, nowhere to get stuck. Lists every problem and exits 1 if there is one. Run through `tools/validate.sh`. |
+| `tests/start_test.gd` | Starting in a chosen room and `warp_to` on the world scene. Prints `START pass`. |
 | `tests/render.gd` | Draws each room and the world map as PNGs in `build/renders/`, marking unreachable ledges, traps, and sealed doors. Run through `tools/render.sh`, optionally with room ids: `tools/render.sh 3 4`. |
 
 `reach_test.gd` builds small worlds from strings to check every way a room file can be wrong and that the solver finds a shelf out of reach, a trap, and a door in the sky. It does not instance the world. The other two do, and they set `Player.scripted` so input comes from the test instead of the keyboard.
@@ -62,6 +66,7 @@ godot --headless --path . --script tests/physics_test.gd
 | `src/player/` | `MovementConfig` (`movement.tres`), `MovementSim`, and the player scene. The player and the reach solver call the same `integrate`. |
 | `src/world/` | World scene, room construction, exit halo, and the loader classes above. |
 | `src/ui/` | Map overlay and the F3 readout. |
+| `AGENTS.md` | How an agent works here, including turning a drawing into a room. `CLAUDE.md` points at it. |
 | `docs/design/game-design.md` | Design record. |
 | `docs/plans/` | Implementation plans for work that is specified and not built. |
 
