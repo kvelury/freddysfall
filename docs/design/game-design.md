@@ -116,6 +116,20 @@ Three rooms, as content, not as the limit of the format.
 - **2**, one screen at `(1, 0)`. The landing from 1's door, steps down to the right, and a floor-level door in the right wall.
 - **3**, two screens wide at `(2, 0)`. Entered through that floor-level door. Platforms carry the route across the second screen. The same door is the way back. There is no door on the far right.
 
+### Checking rooms
+
+A room is not finished when it loads. `tools/validate.sh` also plays the whole world with the movement simulator, starting from the `P` in the start room, and fails if the world cannot be played.
+
+A **ledge** is a run of cells with air above and floor below. From each ledge the solver tries walking off either end, and jumps from every cell with the input held left, none, or right, and the jump held for a tap, a hop, or the full leap. Each try is the same `MovementSim` the player runs. A try that lands on another ledge, or touches a door, is an edge in the graph. A door's far side puts the player on the ledge `stand_cell_for_rect` picks.
+
+- **Error:** a room, or a door in a reachable room, that no path from the start reaches.
+- **Error:** a trap, meaning a ledge the player can reach but from which no path leads back to the start. Falling into a pit too deep to jump out of is one. The first version of room 3 was one.
+- **Warning:** a ledge nobody reached. The solver tries a fixed set of inputs, so a ledge it misses might still be reachable by a path it did not think of. Look at the render and decide.
+
+`tools/render.sh` draws each room and the world map to `build/renders/`. Red bars mark unreachable ledges, yellow bars mark traps, and orange marks a door that was sealed.
+
+Imprint will add platforms to the solids and let paths use them. The solver already takes an ability set for that and ignores it for now.
+
 ## Camera
 
 The camera shows one screen, and it stays inside the room.

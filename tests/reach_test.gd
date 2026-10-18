@@ -1,5 +1,8 @@
 extends SceneTree
 
+var _cfg: MovementConfig
+
+
 func _initialize() -> void:
 	var ok := _run()
 	quit(0 if ok else 1)
@@ -12,11 +15,13 @@ func _run() -> bool:
 	if cfg == null:
 		print("FAIL movement.tres did not load")
 		return false
+	_cfg = cfg
 	var passed := true
 	passed = _feel(cfg) and passed
-	passed = _room_a(cfg, data) and passed
-	passed = _room_c(cfg, data) and passed
+	passed = _room_shapes(data) and passed
 	passed = _links(data) and passed
+	passed = _reach_world(data) and passed
+	passed = _reach_cases() and passed
 	passed = _loader() and passed
 	passed = _camera() and passed
 	print("RESULT %s" % ("pass" if passed else "fail"))
@@ -37,39 +42,16 @@ func _feel(cfg: MovementConfig) -> bool:
 	return ok
 
 
-func _room_a(cfg: MovementConfig, data) -> bool:
-	var info = data.get_room("1")
-	var rects := _pixels(info)
+func _room_shapes(data) -> bool:
+	var info: RoomInfo = data.get_room("1")
 	var ok := true
-	ok = _check(_has_rect(info, Rect2i(6, 13, 5, 1)), "left platform rect") and ok
-	ok = _check(_has_rect(info, Rect2i(21, 13, 5, 1)), "right platform rect") and ok
-	ok = _check(_has_rect(info, Rect2i(14, 9, 5, 1)), "middle platform rect") and ok
-	ok = _check(_has_rect(info, Rect2i(23, 5, 9, 1)), "top platform rect") and ok
-	ok = _check(_lands(cfg, rects, Vector2(25, 165), 1.0, 90, 130.0, 60.0, 110.0), "floor running jump reaches left platform") and ok
-	ok = _check(not _lands(cfg, rects, Vector2(25, 165), 1.0, 2, 130.0, 60.0, 110.0), "tap from the floor misses the left platform") and ok
-	ok = _check(_lands(cfg, rects, Vector2(100, 125), 1.0, 90, 90.0, 140.0, 190.0), "left platform reaches the middle") and ok
-	ok = _check(not _lands(cfg, rects, Vector2(70, 125), 1.0, 90, 90.0, 140.0, 190.0), "jumping early from the left platform misses") and ok
-	ok = _check(_lands(cfg, rects, Vector2(180, 85), 1.0, 90, 50.0, 230.0, 320.0), "middle platform reaches the exit ledge") and ok
-	ok = _check(not _lands(cfg, rects, Vector2(150, 85), 1.0, 90, 50.0, 230.0, 320.0), "jumping early from the middle misses the exit ledge") and ok
-	var b: RoomInfo = data.get_room("2")
-	var brects := _pixels(b)
-	ok = _check(_lands(cfg, brects, Vector2(120, 165), 1.0, 90, 130.0, 160.0, 230.0), "room 2 floor reaches the low step") and ok
-	ok = _check(_lands(cfg, brects, Vector2(175, 125), -1.0, 90, 90.0, 80.0, 150.0), "room 2 low step reaches the mid step") and ok
-	ok = _check(_lands(cfg, brects, Vector2(95, 85), -1.0, 90, 50.0, 0.0, 70.0), "room 2 mid step reaches the entry ledge") and ok
-	return ok
-
-
-func _room_c(cfg: MovementConfig, data) -> bool:
-	var info = data.get_room("3")
-	var rects := _pixels(info)
-	var ok := true
-	ok = _check(_lands(cfg, rects, Vector2(270, 75), 1.0, 90, 120.0, 340.0, 480.0), "room 3 landing reaches the middle step") and ok
-	ok = _check(_lands(cfg, rects, Vector2(450, 115), 1.0, 90, 150.0, 520.0, 630.0), "room 3 middle step reaches the far ledge") and ok
-	ok = _check(_lands(cfg, rects, Vector2(150, 165), 1.0, 90, 150.0, 200.0, 320.0), "room 3 floor reaches the low step") and ok
-	ok = _check(_lands(cfg, rects, Vector2(290, 145), 1.0, 90, 120.0, 340.0, 480.0), "room 3 low step reaches the middle") and ok
-	ok = _check(_lands(cfg, rects, Vector2(350, 115), -1.0, 90, 80.0, 160.0, 300.0), "room 3 middle step reaches the landing") and ok
+	ok = _check(_has_rect(info, Rect2i(6, 13, 5, 1)), "room 1 left platform rect") and ok
+	ok = _check(_has_rect(info, Rect2i(21, 13, 5, 1)), "room 1 right platform rect") and ok
+	ok = _check(_has_rect(info, Rect2i(14, 9, 5, 1)), "room 1 middle platform rect") and ok
+	ok = _check(_has_rect(info, Rect2i(23, 5, 9, 1)), "room 1 top platform rect") and ok
+	var wide: RoomInfo = data.get_room("3")
 	var room := Room.new()
-	room.build(info)
+	room.build(wide)
 	var chunks := 0
 	for child in room.get_children():
 		if String(child.name).begins_with("Chunk_"):
@@ -203,6 +185,74 @@ func _covers(rects: Array[Rect2i], cell: Vector2i) -> bool:
 	return false
 
 
+## The real world has to solve completely: every room, door and ledge
+## reachable, and nowhere to get stuck.
+func _reach_world(data) -> bool:
+	var report := ReachGraph.new(data.rooms, _cfg).analyze(data.start_room)
+	var ok := true
+	ok = _check(report.errors.is_empty(), "the world has no reach errors %s" % [report.errors]) and ok
+	ok = _check(report.reached_ledges == report.total_ledges and report.total_ledges > 0, "every ledge in the world is reachable (%d of %d)" % [report.reached_ledges, report.total_ledges]) and ok
+	ok = _check(report.traps.is_empty(), "there is nowhere to get stuck") and ok
+	return ok
+
+
+## Small worlds built to be wrong in one way each.
+func _reach_cases() -> bool:
+	var ok := true
+
+	var shelves := {}
+	_fill(shelves, 10, 6, 14, 6)
+	_fill(shelves, 20, 13, 24, 13)
+	var report := _solve([_entry("1", Vector2i(0, 0), _box(shelves))])
+	ok = _check(report.errors.is_empty(), "shelves load and solve without errors %s" % [report.errors]) and ok
+	ok = _check(report.unreached.size() == 1 and report.unreached[0].row == 5, "a shelf 100 px up cannot be reached, a 40 px one can (%d unreached)" % report.unreached.size()) and ok
+	ok = _check(report.warnings.size() == 1 and report.warnings[0].contains("row 5"), "an unreachable ledge is only a warning %s" % [report.warnings]) and ok
+
+	# Two plateaus with a valley between that is deeper than a jump is tall.
+	var valley := {}
+	_fill(valley, 1, 10, 9, 16)
+	_fill(valley, 14, 10, 30, 16)
+	valley[Vector2i(3, 9)] = "P"
+	report = _solve([_entry("1", Vector2i(0, 0), _box(valley, false))])
+	ok = _check(report.traps.size() == 1 and report.traps[0].row == 16, "a valley too deep to climb out of is a trap (%d traps)" % report.traps.size()) and ok
+	ok = _check(_has_line(report.errors, "trap"), "a trap is an error") and ok
+	ok = _check(report.unreached.is_empty(), "the far plateau is jumpable across the valley") and ok
+
+	var high_door := {Vector2i(31, 2): "X", Vector2i(31, 3): "X"}
+	var low_door := {Vector2i(0, 2): "X", Vector2i(0, 3): "X"}
+	report = _solve([_entry("1", Vector2i(0, 0), _box(high_door)), _entry("2", Vector2i(1, 0), _box(low_door, false))])
+	ok = _check(_has_line(report.errors, "door at") and _has_line(report.errors, "Room 2 cannot be reached"), "a door in the sky strands the room behind it %s" % [report.errors]) and ok
+
+	var floor_a := {Vector2i(31, 15): "X", Vector2i(31, 16): "X"}
+	var floor_b := {Vector2i(0, 15): "X", Vector2i(0, 16): "X"}
+	report = _solve([_entry("1", Vector2i(0, 0), _box(floor_a)), _entry("2", Vector2i(1, 0), _box(floor_b, false))])
+	ok = _check(report.errors.is_empty() and report.traps.is_empty(), "floor-level doors connect two rooms both ways %s" % [report.errors]) and ok
+	ok = _check(report.reached_ledges == 2 and report.total_ledges == 2, "both floors are reached (%d of %d)" % [report.reached_ledges, report.total_ledges]) and ok
+	return ok
+
+
+func _solve(entries: Array) -> ReachGraph.Report:
+	var built := _world(entries)
+	if not built["errors"].is_empty():
+		print("  world did not load: ", built["errors"])
+	return ReachGraph.new(built["rooms"], _cfg).analyze("1")
+
+
+## Fills a block of cells with solid.
+func _fill(cells: Dictionary, x0: int, y0: int, x1: int, y1: int) -> void:
+	for y in range(y0, y1 + 1):
+		for x in range(x0, x1 + 1):
+			cells[Vector2i(x, y)] = "#"
+
+
+func _has_line(lines: Array, fragment: String) -> bool:
+	for line in lines:
+		if String(line).contains(fragment):
+			return true
+	print("  no line containing '%s' in %s" % [fragment, lines])
+	return false
+
+
 func _camera() -> bool:
 	var ok := true
 	var one := Grid.camera_focus(Vector2(320, 0), Vector2(320, 180), Vector2(400, 90))
@@ -212,28 +262,6 @@ func _camera() -> bool:
 	var followed := Grid.camera_focus(Vector2(320, 180), Vector2(640, 180), Vector2(600, 250))
 	ok = _check(followed == Vector2(600, 270), "two-screen room follows within the span (%s)" % followed) and ok
 	return ok
-
-
-func _lands(cfg: MovementConfig, rects: Array, start: Vector2, input_x: float, hold: int, top: float, x_min: float, x_max: float) -> bool:
-	var vel := Vector2(input_x * cfg.run_speed, 0.0)
-	var result := MovementSim.simulate_jump(cfg, rects, start, vel, input_x, hold)
-	if not result["landed"]:
-		print("  no landing from %s -> %s" % [start, result["position"]])
-		return false
-	var floor: Rect2 = result["floor"]
-	var pos: Vector2 = result["position"]
-	var on_top := absf(floor.position.y - top) <= 0.1
-	var over := pos.x + 5.0 > x_min and pos.x - 5.0 < x_max
-	if not on_top or not over:
-		print("  landed at %s on y=%.1f, wanted top %.1f within x %.1f-%.1f" % [pos, floor.position.y, top, x_min, x_max])
-	return on_top and over
-
-
-func _pixels(info: RoomInfo) -> Array[Rect2]:
-	var rects: Array[Rect2] = []
-	for cell in info.solids:
-		rects.append(Grid.cell_rect(cell))
-	return rects
 
 
 func _has_rect(info: RoomInfo, expected: Rect2i) -> bool:

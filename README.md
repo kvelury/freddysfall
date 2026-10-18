@@ -32,18 +32,18 @@ The tests are `SceneTree` scripts. Each quits with status 0 on success.
 ```sh
 godot --headless --path . --script tests/reach_test.gd
 godot --headless --path . --script tests/physics_test.gd
-godot --headless --path . --script tests/route_test.gd
 ./tools/validate.sh
+./tools/render.sh
 ```
 
 | Script | What it drives |
 | --- | --- |
 | `tests/reach_test.gd` | `MovementSim` against the room rectangles, door links, and camera clamp. Prints `RESULT pass`. |
 | `tests/physics_test.gd` | The player scene through room 1 with `move_and_slide`. Prints `PHYSICS pass`. |
-| `tests/route_test.gd` | The player scene across rooms 1, 2, and 3 and back. Prints `route pass`. |
-| `tests/validate.gd` | Loads the whole world and lists every problem in the room files. Exits 1 if there is one. Run through `tools/validate.sh`. |
+| `tests/validate.gd` | Loads the whole world, then solves it: every room and door reachable from the start, nowhere to get stuck. Lists every problem and exits 1 if there is one. Run through `tools/validate.sh`. |
+| `tests/render.gd` | Draws each room and the world map as PNGs in `build/renders/`, marking unreachable ledges, traps, and sealed doors. Run through `tools/render.sh`, optionally with room ids: `tools/render.sh 3 4`. |
 
-`reach_test.gd` also builds small worlds from strings to check every way a room file can be wrong. It does not instance the world. The other two do, and they set `Player.scripted` so input comes from the test instead of the keyboard.
+`reach_test.gd` builds small worlds from strings to check every way a room file can be wrong and that the solver finds a shelf out of reach, a trap, and a door in the sky. It does not instance the world. The other two do, and they set `Player.scripted` so input comes from the test instead of the keyboard.
 
 ## Layout
 
@@ -55,10 +55,11 @@ godot --headless --path . --script tests/route_test.gd
 | `src/autoload/world_data.gd` | Reads `world.json` and the room files, keeps the rooms and `errors`. |
 | `src/world/room_parser.gd` | Pure text-to-`RoomInfo`: checks glyphs and walls, merges `#` into rectangles, pairs and seals doors. |
 | `src/world/tiles.gd` | The glyph table. |
+| `src/world/reach_graph.gd` | The solver: finds ledges, tries jumps, drops and walks between them with `MovementSim`, and reports what cannot be reached or left. |
 | `src/world/room_info.gd`, `door.gd` | A loaded room, and one opening in its wall. |
 | `src/autoload/game_state.gd` | Current room, visited set, and session ability values. |
 | `src/core/grid.gd` | Cell and screen size, camera clamp. |
-| `src/player/` | `MovementConfig` (`movement.tres`), `MovementSim`, and the player scene. The player and the reach test call the same `integrate`. |
+| `src/player/` | `MovementConfig` (`movement.tres`), `MovementSim`, and the player scene. The player and the reach solver call the same `integrate`. |
 | `src/world/` | World scene, room construction, exit halo, and the loader classes above. |
 | `src/ui/` | Map overlay and the F3 readout. |
 | `docs/design/game-design.md` | Design record. |
