@@ -145,10 +145,15 @@ func _room_d(cfg: MovementConfig, data) -> bool:
 	var into_d: Dictionary = d.vertical_landing(d.exit_on("up")["rect"])
 	ok = _landing(d, into_d, Vector2i(11, 7), "left", "room D from above") and ok
 	ok = _check(int(into_d.get("left", 0)) > int(into_d.get("right", 0)), "room D has more ground on the left") and ok
-	# Right end of the left platform, running toward the pad under the door.
-	ok = _check(_lands(cfg, rects, Vector2(115, 75), 1.0, 90, 50.0, 160.0, 240.0), "room D landing reaches the return pad") and ok
-	var up := MovementSim.simulate_jump(cfg, rects, Vector2(175, 45), Vector2.ZERO, 0.0, 90)
-	ok = _check(float(up["min_feet"]) <= Room.HALO_REACH, "room D return jump enters the door sprite (feet %.1f)" % float(up["min_feet"])) and ok
+	ok = _check(_has_rect(d, Rect2i(13, 4, 5, 1)), "room D return pad sits under the ceiling door") and ok
+	var door: Rect2i = d.exit_on("up")["rect"]
+	var sensor := Rect2(float(door.position.x * Grid.CELL), 0.0, float(door.size.x * Grid.CELL), Room.HALO_REACH)
+	# The whole pad is under the opening, so a hop from either end touches the sprite.
+	ok = _check(_enters(cfg, rects, Vector2(135, 35), 0.0, 90, sensor), "full jump from the left of the return pad enters the door") and ok
+	ok = _check(_enters(cfg, rects, Vector2(175, 35), 0.0, 90, sensor), "full jump from the right of the return pad enters the door") and ok
+	ok = _check(_enters(cfg, rects, Vector2(135, 35), 0.0, 2, sensor), "tap jump from the left of the return pad enters the door") and ok
+	ok = _check(_enters(cfg, rects, Vector2(175, 35), 0.0, 2, sensor), "tap jump from the right of the return pad enters the door") and ok
+	ok = _check(_enters(cfg, rects, Vector2(115, 75), 1.0, 90, sensor), "running jump from the landing platform enters the door") and ok
 	return ok
 
 
@@ -186,6 +191,40 @@ func _camera() -> bool:
 	var followed := Grid.camera_focus(Vector2(320, 180), Vector2(640, 180), Vector2(600, 250))
 	ok = _check(followed == Vector2(600, 270), "two-screen room follows within the span (%s)" % followed) and ok
 	return ok
+
+
+func _enters(cfg: MovementConfig, rects: Array, start: Vector2, input_x: float, hold: int, sensor: Rect2) -> bool:
+	var pos := start
+	var vel := Vector2(input_x * cfg.run_speed, 0.0)
+	var grounded := true
+	var coyote := cfg.coyote_time
+	var buffer := 0.0
+	var launched := false
+	var cut := false
+	var delta := 1.0 / 60.0
+	var half := Vector2(5.0, 5.0)
+	var out := {}
+	for frame in 180:
+		MovementSim.integrate(
+			cfg, vel, grounded, coyote, buffer, launched, cut,
+			input_x, frame == 0, frame < hold, delta, out
+		)
+		vel = out["velocity"]
+		coyote = out["coyote"]
+		buffer = out["buffer"]
+		launched = out["launched"]
+		cut = out["cut"]
+		var resolved := MovementSim.resolve(pos, vel, rects, delta, half)
+		pos = resolved["position"]
+		vel = resolved["velocity"]
+		grounded = resolved["grounded"]
+		var body := Rect2(pos - half, half * 2.0)
+		if body.intersects(sensor):
+			return true
+		if grounded and frame > 2:
+			break
+	print("  missed the door from %s, ended at %s" % [start, pos])
+	return false
 
 
 func _lands(cfg: MovementConfig, rects: Array, start: Vector2, input_x: float, hold: int, top: float, x_min: float, x_max: float) -> bool:
