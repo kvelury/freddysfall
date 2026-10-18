@@ -53,18 +53,7 @@ func _add_exit(ex: Door) -> void:
 	area.collision_mask = 2
 	area.monitoring = false
 	area.monitorable = false
-	var pixel: Rect2 = Grid.cell_rect(ex.rect)
-	match ex.edge:
-		"right":
-			pixel.position.x -= 4.0
-			pixel.size.x += 4.0
-		"left":
-			pixel.size.x += 4.0
-		"up":
-			pixel.size.y += 4.0
-		"down":
-			pixel.position.y -= 4.0
-			pixel.size.y += 4.0
+	var pixel := ex.trigger_rect()
 	var shape_node := CollisionShape2D.new()
 	var shape := RectangleShape2D.new()
 	shape.size = pixel.size

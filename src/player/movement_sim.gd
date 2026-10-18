@@ -102,6 +102,10 @@ static func resolve(position: Vector2, velocity: Vector2, rects: Array, delta: f
 	}
 
 
+## Runs one input plan from a standing start until the body lands, touches a
+## trigger, or leaves `bounds`. `jump` false walks (or drops) without jumping.
+## `triggers` are pixel rects; the result's "trigger" is the index of the first
+## one touched, or -1. An empty `bounds` means no limit.
 static func simulate_jump(
 	cfg: MovementConfig,
 	rects: Array,
@@ -109,7 +113,10 @@ static func simulate_jump(
 	start_velocity: Vector2,
 	input_x: float,
 	hold_frames: int,
-	grounded_start: bool = true
+	grounded_start: bool = true,
+	jump: bool = true,
+	triggers: Array = [],
+	bounds: Rect2 = Rect2()
 ) -> Dictionary:
 	var pos := start_position
 	var vel := start_velocity
@@ -123,11 +130,13 @@ static func simulate_jump(
 	var out := {}
 	var min_feet := pos.y + half.y
 	var landed := false
+	var airborne := false
+	var trigger := -1
 	var floor := Rect2()
 	for frame in 180:
 		integrate(
 			cfg, vel, grounded, coyote, buffer, launched, cut,
-			input_x, frame == 0, frame < hold_frames, delta, out
+			input_x, jump and frame == 0, frame < hold_frames, delta, out
 		)
 		vel = out["velocity"]
 		coyote = out["coyote"]
@@ -139,10 +148,17 @@ static func simulate_jump(
 		vel = resolved["velocity"]
 		grounded = resolved["grounded"]
 		min_feet = minf(min_feet, pos.y + half.y)
+		if not grounded:
+			airborne = true
+		trigger = _touching(pos, half, triggers)
+		if trigger >= 0:
+			break
+		if bounds.has_area() and not bounds.has_point(pos):
+			break
 		if grounded:
 			launched = false
 			cut = false
-			if frame > 2:
+			if frame > 2 and airborne:
 				landed = true
 				floor = resolved["floor"]
 				break
@@ -152,7 +168,15 @@ static func simulate_jump(
 		"landed": landed,
 		"floor": floor,
 		"min_feet": min_feet,
+		"trigger": trigger,
 	}
+
+
+static func _touching(center: Vector2, half: Vector2, triggers: Array) -> int:
+	for i in triggers.size():
+		if _overlaps(center, half, triggers[i]):
+			return i
+	return -1
 
 
 static func _overlaps(center: Vector2, half: Vector2, block: Rect2) -> bool:
