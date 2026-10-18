@@ -1,35 +1,62 @@
 # Freddy's Fall
 
-A sidescrolling metroidvania adventure. You move through a network of single-screen rooms, and new abilities open paths that were out of reach. The look is black and white pixel art: solid blocks, a square for the player, and small effects where they help you see what matters.
+Godot 4.7 game. What the game is, and the rules it is built to, are in [docs/design/game-design.md](docs/design/game-design.md). This file is the project: how it is laid out, how to run it, and how to check it.
 
-This repository is the Godot 4 game. It runs in a desktop window or in any modern browser.
+## Requirements
 
-## Play
+[Godot 4.7](https://godotengine.org/) with the web export templates installed. Python 3 serves the exported page.
 
-You need [Godot 4.7](https://godotengine.org/) with the web export templates installed.
+`project.godot` asks for feature `4.7` and the GL Compatibility renderer.
+
+## Run
+
+Open the project in the editor and press Play. The main scene is `res://src/world/world.tscn`.
+
+## Web
+
+The Web preset in `export_presets.cfg` turns thread support off, so the page does not need cross-origin isolation headers. A static server is enough.
+
+Room files are plain text. The preset's `include_filter` is `*.txt` so those files are packed into the export. Without that, `res://data/rooms/` is missing from the web build.
 
 ```sh
 ./tools/build_web.sh
 ./tools/serve.sh
 ```
 
-That exports a threads-off web build and opens it at http://localhost:8060. The same project also runs from the Godot editor with Play.
+`build_web.sh` imports the project, exports a release build to `build/web/index.html`, and injects a listener that keeps Tab from leaving the canvas. `serve.sh` serves that directory at http://localhost:8060. It also tries `open`, which launches the page on macOS. `build/` is gitignored.
 
-## Controls
+## Tests
 
-| Action | Keys |
+The tests are `SceneTree` scripts. Each quits with status 0 on success.
+
+```sh
+godot --headless --path . --script tests/reach_test.gd
+godot --headless --path . --script tests/physics_test.gd
+godot --headless --path . --script tests/route_test.gd
+```
+
+| Script | What it drives |
 | --- | --- |
-| Move | A / D, or Left / Right |
-| Jump | Space, W, or Up |
-| Map | Hold Tab or M |
-| Frame rate | F3 |
+| `tests/reach_test.gd` | `MovementSim` against the room rectangles, door links, and camera clamp. Prints `RESULT pass`. |
+| `tests/physics_test.gd` | The player scene through room 1 with `move_and_slide`. Prints `PHYSICS pass`. |
+| `tests/route_test.gd` | The player scene across rooms 1, 2, and 3 and back. Prints `route pass`. |
 
-Down is reserved. Letting go of jump early makes a short hop. Holding it makes the full leap, and a running jump carries farther than a standing one.
+`reach_test.gd` does not instance the world. The other two do, and they set `Player.scripted` so input comes from the test instead of the keyboard.
 
-## This version
+## Layout
 
-Version 0.1 is the first playable slice: two rooms, a halo marking the exit, and a camera that slides from one screen to the next. Holding the map pauses the game and shows the rooms you have visited.
+| Path | Role |
+| --- | --- |
+| `project.godot` | Application `Freddysfall` 0.1.0, autoloads, display, input actions, 60 Hz physics. |
+| `data/world.json` | Room id, file, and `grid_pos`. |
+| `data/rooms/` | One ASCII file per room. |
+| `src/autoload/world_data.gd` | Loads rooms, merges `#` into rectangles, pairs doors. |
+| `src/autoload/game_state.gd` | Current room, visited set, and session ability values. |
+| `src/core/grid.gd` | Cell and screen size, camera clamp. |
+| `src/player/` | `MovementConfig` (`movement.tres`), `MovementSim`, and the player scene. The player and the reach test call the same `integrate`. |
+| `src/world/` | World scene, room construction, exit halo. |
+| `src/ui/` | Map overlay and the F3 readout. |
+| `docs/design/game-design.md` | Design record. |
+| `docs/plans/` | Implementation plans for work that is specified and not built. |
 
-Rooms are ASCII files in `data/rooms/`, listed with their map position in `data/world.json`. The playfield is 320×180, scaled up with nearest-neighbor filtering. Physics runs at a fixed 60 ticks per second, so the movement stays the same when the display is 60, 120, or 144 Hz.
-
-Still ahead: placing a temporary platform to reach new ground, and a softer two-color palette for playing in the dark (see `docs/plans/soft-duotone-palettes.md`).
+Input action names are `move_left`, `move_right`, `move_down`, `jump`, `map`, and `debug`. What those keys do in the game is in the design doc.
