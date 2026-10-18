@@ -1,9 +1,106 @@
 class_name MovementSim
 extends RefCounted
 
-## One movement step shared by the player and the jump tests.
-## Imprint reachability should call simulate_jump() against a room's merged
+## All of the player's movement. The player and the reach solver both advance
+## a State with step(), so a jump the solver finds is a jump the player makes.
+## Imprint reachability should call simulate_jump() against a room's
 ## rectangles instead of copying these formulas.
+
+const HALF := Vector2(Grid.CELL * 0.5, Grid.CELL * 0.5)
+
+
+## What a body carries from one tick to the next.
+class State extends RefCounted:
+	var position := Vector2.ZERO
+	var velocity := Vector2.ZERO
+	var grounded := false
+	var coyote := 0.0
+	var buffer := 0.0
+	var launched := false
+	var cut := false
+	## Set by step(): a jump began this tick, and the rect the body is
+	## standing on, if any.
+	var jumped := false
+	var floor_rect := Rect2()
+	var scratch := {}
+
+
+## One physics tick: read input, apply forces, round corners, collide.
+static func step(
+	cfg: MovementConfig,
+	s: State,
+	rects: Array,
+	input_x: float,
+	jump_pressed: bool,
+	jump_held: bool,
+	delta: float
+) -> void:
+	integrate(
+		cfg, s.velocity, s.grounded, s.coyote, s.buffer, s.launched, s.cut,
+		input_x, jump_pressed, jump_held, delta, s.scratch
+	)
+	s.velocity = s.scratch["velocity"]
+	s.coyote = s.scratch["coyote"]
+	s.buffer = s.scratch["buffer"]
+	s.launched = s.scratch["launched"]
+	s.cut = s.scratch["cut"]
+	s.jumped = s.scratch["jumped"]
+	s.position = corner_correct(cfg, s.position, s.velocity, s.grounded, rects, delta)
+	var resolved := resolve(s.position, s.velocity, rects, delta, HALF)
+	s.position = resolved["position"]
+	s.velocity = resolved["velocity"]
+	s.grounded = resolved["grounded"]
+	s.floor_rect = resolved["floor"]
+	if s.grounded:
+		s.launched = false
+		s.cut = false
+
+
+## Whether a body at `position` is resting on something: a probe one pixel down.
+static func standing(position: Vector2, rects: Array) -> bool:
+	return _blocked(position, HALF, rects, Vector2(0.0, 1.0))
+
+
+## Ledge and ceiling forgiveness. A body that clips a ledge by a few pixels
+## is lifted onto it, and one that clips a ceiling corner by a few pixels while
+## rising is pushed to the side. Both look ahead with a test, and never move
+## the body through a block. Returns the corrected position.
+static func corner_correct(
+	cfg: MovementConfig,
+	position: Vector2,
+	velocity: Vector2,
+	grounded: bool,
+	rects: Array,
+	delta: float
+) -> Vector2:
+	var max_px := int(round(cfg.corner_correction))
+	if max_px <= 0:
+		return position
+	var pos := position
+	if not grounded and absf(velocity.x) > 1.0 and velocity.y >= 0.0:
+		var horiz := Vector2(velocity.x * delta, 0.0)
+		if _blocked(pos, HALF, rects, horiz):
+			for n in max_px:
+				var lift := float(n + 1)
+				if not _blocked(pos + Vector2(0.0, -lift), HALF, rects, horiz):
+					pos.y -= lift
+					break
+	if velocity.y < 0.0:
+		var vert := Vector2(0.0, velocity.y * delta)
+		if _blocked(pos, HALF, rects, vert):
+			var prefer := signf(velocity.x) if absf(velocity.x) > 1.0 else 1.0
+			var pushed := false
+			for dir in [prefer, -prefer]:
+				if pushed:
+					break
+				var direction := float(dir)
+				for n in max_px:
+					var push := float(n + 1) * direction
+					if not _blocked(pos + Vector2(push, 0.0), HALF, rects, vert):
+						pos.x += push
+						pushed = true
+						break
+	return pos
 
 
 static func integrate(
@@ -118,55 +215,36 @@ static func simulate_jump(
 	triggers: Array = [],
 	bounds: Rect2 = Rect2()
 ) -> Dictionary:
-	var pos := start_position
-	var vel := start_velocity
-	var grounded := grounded_start
-	var coyote := cfg.coyote_time if grounded_start else 0.0
-	var buffer := 0.0
-	var launched := false
-	var cut := false
+	var s := State.new()
+	s.position = start_position
+	s.velocity = start_velocity
+	s.grounded = grounded_start
+	s.coyote = cfg.coyote_time if grounded_start else 0.0
 	var delta := 1.0 / 60.0
-	var half := Vector2(float(Grid.CELL) * 0.5, float(Grid.CELL) * 0.5)
-	var out := {}
-	var min_feet := pos.y + half.y
+	var min_feet := s.position.y + HALF.y
 	var landed := false
 	var airborne := false
 	var trigger := -1
-	var floor := Rect2()
+	var floor_rect := Rect2()
 	for frame in 180:
-		integrate(
-			cfg, vel, grounded, coyote, buffer, launched, cut,
-			input_x, jump and frame == 0, frame < hold_frames, delta, out
-		)
-		vel = out["velocity"]
-		coyote = out["coyote"]
-		buffer = out["buffer"]
-		launched = out["launched"]
-		cut = out["cut"]
-		var resolved := resolve(pos, vel, rects, delta, half)
-		pos = resolved["position"]
-		vel = resolved["velocity"]
-		grounded = resolved["grounded"]
-		min_feet = minf(min_feet, pos.y + half.y)
-		if not grounded:
+		step(cfg, s, rects, input_x, jump and frame == 0, frame < hold_frames, delta)
+		min_feet = minf(min_feet, s.position.y + HALF.y)
+		if not s.grounded:
 			airborne = true
-		trigger = _touching(pos, half, triggers)
+		trigger = _touching(s.position, HALF, triggers)
 		if trigger >= 0:
 			break
-		if bounds.has_area() and not bounds.has_point(pos):
+		if bounds.has_area() and not bounds.has_point(s.position):
 			break
-		if grounded:
-			launched = false
-			cut = false
-			if frame > 2 and airborne:
-				landed = true
-				floor = resolved["floor"]
-				break
+		if s.grounded and frame > 2 and airborne:
+			landed = true
+			floor_rect = s.floor_rect
+			break
 	return {
-		"position": pos,
-		"velocity": vel,
+		"position": s.position,
+		"velocity": s.velocity,
 		"landed": landed,
-		"floor": floor,
+		"floor": floor_rect,
 		"min_feet": min_feet,
 		"trigger": trigger,
 	}
@@ -177,6 +255,15 @@ static func _touching(center: Vector2, half: Vector2, triggers: Array) -> int:
 		if _overlaps(center, half, triggers[i]):
 			return i
 	return -1
+
+
+## Whether the body, moved by `motion`, would overlap a block.
+static func _blocked(center: Vector2, half: Vector2, rects: Array, motion: Vector2) -> bool:
+	var moved := center + motion
+	for rect in rects:
+		if _overlaps(moved, half, rect):
+			return true
+	return false
 
 
 static func _overlaps(center: Vector2, half: Vector2, block: Rect2) -> bool:

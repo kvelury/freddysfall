@@ -18,8 +18,8 @@ func is_side() -> bool:
 
 
 ## Room-local pixels that change rooms when the player touches them: the
-## opening plus a little of the room beside it. The room builds its Area2D
-## from this and the reach solver tests paths against it, so they agree.
+## opening plus a little of the room beside it. The room tests the player's
+## box against this and the reach solver tests paths against it, so they agree.
 func trigger_rect() -> Rect2:
 	var pixel := Grid.cell_rect(rect)
 	match edge:
