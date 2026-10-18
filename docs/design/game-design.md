@@ -6,7 +6,8 @@ Implementation steps for the palette pass live in `docs/plans/soft-duotone-palet
 
 | Area | State |
 | --- | --- |
-| Movement, grid, rooms, doors, camera, map, transitions | Built |
+| Movement, grid, rooms, doors, spikes, camera, map, transitions | Built |
+| Room legends, pickups, abilities, autosave | Built |
 | Imprint | Designed, not built |
 | Softer two-color palettes | Designed, not built |
 
@@ -95,6 +96,7 @@ A room is an ASCII file, `data/rooms/<id>.txt`. Its id is a number (`1`, `2`, `3
 | `P` | Where the player starts, the first time, in the start room. Also a standable mark used when entering, and where the player is put when a room is started in directly. |
 | `~` | A cell that refuses an Imprint. Collected now. Used when Imprint is built. |
 | `^` | Spikes. Not solid: the player can walk into them, and dies. |
+| a letter or digit | A thing named in the room's legend. See below. Open air. |
 
 Every glyph lives in one table, `src/world/tiles.gd`. A character that is not in it is a load error, not an empty cell. Every cell on a room's outer border has to be `#` or `X`, so the player cannot walk out of the world. Load collects every problem it finds (`WorldData.errors`) instead of stopping at the first. `tools/validate.sh` prints them and exits non-zero, and a debug build lists them on screen.
 
@@ -114,6 +116,28 @@ During the slide the camera is not following. It is on the tween. Afterward it f
 
 Solids are drawn in one chunk per screen, clipped to that screen, so a room several screens wide does not redraw geometry the camera cannot see. The player collides with every solid in the room, drawn or not, so it can land on a platform that is just off screen. Touching a door is a box overlap tested every tick.
 
+### Things in rooms
+
+A room file may start with a **legend**: the line `legend:`, lines of `G = kind key=value ...`, and a line of `---`, before the grid. Each legend line gives a glyph one thing to stand for, and the glyph is drawn once in the grid.
+
+```
+legend:
+  U = pickup id=r5_width upgrade=imprint_width value=3
+---
+```
+
+The glyph must be a letter or digit that `Tiles` does not use. Every legend problem is a load error with the room and the line: an unknown kind, a missing or misspelled setting, an upgrade or value that does not exist, a glyph drawn zero or two times, a glyph in the outer wall, a legend with no `---`. `id` is required on every thing. It is written in the file, never derived from position, so a room can be redrawn without losing what the save remembers. Ids are unique across the world.
+
+The kinds are listed in `src/world/entities.gd`, with the settings each needs. There is one, `pickup`. Adding a kind is a line there, a script in `src/world/entities/`, and a case in `Entities.create`. `Room.build` makes the things in a room and leaves out any that the player has already taken.
+
+A **pickup** is a small diamond. Touching it gives its upgrade, shows one line at the top of the screen, and saves. It is gone from then on. What it gives is looked up in `data/upgrades.json`: each upgrade is a name, the ability it changes (`stat`), and a `kind`. A `max` upgrade raises a number and never lowers it, so finding a smaller one late does nothing. An `add` upgrade gains a named effect, once.
+
+### Saving
+
+The game saves to `user://save.json` when a room is entered and when a pickup is taken, and loads it on start. The file holds a version number, the room and the position in it, the visited rooms, the abilities, and the flags (one per pickup taken, `pickup:<id>`). On entering a room the position is where the player arrived. After a pickup it is the last safe floor in that room, so loading never puts the player in the air above spikes.
+
+A file that cannot be read, or that a newer version of the game wrote, is moved aside as `save.json.bad` and the game starts new, so it is never overwritten. A save for a room that no longer exists keeps the abilities and the map and starts in the start room. Headless runs and games started with `--room=` or `?room=` never read or write a save. F4 only warps inside a normal game, which keeps saving. `--new-game` ignores the save and the next autosave replaces it. To change the save's shape, raise `Save.VERSION` and add a step to `Save._migrate`.
+
 ### The current slice
 
 Five rooms, as content, not as the limit of the format.
@@ -122,7 +146,7 @@ Five rooms, as content, not as the limit of the format.
 - **2**, one screen at `(1, 0)`. The landing from 1's door, steps down to the right, and a floor-level door in the right wall.
 - **3**, two screens wide at `(2, 0)`. Entered through that floor-level door. Platforms carry the route across the second screen. The same door is the way back. A hole in the floor of its second screen drops down to room 4.
 - **4**, one screen at `(3, 1)`, under that hole. A zigzag of platforms climbs back to the hole, and a second hole in its floor drops to room 5.
-- **5**, one screen at `(3, 2)`. A patch of spikes in the floor, a platform over it, and a zigzag of platforms up to the hole in its ceiling.
+- **5**, one screen at `(3, 2)`. A patch of spikes in the floor, a platform over it, and a zigzag of platforms up to the hole in its ceiling. A pickup on the top platform widens the Imprint to 3. Nothing uses an Imprint yet, so it only changes a number.
 
 ### Starting in a room
 
@@ -137,11 +161,12 @@ A **ledge** is a run of cells with air above and floor below. From each ledge th
 - **Error:** a room, or a door in a reachable room, that no path from the start reaches.
 - **Error:** a door that every body going through it lands on nothing after, because the room beyond has a void or only spikes under it. The check is that some entry lands on a ledge. It does not promise that every entry does, so a shaft can still be hard to climb out of: play it.
 - **Error:** a trap, meaning a ledge the player can reach but from which no path leads back to the start. Falling into a pit too deep to jump out of is one. The first version of room 3 was one.
+- **Error:** a pickup in a reachable room that no sampled path touches. A path that touches it and then dies on spikes still counts, because the pickup was taken. Only paths that start on a ledge are tried, so a pickup that can be taken only by falling through a door onto it is reported as out of reach.
 - **Warning:** a ledge nobody reached. The solver tries a fixed set of inputs, so a ledge it misses might still be reachable by a path it did not think of. Look at the render and decide.
 
 `tools/render.sh` draws each room and the world map to `build/renders/`. Red bars mark unreachable ledges, yellow bars mark traps, and orange marks a door that was sealed.
 
-Imprint will add platforms to the solids and let paths use them. The solver already takes an ability set for that and ignores it for now.
+Imprint will add platforms to the solids and let paths use them. The solver takes the player's `Abilities` for that and ignores them for now, so every room is solved with the starting abilities, and the validator lists each pickup and what it gives. Once abilities change what a path can do, the validator will solve again after taking each pickup it can reach, and report which pickups each room needs.
 
 ## Camera
 
@@ -230,7 +255,7 @@ Authored rooms should be solvable only with the upgrades available up to that po
 
 ### Upgrades
 
-Upgrades are pickups in the world, written into a room's ASCII with their own character, and kept on the player once collected. Leaving a room does not take them away.
+Upgrades are pickups in the world, written into a room's legend and drawn with their own character, and kept on the player once collected, and in the save. Leaving a room does not take them away.
 
 | Upgrade | Starts at | Grows to |
 | --- | --- | --- |
@@ -243,7 +268,7 @@ Width, duration, and behavior are the three things a room can demand. A later ro
 
 Bounce is the first special behavior. Others can be added the same way: a property of the placed platform, found as a pickup, and required by some later gap.
 
-The starting values are already stored: width 2, duration 4 seconds, one at a time, no special behavior.
+The starting values are the defaults in `Abilities` (`src/core/abilities.gd`): width 2, duration 4 seconds, one at a time, no special behavior. They live in `GameState.abilities`.
 
 ### Look
 
@@ -265,4 +290,5 @@ The sparkle and the shards are small. They should read at 320×180 and survive t
 - Imprint pickup glyphs, what they look like, and where the first ones are.
 - Whether a shattered Imprint can be replaced instantly, or the break has a beat of recovery.
 - Sound, throughout.
-- A save. Visited rooms and abilities currently last for the session. Only the palette choice is specified to persist.
+- A way to start over from inside the game. `--new-game` does it from the command line and the web address.
+- Where the player resumes: a dedicated save point glyph, if autosave on room entry feels wrong.

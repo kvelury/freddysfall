@@ -11,7 +11,7 @@ Run from the repo root.
 | `tools/validate.sh` | Loads every room and solves the world. A room is not done until this exits 0. |
 | `tools/render.sh [ids]` | PNGs of rooms and the world map in `build/renders/`. Read them to see what you built. |
 | `tools/snap.sh <id>` | A real in-game frame of a room in `build/snaps/`. Opens a window for a second, so run it on the user's machine. |
-| `godot --headless --path . --script tests/<name>.gd` | `reach_test`, `physics_test`, `parity_test`, `door_test`, `shaft_test`, `hazard_test`, `start_test`. Each prints a pass line and exits 0. |
+| `godot --headless --path . --script tests/<name>.gd` | `reach_test`, `physics_test`, `parity_test`, `door_test`, `shaft_test`, `hazard_test`, `start_test`, `entity_test`, `save_test`, `pickup_test`. Each prints a pass line and exits 0. |
 | `godot --path . -- --room=<id>` | Play starting in a room. In the browser, `?room=<id>`. In a debug build, F4, the number, Enter. |
 | `tools/build_web.sh` then `tools/serve.sh` | The browser build at http://localhost:8060. |
 
@@ -36,9 +36,20 @@ A screen is **32 columns by 18 rows**, one cell being 10 px. A room is a whole n
 | `~` | A cell that refuses an Imprint. Nothing uses it yet. |
 | `^` | Spikes. Not solid. The player dies on touching one and comes back on the last safe floor. |
 
-Any other character is an error. Every cell on the border of a room has to be `#` or `X`, and an `X` cannot sit on a corner.
+Letters and digits that the legend below defines are also allowed. Any other character is an error. Every cell on the border of a room has to be `#` or `X`, and an `X` cannot sit on a corner.
 
 **Doors.** Doors are crossed with momentum: a body keeps its speed and its place along the wall, and is pushed about 20 px (two cells) into the next room, so leave that much clear space behind a door. A door in a floor drops the player in. A door in a ceiling lifts them: aim the room below so a platform within a jump of it leads up to the hole, and leave the room above floor on one side of the hole to land on. Draw an `X` run in the outer wall, one cell thick. It pairs with the `X` run on the facing wall of the room that sits next to it, and the two have to overlap along the wall. A door that crosses a screen boundary is split into one door per screen. If nothing sits on the far side, the door is sealed to wall until a room is placed there. If a room sits there and the doors do not line up, that is an error.
+
+**Things in a room (the legend).** A room that holds a pickup starts with a header, then a line of three dashes, then the grid as usual:
+
+```
+legend:
+  U = pickup id=r5_width upgrade=imprint_width value=3
+---
+######...
+```
+
+`U` is any letter or digit the glyph table does not use. Draw it once in the grid, in open air or on a platform, and never in the outer wall. A legend glyph is one thing: two pickups need two glyphs and two ids. `id` is required, stable, and unique across the whole world, because the save remembers a pickup by it: never rename one, and never derive it from where it sits. `upgrade` is a key of `data/upgrades.json` (`imprint_width`, `imprint_duration`, `imprint_max_active`, `imprint_effect`), and `value` is a whole number, a number, or an effect name to match. A pickup that no jump can touch is a validation error. The user's key for pickups in a drawing becomes legend lines: ask what upgrade and value a drawn pickup is if the drawing does not say.
 
 For worked examples, open `data/rooms/2.txt` (one screen, a door in each side wall) and `data/rooms/3.txt` (two screens wide, one door).
 
