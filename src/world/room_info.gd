@@ -36,6 +36,14 @@ func is_solid(x: int, y: int) -> bool:
 	return Tiles.has_flag(row[x], "solid")
 
 
+## Where the player is put when a room is started in directly, not entered
+## through a door: on its P, or else just inside its first door.
+func start_cell() -> Vector2i:
+	if has_spawn or exits.is_empty():
+		return spawn_cell
+	return stand_cell_for_rect(exits[0].rect)
+
+
 func exit_on(edge: String) -> Door:
 	for door in exits:
 		if door.edge == edge:

@@ -6,6 +6,9 @@ const TRANSITION_TIME := 0.5
 @onready var player: Player = $Player
 @onready var camera: Camera2D = $Camera2D
 
+## Set before the world enters the tree to start in this room. The command
+## line (`-- --room=3`) and, on the web, `?room=3` fill it in when it is empty.
+var start_override := ""
 var current: Room
 var _pending: Room
 var _busy := false
@@ -19,13 +22,47 @@ func _ready() -> void:
 	# integer-scaled tiles while a room scrolls. The player still interpolates.
 	camera.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 	camera.make_current()
-	current = _make_room(WorldData.start_room)
-	player.global_position = current.position + Grid.cell_center(current.info.spawn_cell)
+	var id := start_override if not start_override.is_empty() else _requested_room()
+	if id.is_empty():
+		id = WorldData.start_room
+	elif not WorldData.rooms.has(id):
+		push_error("There is no room \"%s\" to start in. Rooms: %s" % [id, ", ".join(WorldData.rooms.keys())])
+		id = WorldData.start_room
+	_place_in(id)
+
+
+## Puts the player in a room straight away, with no slide. For testing a room
+## without playing to it. Returns false if there is no such room or the world
+## is mid-transition.
+func warp_to(id: String) -> bool:
+	if _busy or not WorldData.rooms.has(id):
+		return false
+	_place_in(id)
+	return true
+
+
+func _place_in(id: String) -> void:
+	if current != null:
+		current.set_exits_active(false)
+		current.queue_free()
+	current = _make_room(id)
+	player.global_position = current.position + Grid.cell_center(current.info.start_cell())
 	player.reset_physics_interpolation()
 	player.velocity = Vector2.ZERO
 	camera.position = _camera_focus(current, player.global_position)
 	current.set_exits_active(true)
-	GameState.visit(WorldData.start_room)
+	GameState.visit(id)
+
+
+func _requested_room() -> String:
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--room="):
+			return arg.substr(7)
+	if OS.has_feature("web"):
+		var value = JavaScriptBridge.eval("new URLSearchParams(window.location.search).get('room')")
+		if value != null:
+			return String(value)
+	return ""
 
 
 func _physics_process(_delta: float) -> void:

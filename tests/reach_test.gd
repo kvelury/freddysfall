@@ -138,6 +138,13 @@ func _loader() -> bool:
 	ok = _check(paired["errors"].is_empty() and first.exit_on("right").dest_id == "2", "facing doors pair up %s" % [paired["errors"]]) and ok
 	ok = _check(first.exit_on("right").dest_rect == Rect2i(0, 5, 1, 2), "a door knows the rect of the door it meets") and ok
 
+	# A room with no P is started in beside its first door.
+	var west_door := {Vector2i(0, 15): "X", Vector2i(0, 16): "X"}
+	var east_door := {Vector2i(31, 15): "X", Vector2i(31, 16): "X"}
+	var pair := _world([_entry("1", Vector2i(1, 0), _box(west_door)), _entry("2", Vector2i(0, 0), _box(east_door, false))])
+	ok = _check(pair["errors"].is_empty() and (pair["rooms"]["2"] as RoomInfo).start_cell() == Vector2i(29, 16), "a room without P starts beside its door (%s)" % (pair["rooms"]["2"] as RoomInfo).start_cell()) and ok
+	ok = _check((pair["rooms"]["1"] as RoomInfo).start_cell() == Vector2i(2, 16), "a room with P starts on it") and ok
+
 	var unmatched := _world([_entry("1", Vector2i(0, 0), _box(door)), _entry("2", Vector2i(1, 0), _box({}, false))])
 	var stuck: RoomInfo = unmatched["rooms"]["1"]
 	ok = _check(_has_error(unmatched["errors"], "0 matching doors"), "a door facing a wall is an error") and ok
