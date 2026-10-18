@@ -11,7 +11,7 @@ Run from the repo root.
 | `tools/validate.sh` | Loads every room and solves the world. A room is not done until this exits 0. |
 | `tools/render.sh [ids]` | PNGs of rooms and the world map in `build/renders/`. Read them to see what you built. |
 | `tools/snap.sh <id>` | A real in-game frame of a room in `build/snaps/`. Opens a window for a second, so run it on the user's machine. |
-| `godot --headless --path . --script tests/<name>.gd` | `reach_test`, `physics_test`, `parity_test`, `door_test`, `start_test`. Each prints a pass line and exits 0. |
+| `godot --headless --path . --script tests/<name>.gd` | `reach_test`, `physics_test`, `parity_test`, `door_test`, `shaft_test`, `hazard_test`, `start_test`. Each prints a pass line and exits 0. |
 | `godot --path . -- --room=<id>` | Play starting in a room. In the browser, `?room=<id>`. In a debug build, F4, the number, Enter. |
 | `tools/build_web.sh` then `tools/serve.sh` | The browser build at http://localhost:8060. |
 
@@ -34,10 +34,11 @@ A screen is **32 columns by 18 rows**, one cell being 10 px. A room is a whole n
 | `X` | A door: an opening in the room's outer wall. |
 | `P` | Where the player starts. Required in the start room. In any other room it is where `--room=<id>` puts the player. |
 | `~` | A cell that refuses an Imprint. Nothing uses it yet. |
+| `^` | Spikes. Not solid. The player dies on touching one and comes back on the last safe floor. |
 
 Any other character is an error. Every cell on the border of a room has to be `#` or `X`, and an `X` cannot sit on a corner.
 
-**Doors.** Draw an `X` run in the outer wall, one cell thick. It pairs with the `X` run on the facing wall of the room that sits next to it, and the two have to overlap along the wall. A door that crosses a screen boundary is split into one door per screen. If nothing sits on the far side, the door is sealed to wall until a room is placed there. If a room sits there and the doors do not line up, that is an error.
+**Doors.** Doors are crossed with momentum: a body keeps its speed and its place along the wall, and is pushed about 20 px (two cells) into the next room, so leave that much clear space behind a door. A door in a floor drops the player in. A door in a ceiling lifts them: aim the room below so a platform within a jump of it leads up to the hole, and leave the room above floor on one side of the hole to land on. Draw an `X` run in the outer wall, one cell thick. It pairs with the `X` run on the facing wall of the room that sits next to it, and the two have to overlap along the wall. A door that crosses a screen boundary is split into one door per screen. If nothing sits on the far side, the door is sealed to wall until a room is placed there. If a room sits there and the doors do not line up, that is an error.
 
 For worked examples, open `data/rooms/2.txt` (one screen, a door in each side wall) and `data/rooms/3.txt` (two screens wide, one door).
 
@@ -49,6 +50,7 @@ Design to what the player can do, then let `tools/validate.sh` decide.
 - A running jump on flat ground crosses about 7 cells.
 - A tap rises about 1.5 cells.
 - The player is one cell wide and one cell tall.
+- Touching a ceiling door, a player leaves at least 180 px/s upward. That rises about 2 cells, so a hole in the floor above should be narrow enough, or have floor close enough, for the player to steer onto.
 
 ## Adding a room from a drawing
 

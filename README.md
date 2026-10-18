@@ -36,6 +36,8 @@ godot --headless --path . --script tests/reach_test.gd
 godot --headless --path . --script tests/physics_test.gd
 godot --headless --path . --script tests/parity_test.gd
 godot --headless --path . --script tests/door_test.gd
+godot --headless --path . --script tests/shaft_test.gd
+godot --headless --path . --script tests/hazard_test.gd
 ./tools/validate.sh
 ./tools/render.sh
 ./tools/snap.sh 3
@@ -47,6 +49,8 @@ godot --headless --path . --script tests/door_test.gd
 | `tests/physics_test.gd` | The player scene through room 1, jump by jump, and out its door. Prints `PHYSICS pass`. |
 | `tests/parity_test.gd` | Replays input plans through the player and through the solver's simulator. They must end within 0.01 px. Prints `PARITY pass`. |
 | `tests/door_test.gd` | The player walks through the door from room 2 to room 3 and back. Prints `DOOR pass`. |
+| `tests/shaft_test.gd` | The player drops down the hole in room 3 into room 4 and climbs back up, keeping speed through the doors. Prints `SHAFT pass`. |
+| `tests/hazard_test.gd` | Spikes and falling out of a room shatter the player and put them back on safe floor. Prints `HAZARD pass`. |
 | `tests/validate.gd` | Loads the whole world, then solves it: every room and door reachable from the start, nowhere to get stuck. Lists every problem and exits 1 if there is one. Run through `tools/validate.sh`. |
 | `tests/start_test.gd` | Starting in a chosen room and `warp_to` on the world scene. Prints `START pass`. |
 | `tests/render.gd` | Draws each room and the world map as PNGs in `build/renders/`, marking unreachable ledges, traps, and sealed doors. Run through `tools/render.sh`, optionally with room ids: `tools/render.sh 3 4`. |
