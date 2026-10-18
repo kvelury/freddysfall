@@ -23,6 +23,7 @@ func _run() -> bool:
 	passed = _reach_world(data) and passed
 	passed = _reach_cases() and passed
 	passed = _loader() and passed
+	passed = _crossing(data) and passed
 	passed = _camera() and passed
 	print("RESULT %s" % ("pass" if passed else "fail"))
 	return passed
@@ -67,10 +68,6 @@ func _links(data) -> bool:
 	var ok := true
 	ok = _check(a.exit_on("right").dest_id == "2", "room 1 right exit leads to 2") and ok
 	ok = _check(b.exit_on("left").dest_id == "1", "room 2 left exit leads to 1") and ok
-	var into_b: Vector2i = b.stand_cell_for_entry("left")
-	var back_to_a: Vector2i = a.stand_cell_for_entry("right")
-	ok = _check(not b.is_solid(into_b.x, into_b.y) and b.is_solid(into_b.x, into_b.y + 1), "room 2 entry %s is a standable cell" % into_b) and ok
-	ok = _check(not a.is_solid(back_to_a.x, back_to_a.y) and a.is_solid(back_to_a.x, back_to_a.y + 1), "room 1 return %s is a standable cell" % back_to_a) and ok
 	var c: RoomInfo = data.get_room("3")
 	ok = _check(c.screens == Vector2i(2, 1), "room 3 spans two screens") and ok
 	ok = _check(c.bounds_cells == Rect2i(0, 0, 64, 18), "room 3 bounds cover the whole room") and ok
@@ -80,14 +77,71 @@ func _links(data) -> bool:
 	ok = _check(b.exit_on("down") == null, "room 2 floor stays solid") and ok
 	ok = _check(side.dest_id == "3", "room 2 floor exit leads to 3") and ok
 	ok = _check(side_rect.position.y == 15 and side_rect.size == Vector2i(1, 2), "room 2 exit is a floor-level side door (%s)" % side_rect) and ok
-	var into_c: Vector2i = c.stand_cell_for_rect(side.dest_rect)
-	ok = _check(not c.is_solid(into_c.x, into_c.y) and c.is_solid(into_c.x, into_c.y + 1), "room 3 entry %s is a standable cell" % into_c) and ok
 	var back := c.exit_on("left")
 	var back_rect := back.rect
 	ok = _check(c.exit_on("up") == null, "room 3 ceiling stays solid") and ok
 	ok = _check(back.dest_id == "2", "room 3 side entrance leads back to 2") and ok
 	ok = _check(back_rect.position.y == 15 and back_rect.size == Vector2i(1, 2), "room 3 entrance is a floor-level side door (%s)" % back_rect) and ok
 	return ok
+
+
+## Where a body appears on the far side of a door.
+func _crossing(data) -> bool:
+	var ok := true
+	var one: RoomInfo = data.get_room("1")
+	var two: RoomInfo = data.get_room("2")
+	var three: RoomInfo = data.get_room("3")
+	var run := Vector2(90.0, 0.0)
+
+	# Same place along the wall, same velocity, and just clear of the far door.
+	var across := Door.crossing(one.exit_on("right"), two, Vector2(301.0, 35.0), run)
+	ok = _check(across["position"] == Vector2(339.5, 35.0), "crossing room 1's door keeps height and pushes in (%s)" % across["position"]) and ok
+	ok = _check(across["velocity"] == run, "crossing keeps velocity") and ok
+	var body := Rect2(across["position"] - Vector2(5, 5), Vector2(10, 10))
+	var trigger := two.exit_on("left").trigger_rect()
+	ok = _check(not Rect2(trigger.position + Vector2(320, 0), trigger.size).intersects(body), "a body that crossed is clear of the far trigger") and ok
+
+	# A door the body is not level with: it is carried along the wall to the far door.
+	var shifted := Door.crossing(two.exit_on("right"), three, Vector2(301.0, 145.0), run)
+	ok = _check(shifted["position"] == Vector2(659.5, 155.0), "crossing is clamped into the far door's rows (%s)" % shifted["position"]) and ok
+
+	# Up and down, between two rooms in a column.
+	var shaft := _world([
+		_entry("1", Vector2i(0, 1), _box(_cells_in(6, 0, 12, 0, "X"))),
+		_entry("2", Vector2i(0, 0), _box(_cells_in(6, 17, 12, 17, "X"), false)),
+	], "1")
+	var low: RoomInfo = shaft["rooms"]["1"]
+	var high: RoomInfo = shaft["rooms"]["2"]
+	ok = _check(shaft["errors"].is_empty(), "a two-room shaft loads clean %s" % [shaft["errors"]]) and ok
+	var rising := Door.crossing(low.exit_on("up"), high, Vector2(95.0, 195.0), Vector2(0.0, -50.0))
+	ok = _check(rising["position"] == Vector2(95.0, 160.5), "going up pushes into the room above (%s)" % rising["position"]) and ok
+	ok = _check(rising["velocity"].y == -Door.UP_BOOST, "going up slowly is lifted to the minimum rise (%s)" % rising["velocity"]) and ok
+	var leaping := Door.crossing(low.exit_on("up"), high, Vector2(95.0, 195.0), Vector2(0.0, -300.0))
+	ok = _check(leaping["velocity"].y == -300.0, "going up fast is not slowed") and ok
+	var edge := Door.crossing(low.exit_on("up"), high, Vector2(20.0, 195.0), Vector2.ZERO)
+	ok = _check(edge["position"].x == 65.0, "crossing is clamped into the far door's columns (%s)" % edge["position"]) and ok
+	var falling := Door.crossing(high.exit_on("down"), low, Vector2(95.0, 170.0), Vector2(30.0, 200.0))
+	ok = _check(falling["position"] == Vector2(95.0, 199.5) and falling["velocity"] == Vector2(30.0, 200.0), "going down keeps velocity and drops in (%s)" % falling["position"]) and ok
+
+	# A wall right behind the far door shortens the push instead of burying the body.
+	var tight := _cells_in(0, 15, 0, 16, "X")
+	tight.merge(_cells_in(1, 15, 3, 16, "#"))
+	var walled := _world([
+		_entry("1", Vector2i(0, 0), _box(_cells_in(31, 15, 31, 16, "X"))),
+		_entry("2", Vector2i(1, 0), _box(tight, false)),
+	], "1")
+	var behind: RoomInfo = walled["rooms"]["2"]
+	var squeezed := Door.crossing((walled["rooms"]["1"] as RoomInfo).exit_on("right"), behind, Vector2(301.0, 165.0), run)
+	ok = _check(squeezed["position"].x == 325.0, "a wall behind the door shortens the push (%s)" % squeezed["position"]) and ok
+	return ok
+
+
+func _cells_in(x0: int, y0: int, x1: int, y1: int, glyph: String) -> Dictionary:
+	var cells := {}
+	for y in range(y0, y1 + 1):
+		for x in range(x0, x1 + 1):
+			cells[Vector2i(x, y)] = glyph
+	return cells
 
 
 ## Builds worlds from strings so every way a room file can be wrong is checked
@@ -142,8 +196,8 @@ func _loader() -> bool:
 	var west_door := {Vector2i(0, 15): "X", Vector2i(0, 16): "X"}
 	var east_door := {Vector2i(31, 15): "X", Vector2i(31, 16): "X"}
 	var pair := _world([_entry("1", Vector2i(1, 0), _box(west_door)), _entry("2", Vector2i(0, 0), _box(east_door, false))])
-	ok = _check(pair["errors"].is_empty() and (pair["rooms"]["2"] as RoomInfo).start_cell() == Vector2i(29, 16), "a room without P starts beside its door (%s)" % (pair["rooms"]["2"] as RoomInfo).start_cell()) and ok
-	ok = _check((pair["rooms"]["1"] as RoomInfo).start_cell() == Vector2i(2, 16), "a room with P starts on it") and ok
+	ok = _check(pair["errors"].is_empty() and (pair["rooms"]["2"] as RoomInfo).start_position() == Vector2(300.5, 165), "a room without P starts just inside its door (%s)" % (pair["rooms"]["2"] as RoomInfo).start_position()) and ok
+	ok = _check((pair["rooms"]["1"] as RoomInfo).start_position() == Vector2(25, 165), "a room with P starts on it") and ok
 
 	var unmatched := _world([_entry("1", Vector2i(0, 0), _box(door)), _entry("2", Vector2i(1, 0), _box({}, false))])
 	var stuck: RoomInfo = unmatched["rooms"]["1"]
@@ -235,6 +289,36 @@ func _reach_cases() -> bool:
 	report = _solve([_entry("1", Vector2i(0, 0), _box(floor_a)), _entry("2", Vector2i(1, 0), _box(floor_b, false))])
 	ok = _check(report.errors.is_empty() and report.traps.is_empty(), "floor-level doors connect two rooms both ways %s" % [report.errors]) and ok
 	ok = _check(report.reached_ledges == 2 and report.total_ledges == 2, "both floors are reached (%d of %d)" % [report.reached_ledges, report.total_ledges]) and ok
+
+	# A shaft with a hole in room 1's floor and nothing to climb in room 2.
+	var hole := _cells_in(6, 17, 12, 17, "X")
+	var ceiling := _cells_in(6, 0, 12, 0, "X")
+	report = _solve([_entry("1", Vector2i(0, 0), _box(hole)), _entry("2", Vector2i(0, 1), _box(ceiling, false))])
+	ok = _check(report.traps.size() == 1 and report.traps[0].room_id == "2", "a shaft with no way back up is a trap (%d traps)" % report.traps.size()) and ok
+
+	# The same shaft with a zigzag of platforms up to the ceiling hole.
+	var stairs := ceiling.duplicate()
+	stairs.merge(_cells_in(14, 13, 19, 13, "#"))
+	stairs.merge(_cells_in(5, 9, 10, 9, "#"))
+	stairs.merge(_cells_in(14, 5, 19, 5, "#"))
+	# Start on the right of the hole, the side the climb comes out on. A start on
+	# the left would be cut off from it by a hole too wide to jump.
+	var home := hole.duplicate()
+	home[Vector2i(20, 16)] = "P"
+	report = _solve([_entry("1", Vector2i(0, 0), _box(home, false)), _entry("2", Vector2i(0, 1), _box(stairs, false))])
+	ok = _check(report.errors.is_empty() and report.traps.is_empty(), "a zigzag of platforms makes the shaft climbable both ways %s" % [report.errors]) and ok
+
+	# A door that drops everyone onto spikes.
+	var spikes := ceiling.duplicate()
+	spikes.merge(_cells_in(1, 16, 30, 16, "^"))
+	report = _solve([_entry("1", Vector2i(0, 0), _box(hole)), _entry("2", Vector2i(0, 1), _box(spikes, false))])
+	ok = _check(_has_line(report.errors, "never lands on anything"), "a door onto nothing but spikes is an error %s" % [report.errors]) and ok
+
+	# Spikes in the floor: a narrow patch can be jumped, a wide one cannot.
+	report = _solve([_entry("1", Vector2i(0, 0), _box(_cells_in(10, 16, 13, 16, "^")))])
+	ok = _check(report.errors.is_empty() and report.unreached.is_empty() and report.total_ledges == 2, "a 4 cell patch of spikes can be jumped (%d ledges, %d unreached)" % [report.total_ledges, report.unreached.size()]) and ok
+	report = _solve([_entry("1", Vector2i(0, 0), _box(_cells_in(8, 16, 26, 16, "^")))])
+	ok = _check(report.unreached.size() == 1 and report.unreached[0].x0 == 27, "a 19 cell patch of spikes cannot (%d unreached)" % report.unreached.size()) and ok
 	return ok
 
 

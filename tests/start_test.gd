@@ -4,6 +4,11 @@ extends SceneTree
 
 
 func _initialize() -> void:
+	# A script error inside a coroutine leaves the test waiting forever.
+	create_timer(90.0).timeout.connect(func() -> void:
+		print("FAIL timed out")
+		quit(1)
+	)
 	_run()
 
 

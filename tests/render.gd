@@ -4,7 +4,7 @@ extends SceneTree
 ## drawing and its translation can be compared by eye. Name room ids after
 ## `--` to draw only those. tools/render.sh runs this.
 ##
-## Colours: white solid, green door, cyan player start, orange a door that was
+## Colours: white solid, green door, cyan player start, purple spikes, orange a door that was
 ## sealed because nothing is on the far side, grey dots a no-imprint cell,
 ## magenta a glyph the loader does not know. Red bar on a ledge nobody can
 ## reach, yellow bar on a ledge you cannot get back from, red box on a door
@@ -24,6 +24,7 @@ const DOOR := Color(0.2, 0.8, 0.3)
 const START := Color(0.2, 0.85, 0.95)
 const SEALED := Color(0.95, 0.55, 0.1)
 const UNKNOWN := Color(1, 0, 1)
+const HAZARD := Color(0.65, 0.35, 0.95)
 const NO_IMPRINT := Color(0.5, 0.5, 0.5)
 const UNREACHED := Color(0.95, 0.2, 0.2)
 const TRAP := Color(0.95, 0.85, 0.1)
@@ -122,6 +123,8 @@ func _cell_color(glyph: String) -> Color:
 		return UNKNOWN
 	if Tiles.has_flag(glyph, "solid"):
 		return SOLID
+	if Tiles.has_flag(glyph, "hazard"):
+		return HAZARD
 	if Tiles.has_flag(glyph, "door"):
 		return DOOR
 	if Tiles.has_flag(glyph, "spawn"):

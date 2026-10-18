@@ -107,6 +107,8 @@ static func _scan_cells(info: RoomInfo, errors: Array[String]) -> void:
 				info.spawn_cell = Vector2i(x, y)
 			if Tiles.has_flag(glyph, "no_imprint"):
 				info.no_imprint.append(Vector2i(x, y))
+			if Tiles.has_flag(glyph, "hazard"):
+				info.hazards.append(Vector2i(x, y))
 			var on_edge := x == 0 or y == 0 or x == width - 1 or y == height - 1
 			if on_edge and not Tiles.is_wall_glyph(glyph):
 				open_edge.append("Room %s edge cell %d,%d is '%s'; the outer wall must be %s or %s" % [info.id, x, y, glyph, Tiles.SOLID, Tiles.EXIT])

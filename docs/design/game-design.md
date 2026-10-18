@@ -94,6 +94,7 @@ A room is an ASCII file, `data/rooms/<id>.txt`. Its id is a number (`1`, `2`, `3
 | `X` | An exit opening. It has to sit on the room's outer edge, and not on a corner. An opening that crosses a screen boundary is split into one exit per screen. |
 | `P` | Where the player starts, the first time, in the start room. Also a standable mark used when entering, and where the player is put when a room is started in directly. |
 | `~` | A cell that refuses an Imprint. Collected now. Used when Imprint is built. |
+| `^` | Spikes. Not solid: the player can walk into them, and dies. |
 
 Every glyph lives in one table, `src/world/tiles.gd`. A character that is not in it is a load error, not an empty cell. Every cell on a room's outer border has to be `#` or `X`, so the player cannot walk out of the world. Load collects every problem it finds (`WorldData.errors`) instead of stopping at the first. `tools/validate.sh` prints them and exits non-zero, and a debug build lists them on screen.
 
@@ -103,7 +104,11 @@ Each opening is a specific door. A room can have more than one. "A distinct entr
 
 Every opening that is left gets a halo: a dithered half-disc of light in the gap, with a pulse, so the way out reads before the player touches it. A sealed opening is plain wall and has none.
 
-**Crossing.** Touching an exit pauses input, builds the next room at `grid_pos × 320×180`, and puts the player just inside the matching door. The camera slides to the view at that entry over about 0.5 s, ease in and out. Then the old room is freed and control returns. Only the current room is in the scene, plus the next one during the slide, so a larger world does not cost more per frame.
+**Crossing.** Touching an exit pauses input and builds the next room at `grid_pos × 320×180`. Rooms share world coordinates, so the player does not change place: they keep their height along a side wall, or their column along a floor or ceiling, and are pushed just far enough into the next room to clear the far door's trigger (about 20 px past the wall). If the two doors are not level, the player is carried along the wall into the far door's span. If a wall is right behind the far door, the push is shortened. The camera slides to the view at that entry over about 0.5 s, ease in and out, and then the old room is freed and control returns with the velocity the player had at the door. Only the current room is in the scene, plus the next one during the slide, so a larger world does not cost more per frame.
+
+An **up** door lifts a slow player: they leave it rising at 180 px/s at least, so touching a ceiling door near the top of a jump does not stall in the doorway. A **down** door drops them in with whatever speed they had.
+
+**Dying.** Touching spikes, or leaving the room's outline by more than 60 px, shatters the player into a burst of pixels for about 0.6 s, and then puts them back on the last safe floor. A floor is safe if the player stood on it and it is not within a cell of spikes or within two cells of a doorway. The safe floor can be in the room before: dying right after a door puts the player back through it. Spawning in a room also counts as a safe floor.
 
 During the slide the camera is not following. It is on the tween. Afterward it follows again.
 
@@ -111,11 +116,13 @@ Solids are drawn in one chunk per screen, clipped to that screen, so a room seve
 
 ### The current slice
 
-Three rooms, as content, not as the limit of the format.
+Five rooms, as content, not as the limit of the format.
 
 - **1**, one screen at `(0, 0)`. Three tiers of platforms, each a running jump apart, and an exit in the right wall. This is the movement test.
 - **2**, one screen at `(1, 0)`. The landing from 1's door, steps down to the right, and a floor-level door in the right wall.
-- **3**, two screens wide at `(2, 0)`. Entered through that floor-level door. Platforms carry the route across the second screen. The same door is the way back. There is no door on the far right.
+- **3**, two screens wide at `(2, 0)`. Entered through that floor-level door. Platforms carry the route across the second screen. The same door is the way back. A hole in the floor of its second screen drops down to room 4.
+- **4**, one screen at `(3, 1)`, under that hole. A zigzag of platforms climbs back to the hole, and a second hole in its floor drops to room 5.
+- **5**, one screen at `(3, 2)`. A patch of spikes in the floor, a platform over it, and a zigzag of platforms up to the hole in its ceiling.
 
 ### Starting in a room
 
@@ -125,9 +132,10 @@ For testing, the game can begin in any room: `--room=<id>` on the command line, 
 
 A room is not finished when it loads. `tools/validate.sh` also plays the whole world with the movement simulator, starting from the `P` in the start room, and fails if the world cannot be played.
 
-A **ledge** is a run of cells with air above and floor below. From each ledge the solver tries walking off either end, and jumps from every cell with the input held left, none, or right, and the jump held for a tap, a hop, or the full leap. Each try is the same `MovementSim` the player runs. A try that lands on another ledge, or touches a door, is an edge in the graph. A door's far side puts the player on the ledge `stand_cell_for_rect` picks.
+A **ledge** is a run of cells with air above and floor below. From each ledge the solver tries walking off either end, and jumps from every cell with the input held left, none, or right, and the jump held for a tap, a hop, or the full leap. Each try is the same `MovementSim` the player runs. A try that lands on another ledge, or touches a door, is an edge in the graph. A try that touches a door records the body's position and velocity there. `Door.crossing`, the same function the game uses, says where that body appears on the far side, and the solver lets it fall or walk from there to see which ledge it lands on. A body that touches spikes is dead, so a path through them is not a path.
 
 - **Error:** a room, or a door in a reachable room, that no path from the start reaches.
+- **Error:** a door that every body going through it lands on nothing after, because the room beyond has a void or only spikes under it. The check is that some entry lands on a ledge. It does not promise that every entry does, so a shaft can still be hard to climb out of: play it.
 - **Error:** a trap, meaning a ledge the player can reach but from which no path leads back to the start. Falling into a pit too deep to jump out of is one. The first version of room 3 was one.
 - **Warning:** a ledge nobody reached. The solver tries a fixed set of inputs, so a ledge it misses might still be reachable by a path it did not think of. Look at the render and decide.
 

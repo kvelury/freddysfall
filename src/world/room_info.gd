@@ -17,6 +17,8 @@ var exits: Array[Door] = []
 ## Openings the loader closed because nothing was on the other side.
 var sealed: Array[Rect2i] = []
 var no_imprint: Array[Vector2i] = []
+## Cells that kill on touch.
+var hazards: Array[Vector2i] = []
 
 
 func occupied_cells() -> Array[Vector2i]:
@@ -36,12 +38,13 @@ func is_solid(x: int, y: int) -> bool:
 	return Tiles.has_flag(row[x], "solid")
 
 
-## Where the player is put when a room is started in directly, not entered
-## through a door: on its P, or else just inside its first door.
-func start_cell() -> Vector2i:
+## Room-local pixels where the player is put when a room is started in
+## directly, not entered through a door: on its P, or else just inside its
+## first door, to fall from there.
+func start_position() -> Vector2:
 	if has_spawn or exits.is_empty():
-		return spawn_cell
-	return stand_cell_for_rect(exits[0].rect)
+		return Grid.cell_center(spawn_cell)
+	return exits[0].doorway(self)
 
 
 func exit_on(edge: String) -> Door:
@@ -51,36 +54,17 @@ func exit_on(edge: String) -> Door:
 	return null
 
 
-func stand_cell_for_entry(edge: String) -> Vector2i:
-	var door := exit_on(edge)
-	if door == null:
-		return spawn_cell
-	return _stand_on(door)
-
-
-func stand_cell_for_rect(rect: Rect2i) -> Vector2i:
+func door_by_rect(rect: Rect2i) -> Door:
 	for door in exits:
 		if door.rect == rect:
-			return _stand_on(door)
-	return spawn_cell
+			return door
+	return null
 
 
-func _stand_on(door: Door) -> Vector2i:
-	var gap := door.rect
-	if door.is_side():
-		var row := gap.position.y + gap.size.y - 1
-		var col := gap.position.x
-		var step_dir := 1 if door.edge == "left" else -1
-		for step in range(2, 8):
-			var c := col + step_dir * step
-			if not is_solid(c, row) and is_solid(c, row + 1):
-				return Vector2i(c, row)
-	else:
-		var col := gap.position.x + int(gap.size.x / 2.0)
-		var row := gap.position.y
-		var step_dir := 1 if door.edge == "up" else -1
-		for step in range(2, 8):
-			var r := row + step_dir * step
-			if not is_solid(col, r) and is_solid(col, r + 1):
-				return Vector2i(col, r)
-	return spawn_cell
+func is_hazard(x: int, y: int) -> bool:
+	if y < 0 or y >= rows.size():
+		return false
+	var row := rows[y]
+	if x < 0 or x >= row.length():
+		return false
+	return Tiles.has_flag(row[x], "hazard")

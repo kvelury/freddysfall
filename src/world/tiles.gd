@@ -10,6 +10,7 @@ const EMPTY := "."
 const EXIT := "X"
 const SPAWN := "P"
 const NO_IMPRINT := "~"
+const HAZARD := "^"
 
 const TABLE := {
 	"#": {"solid": true},
@@ -17,6 +18,7 @@ const TABLE := {
 	"X": {"door": true},
 	"P": {"spawn": true},
 	"~": {"no_imprint": true},
+	"^": {"hazard": true},
 }
 
 
