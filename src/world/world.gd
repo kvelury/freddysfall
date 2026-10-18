@@ -1,6 +1,8 @@
 extends Node2D
 
 const TRANSITION_TIME := 0.5
+## How long the shatter plays before the player is put back on safe ground.
+const DEATH_TIME := 0.6
 
 @onready var rooms_root: Node2D = $Rooms
 @onready var player: Player = $Player
@@ -13,6 +15,11 @@ var current: Room
 var _pending: Room
 var _busy := false
 var _follow := true
+## Where the player was last standing somewhere safe, and in which room.
+var _safe_room := ""
+var _safe_position := Vector2.ZERO
+## Velocity the player had at a door, given back when the slide ends.
+var _carried := Vector2.ZERO
 
 
 func _ready() -> void:
@@ -41,12 +48,20 @@ func warp_to(id: String) -> bool:
 	return true
 
 
-func _place_in(id: String) -> void:
+## Builds room `id` and puts the player in it, at `world_position` or else at
+## the room's start. This is a cut, not a slide, and it is where the player
+## comes back to when they die.
+func _place_in(id: String, world_position := Vector2.INF) -> void:
 	if current != null:
 		current.set_exits_active(false)
 		current.queue_free()
 	current = _make_room(id)
-	player.place(current.position + Grid.cell_center(current.info.start_cell()), current.world_rects())
+	var at := world_position
+	if not at.is_finite():
+		at = current.position + current.info.start_position()
+	player.place(at, current.world_rects())
+	_safe_room = id
+	_safe_position = at
 	camera.position = _camera_focus(current, player.global_position)
 	current.set_exits_active(true)
 	GameState.visit(id)
@@ -67,9 +82,16 @@ func _physics_process(_delta: float) -> void:
 	if current == null:
 		return
 	if not _busy:
-		var door := current.touched_door(player.body_rect())
-		if door != null and not door.dest_id.is_empty():
-			_on_exit(door.edge, door.dest_id, door.dest_rect)
+		var body := player.body_rect()
+		if current.touches_hazard(body) or current.is_outside(player.global_position):
+			_die()
+		else:
+			var door := current.touched_door(body)
+			if door != null and not door.dest_id.is_empty():
+				_on_exit(door)
+			elif player.is_on_floor() and current.is_safe_spot(body):
+				_safe_room = current.info.id
+				_safe_position = player.global_position
 	if not _follow:
 		return
 	camera.position = _camera_focus(current, player.global_position)
@@ -84,23 +106,46 @@ func _make_room(id: String) -> Room:
 	return room
 
 
-func _on_exit(edge: String, dest_id: String, dest_rect: Rect2i) -> void:
-	if _busy or dest_id.is_empty():
+func _die() -> void:
+	_busy = true
+	player.input_enabled = false
+	player.velocity = Vector2.ZERO
+	player.visible = false
+	var burst := Shatter.new()
+	burst.position = player.global_position
+	add_child(burst)
+	var timer := create_tween()
+	timer.set_process_mode(Tween.TWEEN_PROCESS_PHYSICS)
+	timer.tween_interval(DEATH_TIME)
+	timer.finished.connect(_respawn)
+
+
+func _respawn() -> void:
+	_place_in(_safe_room, _safe_position)
+	player.visible = true
+	player.input_enabled = true
+	_follow = true
+	_busy = false
+
+
+## Crossing a door keeps the player's place along the wall and their
+## velocity. The player is frozen while the camera slides, and gets the
+## velocity back when it ends.
+func _on_exit(door: Door) -> void:
+	if _busy or door.dest_id.is_empty():
 		return
 	_busy = true
 	_follow = false
+	_carried = player.velocity
 	player.input_enabled = false
 	player.velocity = Vector2.ZERO
-	_begin_transition(edge, dest_id, dest_rect)
-
-
-func _begin_transition(_edge: String, dest_id: String, dest_rect: Rect2i) -> void:
 	current.set_exits_active(false)
-	_pending = _make_room(dest_id)
+	_pending = _make_room(door.dest_id)
 	_pending.set_exits_active(false)
-	var entry: Vector2i = _pending.info.stand_cell_for_rect(dest_rect)
-	player.place(_pending.position + Grid.cell_center(entry), _pending.world_rects())
-	GameState.visit(dest_id)
+	var crossed := Door.crossing(door, _pending.info, player.global_position, _carried)
+	_carried = crossed["velocity"]
+	player.place(crossed["position"], _pending.world_rects())
+	GameState.visit(door.dest_id)
 	var tween := create_tween()
 	tween.set_process_mode(Tween.TWEEN_PROCESS_PHYSICS)
 	tween.set_trans(Tween.TRANS_SINE)
@@ -116,6 +161,7 @@ func _finish_transition() -> void:
 	_pending = null
 	if current != null:
 		current.set_exits_active(true)
+	player.velocity = _carried
 	player.input_enabled = true
 	_busy = false
 	_follow = true

@@ -202,7 +202,9 @@ static func resolve(position: Vector2, velocity: Vector2, rects: Array, delta: f
 ## Runs one input plan from a standing start until the body lands, touches a
 ## trigger, or leaves `bounds`. `jump` false walks (or drops) without jumping.
 ## `triggers` are pixel rects; the result's "trigger" is the index of the first
-## one touched, or -1. An empty `bounds` means no limit.
+## one touched, or -1. A path that touches a `hazards` rect ends there and
+## reports "hazard": true, since the body would have died. An empty `bounds`
+## means no limit.
 static func simulate_jump(
 	cfg: MovementConfig,
 	rects: Array,
@@ -213,7 +215,8 @@ static func simulate_jump(
 	grounded_start: bool = true,
 	jump: bool = true,
 	triggers: Array = [],
-	bounds: Rect2 = Rect2()
+	bounds: Rect2 = Rect2(),
+	hazards: Array = []
 ) -> Dictionary:
 	var s := State.new()
 	s.position = start_position
@@ -225,12 +228,16 @@ static func simulate_jump(
 	var landed := false
 	var airborne := false
 	var trigger := -1
+	var hazard := false
 	var floor_rect := Rect2()
 	for frame in 180:
 		step(cfg, s, rects, input_x, jump and frame == 0, frame < hold_frames, delta)
 		min_feet = minf(min_feet, s.position.y + HALF.y)
 		if not s.grounded:
 			airborne = true
+		if _touching(s.position, HALF, hazards) >= 0:
+			hazard = true
+			break
 		trigger = _touching(s.position, HALF, triggers)
 		if trigger >= 0:
 			break
@@ -247,6 +254,7 @@ static func simulate_jump(
 		"floor": floor_rect,
 		"min_feet": min_feet,
 		"trigger": trigger,
+		"hazard": hazard,
 	}
 
 
