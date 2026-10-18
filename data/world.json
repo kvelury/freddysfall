@@ -1,8 +1,8 @@
 {
   "start_room": "1",
   "rooms": [
-    {"id": "1", "file": "res://data/rooms/1.txt", "grid_pos": [0, 0]},
-    {"id": "2", "file": "res://data/rooms/2.txt", "grid_pos": [1, 0]},
-    {"id": "3", "file": "res://data/rooms/3.txt", "grid_pos": [2, 0]}
+    {"id": "1", "grid_pos": [0, 0]},
+    {"id": "2", "grid_pos": [1, 0]},
+    {"id": "3", "grid_pos": [2, 0]}
   ]
 }

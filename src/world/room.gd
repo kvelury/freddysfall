@@ -3,11 +3,11 @@ extends Node2D
 
 signal exit_triggered(edge: String, dest_id: String, dest_rect: Rect2i)
 
-var info
+var info: RoomInfo
 var _areas: Array[Area2D] = []
 
 
-func build(room_info) -> void:
+func build(room_info: RoomInfo) -> void:
 	info = room_info
 	# One drawable chunk per screen. Godot culls a chunk whose rect is
 	# outside the camera, so a long room costs the same as the screens in view.
@@ -47,14 +47,14 @@ func _rects_in_screen(solids: Array[Rect2i], sx: int, sy: int) -> Array[Rect2i]:
 	return out
 
 
-func _add_exit(ex: Dictionary) -> void:
+func _add_exit(ex: Door) -> void:
 	var area := Area2D.new()
 	area.collision_layer = 0
 	area.collision_mask = 2
 	area.monitoring = false
 	area.monitorable = false
-	var pixel: Rect2 = Grid.cell_rect(ex["rect"])
-	match String(ex["edge"]):
+	var pixel: Rect2 = Grid.cell_rect(ex.rect)
+	match ex.edge:
 		"right":
 			pixel.position.x -= 4.0
 			pixel.size.x += 4.0
@@ -71,9 +71,9 @@ func _add_exit(ex: Dictionary) -> void:
 	shape_node.shape = shape
 	shape_node.position = pixel.get_center()
 	area.add_child(shape_node)
-	var edge := String(ex["edge"])
-	var dest := String(ex["dest_id"])
-	var dest_rect: Rect2i = ex["dest_rect"]
+	var edge := ex.edge
+	var dest := ex.dest_id
+	var dest_rect := ex.dest_rect
 	area.body_entered.connect(func(body: Node) -> void:
 		if body is Player and not dest.is_empty():
 			exit_triggered.emit(edge, dest, dest_rect)
@@ -82,10 +82,10 @@ func _add_exit(ex: Dictionary) -> void:
 	_areas.append(area)
 
 
-func _add_halo(ex: Dictionary) -> void:
-	var pixel: Rect2 = Grid.cell_rect(ex["rect"])
+func _add_halo(ex: Door) -> void:
+	var pixel: Rect2 = Grid.cell_rect(ex.rect)
 	var halo := ExitHalo.new()
-	match String(ex["edge"]):
+	match ex.edge:
 		"right":
 			halo.position = Vector2(pixel.end.x, pixel.get_center().y)
 			halo.direction = Vector2.LEFT

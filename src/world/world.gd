@@ -35,7 +35,7 @@ func _physics_process(_delta: float) -> void:
 
 
 func _make_room(id: String) -> Room:
-	var info = WorldData.get_room(id)
+	var info := WorldData.get_room(id)
 	var room := Room.new()
 	room.position = Vector2(info.grid_pos) * Grid.SCREEN_SIZE
 	room.build(info)
