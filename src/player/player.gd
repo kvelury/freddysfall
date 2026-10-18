@@ -1,41 +1,55 @@
 class_name Player
-extends CharacterBody2D
+extends Node2D
 
 @export var config: MovementConfig
 
+var velocity := Vector2.ZERO
 var input_enabled := true
-## Used by the headless physics test. Gameplay leaves this off.
+## Pixel rects the body collides with, in world space. `place` sets them when
+## the player is put into a room.
+var solids: Array[Rect2] = []
+## Used by the headless tests. Gameplay leaves this off.
 var scripted := false
 var scripted_x := 0.0
 var scripted_jump_pressed := false
 var scripted_jump_held := false
 
-var _coyote := 0.0
-var _buffer := 0.0
-var _launched := false
-var _cut := false
+var _state := MovementSim.State.new()
 var _was_on_floor := true
 var _squash := 0.0
 var _visual: Polygon2D
-var _out := {
-	"velocity": Vector2.ZERO,
-	"coyote": 0.0,
-	"buffer": 0.0,
-	"launched": false,
-	"cut": false,
-	"jumped": false,
-}
 
 
 func _ready() -> void:
 	add_to_group("player")
 	physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_ON
-	floor_snap_length = 2.0
-	up_direction = Vector2.UP
 	if config == null:
 		config = load("res://src/player/movement.tres")
-	_coyote = config.coyote_time
+	_state.coyote = config.coyote_time
 	_visual = $Visual
+
+
+## Puts the body at rest in a room: at `world_position`, among `rects`.
+func place(world_position: Vector2, rects: Array[Rect2]) -> void:
+	global_position = world_position
+	velocity = Vector2.ZERO
+	solids = rects
+	_state.grounded = MovementSim.standing(world_position, rects)
+	_state.coyote = config.coyote_time if _state.grounded else 0.0
+	_state.buffer = 0.0
+	_state.launched = false
+	_state.cut = false
+	_was_on_floor = _state.grounded
+	reset_physics_interpolation()
+
+
+func is_on_floor() -> bool:
+	return _state.grounded
+
+
+## The body's box in world pixels.
+func body_rect() -> Rect2:
+	return Rect2(global_position - MovementSim.HALF, MovementSim.HALF * 2.0)
 
 
 func _physics_process(delta: float) -> void:
@@ -46,28 +60,17 @@ func _physics_process(delta: float) -> void:
 	var jump_pressed := scripted_jump_pressed if scripted else Input.is_action_just_pressed("jump")
 	var jump_held := scripted_jump_held if scripted else Input.is_action_pressed("jump")
 	scripted_jump_pressed = false
-	var grounded := _on_ground()
-	MovementSim.integrate(
-		config, velocity, grounded, _coyote, _buffer, _launched, _cut,
-		input_x, jump_pressed, jump_held, delta, _out
-	)
-	velocity = _out["velocity"]
-	_coyote = _out["coyote"]
-	_buffer = _out["buffer"]
-	_launched = _out["launched"]
-	_cut = _out["cut"]
-	if _out["jumped"]:
+	_state.position = global_position
+	_state.velocity = velocity
+	MovementSim.step(config, _state, solids, input_x, jump_pressed, jump_held, delta)
+	global_position = _state.position
+	velocity = _state.velocity
+	if _state.jumped:
 		_squash = 1.0
-	_corner_correct(delta)
-	move_and_slide()
-	var on_floor := is_on_floor()
-	if on_floor and not _was_on_floor:
+	if _state.grounded and not _was_on_floor:
 		_squash = -1.0
 		_spawn_dust()
-	_was_on_floor = on_floor
-	if on_floor:
-		_launched = false
-		_cut = false
+	_was_on_floor = _state.grounded
 
 
 func _process(delta: float) -> void:
@@ -81,43 +84,6 @@ func _process(delta: float) -> void:
 		_squash = minf(0.0, _squash + delta * 8.0)
 	else:
 		_visual.scale = Vector2.ONE
-
-
-func _on_ground() -> bool:
-	if is_on_floor():
-		return true
-	if velocity.y < 0.0:
-		return false
-	return test_move(global_transform, Vector2(0.0, 2.0))
-
-
-func _corner_correct(delta: float) -> void:
-	var max_px := int(round(config.corner_correction))
-	if max_px <= 0:
-		return
-	if not is_on_floor() and absf(velocity.x) > 1.0 and velocity.y >= 0.0:
-		var horiz := Vector2(velocity.x * delta, 0.0)
-		if test_move(global_transform, horiz):
-			for n in max_px:
-				var lift := float(n + 1)
-				if not test_move(global_transform.translated(Vector2(0.0, -lift)), horiz):
-					position.y -= lift
-					break
-	if velocity.y < 0.0:
-		var vert := Vector2(0.0, velocity.y * delta)
-		if test_move(global_transform, vert):
-			var prefer := signf(velocity.x) if absf(velocity.x) > 1.0 else 1.0
-			var pushed := false
-			for dir in [prefer, -prefer]:
-				if pushed:
-					break
-				var direction := float(dir)
-				for n in max_px:
-					var push := float(n + 1) * direction
-					if not test_move(global_transform.translated(Vector2(push, 0.0)), vert):
-						position.x += push
-						pushed = true
-						break
 
 
 func _spawn_dust() -> void:

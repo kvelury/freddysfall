@@ -1,10 +1,9 @@
 class_name Room
 extends Node2D
 
-signal exit_triggered(edge: String, dest_id: String, dest_rect: Rect2i)
-
 var info: RoomInfo
-var _areas: Array[Area2D] = []
+## Whether touching a door changes rooms. Off while a transition is running.
+var exits_active := false
 
 
 func build(room_info: RoomInfo) -> void:
@@ -21,17 +20,34 @@ func build(room_info: RoomInfo) -> void:
 			chunk.name = "Chunk_%d_%d" % [sx, sy]
 			chunk.position = Vector2(sx * Grid.SCREEN_CELLS.x, sy * Grid.SCREEN_CELLS.y) * float(Grid.CELL)
 			chunk.rects = local_rects
-			chunk.setup_collision()
 			add_child(chunk)
 	for ex in info.exits:
-		_add_exit(ex)
 		_add_halo(ex)
 
 
 func set_exits_active(active: bool) -> void:
-	for area in _areas:
-		area.set_deferred("monitoring", active)
-		area.set_deferred("monitorable", active)
+	exits_active = active
+
+
+## The door that a body at `body` (world pixels) is touching, or null.
+func touched_door(body: Rect2) -> Door:
+	if not exits_active:
+		return null
+	for door in info.exits:
+		var trigger := door.trigger_rect()
+		if Rect2(trigger.position + position, trigger.size).intersects(body):
+			return door
+	return null
+
+
+## The room's solids as pixel rects in world space, for the player to collide
+## with.
+func world_rects() -> Array[Rect2]:
+	var out: Array[Rect2] = []
+	for cell_rect in info.solids:
+		var pixel := Grid.cell_rect(cell_rect)
+		out.append(Rect2(pixel.position + position, pixel.size))
+	return out
 
 
 func _rects_in_screen(solids: Array[Rect2i], sx: int, sy: int) -> Array[Rect2i]:
@@ -45,30 +61,6 @@ func _rects_in_screen(solids: Array[Rect2i], sx: int, sy: int) -> Array[Rect2i]:
 			continue
 		out.append(Rect2i(clipped.position - screen.position, clipped.size))
 	return out
-
-
-func _add_exit(ex: Door) -> void:
-	var area := Area2D.new()
-	area.collision_layer = 0
-	area.collision_mask = 2
-	area.monitoring = false
-	area.monitorable = false
-	var pixel := ex.trigger_rect()
-	var shape_node := CollisionShape2D.new()
-	var shape := RectangleShape2D.new()
-	shape.size = pixel.size
-	shape_node.shape = shape
-	shape_node.position = pixel.get_center()
-	area.add_child(shape_node)
-	var edge := ex.edge
-	var dest := ex.dest_id
-	var dest_rect := ex.dest_rect
-	area.body_entered.connect(func(body: Node) -> void:
-		if body is Player and not dest.is_empty():
-			exit_triggered.emit(edge, dest, dest_rect)
-	)
-	add_child(area)
-	_areas.append(area)
 
 
 func _add_halo(ex: Door) -> void:
@@ -93,20 +85,6 @@ func _add_halo(ex: Door) -> void:
 
 class RoomChunk extends Node2D:
 	var rects: Array[Rect2i] = []
-
-	func setup_collision() -> void:
-		var body := StaticBody2D.new()
-		body.collision_layer = 1
-		body.collision_mask = 0
-		for cell_rect in rects:
-			var shape_node := CollisionShape2D.new()
-			var shape := RectangleShape2D.new()
-			var pixel := Grid.cell_rect(cell_rect)
-			shape.size = pixel.size
-			shape_node.shape = shape
-			shape_node.position = pixel.get_center()
-			body.add_child(shape_node)
-		add_child(body)
 
 	func _draw() -> void:
 		for cell_rect in rects:

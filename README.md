@@ -34,6 +34,8 @@ The tests are `SceneTree` scripts. Each quits with status 0 on success.
 ```sh
 godot --headless --path . --script tests/reach_test.gd
 godot --headless --path . --script tests/physics_test.gd
+godot --headless --path . --script tests/parity_test.gd
+godot --headless --path . --script tests/door_test.gd
 ./tools/validate.sh
 ./tools/render.sh
 ./tools/snap.sh 3
@@ -42,7 +44,9 @@ godot --headless --path . --script tests/physics_test.gd
 | Script | What it drives |
 | --- | --- |
 | `tests/reach_test.gd` | `MovementSim` against the room rectangles, door links, and camera clamp. Prints `RESULT pass`. |
-| `tests/physics_test.gd` | The player scene through room 1 with `move_and_slide`. Prints `PHYSICS pass`. |
+| `tests/physics_test.gd` | The player scene through room 1, jump by jump, and out its door. Prints `PHYSICS pass`. |
+| `tests/parity_test.gd` | Replays input plans through the player and through the solver's simulator. They must end within 0.01 px. Prints `PARITY pass`. |
+| `tests/door_test.gd` | The player walks through the door from room 2 to room 3 and back. Prints `DOOR pass`. |
 | `tests/validate.gd` | Loads the whole world, then solves it: every room and door reachable from the start, nowhere to get stuck. Lists every problem and exits 1 if there is one. Run through `tools/validate.sh`. |
 | `tests/start_test.gd` | Starting in a chosen room and `warp_to` on the world scene. Prints `START pass`. |
 | `tests/render.gd` | Draws each room and the world map as PNGs in `build/renders/`, marking unreachable ledges, traps, and sealed doors. Run through `tools/render.sh`, optionally with room ids: `tools/render.sh 3 4`. |
@@ -63,7 +67,7 @@ godot --headless --path . --script tests/physics_test.gd
 | `src/world/room_info.gd`, `door.gd` | A loaded room, and one opening in its wall. |
 | `src/autoload/game_state.gd` | Current room, visited set, and session ability values. |
 | `src/core/grid.gd` | Cell and screen size, camera clamp. |
-| `src/player/` | `MovementConfig` (`movement.tres`), `MovementSim`, and the player scene. The player and the reach solver call the same `integrate`. |
+| `src/player/` | `MovementConfig` (`movement.tres`), `MovementSim`, and the player scene. The player and the reach solver advance a body with the same `MovementSim.step`. |
 | `src/world/` | World scene, room construction, exit halo, and the loader classes above. |
 | `src/ui/` | Map overlay and the F3 readout. |
 | `AGENTS.md` | How an agent works here, including turning a drawing into a room. `CLAUDE.md` points at it. |

@@ -46,9 +46,7 @@ func _place_in(id: String) -> void:
 		current.set_exits_active(false)
 		current.queue_free()
 	current = _make_room(id)
-	player.global_position = current.position + Grid.cell_center(current.info.start_cell())
-	player.reset_physics_interpolation()
-	player.velocity = Vector2.ZERO
+	player.place(current.position + Grid.cell_center(current.info.start_cell()), current.world_rects())
 	camera.position = _camera_focus(current, player.global_position)
 	current.set_exits_active(true)
 	GameState.visit(id)
@@ -66,7 +64,13 @@ func _requested_room() -> String:
 
 
 func _physics_process(_delta: float) -> void:
-	if not _follow or current == null:
+	if current == null:
+		return
+	if not _busy:
+		var door := current.touched_door(player.body_rect())
+		if door != null and not door.dest_id.is_empty():
+			_on_exit(door.edge, door.dest_id, door.dest_rect)
+	if not _follow:
 		return
 	camera.position = _camera_focus(current, player.global_position)
 
@@ -76,7 +80,6 @@ func _make_room(id: String) -> Room:
 	var room := Room.new()
 	room.position = Vector2(info.grid_pos) * Grid.SCREEN_SIZE
 	room.build(info)
-	room.exit_triggered.connect(_on_exit)
 	rooms_root.add_child(room)
 	return room
 
@@ -88,9 +91,7 @@ func _on_exit(edge: String, dest_id: String, dest_rect: Rect2i) -> void:
 	_follow = false
 	player.input_enabled = false
 	player.velocity = Vector2.ZERO
-	# Physics queries are still flushing inside body_entered. Build the next
-	# room on the following frame so new shapes and areas are legal.
-	call_deferred("_begin_transition", edge, dest_id, dest_rect)
+	_begin_transition(edge, dest_id, dest_rect)
 
 
 func _begin_transition(_edge: String, dest_id: String, dest_rect: Rect2i) -> void:
@@ -98,8 +99,7 @@ func _begin_transition(_edge: String, dest_id: String, dest_rect: Rect2i) -> voi
 	_pending = _make_room(dest_id)
 	_pending.set_exits_active(false)
 	var entry: Vector2i = _pending.info.stand_cell_for_rect(dest_rect)
-	player.global_position = _pending.position + Grid.cell_center(entry)
-	player.reset_physics_interpolation()
+	player.place(_pending.position + Grid.cell_center(entry), _pending.world_rects())
 	GameState.visit(dest_id)
 	var tween := create_tween()
 	tween.set_process_mode(Tween.TWEEN_PROCESS_PHYSICS)
