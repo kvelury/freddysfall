@@ -1,0 +1,6 @@
+{
+  "imprint_width": {"name": "Imprint width", "stat": "imprint_width", "kind": "max"},
+  "imprint_duration": {"name": "Imprint duration", "stat": "imprint_duration", "kind": "max"},
+  "imprint_max_active": {"name": "Imprints at once", "stat": "imprint_max_active", "kind": "max"},
+  "imprint_effect": {"name": "Imprint effect", "stat": "imprint_effects", "kind": "add"}
+}

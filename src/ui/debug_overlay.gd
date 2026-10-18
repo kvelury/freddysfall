@@ -35,7 +35,7 @@ func _process(_delta: float) -> void:
 	var fps := Performance.get_monitor(Performance.TIME_FPS)
 	var frame_ms := Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0
 	var physics_ms := Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS) * 1000.0
-	_label.text = "FPS %d\nframe %.2f ms\nphysics %.2f ms" % [int(fps), frame_ms, physics_ms]
+	_label.text = "FPS %d\nframe %.2f ms\nphysics %.2f ms\n%s" % [int(fps), frame_ms, physics_ms, GameState.abilities.describe()]
 
 
 ## A world that loaded with problems says so on screen in debug builds, so a

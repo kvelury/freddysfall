@@ -7,9 +7,12 @@ const DEATH_TIME := 0.6
 @onready var rooms_root: Node2D = $Rooms
 @onready var player: Player = $Player
 @onready var camera: Camera2D = $Camera2D
+@onready var toast: Toast = $Toast
 
 ## Set before the world enters the tree to start in this room. The command
 ## line (`-- --room=3`) and, on the web, `?room=3` fill it in when it is empty.
+## Starting in a chosen room is for testing: it uses no save and writes none.
+## `--new-game` (`?new-game=1`) starts over and replaces the save.
 var start_override := ""
 var current: Room
 var _pending: Room
@@ -29,13 +32,21 @@ func _ready() -> void:
 	# integer-scaled tiles while a room scrolls. The player still interpolates.
 	camera.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 	camera.make_current()
-	var id := start_override if not start_override.is_empty() else _requested_room()
-	if id.is_empty():
+	var id := start_override if not start_override.is_empty() else _launch_arg("room")
+	var at := Vector2.INF
+	if not id.is_empty():
+		Save.enabled = false
+		if not WorldData.rooms.has(id):
+			push_error("There is no room \"%s\" to start in. Rooms: %s" % [id, ", ".join(WorldData.rooms.keys())])
+			id = WorldData.start_room
+	else:
 		id = WorldData.start_room
-	elif not WorldData.rooms.has(id):
-		push_error("There is no room \"%s\" to start in. Rooms: %s" % [id, ", ".join(WorldData.rooms.keys())])
-		id = WorldData.start_room
-	_place_in(id)
+		if _launch_arg("new-game").is_empty():
+			var saved := Save.load_game()
+			if not saved.is_empty():
+				id = String(saved["room"])
+				at = Vector2(WorldData.get_room(id).grid_pos) * Grid.SCREEN_SIZE + (saved["position"] as Vector2)
+	_place_in(id, at)
 
 
 ## Puts the player in a room straight away, with no slide. For testing a room
@@ -67,12 +78,16 @@ func _place_in(id: String, world_position := Vector2.INF) -> void:
 	GameState.visit(id)
 
 
-func _requested_room() -> String:
+## A launch option: `--name=value` or `--name` on the command line, or
+## `?name=value` on the web page's address. Empty if it was not given.
+func _launch_arg(name: String) -> String:
 	for arg in OS.get_cmdline_user_args():
-		if arg.begins_with("--room="):
-			return arg.substr(7)
+		if arg == "--" + name:
+			return "1"
+		if arg.begins_with("--%s=" % name):
+			return arg.substr(name.length() + 3)
 	if OS.has_feature("web"):
-		var value = JavaScriptBridge.eval("new URLSearchParams(window.location.search).get('room')")
+		var value = JavaScriptBridge.eval("new URLSearchParams(window.location.search).get('%s')" % name)
 		if value != null:
 			return String(value)
 	return ""
@@ -86,6 +101,8 @@ func _physics_process(_delta: float) -> void:
 		if current.touches_hazard(body) or current.is_outside(player.global_position):
 			_die()
 		else:
+			for pickup in current.touched_pickups(body):
+				_collect(pickup)
 			var door := current.touched_door(body)
 			if door != null and not door.dest_id.is_empty():
 				_on_exit(door)
@@ -101,9 +118,25 @@ func _make_room(id: String) -> Room:
 	var info := WorldData.get_room(id)
 	var room := Room.new()
 	room.position = Vector2(info.grid_pos) * Grid.SCREEN_SIZE
-	room.build(info)
+	room.build(info, GameState.flags)
 	rooms_root.add_child(room)
 	return room
+
+
+func _collect(pickup: Pickup) -> void:
+	toast.show_text(GameState.collect(pickup.def))
+	pickup.collect()
+	_autosave(false)
+
+
+## Writes the save. On entering a room it records where the player is; after
+## a pickup it records the last safe floor in this room, so loading never
+## puts anyone mid-jump above spikes.
+func _autosave(entering: bool) -> void:
+	var spot := player.global_position
+	if not entering and _safe_room == current.info.id:
+		spot = _safe_position
+	Save.write(current.info.id, spot - current.position)
 
 
 func _die() -> void:
@@ -165,6 +198,8 @@ func _finish_transition() -> void:
 	player.input_enabled = true
 	_busy = false
 	_follow = true
+	if current != null:
+		_autosave(true)
 
 
 func _camera_focus(room: Room, focus: Vector2) -> Vector2:

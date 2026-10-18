@@ -5,9 +5,12 @@ var info: RoomInfo
 ## Whether touching a door changes rooms. Off while a transition is running.
 var exits_active := false
 var _hazard_rects: Array[Rect2] = []
+var _pickups: Array[Pickup] = []
 
 
-func build(room_info: RoomInfo) -> void:
+## `flags` is what the player has already done (GameState.flags); things they
+## have taken are left out.
+func build(room_info: RoomInfo, flags := {}) -> void:
 	info = room_info
 	# One drawable chunk per screen. Godot culls a chunk whose rect is
 	# outside the camera, so a long room costs the same as the screens in view.
@@ -29,6 +32,14 @@ func build(room_info: RoomInfo) -> void:
 			add_child(chunk)
 	for ex in info.exits:
 		_add_halo(ex)
+	for def in info.entities:
+		if not Entities.present(def, flags):
+			continue
+		var thing := Entities.create(def)
+		thing.position = Grid.cell_center(def.cell)
+		add_child(thing)
+		if thing is Pickup:
+			_pickups.append(thing)
 
 
 func set_exits_active(active: bool) -> void:
@@ -44,6 +55,15 @@ func touched_door(body: Rect2) -> Door:
 		if Rect2(trigger.position + position, trigger.size).intersects(body):
 			return door
 	return null
+
+
+## The pickups a body at `body` (world pixels) is touching.
+func touched_pickups(body: Rect2) -> Array[Pickup]:
+	var out: Array[Pickup] = []
+	for pickup in _pickups:
+		if is_instance_valid(pickup) and not pickup.is_queued_for_deletion() and pickup.rect().intersects(body):
+			out.append(pickup)
+	return out
 
 
 ## Whether a body at `body` (world pixels) is touching a hazard.

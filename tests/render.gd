@@ -4,7 +4,7 @@ extends SceneTree
 ## drawing and its translation can be compared by eye. Name room ids after
 ## `--` to draw only those. tools/render.sh runs this.
 ##
-## Colours: white solid, green door, cyan player start, purple spikes, orange a door that was
+## Colours: white solid, green door, cyan player start, purple spikes, gold a pickup, orange a door that was
 ## sealed because nothing is on the far side, grey dots a no-imprint cell,
 ## magenta a glyph the loader does not know. Red bar on a ledge nobody can
 ## reach, yellow bar on a ledge you cannot get back from, red box on a door
@@ -26,6 +26,7 @@ const SEALED := Color(0.95, 0.55, 0.1)
 const UNKNOWN := Color(1, 0, 1)
 const HAZARD := Color(0.65, 0.35, 0.95)
 const NO_IMPRINT := Color(0.5, 0.5, 0.5)
+const THING := Color(0.95, 0.75, 0.2)
 const UNREACHED := Color(0.95, 0.2, 0.2)
 const TRAP := Color(0.95, 0.85, 0.1)
 const LABEL := Color(0.75, 0.75, 0.75)
@@ -97,7 +98,7 @@ func _room_image(info: RoomInfo, report: ReachGraph.Report) -> Image:
 	for y in info.rows.size():
 		var row := info.rows[y]
 		for x in row.length():
-			var color := _cell_color(row[x])
+			var color := _cell_color(row[x], info)
 			if color != BG:
 				var cell := Rect2i(GUTTER + x * PX, HEADER + y * PX, PX, PX)
 				image.fill_rect(cell, color)
@@ -118,7 +119,9 @@ func _room_image(info: RoomInfo, report: ReachGraph.Report) -> Image:
 	return image
 
 
-func _cell_color(glyph: String) -> Color:
+func _cell_color(glyph: String, info: RoomInfo) -> Color:
+	if info.legend.has(glyph):
+		return THING
 	if not Tiles.is_known(glyph):
 		return UNKNOWN
 	if Tiles.has_flag(glyph, "solid"):
@@ -176,7 +179,7 @@ func _world_image(rooms: Dictionary) -> Image:
 		for y in info.rows.size():
 			var row := info.rows[y]
 			for x in row.length():
-				var color := _cell_color(row[x])
+				var color := _cell_color(row[x], info)
 				if color != BG:
 					image.fill_rect(Rect2i(origin + Vector2i(x, y) * WORLD_PX, Vector2i(WORLD_PX, WORLD_PX)), color)
 		for rect in info.sealed:

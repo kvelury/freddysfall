@@ -17,6 +17,7 @@ config/icon="res://icon.svg"
 [autoload]
 
 GameState="*res://src/autoload/game_state.gd"
+Save="*res://src/autoload/save.gd"
 WorldData="*res://src/autoload/world_data.gd"
 
 [display]
