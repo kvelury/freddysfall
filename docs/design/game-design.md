@@ -84,7 +84,7 @@ Authored jumps are checked with the same simulator. If a test says a running jum
 
 ## Rooms
 
-A room is an ASCII file, `data/rooms/<id>.txt`. Its id is a number (`1`, `2`, `3`, …), so the set can grow past twenty-six. Its width and height are a whole number of screens. `grid_pos` in `data/world.json` is the screen cell of the room's top-left corner. The room occupies every screen cell in its rectangle. Two rooms may not occupy the same screen cell.
+A room is an ASCII file, `data/rooms/<id>.txt`. Its id is a number (`1`, `2`, `3`, …), so the set can grow past twenty-six, and it is the only thing `data/world.json` needs to find the file. Its width and height are a whole number of screens. `grid_pos` in `data/world.json` is the screen cell of the room's top-left corner. The room occupies every screen cell in its rectangle. Two rooms may not occupy the same screen cell.
 
 | Character | Meaning |
 | --- | --- |
@@ -94,11 +94,13 @@ A room is an ASCII file, `data/rooms/<id>.txt`. Its id is a number (`1`, `2`, `3
 | `P` | Where the player starts, the first time, in the start room. Also a standable mark used when entering. |
 | `~` | A cell that refuses an Imprint. Collected now. Used when Imprint is built. |
 
-**Doors are the openings that face each other.** The destination of an exit is the room that occupies the neighboring screen cell. That exit pairs with the one opposite-edge opening whose span overlaps it. Load reports an error if a neighbor exists and the match count is anything other than one. An empty neighbor is allowed: the opening has no destination yet.
+Every glyph lives in one table, `src/world/tiles.gd`. A character that is not in it is a load error, not an empty cell. Every cell on a room's outer border has to be `#` or `X`, so the player cannot walk out of the world. Load collects every problem it finds (`WorldData.errors`) instead of stopping at the first. `tools/validate.sh` prints them and exits non-zero, and a debug build lists them on screen.
+
+**Doors are the openings that face each other.** The destination of an exit is the room that occupies the neighboring screen cell. That exit pairs with the one opposite-edge opening whose span overlaps it. Load reports an error if a neighbor exists and the match count is anything other than one. An empty neighbor is allowed: an opening with nothing on the other side is sealed to solid wall at load, and opens up on its own once a room is placed there.
 
 Each opening is a specific door. A room can have more than one. "A distinct entrance and exit" means each opening is that paired door, drawn on the map, and not a generic "any left edge leads to the room on the left."
 
-An opening with a destination gets a halo: a dithered half-disc of light in the gap, with a pulse, so the way out reads before the player touches it. An opening with no destination does not get a halo.
+Every opening that is left gets a halo: a dithered half-disc of light in the gap, with a pulse, so the way out reads before the player touches it. A sealed opening is plain wall and has none.
 
 **Crossing.** Touching an exit pauses input, builds the next room at `grid_pos × 320×180`, and puts the player just inside the matching door. The camera slides to the view at that entry over about 0.5 s, ease in and out. Then the old room is freed and control returns. Only the current room is in the scene, plus the next one during the slide, so a larger world does not cost more per frame.
 

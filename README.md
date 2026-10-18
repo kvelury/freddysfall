@@ -33,6 +33,7 @@ The tests are `SceneTree` scripts. Each quits with status 0 on success.
 godot --headless --path . --script tests/reach_test.gd
 godot --headless --path . --script tests/physics_test.gd
 godot --headless --path . --script tests/route_test.gd
+./tools/validate.sh
 ```
 
 | Script | What it drives |
@@ -40,21 +41,25 @@ godot --headless --path . --script tests/route_test.gd
 | `tests/reach_test.gd` | `MovementSim` against the room rectangles, door links, and camera clamp. Prints `RESULT pass`. |
 | `tests/physics_test.gd` | The player scene through room 1 with `move_and_slide`. Prints `PHYSICS pass`. |
 | `tests/route_test.gd` | The player scene across rooms 1, 2, and 3 and back. Prints `route pass`. |
+| `tests/validate.gd` | Loads the whole world and lists every problem in the room files. Exits 1 if there is one. Run through `tools/validate.sh`. |
 
-`reach_test.gd` does not instance the world. The other two do, and they set `Player.scripted` so input comes from the test instead of the keyboard.
+`reach_test.gd` also builds small worlds from strings to check every way a room file can be wrong. It does not instance the world. The other two do, and they set `Player.scripted` so input comes from the test instead of the keyboard.
 
 ## Layout
 
 | Path | Role |
 | --- | --- |
 | `project.godot` | Application `Freddysfall` 0.1.0, autoloads, display, input actions, 60 Hz physics. |
-| `data/world.json` | Room id, file, and `grid_pos`. |
+| `data/world.json` | Start room, and each room's id and `grid_pos`. The file is `data/rooms/<id>.txt`. |
 | `data/rooms/` | One ASCII file per room. |
-| `src/autoload/world_data.gd` | Loads rooms, merges `#` into rectangles, pairs doors. |
+| `src/autoload/world_data.gd` | Reads `world.json` and the room files, keeps the rooms and `errors`. |
+| `src/world/room_parser.gd` | Pure text-to-`RoomInfo`: checks glyphs and walls, merges `#` into rectangles, pairs and seals doors. |
+| `src/world/tiles.gd` | The glyph table. |
+| `src/world/room_info.gd`, `door.gd` | A loaded room, and one opening in its wall. |
 | `src/autoload/game_state.gd` | Current room, visited set, and session ability values. |
 | `src/core/grid.gd` | Cell and screen size, camera clamp. |
 | `src/player/` | `MovementConfig` (`movement.tres`), `MovementSim`, and the player scene. The player and the reach test call the same `integrate`. |
-| `src/world/` | World scene, room construction, exit halo. |
+| `src/world/` | World scene, room construction, exit halo, and the loader classes above. |
 | `src/ui/` | Map overlay and the F3 readout. |
 | `docs/design/game-design.md` | Design record. |
 | `docs/plans/` | Implementation plans for work that is specified and not built. |

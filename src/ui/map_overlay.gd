@@ -52,7 +52,7 @@ func _set_open(open_map: bool) -> void:
 
 
 func refresh() -> void:
-	var info = WorldData.rooms.get(GameState.current_room_id)
+	var info: RoomInfo = WorldData.rooms.get(GameState.current_room_id)
 	var center := Vector2.ZERO
 	if info != null:
 		center = MapLayer.room_rect(info).get_center()
@@ -73,7 +73,7 @@ func refresh() -> void:
 
 func marker_position() -> Vector2:
 	var player := get_tree().get_first_node_in_group("player") as Node2D
-	var info = WorldData.rooms.get(GameState.current_room_id)
+	var info: RoomInfo = WorldData.rooms.get(GameState.current_room_id)
 	if player == null or info == null:
 		return Vector2(-10, -10)
 	var room_origin := Vector2(info.grid_pos) * Grid.SCREEN_SIZE
@@ -86,7 +86,7 @@ func _visited_bounds() -> Rect2:
 	var bounds := Rect2()
 	var first := true
 	for room_id in GameState.visited.keys():
-		var info = WorldData.rooms.get(room_id)
+		var info: RoomInfo = WorldData.rooms.get(room_id)
 		if info == null:
 			continue
 		var rect := MapLayer.room_rect(info)
@@ -163,15 +163,15 @@ class MapLayer extends Node2D:
 	const ROOM_PX := Vector2(32, 18)
 	const STRIDE := Vector2(40, 26)
 
-	static func map_size(info) -> Vector2:
+	static func map_size(info: RoomInfo) -> Vector2:
 		# A multi-screen room is one continuous rectangle. The stride gap
 		# stays outside the room, between it and its neighbors.
 		return Vector2(info.screens) * STRIDE - (STRIDE - ROOM_PX)
 
-	static func room_rect(info) -> Rect2:
+	static func room_rect(info: RoomInfo) -> Rect2:
 		return Rect2(Vector2(info.grid_pos) * STRIDE, map_size(info))
 
-	static func marker_pos(info, local_px: Vector2) -> Vector2:
+	static func marker_pos(info: RoomInfo, local_px: Vector2) -> Vector2:
 		var cells := local_px / float(Grid.CELL)
 		var sx := clampi(int(cells.x / float(Grid.SCREEN_CELLS.x)), 0, info.screens.x - 1)
 		var sy := clampi(int(cells.y / float(Grid.SCREEN_CELLS.y)), 0, info.screens.y - 1)
@@ -181,7 +181,7 @@ class MapLayer extends Node2D:
 
 	func _draw() -> void:
 		for room_id in GameState.visited.keys():
-			var info = WorldData.rooms.get(room_id)
+			var info: RoomInfo = WorldData.rooms.get(room_id)
 			if info == null:
 				continue
 			var rect := room_rect(info)
@@ -192,19 +192,19 @@ class MapLayer extends Node2D:
 			_outline(rect, info)
 			_connectors(rect, info)
 
-	func _outline(rect: Rect2, info) -> void:
+	func _outline(rect: Rect2, info: RoomInfo) -> void:
 		_horizontal(rect.position.x, rect.position.y, rect.size.x, _gaps(info, "up"))
 		_horizontal(rect.position.x, rect.position.y + rect.size.y - 1.0, rect.size.x, _gaps(info, "down"))
 		_vertical(rect.position.x, rect.position.y, rect.size.y, _gaps(info, "left"))
 		_vertical(rect.position.x + rect.size.x - 1.0, rect.position.y, rect.size.y, _gaps(info, "right"))
 
-	func _connectors(rect: Rect2, info) -> void:
+	func _connectors(rect: Rect2, info: RoomInfo) -> void:
 		for ex in info.exits:
-			var edge := String(ex["edge"])
-			var dest := String(ex["dest_id"])
+			var edge := ex.edge
+			var dest := ex.dest_id
 			if dest.is_empty() or not GameState.visited.has(dest):
 				continue
-			var span := _edge_span(ex["rect"], edge)
+			var span := _edge_span(ex.rect, edge)
 			var gap := STRIDE - ROOM_PX
 			var mid := (span.x + span.y) * 0.5
 			match edge:
@@ -217,12 +217,12 @@ class MapLayer extends Node2D:
 				"up":
 					draw_rect(Rect2(rect.position.x + mid, rect.position.y - gap.y, 1, gap.y), Color.WHITE)
 
-	func _gaps(info, edge: String) -> Array:
+	func _gaps(info: RoomInfo, edge: String) -> Array:
 		var gaps: Array = []
 		for ex in info.exits:
-			if String(ex["edge"]) != edge:
+			if ex.edge != edge:
 				continue
-			gaps.append(_edge_span(ex["rect"], edge))
+			gaps.append(_edge_span(ex.rect, edge))
 		return gaps
 
 	func _edge_span(rect: Rect2i, edge: String) -> Vector2:
