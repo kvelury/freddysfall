@@ -319,6 +319,16 @@ func _reach_cases() -> bool:
 	ok = _check(report.errors.is_empty() and report.unreached.is_empty() and report.total_ledges == 2, "a 4 cell patch of spikes can be jumped (%d ledges, %d unreached)" % [report.total_ledges, report.unreached.size()]) and ok
 	report = _solve([_entry("1", Vector2i(0, 0), _box(_cells_in(8, 16, 26, 16, "^")))])
 	ok = _check(report.unreached.size() == 1 and report.unreached[0].x0 == 27, "a 19 cell patch of spikes cannot (%d unreached)" % report.unreached.size()) and ok
+
+	# Pickups: one on the floor and one a jump above it are collected; one
+	# eight cells up is not, and that is an error.
+	var legend := "legend:\n  U = pickup id=floor upgrade=imprint_width value=3\n  V = pickup id=hop upgrade=imprint_duration value=6\n  W = pickup id=high upgrade=imprint_max_active value=2\n---\n"
+	report = _solve([_entry("1", Vector2i(0, 0), legend + _box({Vector2i(10, 16): "U", Vector2i(20, 13): "V", Vector2i(26, 8): "W"}))])
+	var taken := {}
+	for pickup in report.pickups:
+		taken[pickup["id"]] = pickup["reached"]
+	ok = _check(taken == {"floor": true, "hop": true, "high": false}, "a pickup on the floor or a hop up is reached, one eight cells up is not %s" % [taken]) and ok
+	ok = _check(_has_line(report.errors, "pickup high"), "and the one out of reach is an error %s" % [report.errors]) and ok
 	return ok
 
 

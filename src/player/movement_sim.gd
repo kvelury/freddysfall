@@ -216,7 +216,8 @@ static func simulate_jump(
 	jump: bool = true,
 	triggers: Array = [],
 	bounds: Rect2 = Rect2(),
-	hazards: Array = []
+	hazards: Array = [],
+	collect: Array = []
 ) -> Dictionary:
 	var s := State.new()
 	s.position = start_position
@@ -230,6 +231,7 @@ static func simulate_jump(
 	var trigger := -1
 	var hazard := false
 	var floor_rect := Rect2()
+	var collected: Array[int] = []
 	for frame in 180:
 		step(cfg, s, rects, input_x, jump and frame == 0, frame < hold_frames, delta)
 		min_feet = minf(min_feet, s.position.y + HALF.y)
@@ -238,6 +240,9 @@ static func simulate_jump(
 		if _touching(s.position, HALF, hazards) >= 0:
 			hazard = true
 			break
+		for i in collect.size():
+			if not collected.has(i) and _overlaps(s.position, HALF, collect[i]):
+				collected.append(i)
 		trigger = _touching(s.position, HALF, triggers)
 		if trigger >= 0:
 			break
@@ -255,6 +260,7 @@ static func simulate_jump(
 		"min_feet": min_feet,
 		"trigger": trigger,
 		"hazard": hazard,
+		"collected": collected,
 	}
 
 

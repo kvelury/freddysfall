@@ -1,9 +1,10 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=6 format=3]
 
 [ext_resource type="Script" path="res://src/world/world.gd" id="1_world"]
 [ext_resource type="PackedScene" path="res://src/player/player.tscn" id="2_player"]
 [ext_resource type="PackedScene" path="res://src/ui/map_overlay.tscn" id="3_map"]
 [ext_resource type="Script" path="res://src/ui/debug_overlay.gd" id="4_debug"]
+[ext_resource type="Script" path="res://src/ui/toast.gd" id="5_toast"]
 
 [node name="World" type="Node2D"]
 script = ExtResource("1_world")
@@ -20,3 +21,6 @@ position = Vector2(160, 90)
 [node name="DebugOverlay" type="CanvasLayer" parent="."]
 layer = 20
 script = ExtResource("4_debug")
+
+[node name="Toast" type="CanvasLayer" parent="."]
+script = ExtResource("5_toast")

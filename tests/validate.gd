@@ -9,10 +9,13 @@ extends SceneTree
 func _initialize() -> void:
 	var data = preload("res://src/autoload/world_data.gd").new()
 	data.ensure_loaded()
-	for message in data.errors:
+	var problems: Array[String] = []
+	problems.append_array(Upgrades.problems())
+	problems.append_array(data.errors)
+	for message in problems:
 		print("FAIL ", message)
-	if not data.errors.is_empty():
-		print("validate fail: %d problems loading %d rooms" % [data.errors.size(), data.rooms.size()])
+	if not problems.is_empty():
+		print("validate fail: %d problems loading %d rooms" % [problems.size(), data.rooms.size()])
 		quit(1)
 		return
 
@@ -23,6 +26,8 @@ func _initialize() -> void:
 		print("FAIL ", message)
 	for message in report.warnings:
 		print("warn ", message)
+	for pickup in report.pickups:
+		print("pickup %s in room %s: %s %s%s" % [pickup["id"], pickup["room"], pickup["upgrade"], pickup["value"], "" if pickup["reached"] else "  (not reached)"])
 	var seconds := float(Time.get_ticks_msec() - started) / 1000.0
 	var summary := "%d rooms, %d of %d ledges reachable, %.1f s" % [data.rooms.size(), report.reached_ledges, report.total_ledges, seconds]
 	if report.errors.is_empty():

@@ -27,7 +27,7 @@ const MAX_CHAIN := 3
 ## Past this many lines of one kind, the report counts the rest.
 const MAX_LINES := 6
 
-var abilities: Dictionary
+var abilities: Abilities
 var _cfg: MovementConfig
 var _rooms: Dictionary
 var _ledges := {}
@@ -36,12 +36,13 @@ var _solved := {}
 var _landings := {}
 
 
-## `ability_set` is not consulted yet. Imprint will add platforms to the
-## solids and widen what a path may do.
-func _init(rooms: Dictionary, movement: MovementConfig, ability_set: Dictionary = {}) -> void:
+## `ability_set` is what the player has, the starting abilities if left out.
+## It is not consulted yet. Imprint will add platforms to the solids and widen
+## what a path may do according to it.
+func _init(rooms: Dictionary, movement: MovementConfig, ability_set: Abilities = null) -> void:
 	_rooms = rooms
 	_cfg = movement
-	abilities = ability_set
+	abilities = ability_set if ability_set != null else Abilities.new()
 	for id in rooms:
 		_ledges[id] = _find_ledges(rooms[id])
 
@@ -141,6 +142,20 @@ func analyze(start_room: String) -> Report:
 			elif not home.has(ledge):
 				report.traps.append(ledge)
 				traps.append("%s is a trap: once there, no path leads back to the start" % ledge.describe())
+	var lost_pickups: Array[String] = []
+	for id in _rooms:
+		var info: RoomInfo = _rooms[id]
+		var defs := _pickups_of(info)
+		for i in defs.size():
+			var got := false
+			for ledge: Ledge in _ledges[id]:
+				if reached.has(ledge) and ledge.pickups.has(i):
+					got = true
+					break
+			report.pickups.append({"id": defs[i].id, "room": String(id), "upgrade": String(defs[i].props["upgrade"]), "value": String(defs[i].props["value"]), "reached": got})
+			if reached_rooms.has(id) and not got:
+				lost_pickups.append("Room %s: pickup %s at cell %s cannot be reached: no jump from a ledge the player gets to touches it" % [id, defs[i].id, defs[i].cell])
+	_append_capped(report.errors, lost_pickups)
 	_append_capped(report.errors, lost_doors)
 	_append_capped(report.errors, empty_doors)
 	_append_capped(report.errors, traps)
@@ -286,6 +301,9 @@ func _geometry_of(info: RoomInfo) -> Geometry:
 			geo.triggers.append(door.trigger_rect())
 		for cell in info.hazards:
 			geo.hazards.append(Grid.cell_rect(Rect2i(cell, Vector2i.ONE)))
+		for def in _pickups_of(info):
+			var centre := Grid.cell_center(def.cell)
+			geo.pickups.append(Rect2(centre - Vector2(Pickup.HALF, Pickup.HALF), Vector2(Pickup.HALF, Pickup.HALF) * 2.0))
 		geo.bounds = Rect2(Vector2(-40.0, -120.0), info.pixel_size + Vector2(80.0, 160.0))
 		_geometry[info.id] = geo
 	return _geometry[info.id]
@@ -298,6 +316,7 @@ func _ensure_edges(info: RoomInfo) -> void:
 	var geo := _geometry_of(info)
 	for ledge: Ledge in _ledges[info.id]:
 		_walk_to_doors(ledge, geo.triggers)
+		_stand_at_pickups(ledge, geo.pickups)
 		var near := _near(geo.rects, ledge)
 		for x in _start_xs(ledge):
 			for input in [-1.0, 0.0, 1.0]:
@@ -319,6 +338,24 @@ func _walk_to_doors(ledge: Ledge, triggers: Array[Rect2]) -> void:
 			var heading := signf(trigger.get_center().x - spot)
 			var running := _cfg.run_speed if ledge.hi - ledge.lo >= RUN_UP else 0.0
 			ledge.add_touch(i, Vector2(spot, ledge.top - half), Vector2(heading * running, 0.0))
+
+
+## A body standing on the ledge collects a pickup its body overlaps.
+func _stand_at_pickups(ledge: Ledge, pickups: Array[Rect2]) -> void:
+	var cell := float(Grid.CELL)
+	var standing := Rect2(ledge.lo - cell * 0.5, ledge.top - cell, ledge.hi - ledge.lo + cell, cell)
+	for i in pickups.size():
+		if standing.intersects(pickups[i]):
+			ledge.add_pickup(i)
+
+
+## The pickups in a room, in the order Geometry.pickups lists their rects.
+func _pickups_of(info: RoomInfo) -> Array[EntityDef]:
+	var out: Array[EntityDef] = []
+	for def in info.entities:
+		if def.type == "pickup":
+			out.append(def)
+	return out
 
 
 ## Solids close enough to matter, so each simulated frame has fewer to test.
@@ -372,7 +409,10 @@ func _walk_off(info: RoomInfo, geo: Geometry, ledge: Ledge, near: Array[Rect2]) 
 
 func _try(info: RoomInfo, geo: Geometry, ledge: Ledge, near: Array[Rect2], x: float, speed: float, input: float, hold: int, jump: bool) -> void:
 	var start := Vector2(x, ledge.top - float(Grid.CELL) * 0.5)
-	var result := MovementSim.simulate_jump(_cfg, near, start, Vector2(speed, 0.0), input, hold, true, jump, geo.triggers, geo.bounds, geo.hazards)
+	var result := MovementSim.simulate_jump(_cfg, near, start, Vector2(speed, 0.0), input, hold, true, jump, geo.triggers, geo.bounds, geo.hazards, geo.pickups)
+	# A pickup is taken even on a path that then dies on spikes.
+	for index in result["collected"]:
+		ledge.add_pickup(index)
 	if result["hazard"]:
 		return
 	var door := int(result["trigger"])
@@ -388,6 +428,7 @@ class Geometry extends RefCounted:
 	var rects: Array[Rect2] = []
 	var triggers: Array[Rect2] = []
 	var hazards: Array[Rect2] = []
+	var pickups: Array[Rect2] = []
 	var bounds := Rect2()
 
 
@@ -420,11 +461,17 @@ class Ledge extends RefCounted:
 	var hi := 0.0
 	var to_ledges: Array[int] = []
 	var touches: Array[Touch] = []
+	## Indices of the room's pickups that some path from here touches.
+	var pickups: Array[int] = []
 	var _touch_keys := {}
 
 	func add_ledge(target: int) -> void:
 		if not to_ledges.has(target):
 			to_ledges.append(target)
+
+	func add_pickup(index: int) -> void:
+		if not pickups.has(index):
+			pickups.append(index)
 
 	func add_touch(door: int, at: Vector2, moving: Vector2) -> void:
 		var touch := Touch.new(door, at, moving)
@@ -445,3 +492,5 @@ class Report extends RefCounted:
 	var traps: Array[Ledge] = []
 	## [room_id, Door] pairs.
 	var unreached_doors: Array = []
+	## One entry per pickup: {id, room, upgrade, value, reached}.
+	var pickups: Array[Dictionary] = []

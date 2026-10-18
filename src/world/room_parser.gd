@@ -8,6 +8,9 @@ extends RefCounted
 ## A bad drawing tends to repeat one mistake along a whole wall. Past this
 ## many per room and kind, the rest are counted instead of listed.
 const MAX_PER_KIND := 5
+## A room file may start with a header, ended by a line holding only this.
+const HEADER_END := "---"
+const LEGEND := "legend:"
 
 
 ## entries: [{"id": String, "grid_pos": Vector2i, "text": String}]
@@ -28,6 +31,13 @@ static func build(entries: Array, start_room: String, errors: Array[String]) -> 
 			else:
 				by_pos[cell] = info.id
 		order.append(info)
+	var entity_rooms := {}
+	for info in order:
+		for def in info.entities:
+			if entity_rooms.has(def.id):
+				errors.append("%s id \"%s\" is used in room %s and room %s; an id names one thing in the whole world" % [def.type.capitalize(), def.id, entity_rooms[def.id], info.id])
+			else:
+				entity_rooms[def.id] = info.id
 	for info in order:
 		info.exits = _parse_exits(info, by_pos, errors)
 	_link_exits(order, rooms, errors)
@@ -45,7 +55,9 @@ static func parse_room(id: String, grid_pos: Vector2i, text: String, errors: Arr
 	var info := RoomInfo.new()
 	info.id = id
 	info.grid_pos = grid_pos
-	info.rows = _read_rows(text, id, errors)
+	var parts := _split_header(text, id, errors)
+	info.legend = _read_legend(parts["header"], id, errors)
+	info.rows = _read_rows(String(parts["grid"]), id, errors)
 	_apply_size(info)
 	_scan_cells(info, errors)
 	return info
@@ -95,10 +107,19 @@ static func _scan_cells(info: RoomInfo, errors: Array[String]) -> void:
 	var height := rows.size()
 	var unknown: Array[String] = []
 	var open_edge: Array[String] = []
+	var placements := {}
 	for y in height:
 		var row := rows[y]
 		for x in mini(width, row.length()):
 			var glyph := row[x]
+			var on_edge := x == 0 or y == 0 or x == width - 1 or y == height - 1
+			if info.legend.has(glyph):
+				if not placements.has(glyph):
+					placements[glyph] = []
+				placements[glyph].append(Vector2i(x, y))
+				if on_edge:
+					open_edge.append("Room %s edge cell %d,%d is '%s'; the outer wall must be %s or %s" % [info.id, x, y, glyph, Tiles.SOLID, Tiles.EXIT])
+				continue
 			if not Tiles.is_known(glyph):
 				unknown.append("Room %s cell %d,%d is '%s', which is not a known glyph" % [info.id, x, y, glyph])
 				continue
@@ -109,11 +130,113 @@ static func _scan_cells(info: RoomInfo, errors: Array[String]) -> void:
 				info.no_imprint.append(Vector2i(x, y))
 			if Tiles.has_flag(glyph, "hazard"):
 				info.hazards.append(Vector2i(x, y))
-			var on_edge := x == 0 or y == 0 or x == width - 1 or y == height - 1
 			if on_edge and not Tiles.is_wall_glyph(glyph):
 				open_edge.append("Room %s edge cell %d,%d is '%s'; the outer wall must be %s or %s" % [info.id, x, y, glyph, Tiles.SOLID, Tiles.EXIT])
+	_place_entities(info, placements, errors)
 	_append_capped(errors, unknown)
 	_append_capped(errors, open_edge)
+
+
+## Each legend glyph stands for exactly one thing, so it has to appear on the
+## grid exactly once. Where it does is that thing's cell.
+static func _place_entities(info: RoomInfo, placements: Dictionary, errors: Array[String]) -> void:
+	for glyph in info.legend:
+		var def: EntityDef = info.legend[glyph]
+		var cells: Array = placements.get(glyph, [])
+		if cells.is_empty():
+			errors.append("Room %s: legend glyph '%s' (%s %s) is never drawn in the room" % [info.id, glyph, def.type, def.id])
+		elif cells.size() > 1:
+			errors.append("Room %s: legend glyph '%s' (%s %s) is drawn %d times, at %s and elsewhere; each one needs its own glyph and id" % [info.id, glyph, def.type, def.id, cells.size(), cells[0]])
+		else:
+			def.cell = cells[0]
+			info.entities.append(def)
+
+
+## A room file is the grid, or a header, a line of three dashes, and the
+## grid. Returns {"header": [[line number, text], ...], "grid": String}.
+static func _split_header(text: String, room_id: String, errors: Array[String]) -> Dictionary:
+	var lines := text.split("\n")
+	var divider := -1
+	for i in lines.size():
+		if lines[i].strip_edges() == HEADER_END:
+			divider = i
+			break
+	var header: Array = []
+	if divider == -1:
+		for i in lines.size():
+			if lines[i].strip_edges().begins_with(LEGEND):
+				errors.append("Room %s line %d: a legend needs a line of %s between it and the room, so the room cannot be read" % [room_id, i + 1, HEADER_END])
+				return {"header": header, "grid": ""}
+		return {"header": header, "grid": text}
+	for i in divider:
+		header.append([i + 1, lines[i]])
+	return {"header": header, "grid": "\n".join(lines.slice(divider + 1))}
+
+
+## Reads `legend:` and its lines, `G = kind id=name key=value ...`, into
+## glyph -> EntityDef (without a cell yet).
+static func _read_legend(header: Array, room_id: String, errors: Array[String]) -> Dictionary:
+	var legend := {}
+	var started := false
+	for item in header:
+		var number: int = item[0]
+		var line := String(item[1]).replace("\t", " ").strip_edges()
+		if line.is_empty():
+			continue
+		if not started:
+			if line != LEGEND:
+				errors.append("Room %s line %d: the part above %s starts with \"%s\", not \"%s\"" % [room_id, number, HEADER_END, line, LEGEND])
+				return legend
+			started = true
+			continue
+		var def := _read_legend_line(line, room_id, number, errors)
+		if def == null:
+			continue
+		if legend.has(def.glyph):
+			errors.append("Room %s line %d: legend glyph '%s' is defined twice" % [room_id, number, def.glyph])
+			continue
+		legend[def.glyph] = def
+	return legend
+
+
+static func _read_legend_line(line: String, room_id: String, number: int, errors: Array[String]) -> EntityDef:
+	var where := "Room %s line %d" % [room_id, number]
+	var eq := line.find("=")
+	var glyph := line.substr(0, maxi(eq, 0)).strip_edges()
+	if eq < 1 or glyph.length() != 1:
+		errors.append("%s: a legend line looks like \"U = pickup id=name upgrade=... value=...\", not \"%s\"" % [where, line])
+		return null
+	if not _is_legend_glyph(glyph):
+		errors.append("%s: '%s' cannot be a legend glyph; use a letter or digit that the room format does not already use (%s)" % [where, glyph, "".join(Tiles.TABLE.keys())])
+		return null
+	var words := line.substr(eq + 1).strip_edges().split(" ", false)
+	if words.is_empty():
+		errors.append("%s: legend glyph '%s' has no kind of thing after the =" % [where, glyph])
+		return null
+	var def := EntityDef.new()
+	def.glyph = glyph
+	def.type = words[0]
+	for i in range(1, words.size()):
+		var pair := words[i].split("=", true, 1)
+		if pair.size() != 2 or pair[0].is_empty():
+			errors.append("%s: \"%s\" should be key=value" % [where, words[i]])
+			return null
+		if pair[0] == "id":
+			def.id = pair[1]
+		elif def.props.has(pair[0]):
+			errors.append("%s: %s= is given twice" % [where, pair[0]])
+			return null
+		else:
+			def.props[pair[0]] = pair[1]
+	for message in Entities.problems(def):
+		errors.append("%s: %s" % [where, message])
+	return def
+
+
+static func _is_legend_glyph(glyph: String) -> bool:
+	var code := glyph.unicode_at(0)
+	var alphanumeric := (code >= 48 and code <= 57) or (code >= 65 and code <= 90) or (code >= 97 and code <= 122)
+	return alphanumeric and not Tiles.is_known(glyph)
 
 
 static func _append_capped(errors: Array[String], found: Array[String]) -> void:

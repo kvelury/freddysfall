@@ -19,6 +19,10 @@ var sealed: Array[Rect2i] = []
 var no_imprint: Array[Vector2i] = []
 ## Cells that kill on touch.
 var hazards: Array[Vector2i] = []
+## The room's legend: glyph -> EntityDef. Only things drawn in the room are in
+## `entities`, in legend order, with their cells.
+var legend := {}
+var entities: Array[EntityDef] = []
 
 
 func occupied_cells() -> Array[Vector2i]:
