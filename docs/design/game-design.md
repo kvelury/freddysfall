@@ -36,7 +36,7 @@ The first ability is Imprint: the mouse cursor becomes a platform. Until that ex
 
 | | |
 | --- | --- |
-| Cell | 10×10 px. The player is one cell, with a 10×10 collider. |
+| Cell | 10×10 px. The player is one cell, a 10×10 box. |
 | Screen | 32×18 cells, 320×180 px. This is the viewport, not the room. |
 | Window | Integer nearest-neighbor scale, aspect kept. Default window 1280×720, which is 4×. |
 | Physics | 60 ticks per second. 2D physics interpolation on. At most 8 steps per frame. |
@@ -61,7 +61,7 @@ Letting go of jump early is a short hop. Holding it is the full leap. A running 
 
 ## Movement
 
-`CharacterBody2D`. All of these live in one `MovementConfig` resource (`movement.tres`), shared by the player and by the jump simulator. They are the starting values, and they are tunable. They were not retuned when the first rooms were laid out. The rooms were laid out to the arc these numbers actually produce.
+The player is a plain `Node2D` with a 10×10 box and no physics-engine body. Each tick `MovementSim.step` reads the input, applies the rules below, rounds corners, and collides the box with the room's solid rectangles. The reach solver advances its simulated body with the same `step`, so a jump the solver finds is a jump the player makes. `tests/parity_test.gd` holds the two to 0.01 px. All of these live in one `MovementConfig` resource (`movement.tres`), shared by the player and by the jump simulator. They are the starting values, and they are tunable. They were not retuned when the first rooms were laid out. The rooms were laid out to the arc these numbers actually produce.
 
 A full jump rises about 51 px (about 5 cells). A running jump on flat ground travels about 70 px (about 7 cells). A two-frame tap rises about 15 px.
 
@@ -89,7 +89,7 @@ A room is an ASCII file, `data/rooms/<id>.txt`. Its id is a number (`1`, `2`, `3
 
 | Character | Meaning |
 | --- | --- |
-| `#` | Solid. Rows of `#` merge into rectangles, one static body, so cell edges do not snag the player. |
+| `#` | Solid. Rows of `#` merge into rectangles, so cell edges do not snag the player. |
 | `.` | Empty. |
 | `X` | An exit opening. It has to sit on the room's outer edge, and not on a corner. An opening that crosses a screen boundary is split into one exit per screen. |
 | `P` | Where the player starts, the first time, in the start room. Also a standable mark used when entering, and where the player is put when a room is started in directly. |
@@ -107,7 +107,7 @@ Every opening that is left gets a halo: a dithered half-disc of light in the gap
 
 During the slide the camera is not following. It is on the tween. Afterward it follows again.
 
-Solids are drawn in one chunk per screen, clipped to that screen, so a room several screens wide does not redraw geometry the camera cannot see. Collision for those chunks stays active. The player can land on a platform that is just off screen.
+Solids are drawn in one chunk per screen, clipped to that screen, so a room several screens wide does not redraw geometry the camera cannot see. The player collides with every solid in the room, drawn or not, so it can land on a platform that is just off screen. Touching a door is a box overlap tested every tick.
 
 ### The current slice
 
