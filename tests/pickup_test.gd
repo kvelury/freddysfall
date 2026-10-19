@@ -1,7 +1,7 @@
 extends SceneTree
 
-## A pickup in a real room: the player walks into it, it is taken, the game
-## saves, and a new game started from that save has the upgrade and no pickup.
+## The Imprint pickup in room 2: the player walks into it, it is taken, the game
+## saves, and a new game started from that save has Imprint and no pickup.
 
 const TEMP := "user://pickup_test.json"
 
@@ -26,25 +26,25 @@ func _run() -> void:
 
 	var world: Node = await _world()
 	ok = _check(world.current.info.id == "1", "with no save the game starts in the start room") and ok
-	ok = _check(world.warp_to("5"), "warp to room 5, which has the pickup") and ok
+	ok = _check(world.warp_to("2"), "warp to room 2, which has the pickup") and ok
 	var player: Player = world.get_node("Player")
 	player.scripted = true
 	var room: Room = world.current
-	ok = _check(_pickups(room).size() == 1, "room 5 shows its pickup") and ok
-	ok = _check(state.abilities.imprint_width == 2, "the player starts with an Imprint 2 wide") and ok
+	ok = _check(_pickups(room).size() == 1, "room 2 shows its pickup") and ok
+	ok = _check(not state.abilities.imprint_unlocked, "the player starts without Imprint") and ok
 
-	# Stand on the top platform, left of the pickup, and walk into it.
-	player.place(room.position + Grid.cell_center(Vector2i(26, 4)), room.world_rects())
+	# Stand on the platform, left of the pickup, and walk into it.
+	player.place(room.position + Grid.cell_center(Vector2i(8, 8)), room.world_rects())
 	player.scripted_x = 1.0
 	var taken := false
 	for i in 120:
 		await physics_frame
-		if state.has_flag("pickup:r5_width"):
+		if state.has_flag("pickup:r2_imprint"):
 			taken = true
 			break
 	player.scripted_x = 0.0
 	ok = _check(taken, "walking into it takes it") and ok
-	ok = _check(state.abilities.imprint_width == 3, "and widens the Imprint to 3") and ok
+	ok = _check(state.abilities.imprint_unlocked, "and unlocks Imprint") and ok
 	await physics_frame
 	await physics_frame
 	ok = _check(_pickups(room).is_empty(), "the pickup is gone from the room") and ok
@@ -57,8 +57,8 @@ func _run() -> void:
 	state.reset()
 	world = await _world()
 	room = world.current
-	ok = _check(room.info.id == "5", "starting again resumes in room 5 (%s)" % room.info.id) and ok
-	ok = _check(state.abilities.imprint_width == 3, "with the wider Imprint") and ok
+	ok = _check(room.info.id == "2", "starting again resumes in room 2 (%s)" % room.info.id) and ok
+	ok = _check(state.abilities.imprint_unlocked, "with Imprint still unlocked") and ok
 	ok = _check(_pickups(room).is_empty(), "and the pickup stays gone") and ok
 	ok = _check(Rect2(room.position, room.info.pixel_size).has_point(world.get_node("Player").global_position), "the player is inside the room") and ok
 

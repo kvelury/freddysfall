@@ -8,6 +8,7 @@ const DEATH_TIME := 0.6
 @onready var player: Player = $Player
 @onready var camera: Camera2D = $Camera2D
 @onready var toast: Toast = $Toast
+@onready var imprint: ImprintTool = $Imprint
 
 ## Set before the world enters the tree to start in this room. The command
 ## line (`-- --room=3`) and, on the web, `?room=3` fill it in when it is empty.
@@ -63,6 +64,7 @@ func warp_to(id: String) -> bool:
 ## the room's start. This is a cut, not a slide, and it is where the player
 ## comes back to when they die.
 func _place_in(id: String, world_position := Vector2.INF) -> void:
+	imprint.clear(false)
 	if current != null:
 		current.set_exits_active(false)
 		current.queue_free()
@@ -123,6 +125,11 @@ func _make_room(id: String) -> Room:
 	return room
 
 
+## Whether a door slide or a death is under way and the player is not in control.
+func is_busy() -> bool:
+	return _busy
+
+
 func _collect(pickup: Pickup) -> void:
 	toast.show_text(GameState.collect(pickup.def))
 	pickup.collect()
@@ -141,6 +148,7 @@ func _autosave(entering: bool) -> void:
 
 func _die() -> void:
 	_busy = true
+	imprint.clear(true)
 	player.input_enabled = false
 	player.velocity = Vector2.ZERO
 	player.visible = false
@@ -173,6 +181,7 @@ func _on_exit(door: Door) -> void:
 	player.input_enabled = false
 	player.velocity = Vector2.ZERO
 	current.set_exits_active(false)
+	imprint.clear(false)
 	_pending = _make_room(door.dest_id)
 	_pending.set_exits_active(false)
 	var crossed := Door.crossing(door, _pending.info, player.global_position, _carried)

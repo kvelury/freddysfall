@@ -152,7 +152,7 @@ func analyze(start_room: String) -> Report:
 				if reached.has(ledge) and ledge.pickups.has(i):
 					got = true
 					break
-			report.pickups.append({"id": defs[i].id, "room": String(id), "upgrade": String(defs[i].props["upgrade"]), "value": String(defs[i].props["value"]), "reached": got})
+			report.pickups.append({"id": defs[i].id, "room": String(id), "upgrade": String(defs[i].props["upgrade"]), "value": String(defs[i].props.get("value", "")), "reached": got})
 			if reached_rooms.has(id) and not got:
 				lost_pickups.append("Room %s: pickup %s at cell %s cannot be reached: no jump from a ledge the player gets to touches it" % [id, defs[i].id, defs[i].cell])
 	_append_capped(report.errors, lost_pickups)

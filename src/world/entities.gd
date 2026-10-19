@@ -10,7 +10,7 @@ extends RefCounted
 ## id (always required) and the type itself.
 
 const TYPES := {
-	"pickup": {"required": ["upgrade", "value"], "optional": []},
+	"pickup": {"required": ["upgrade"], "optional": ["value"]},
 }
 
 
@@ -35,7 +35,7 @@ static func problems(def: EntityDef) -> Array[String]:
 		if not spec["required"].has(key) and not spec["optional"].has(key):
 			out.append("%s %s has %s=, which %s does not use" % [def.type, def.id, key, def.type])
 	if out.is_empty() and def.type == "pickup":
-		var message := Upgrades.check(String(def.props["upgrade"]), String(def.props["value"]))
+		var message := Upgrades.check(String(def.props["upgrade"]), String(def.props.get("value", "")))
 		if not message.is_empty():
 			out.append("pickup %s: %s" % [def.id, message])
 	return out

@@ -57,6 +57,20 @@ func touched_door(body: Rect2) -> Door:
 	return null
 
 
+## Spikes and door triggers as pixel rects in world space, for paths that
+## have to know what kills and what leaves the room.
+func hazard_world_rects() -> Array[Rect2]:
+	return _hazard_rects
+
+
+func door_world_rects() -> Array[Rect2]:
+	var out: Array[Rect2] = []
+	for door in info.exits:
+		var trigger := door.trigger_rect()
+		out.append(Rect2(trigger.position + position, trigger.size))
+	return out
+
+
 ## The pickups a body at `body` (world pixels) is touching.
 func touched_pickups(body: Rect2) -> Array[Pickup]:
 	var out: Array[Pickup] = []

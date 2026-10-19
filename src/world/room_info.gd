@@ -65,6 +65,15 @@ func door_by_rect(rect: Rect2i) -> Door:
 	return null
 
 
+func is_no_imprint(x: int, y: int) -> bool:
+	if y < 0 or y >= rows.size():
+		return false
+	var row := rows[y]
+	if x < 0 or x >= row.length():
+		return false
+	return Tiles.has_flag(row[x], "no_imprint")
+
+
 func is_hazard(x: int, y: int) -> bool:
 	if y < 0 or y >= rows.size():
 		return false

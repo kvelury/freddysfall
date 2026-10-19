@@ -30,6 +30,10 @@ func _valid() -> bool:
 	ok = _check(not info.is_solid(5, 3) and not info.is_hazard(5, 3), "the glyph is open air to walk through") and ok
 
 	errors.clear()
+	info = RoomParser.parse_room("7", Vector2i.ZERO, _room(["legend:", "  U = pickup id=a upgrade=imprint"], {Vector2i(5, 3): "U"}), errors)
+	ok = _check(errors.is_empty() and info.entities.size() == 1, "an unlock pickup needs no value %s" % [errors]) and ok
+
+	errors.clear()
 	info = RoomParser.parse_room("7", Vector2i.ZERO, _room([], {}), errors)
 	ok = _check(errors.is_empty() and info.entities.is_empty(), "a room with no header is as before") and ok
 
@@ -49,6 +53,7 @@ func _legend_lines() -> bool:
 		["an unknown upgrade", "  U = pickup id=a upgrade=fly value=3", "no upgrade \"fly\""],
 		["a fraction where a whole number goes", "  U = pickup id=a upgrade=imprint_width value=2.5", "whole-number"],
 		["words where a number goes", "  U = pickup id=a upgrade=imprint_duration value=long", "numeric"],
+		["a value on an upgrade that takes none", "  U = pickup id=a upgrade=imprint value=3", "takes no value"],
 		["a glyph the format already uses", "  X = pickup id=a upgrade=imprint_width value=3", "cannot be a legend glyph"],
 		["a punctuation glyph", "  # = pickup id=a upgrade=imprint_width value=3", "cannot be a legend glyph"],
 		["a two character glyph", "  UU = pickup id=a upgrade=imprint_width value=3", "legend line looks like"],

@@ -43,6 +43,8 @@ godot --headless --path . --script tests/hazard_test.gd
 godot --headless --path . --script tests/entity_test.gd
 godot --headless --path . --script tests/save_test.gd
 godot --headless --path . --script tests/pickup_test.gd
+godot --headless --path . --script tests/imprint_test.gd
+godot --headless --path . --script tests/imprint_play_test.gd
 ./tools/validate.sh
 ./tools/render.sh
 ./tools/snap.sh 3
@@ -58,7 +60,9 @@ godot --headless --path . --script tests/pickup_test.gd
 | `tests/hazard_test.gd` | Spikes and falling out of a room shatter the player and put them back on safe floor. Prints `HAZARD pass`. |
 | `tests/entity_test.gd` | The room legend: a valid one loads, and each way of writing one wrong is an error with its line. Prints `ENTITY pass`. |
 | `tests/save_test.gd` | `Abilities`, `GameState`, and the save file: round trip, damaged, newer, and missing-room files. Uses its own file. Prints `SAVE pass`. |
-| `tests/pickup_test.gd` | The player takes the pickup in room 5, the game saves, and a new game from that save has the upgrade and no pickup. Prints `PICKUP pass`. |
+| `tests/pickup_test.gd` | The player takes the Imprint pickup in room 2, the game saves, and a new game from that save has Imprint and no pickup. Prints `PICKUP pass`. |
+| `tests/imprint_test.gd` | Where an Imprint platform may go (every refusal), whether the player can land on one, and the blink. Prints `IMPRINT pass`. |
+| `tests/imprint_play_test.gd` | Imprint in room 5: locked until found, placed by the action, solid under the player, replaced, broken by time, cleared on leaving a room and on dying. Prints `IMPRINTPLAY pass`. |
 | `tests/validate.gd` | Loads the whole world, then solves it: every room and door reachable from the start, nowhere to get stuck. Lists every problem and exits 1 if there is one. Run through `tools/validate.sh`. |
 | `tests/start_test.gd` | Starting in a chosen room and `warp_to` on the world scene. Prints `START pass`. |
 | `tests/render.gd` | Draws each room and the world map as PNGs in `build/renders/`, marking unreachable ledges, traps, and sealed doors. Run through `tools/render.sh`, optionally with room ids: `tools/render.sh 3 4`. |
