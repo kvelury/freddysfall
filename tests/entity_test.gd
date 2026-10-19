@@ -39,6 +39,13 @@ func _valid() -> bool:
 	ok = _check(errors.is_empty() and info.entities.is_empty(), "a room with no header is as before") and ok
 
 	errors.clear()
+	info = RoomParser.parse_room("7", Vector2i.ZERO, _room(["legend:", "  T = token id=t1"], {Vector2i(5, 3): "T"}), errors)
+	ok = _check(errors.is_empty() and info.entities.size() == 1 and info.entities[0].type == "token", "a token needs only an id %s" % [errors]) and ok
+	errors.clear()
+	RoomParser.parse_room("7", Vector2i.ZERO, _room(["legend:", "  T = token id=t1 upgrade=imprint"], {Vector2i(5, 3): "T"}), errors)
+	ok = _check(_has(errors, "upgrade="), "a token with a setting it does not use is an error (%s)" % [errors]) and ok
+
+	errors.clear()
 	info = RoomParser.parse_room("7", Vector2i.ZERO, _room(["legend:", "", "  U   =   pickup   id=a   upgrade=imprint_effect   value=bounce", "  V = pickup id=b upgrade=imprint_duration value=6.5"], {Vector2i(5, 3): "U", Vector2i(9, 3): "V"}), errors)
 	ok = _check(errors.is_empty() and info.entities.size() == 2, "extra spaces, blank lines, several things, a float and an effect all load %s" % [errors]) and ok
 	return ok

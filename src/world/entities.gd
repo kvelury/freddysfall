@@ -11,6 +11,7 @@ extends RefCounted
 
 const TYPES := {
 	"pickup": {"required": ["upgrade"], "optional": ["value"]},
+	"token": {"required": [], "optional": []},
 }
 
 
@@ -49,13 +50,15 @@ static func problems(def: EntityDef) -> Array[String]:
 	return out
 
 
-## Whether the thing is in the world, given the player's flags. A pickup is
-## gone once it has been collected. This takes the flags, not GameState, so the
+## Whether the thing is in the world, given the player's flags. A pickup or a
+## token is gone once it has been collected. This takes the flags, not GameState, so the
 ## parser and the tests can use the registry without the game running.
 static func present(def: EntityDef, flags: Dictionary) -> bool:
 	match def.type:
 		"pickup":
 			return not flags.has(Pickup.flag_for(def))
+		"token":
+			return not flags.has(Token.flag_for(def))
 	return true
 
 
@@ -63,4 +66,6 @@ static func create(def: EntityDef) -> Node2D:
 	match def.type:
 		"pickup":
 			return Pickup.new(def)
+		"token":
+			return Token.new(def)
 	return null

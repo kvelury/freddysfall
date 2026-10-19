@@ -112,8 +112,8 @@ func _physics_process(_delta: float) -> void:
 		if current.touches_hazard(body) or current.is_outside(player.global_position):
 			_die()
 		else:
-			for pickup in current.touched_pickups(body):
-				_collect(pickup)
+			for thing in current.touched_things(body):
+				_collect(thing)
 			var door := current.touched_door(body)
 			if door != null and not door.dest_id.is_empty():
 				_on_exit(door)
@@ -139,9 +139,17 @@ func is_busy() -> bool:
 	return _busy
 
 
-func _collect(pickup: Pickup) -> void:
-	toast.show_text(GameState.collect(pickup.def))
-	pickup.collect()
+func _collect(thing: Node2D) -> void:
+	if thing is Token:
+		if not GameState.take_token(thing.def):
+			if not thing.noted:
+				thing.noted = true
+				toast.show_text("You can carry %d tokens" % GameState.TOKEN_CAP)
+			return
+		thing.collect()
+	else:
+		toast.show_text(GameState.collect(thing.def))
+		thing.collect()
 	current.recheck_exits(GameState.flags)
 	_autosave(false)
 

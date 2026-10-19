@@ -5,7 +5,8 @@ var info: RoomInfo
 ## Whether touching a door changes rooms. Off while a transition is running.
 var exits_active := false
 var _hazard_rects: Array[Rect2] = []
-var _pickups: Array[Pickup] = []
+## Everything the player can touch: pickups and tokens.
+var _things: Array[Node2D] = []
 ## The room's own solids, without any Imprint, for telling real floor from a
 ## platform that will break.
 var _floor_rects: Array[Rect2] = []
@@ -54,8 +55,8 @@ func build(room_info: RoomInfo, flags := {}) -> void:
 		var thing := Entities.create(def)
 		thing.position = Grid.cell_center(def.cell)
 		add_child(thing)
-		if thing is Pickup:
-			_pickups.append(thing)
+		if thing is Pickup or thing is Token:
+			_things.append(thing)
 
 
 func set_exits_active(active: bool) -> void:
@@ -87,12 +88,17 @@ func door_world_rects() -> Array[Rect2]:
 	return out
 
 
-## The pickups a body at `body` (world pixels) is touching.
-func touched_pickups(body: Rect2) -> Array[Pickup]:
-	var out: Array[Pickup] = []
-	for pickup in _pickups:
-		if is_instance_valid(pickup) and not pickup.is_queued_for_deletion() and pickup.rect().intersects(body):
-			out.append(pickup)
+## The pickups and tokens a body at `body` (world pixels) is touching. A token
+## the body has left forgets that it told the player they were full.
+func touched_things(body: Rect2) -> Array[Node2D]:
+	var out: Array[Node2D] = []
+	for thing in _things:
+		if not is_instance_valid(thing) or thing.is_queued_for_deletion():
+			continue
+		if thing.rect().intersects(body):
+			out.append(thing)
+		elif thing is Token:
+			thing.noted = false
 	return out
 
 

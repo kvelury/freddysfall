@@ -3,6 +3,10 @@ extends Node
 signal room_changed(room_id: String)
 signal visited_changed
 signal abilities_changed
+signal tokens_changed
+
+## Most tokens the player can carry at once.
+const TOKEN_CAP := 3
 
 var current_room_id := ""
 var visited := {}
@@ -10,6 +14,8 @@ var abilities := Abilities.new()
 ## Things the player has done that stay done: "pickup:<id>" for each pickup
 ## collected. Keys are text and values are true.
 var flags := {}
+## Tokens carried now.
+var tokens := 0
 
 
 func visit(room_id: String) -> void:
@@ -29,8 +35,14 @@ func has_flag(key: String) -> bool:
 ## show the player.
 func collect(def: EntityDef) -> String:
 	flags[Pickup.flag_for(def)] = true
-	var upgrade := Upgrades.get_def(String(def.props["upgrade"]))
-	var value: Variant = Upgrades.parse_value(String(def.props["upgrade"]), String(def.props.get("value", "")))
+	return grant(String(def.props["upgrade"]), String(def.props.get("value", "")))
+
+
+## Applies upgrade `id` with the value written as `text`. Returns a line to
+## show the player.
+func grant(id: String, text: String) -> String:
+	var upgrade := Upgrades.get_def(id)
+	var value: Variant = Upgrades.parse_value(id, text)
 	if abilities.apply(upgrade, value):
 		abilities_changed.emit()
 	if upgrade.has("message"):
@@ -38,11 +50,27 @@ func collect(def: EntityDef) -> String:
 	return "%s: %s" % [upgrade["name"], value]
 
 
+func tokens_full() -> bool:
+	return tokens >= TOKEN_CAP
+
+
+## Picks up a token: remembers it and carries it. False, and nothing taken, if
+## the player is already carrying as many as they can.
+func take_token(def: EntityDef) -> bool:
+	if tokens_full():
+		return false
+	flags[Token.flag_for(def)] = true
+	tokens += 1
+	tokens_changed.emit()
+	return true
+
+
 func to_dict() -> Dictionary:
 	return {
 		"visited": visited.keys(),
 		"abilities": abilities.to_dict(),
 		"flags": flags.keys(),
+		"tokens": tokens,
 	}
 
 
@@ -55,6 +83,8 @@ func load_dict(data: Dictionary) -> void:
 	flags = {}
 	for key in data.get("flags", []):
 		flags[String(key)] = true
+	tokens = clampi(int(data.get("tokens", 0)), 0, TOKEN_CAP)
+	tokens_changed.emit()
 	var saved = data.get("abilities", {})
 	abilities = Abilities.from_dict(saved if saved is Dictionary else {})
 	abilities_changed.emit()
