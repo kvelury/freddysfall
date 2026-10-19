@@ -23,6 +23,8 @@ var hazards: Array[Vector2i] = []
 ## `entities`, in legend order, with their cells.
 var legend := {}
 var entities: Array[EntityDef] = []
+## What has to be true before the room's doors work, a key of ExitRules.RULES.
+var exit_rule := "open"
 
 
 func occupied_cells() -> Array[Vector2i]:

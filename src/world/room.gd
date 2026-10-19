@@ -9,12 +9,21 @@ var _pickups: Array[Pickup] = []
 ## The room's own solids, without any Imprint, for telling real floor from a
 ## platform that will break.
 var _floor_rects: Array[Rect2] = []
+## Whether the room's exit rule is unmet, so its doors are blocked.
+var locked := false
+var _blocks: Array[DoorBlock] = []
+var _flags := {}
+
+## Emitted when the exit rule becomes met and the doors open.
+signal exits_opened
 
 
 ## `flags` is what the player has already done (GameState.flags); things they
 ## have taken are left out.
 func build(room_info: RoomInfo, flags := {}) -> void:
 	info = room_info
+	_flags = flags
+	locked = not ExitRules.met(info, flags)
 	# One drawable chunk per screen. Godot culls a chunk whose rect is
 	# outside the camera, so a long room costs the same as the screens in view.
 	var screens: Vector2i = info.screens
@@ -33,9 +42,12 @@ func build(room_info: RoomInfo, flags := {}) -> void:
 			chunk.rects = local_rects
 			chunk.hazards = local_hazards
 			add_child(chunk)
+	_floor_rects = _solid_rects()
 	for ex in info.exits:
-		_add_halo(ex)
-	_floor_rects = world_rects()
+		if locked:
+			_add_block(ex)
+		else:
+			_add_halo(ex)
 	for def in info.entities:
 		if not Entities.present(def, flags):
 			continue
@@ -52,7 +64,7 @@ func set_exits_active(active: bool) -> void:
 
 ## The door that a body at `body` (world pixels) is touching, or null.
 func touched_door(body: Rect2) -> Door:
-	if not exits_active:
+	if not exits_active or locked:
 		return null
 	for door in info.exits:
 		var trigger := door.trigger_rect()
@@ -118,8 +130,34 @@ func is_safe_spot(body: Rect2) -> bool:
 
 
 ## The room's solids as pixel rects in world space, for the player to collide
-## with.
+## with. While the doors are blocked the blocks are solid too.
 func world_rects() -> Array[Rect2]:
+	var out := _solid_rects()
+	for block in _blocks:
+		out.append(Rect2(block.position + position, block.size))
+	return out
+
+
+## Opens the doors if the exit rule is now met: the blocks shatter and the
+## halos appear. Says whether it did. `flags` is what the player has done.
+func recheck_exits(flags: Dictionary) -> bool:
+	_flags = flags
+	if not locked or not ExitRules.met(info, flags):
+		return false
+	locked = false
+	for block in _blocks:
+		var burst := Shatter.new()
+		burst.position = block.position + block.size * 0.5
+		add_child(burst)
+		block.queue_free()
+	_blocks.clear()
+	for ex in info.exits:
+		_add_halo(ex)
+	exits_opened.emit()
+	return true
+
+
+func _solid_rects() -> Array[Rect2]:
 	var out: Array[Rect2] = []
 	for cell_rect in info.solids:
 		var pixel := Grid.cell_rect(cell_rect)
@@ -147,6 +185,15 @@ func _rects_in_screen(solids: Array[Rect2i], sx: int, sy: int) -> Array[Rect2i]:
 			continue
 		out.append(Rect2i(clipped.position - screen.position, clipped.size))
 	return out
+
+
+func _add_block(ex: Door) -> void:
+	var block := DoorBlock.new()
+	block.size = Grid.cell_rect(ex.rect).size
+	block.position = Grid.cell_rect(ex.rect).position
+	block.z_index = 1
+	add_child(block)
+	_blocks.append(block)
 
 
 func _add_halo(ex: Door) -> void:
@@ -186,3 +233,21 @@ class RoomChunk extends Node2D:
 					Vector2(left + 2.5, origin.y + 3.0),
 					Vector2(left + 5.0, origin.y + 10.0),
 				]), Color.WHITE)
+
+
+## A shaded block that fills a doorway while the room's exit rule is unmet:
+## a solid frame around a checker, so it reads as a barrier and not as wall.
+class DoorBlock extends Node2D:
+	var size := Vector2(10, 10)
+
+	func _init() -> void:
+		physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
+
+	func _draw() -> void:
+		var w := int(size.x)
+		var h := int(size.y)
+		for y in h:
+			for x in w:
+				var frame := x == 0 or y == 0 or x == w - 1 or y == h - 1
+				if frame or (x + y) % 2 == 0:
+					draw_rect(Rect2(x, y, 1, 1), Color.WHITE)

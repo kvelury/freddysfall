@@ -11,6 +11,7 @@ func _initialize() -> void:
 	ok = _valid() and ok
 	ok = _legend_lines() and ok
 	ok = _placement() and ok
+	ok = _exit_rules() and ok
 	ok = _world_ids() and ok
 	ok = _upgrade_file() and ok
 	print("ENTITY %s" % ("pass" if ok else "fail"))
@@ -76,6 +77,33 @@ func _legend_lines() -> bool:
 	errors.clear()
 	RoomParser.parse_room("7", Vector2i.ZERO, _room(["things:", LEGEND_LINE], {Vector2i(5, 3): "U"}), errors)
 	ok = _check(_has(errors, "legend:"), "a header that does not start with legend: is an error (%s)" % [errors]) and ok
+	return ok
+
+
+func _exit_rules() -> bool:
+	var ok := true
+	var errors: Array[String] = []
+	var info := RoomParser.parse_room("7", Vector2i.ZERO, _room(["exits: pickups", "legend:", LEGEND_LINE], {Vector2i(5, 3): "U"}), errors)
+	ok = _check(errors.is_empty() and info.exit_rule == "pickups", "exits: pickups loads, before the legend %s" % [errors]) and ok
+	errors.clear()
+	info = RoomParser.parse_room("7", Vector2i.ZERO, _room(["legend:", LEGEND_LINE, "exits: pickups"], {Vector2i(5, 3): "U"}), errors)
+	ok = _check(errors.is_empty() and info.exit_rule == "pickups", "and after it %s" % [errors]) and ok
+	errors.clear()
+	info = RoomParser.parse_room("7", Vector2i.ZERO, _room(["exits: open"], {}), errors)
+	ok = _check(errors.is_empty() and info.exit_rule == "open", "a header can hold only exits: %s" % [errors]) and ok
+	errors.clear()
+	info = RoomParser.parse_room("7", Vector2i.ZERO, _room([], {}), errors)
+	ok = _check(info.exit_rule == "open", "a room with no rule is open") and ok
+
+	errors.clear()
+	RoomParser.parse_room("7", Vector2i.ZERO, _room(["exits: banana"], {}), errors)
+	ok = _check(_has(errors, "banana") and _has(errors, "rules:"), "an unknown rule is an error that lists the rules (%s)" % [errors]) and ok
+	errors.clear()
+	RoomParser.parse_room("7", Vector2i.ZERO, _room(["exits: pickups"], {}), errors)
+	ok = _check(_has(errors, "no pickup or token"), "pickups in a room with nothing to take is an error (%s)" % [errors]) and ok
+	errors.clear()
+	RoomParser.parse_room("7", Vector2i.ZERO, _room(["exits: open", "exits: pickups"], {}), errors)
+	ok = _check(_has(errors, "given twice") and _has(errors, "line 2"), "a rule given twice is an error with its line (%s)" % [errors]) and ok
 	return ok
 
 

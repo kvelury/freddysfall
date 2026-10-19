@@ -83,7 +83,7 @@ func place() -> bool:
 	var rect := Grid.cell_rect(Rect2i(cell, Vector2i(width, 1)))
 	rect.position += room.position
 	platforms.append(ImprintPlatform.new(rect, GameState.abilities.imprint_duration))
-	_sync_solids()
+	sync_solids()
 	return true
 
 
@@ -114,7 +114,7 @@ func _physics_process(delta: float) -> void:
 			platforms.erase(platform)
 			broke = true
 	if broke:
-		_sync_solids()
+		sync_solids()
 	if is_active():
 		_update_preview()
 
@@ -173,7 +173,8 @@ func _break(platform: ImprintPlatform, _replaced: bool) -> void:
 	add_child(burst)
 
 
-func _sync_solids() -> void:
+## Rebuilds the player's collision list from the room and the platforms.
+func sync_solids() -> void:
 	var rects: Array[Rect2] = _world.current.world_rects()
 	for platform in platforms:
 		rects.append(platform.rect)

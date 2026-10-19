@@ -14,8 +14,16 @@ const TYPES := {
 }
 
 
+## The kinds the player takes by touching them, and that a room can wait on.
+const COLLECTIBLE: Array[String] = ["pickup", "token"]
+
+
 static func is_known(type: String) -> bool:
 	return TYPES.has(type)
+
+
+static func is_collectible(def: EntityDef) -> bool:
+	return COLLECTIBLE.has(def.type)
 
 
 ## What is wrong with a legend line's settings, as sentences. `def` has its

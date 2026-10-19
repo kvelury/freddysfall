@@ -11,6 +11,7 @@ const MAX_PER_KIND := 5
 ## A room file may start with a header, ended by a line holding only this.
 const HEADER_END := "---"
 const LEGEND := "legend:"
+const EXITS := "exits:"
 
 
 ## entries: [{"id": String, "grid_pos": Vector2i, "text": String}]
@@ -56,10 +57,15 @@ static func parse_room(id: String, grid_pos: Vector2i, text: String, errors: Arr
 	info.id = id
 	info.grid_pos = grid_pos
 	var parts := _split_header(text, id, errors)
-	info.legend = _read_legend(parts["header"], id, errors)
+	var header := _read_header(parts["header"], id, errors)
+	info.legend = header["legend"]
+	info.exit_rule = header["exits"]
 	info.rows = _read_rows(String(parts["grid"]), id, errors)
 	_apply_size(info)
 	_scan_cells(info, errors)
+	var problem := ExitRules.problem(info.exit_rule, info)
+	if not problem.is_empty():
+		errors.append("Room %s: %s" % [id, problem])
 	return info
 
 
@@ -164,8 +170,9 @@ static func _split_header(text: String, room_id: String, errors: Array[String]) 
 	var header: Array = []
 	if divider == -1:
 		for i in lines.size():
-			if lines[i].strip_edges().begins_with(LEGEND):
-				errors.append("Room %s line %d: a legend needs a line of %s between it and the room, so the room cannot be read" % [room_id, i + 1, HEADER_END])
+			var first := lines[i].strip_edges()
+			if first.begins_with(LEGEND) or first.begins_with(EXITS):
+				errors.append("Room %s line %d: a header needs a line of %s between it and the room, so the room cannot be read" % [room_id, i + 1, HEADER_END])
 				return {"header": header, "grid": ""}
 		return {"header": header, "grid": text}
 	for i in divider:
@@ -173,22 +180,33 @@ static func _split_header(text: String, room_id: String, errors: Array[String]) 
 	return {"header": header, "grid": "\n".join(lines.slice(divider + 1))}
 
 
-## Reads `legend:` and its lines, `G = kind id=name key=value ...`, into
-## glyph -> EntityDef (without a cell yet).
-static func _read_legend(header: Array, room_id: String, errors: Array[String]) -> Dictionary:
+## Reads the header: `legend:` and its lines, `G = kind id=name key=value ...`,
+## into glyph -> EntityDef (without a cell yet), and `exits: rule`. Returns
+## {"legend": {...}, "exits": String}.
+static func _read_header(header: Array, room_id: String, errors: Array[String]) -> Dictionary:
 	var legend := {}
-	var started := false
+	var rule := ExitRules.OPEN
+	var in_legend := false
+	var rule_line := 0
 	for item in header:
 		var number: int = item[0]
 		var line := String(item[1]).replace("\t", " ").strip_edges()
 		if line.is_empty():
 			continue
-		if not started:
-			if line != LEGEND:
-				errors.append("Room %s line %d: the part above %s starts with \"%s\", not \"%s\"" % [room_id, number, HEADER_END, line, LEGEND])
-				return legend
-			started = true
+		if line.begins_with(EXITS):
+			if rule_line != 0:
+				errors.append("Room %s line %d: exits: is given twice (first on line %d)" % [room_id, number, rule_line])
+				continue
+			rule_line = number
+			rule = line.substr(EXITS.length()).strip_edges()
+			in_legend = false
 			continue
+		if line == LEGEND:
+			in_legend = true
+			continue
+		if not in_legend:
+			errors.append("Room %s line %d: the part above %s starts with \"%s\", not \"%s\" or \"%s\"" % [room_id, number, HEADER_END, line, LEGEND, EXITS + " <rule>"])
+			return {"legend": legend, "exits": rule}
 		var def := _read_legend_line(line, room_id, number, errors)
 		if def == null:
 			continue
@@ -196,7 +214,7 @@ static func _read_legend(header: Array, room_id: String, errors: Array[String]) 
 			errors.append("Room %s line %d: legend glyph '%s' is defined twice" % [room_id, number, def.glyph])
 			continue
 		legend[def.glyph] = def
-	return legend
+	return {"legend": legend, "exits": rule}
 
 
 static func _read_legend_line(line: String, room_id: String, number: int, errors: Array[String]) -> EntityDef:

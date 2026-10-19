@@ -129,6 +129,7 @@ func _make_room(id: String) -> Room:
 	var room := Room.new()
 	room.position = Vector2(info.grid_pos) * Grid.SCREEN_SIZE
 	room.build(info, GameState.flags)
+	room.exits_opened.connect(_on_exits_opened)
 	rooms_root.add_child(room)
 	return room
 
@@ -141,7 +142,13 @@ func is_busy() -> bool:
 func _collect(pickup: Pickup) -> void:
 	toast.show_text(GameState.collect(pickup.def))
 	pickup.collect()
+	current.recheck_exits(GameState.flags)
 	_autosave(false)
+
+
+## The doors of the room just opened: the blocks no longer collide.
+func _on_exits_opened() -> void:
+	imprint.sync_solids()
 
 
 ## Writes the save. On entering a room it records where the player is; after
