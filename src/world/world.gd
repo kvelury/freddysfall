@@ -3,11 +3,16 @@ extends Node2D
 const TRANSITION_TIME := 0.5
 ## How long the shatter plays before the player is put back on safe ground.
 const DEATH_TIME := 0.6
+## How many stretches of floor are remembered, and how far apart two spots have
+## to be, in pixels, to count as different stretches.
+const SAFE_HISTORY := 8
+const SAFE_SPACING := 30.0
 
 @onready var rooms_root: Node2D = $Rooms
 @onready var player: Player = $Player
 @onready var camera: Camera2D = $Camera2D
 @onready var toast: Toast = $Toast
+@onready var imprint: ImprintTool = $Imprint
 
 ## Set before the world enters the tree to start in this room. The command
 ## line (`-- --room=3`) and, on the web, `?room=3` fill it in when it is empty.
@@ -18,9 +23,13 @@ var current: Room
 var _pending: Room
 var _busy := false
 var _follow := true
-## Where the player was last standing somewhere safe, and in which room.
-var _safe_room := ""
-var _safe_position := Vector2.ZERO
+## The floor the player has stood on, newest last. Each entry has the "room",
+## the "position" they last stood at on that stretch of floor, and the
+## "anchor" where the stretch began, so walking along one floor is one entry.
+var _safe: Array[Dictionary] = []
+## Whether the player has stood on safe floor since they last came back from a
+## death. A respawn that dies before that was a bad spot, and goes one back.
+var _stood_since_respawn := true
 ## Velocity the player had at a door, given back when the slide ends.
 var _carried := Vector2.ZERO
 
@@ -62,7 +71,8 @@ func warp_to(id: String) -> bool:
 ## Builds room `id` and puts the player in it, at `world_position` or else at
 ## the room's start. This is a cut, not a slide, and it is where the player
 ## comes back to when they die.
-func _place_in(id: String, world_position := Vector2.INF) -> void:
+func _place_in(id: String, world_position := Vector2.INF, respawn := false) -> void:
+	imprint.clear(false)
 	if current != null:
 		current.set_exits_active(false)
 		current.queue_free()
@@ -71,8 +81,9 @@ func _place_in(id: String, world_position := Vector2.INF) -> void:
 	if not at.is_finite():
 		at = current.position + current.info.start_position()
 	player.place(at, current.world_rects())
-	_safe_room = id
-	_safe_position = at
+	if not respawn:
+		_safe.clear()
+		_record_safe(id, at)
 	camera.position = _camera_focus(current, player.global_position)
 	current.set_exits_active(true)
 	GameState.visit(id)
@@ -107,8 +118,7 @@ func _physics_process(_delta: float) -> void:
 			if door != null and not door.dest_id.is_empty():
 				_on_exit(door)
 			elif player.is_on_floor() and current.is_safe_spot(body):
-				_safe_room = current.info.id
-				_safe_position = player.global_position
+				_record_safe(current.info.id, player.global_position)
 	if not _follow:
 		return
 	camera.position = _camera_focus(current, player.global_position)
@@ -123,6 +133,11 @@ func _make_room(id: String) -> Room:
 	return room
 
 
+## Whether a door slide or a death is under way and the player is not in control.
+func is_busy() -> bool:
+	return _busy
+
+
 func _collect(pickup: Pickup) -> void:
 	toast.show_text(GameState.collect(pickup.def))
 	pickup.collect()
@@ -134,13 +149,31 @@ func _collect(pickup: Pickup) -> void:
 ## puts anyone mid-jump above spikes.
 func _autosave(entering: bool) -> void:
 	var spot := player.global_position
-	if not entering and _safe_room == current.info.id:
-		spot = _safe_position
+	if not entering and _safe[-1]["room"] == current.info.id:
+		spot = _safe[-1]["position"]
 	Save.write(current.info.id, spot - current.position)
 
 
+## Remembers that the player stood at `at` in room `room_id`.
+func _record_safe(room_id: String, at: Vector2) -> void:
+	_stood_since_respawn = true
+	if not _safe.is_empty():
+		var last := _safe[-1]
+		if last["room"] == room_id and at.distance_to(last["anchor"]) < SAFE_SPACING:
+			last["position"] = at
+			return
+	_safe.append({"room": room_id, "position": at, "anchor": at})
+	if _safe.size() > SAFE_HISTORY:
+		_safe.pop_front()
+
+
 func _die() -> void:
+	# Dying again without having stood anywhere since the last respawn means
+	# that spot was no good. Go back to the floor before it.
+	if not _stood_since_respawn and _safe.size() > 1:
+		_safe.pop_back()
 	_busy = true
+	imprint.clear(true)
 	player.input_enabled = false
 	player.velocity = Vector2.ZERO
 	player.visible = false
@@ -154,7 +187,9 @@ func _die() -> void:
 
 
 func _respawn() -> void:
-	_place_in(_safe_room, _safe_position)
+	var spot := _safe[-1]
+	_place_in(spot["room"], spot["position"], true)
+	_stood_since_respawn = false
 	player.visible = true
 	player.input_enabled = true
 	_follow = true
@@ -173,6 +208,7 @@ func _on_exit(door: Door) -> void:
 	player.input_enabled = false
 	player.velocity = Vector2.ZERO
 	current.set_exits_active(false)
+	imprint.clear(false)
 	_pending = _make_room(door.dest_id)
 	_pending.set_exits_active(false)
 	var crossed := Door.crossing(door, _pending.info, player.global_position, _carried)

@@ -27,7 +27,7 @@ func _initialize() -> void:
 	for message in report.warnings:
 		print("warn ", message)
 	for pickup in report.pickups:
-		print("pickup %s in room %s: %s %s%s" % [pickup["id"], pickup["room"], pickup["upgrade"], pickup["value"], "" if pickup["reached"] else "  (not reached)"])
+		print("pickup %s in room %s: %s%s" % [pickup["id"], pickup["room"], (pickup["upgrade"] + " " + pickup["value"]).strip_edges(), "" if pickup["reached"] else "  (not reached)"])
 	var seconds := float(Time.get_ticks_msec() - started) / 1000.0
 	var summary := "%d rooms, %d of %d ledges reachable, %.1f s" % [data.rooms.size(), report.reached_ledges, report.total_ledges, seconds]
 	if report.errors.is_empty():

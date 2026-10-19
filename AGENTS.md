@@ -11,7 +11,7 @@ Run from the repo root.
 | `tools/validate.sh` | Loads every room and solves the world. A room is not done until this exits 0. |
 | `tools/render.sh [ids]` | PNGs of rooms and the world map in `build/renders/`. Read them to see what you built. |
 | `tools/snap.sh <id>` | A real in-game frame of a room in `build/snaps/`. Opens a window for a second, so run it on the user's machine. |
-| `godot --headless --path . --script tests/<name>.gd` | `reach_test`, `physics_test`, `parity_test`, `door_test`, `shaft_test`, `hazard_test`, `start_test`, `entity_test`, `save_test`, `pickup_test`. Each prints a pass line and exits 0. |
+| `godot --headless --path . --script tests/<name>.gd` | `reach_test`, `physics_test`, `parity_test`, `door_test`, `shaft_test`, `hazard_test`, `start_test`, `entity_test`, `save_test`, `pickup_test`, `imprint_test`, `imprint_play_test`. Each prints a pass line and exits 0. |
 | `godot --path . -- --room=<id>` | Play starting in a room. In the browser, `?room=<id>`. In a debug build, F4, the number, Enter. |
 | `tools/build_web.sh` then `tools/serve.sh` | The browser build at http://localhost:8060. |
 
@@ -33,7 +33,7 @@ A screen is **32 columns by 18 rows**, one cell being 10 px. A room is a whole n
 | `.` | Empty. |
 | `X` | A door: an opening in the room's outer wall. |
 | `P` | Where the player starts. Required in the start room. In any other room it is where `--room=<id>` puts the player. |
-| `~` | A cell that refuses an Imprint. Nothing uses it yet. |
+| `~` | A cell that refuses an Imprint. Open air otherwise, and not drawn. |
 | `^` | Spikes. Not solid. The player dies on touching one and comes back on the last safe floor. |
 
 Letters and digits that the legend below defines are also allowed. Any other character is an error. Every cell on the border of a room has to be `#` or `X`, and an `X` cannot sit on a corner.
@@ -44,12 +44,12 @@ Letters and digits that the legend below defines are also allowed. Any other cha
 
 ```
 legend:
-  U = pickup id=r5_width upgrade=imprint_width value=3
+  U = pickup id=r2_imprint upgrade=imprint
 ---
 ######...
 ```
 
-`U` is any letter or digit the glyph table does not use. Draw it once in the grid, in open air or on a platform, and never in the outer wall. A legend glyph is one thing: two pickups need two glyphs and two ids. `id` is required, stable, and unique across the whole world, because the save remembers a pickup by it: never rename one, and never derive it from where it sits. `upgrade` is a key of `data/upgrades.json` (`imprint_width`, `imprint_duration`, `imprint_max_active`, `imprint_effect`), and `value` is a whole number, a number, or an effect name to match. A pickup that no jump can touch is a validation error. The user's key for pickups in a drawing becomes legend lines: ask what upgrade and value a drawn pickup is if the drawing does not say.
+`U` is any letter or digit the glyph table does not use. Draw it once in the grid, in open air or on a platform, and never in the outer wall. A legend glyph is one thing: two pickups need two glyphs and two ids. `id` is required, stable, and unique across the whole world, because the save remembers a pickup by it: never rename one, and never derive it from where it sits. `upgrade` is a key of `data/upgrades.json` (`imprint`, `imprint_width`, `imprint_duration`, `imprint_max_active`, `imprint_effect`), and `value` is a whole number, a number, or an effect name to match. `imprint` itself takes no `value`. A pickup that no jump can touch is a validation error. The user's key for pickups in a drawing becomes legend lines: ask what upgrade and value a drawn pickup is if the drawing does not say.
 
 For worked examples, open `data/rooms/2.txt` (one screen, a door in each side wall) and `data/rooms/3.txt` (two screens wide, one door).
 

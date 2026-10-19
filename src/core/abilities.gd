@@ -4,8 +4,10 @@ extends RefCounted
 ## What the player can do. The values here are the starting ones; upgrades
 ## raise them. Each name in STATS is a stat that data/upgrades.json may name.
 
-const STATS: Array[String] = ["imprint_width", "imprint_duration", "imprint_max_active", "imprint_effects"]
+const STATS: Array[String] = ["imprint_unlocked", "imprint_width", "imprint_duration", "imprint_max_active", "imprint_effects"]
 
+## Whether the player has found Imprint. Until they do, the cursor is just a cursor.
+var imprint_unlocked := false
 ## Imprint platform width in cells.
 var imprint_width := 2
 ## Seconds an Imprint lasts.
@@ -16,10 +18,15 @@ var imprint_effects: Array[String] = []
 
 
 ## Applies one upgrade (see Upgrades) and says whether anything changed.
-## "max" keeps the larger of the old and new value, so finding a lesser
+## "unlock" turns a yes-or-no ability on. "max" keeps the larger of the old and new value, so finding a lesser
 ## upgrade later never takes anything away. "add" gains an effect once.
 func apply(upgrade: Dictionary, value: Variant) -> bool:
 	var stat := String(upgrade["stat"])
+	if upgrade["kind"] == "unlock":
+		if get(stat):
+			return false
+		set(stat, true)
+		return true
 	if upgrade["kind"] == "add":
 		var effects: Array[String] = get(stat)
 		if effects.has(String(value)):
@@ -39,6 +46,7 @@ func copy() -> Abilities:
 
 func to_dict() -> Dictionary:
 	return {
+		"imprint_unlocked": imprint_unlocked,
 		"imprint_width": imprint_width,
 		"imprint_duration": imprint_duration,
 		"imprint_max_active": imprint_max_active,
@@ -50,6 +58,7 @@ func to_dict() -> Dictionary:
 ## at their starting values or ignored, so an old save still loads.
 static func from_dict(data: Dictionary) -> Abilities:
 	var out := Abilities.new()
+	out.imprint_unlocked = bool(data.get("imprint_unlocked", out.imprint_unlocked))
 	out.imprint_width = int(data.get("imprint_width", out.imprint_width))
 	out.imprint_duration = float(data.get("imprint_duration", out.imprint_duration))
 	out.imprint_max_active = int(data.get("imprint_max_active", out.imprint_max_active))
@@ -61,6 +70,8 @@ static func from_dict(data: Dictionary) -> Abilities:
 
 
 func describe() -> String:
+	if not imprint_unlocked:
+		return "imprint locked"
 	var text := "imprint %d wide, %.1f s, %d at once" % [imprint_width, imprint_duration, imprint_max_active]
 	if not imprint_effects.is_empty():
 		text += ", " + ", ".join(imprint_effects)

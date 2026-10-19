@@ -8,7 +8,9 @@ Implementation steps for the palette pass live in `docs/plans/soft-duotone-palet
 | --- | --- |
 | Movement, grid, rooms, doors, spikes, camera, map, transitions | Built |
 | Room legends, pickups, abilities, autosave | Built |
-| Imprint | Designed, not built |
+| Imprint: finding it, placing it, the preview, the lifetime | Built |
+| Imprint upgrades (wider, longer, more, bounce), the tokens and the 3TM | Designed, not built |
+| The solver using Imprint | Not built |
 | Softer two-color palettes | Designed, not built |
 
 ## What it is
@@ -53,6 +55,7 @@ The camera snaps to whole pixels. The player stays interpolated. A camera sittin
 | Move | A / D, or Left / Right |
 | Jump | Space, W, or Up |
 | Down | S or Down. Reserved. No action is assigned. |
+| Imprint | Left mouse button, once the Imprint has been found. Mouse only. |
 | Map | Hold Tab, or hold M. M exists because a browser may steal Tab for focus. |
 | Palettes | P, once that is built. Cycles and remembers the choice. |
 | Frame rate | F3. Shows FPS and frame time. A development readout, not a player feature. |
@@ -94,7 +97,7 @@ A room is an ASCII file, `data/rooms/<id>.txt`. Its id is a number (`1`, `2`, `3
 | `.` | Empty. |
 | `X` | An exit opening. It has to sit on the room's outer edge, and not on a corner. An opening that crosses a screen boundary is split into one exit per screen. |
 | `P` | Where the player starts, the first time, in the start room. Also a standable mark used when entering, and where the player is put when a room is started in directly. |
-| `~` | A cell that refuses an Imprint. Collected now. Used when Imprint is built. |
+| `~` | A cell that refuses an Imprint. Open air otherwise, and not drawn. |
 | `^` | Spikes. Not solid: the player can walk into them, and dies. |
 | a letter or digit | A thing named in the room's legend. See below. Open air. |
 
@@ -110,7 +113,9 @@ Every opening that is left gets a halo: a dithered half-disc of light in the gap
 
 An **up** door lifts a slow player: they leave it rising at 180 px/s at least, so touching a ceiling door near the top of a jump does not stall in the doorway. A **down** door drops them in with whatever speed they had.
 
-**Dying.** Touching spikes, or leaving the room's outline by more than 60 px, shatters the player into a burst of pixels for about 0.6 s, and then puts them back on the last safe floor. A floor is safe if the player stood on it and it is not within a cell of spikes or within two cells of a doorway. The safe floor can be in the room before: dying right after a door puts the player back through it. Spawning in a room also counts as a safe floor.
+**Dying.** Touching spikes, or leaving the room's outline by more than 60 px, shatters the player into a burst of pixels for about 0.6 s, and then puts them back on the last safe floor. A floor is safe if the player stood on it, it is the room's own floor, and it is not within a cell of spikes or within two cells of a doorway. An Imprint is never safe floor, because it breaks: standing on one over spikes and dying brings the player back on the real floor they stood on before, not in the air where the platform was. The safe floor can be in the room before: dying right after a door puts the player back through it. Spawning in a room also counts as a safe floor.
+
+The last eight stretches of floor are remembered. If the player dies again before standing anywhere after a respawn, that respawn spot was no good and they go back one stretch, so a bad spot can cost one extra death and never a loop.
 
 During the slide the camera is not following. It is on the tween. Afterward it follows again.
 
@@ -122,7 +127,7 @@ A room file may start with a **legend**: the line `legend:`, lines of `G = kind 
 
 ```
 legend:
-  U = pickup id=r5_width upgrade=imprint_width value=3
+  U = pickup id=r2_imprint upgrade=imprint
 ---
 ```
 
@@ -143,10 +148,10 @@ A file that cannot be read, or that a newer version of the game wrote, is moved 
 Five rooms, as content, not as the limit of the format.
 
 - **1**, one screen at `(0, 0)`. Three tiers of platforms, each a running jump apart, and an exit in the right wall. This is the movement test.
-- **2**, one screen at `(1, 0)`. The landing from 1's door, steps down to the right, and a floor-level door in the right wall.
+- **2**, one screen at `(1, 0)`. The landing from 1's door, steps down to the right, and a floor-level door in the right wall. The pickup that gives the player Imprint sits on the first platform.
 - **3**, two screens wide at `(2, 0)`. Entered through that floor-level door. Platforms carry the route across the second screen. The same door is the way back. A hole in the floor of its second screen drops down to room 4.
 - **4**, one screen at `(3, 1)`, under that hole. A zigzag of platforms climbs back to the hole, and a second hole in its floor drops to room 5.
-- **5**, one screen at `(3, 2)`. A patch of spikes in the floor, a platform over it, and a zigzag of platforms up to the hole in its ceiling. A pickup on the top platform widens the Imprint to 3. Nothing uses an Imprint yet, so it only changes a number.
+- **5**, one screen at `(3, 2)`. A patch of spikes in the floor, a platform over it, and a zigzag of platforms up to the hole in its ceiling. The spikes are a place to use Imprint: a platform a few cells above them is something to jump from.
 
 ### Starting in a room
 
@@ -203,7 +208,7 @@ The build steps for that pass are in `docs/plans/soft-duotone-palettes.md`.
 
 ## Imprint
 
-Status: design only. Not built. The grid, the room bounds, the merged solid rectangles, the jump simulator, the `~` cells, and the starting upgrade values are already in the game so this does not have to invent them.
+Status: the first version is built: finding it, placing it, the reach preview, the lifetime, and the rules below. The solver does not know about Imprint yet, so `tools/validate.sh` cannot prove that a room is open or locked by it. Widening, lengthening and the other upgrades are stored as numbers and unused.
 
 Imprint is the ability that makes Freddy's Fall a metroidvania. The mouse cursor is a platform. The player places it, jumps from it, and uses longer, longer-lasting, and stranger versions of it to open paths that the authored rooms withhold.
 
@@ -219,19 +224,23 @@ At the start, `width_cells` is 2: the player's width plus one spare cell. The fi
 
 ### Placing
 
-Click places the platform under the cursor.
+Left click places the platform under the cursor. There is no keyboard or gamepad way to place one, and none planned for now. The code gets the target cell from one function, so another input can feed it later.
 
-- Only one imprint exists at a time. Placing another destroys the one that is already out.
+- Only one imprint exists at a time. Placing another destroys the one that is already out, and the new one is placed at once, with no wait. A later upgrade may allow more than one.
 - It has to lie fully inside the current room. The room is the whole room, including every screen it spans, not the visible viewport.
-- It cannot overlap level geometry.
+- It cannot overlap level geometry, spikes, or a door's trigger zone and the cell around it, so it cannot wall off a doorway or cover spikes.
 - It cannot overlap the player.
-- A `~` cell refuses it. That is how a puzzle can forbid the obvious ledge without changing the jump rules.
+- A `~` cell refuses it. That is how a puzzle can forbid the obvious ledge without changing the jump rules. `~` cells are not drawn: the player finds one by being refused there.
+
+A platform may sit just above spikes. Bridging a spike pit with a platform a few cells over it, to jump from, is a core puzzle.
+
+A placed platform is solid on every side, like authored floor. It can be stood on, bumped from below, and walked into. When it breaks under the player, they fall.
 
 A legal placement lasts `duration` seconds, 4 at the start. For the last 1 second it blinks. Then it shatters into pixel shards. It does not fade out.
 
 ### Reach, before the click
 
-The cursor has two looks, chosen before the player clicks.
+The cursor has three looks, chosen before the player clicks.
 
 - **Reachable.** The platform is drawn filled, with a small sparkle on it. Some jump the player can perform from their current position lands on its top.
 - **Unreachable.** The platform is drawn as a dotted outline. No tested jump lands on it. The player can still place it.
@@ -240,7 +249,9 @@ The check includes being in the air. It starts from the player's real state: on 
 
 The check runs again only when the player's cell, the cursor's cell, or whether the player is on the ground changes. Moving inside a cell does not recompute it.
 
-An illegal cell (outside the room, overlapping geometry or the player, or marked `~`) is not a placement. The cursor should read as unavailable there, distinct from a legal platform that merely cannot be jumped to.
+- **Unavailable.** An illegal cell (outside the room, overlapping geometry, spikes, a door or the player, or marked `~`) is not a placement. No platform is drawn there, only a small ×, so it is never mistaken for a legal platform that merely cannot be jumped to. Clicking does nothing.
+
+The operating system cursor is hidden while Imprint is available, because the preview is the cursor.
 
 ### What it is for
 
@@ -252,6 +263,12 @@ Imprint is the gate, the puzzle, and the traversal tool.
 - Placing the one platform spends the previous one, so a puzzle can require the player to choose which gap to bridge.
 
 Authored rooms should be solvable only with the upgrades available up to that point. The check the cursor uses is the same idea as the test that proves a room's own jumps: if the cursor says a platform is reachable, a player who jumps the way the check assumed can land on it.
+
+### Finding it
+
+The player does not start with Imprint. They find it as a pickup, and from then on the cursor is a platform. The pickup that gives it is in room 2.
+
+The pickup is a stand-in for the **token**. Eventually tokens are scattered through the world and found by exploring, and a stationary machine, the **3TM** (3 token machine), takes three of them and dispenses an upgrade: Imprint first, then the others below. Neither the tokens nor the machine are built. For now a pickup gives Imprint directly, so it can be tested at once. The data already allows for the change: a pickup names an upgrade in `data/upgrades.json`, and the 3TM would give the same upgrades.
 
 ### Upgrades
 
@@ -268,7 +285,14 @@ Width, duration, and behavior are the three things a room can demand. A later ro
 
 Bounce is the first special behavior. Others can be added the same way: a property of the placed platform, found as a pickup, and required by some later gap.
 
-The starting values are the defaults in `Abilities` (`src/core/abilities.gd`): width 2, duration 4 seconds, one at a time, no special behavior. They live in `GameState.abilities`.
+Ideas for later upgrades, none of them built:
+
+- A longer platform.
+- More than one platform at a time. Placing one then stops destroying the other, up to the count.
+- A longer life for the platform.
+- A bouncy platform.
+
+The starting values are the defaults in `Abilities` (`src/core/abilities.gd`): width 2, duration 4 seconds, one at a time, no special behavior, and Imprint itself locked. They live in `GameState.abilities`, and the width and duration are read when a platform is placed.
 
 ### Look
 
@@ -276,6 +300,7 @@ Imprint uses the same black-and-white pixel language as the rest of the game.
 
 - Filled cursor with a sparkle: you can get there.
 - Dotted outline: you cannot get there from here.
+- A small ×: you cannot put one here.
 - Blink in the last second: it is about to break.
 - Shatter into pixel shards: it is gone.
 
@@ -284,11 +309,10 @@ The sparkle and the shards are small. They should read at 320×180 and survive t
 ## Not decided
 
 - What S / Down does.
-- Which mouse button places an Imprint, and whether a key can place one too.
-- What the Imprint cursor looks like on an illegal cell, beyond "not a legal platform."
 - How hard a bounce platform throws the player, and whether the player aims it.
-- Imprint pickup glyphs, what they look like, and where the first ones are.
-- Whether a shattered Imprint can be replaced instantly, or the break has a beat of recovery.
+- A gamepad or keyboard way to aim and place an Imprint.
+- What the tokens and the 3TM look like, and how many tokens each upgrade costs.
+- Whether `~` cells should ever be drawn.
 - Sound, throughout.
 - A way to start over from inside the game. `--new-game` does it from the command line and the web address.
 - Where the player resumes: a dedicated save point glyph, if autosave on room entry feels wrong.

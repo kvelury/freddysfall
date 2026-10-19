@@ -30,9 +30,11 @@ func has_flag(key: String) -> bool:
 func collect(def: EntityDef) -> String:
 	flags[Pickup.flag_for(def)] = true
 	var upgrade := Upgrades.get_def(String(def.props["upgrade"]))
-	var value: Variant = Upgrades.parse_value(String(def.props["upgrade"]), String(def.props["value"]))
+	var value: Variant = Upgrades.parse_value(String(def.props["upgrade"]), String(def.props.get("value", "")))
 	if abilities.apply(upgrade, value):
 		abilities_changed.emit()
+	if upgrade.has("message"):
+		return String(upgrade["message"])
 	return "%s: %s" % [upgrade["name"], value]
 
 

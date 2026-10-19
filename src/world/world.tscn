@@ -1,15 +1,19 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=7 format=3]
 
 [ext_resource type="Script" path="res://src/world/world.gd" id="1_world"]
 [ext_resource type="PackedScene" path="res://src/player/player.tscn" id="2_player"]
 [ext_resource type="PackedScene" path="res://src/ui/map_overlay.tscn" id="3_map"]
 [ext_resource type="Script" path="res://src/ui/debug_overlay.gd" id="4_debug"]
 [ext_resource type="Script" path="res://src/ui/toast.gd" id="5_toast"]
+[ext_resource type="Script" path="res://src/imprint/imprint_tool.gd" id="6_imprint"]
 
 [node name="World" type="Node2D"]
 script = ExtResource("1_world")
 
 [node name="Rooms" type="Node2D" parent="."]
+
+[node name="Imprint" type="Node2D" parent="."]
+script = ExtResource("6_imprint")
 
 [node name="Player" parent="." instance=ExtResource("2_player")]
 

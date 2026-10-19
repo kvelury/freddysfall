@@ -6,6 +6,9 @@ var info: RoomInfo
 var exits_active := false
 var _hazard_rects: Array[Rect2] = []
 var _pickups: Array[Pickup] = []
+## The room's own solids, without any Imprint, for telling real floor from a
+## platform that will break.
+var _floor_rects: Array[Rect2] = []
 
 
 ## `flags` is what the player has already done (GameState.flags); things they
@@ -32,6 +35,7 @@ func build(room_info: RoomInfo, flags := {}) -> void:
 			add_child(chunk)
 	for ex in info.exits:
 		_add_halo(ex)
+	_floor_rects = world_rects()
 	for def in info.entities:
 		if not Entities.present(def, flags):
 			continue
@@ -55,6 +59,20 @@ func touched_door(body: Rect2) -> Door:
 		if Rect2(trigger.position + position, trigger.size).intersects(body):
 			return door
 	return null
+
+
+## Spikes and door triggers as pixel rects in world space, for paths that
+## have to know what kills and what leaves the room.
+func hazard_world_rects() -> Array[Rect2]:
+	return _hazard_rects
+
+
+func door_world_rects() -> Array[Rect2]:
+	var out: Array[Rect2] = []
+	for door in info.exits:
+		var trigger := door.trigger_rect()
+		out.append(Rect2(trigger.position + position, trigger.size))
+	return out
 
 
 ## The pickups a body at `body` (world pixels) is touching.
@@ -81,8 +99,11 @@ func is_outside(world_point: Vector2) -> bool:
 
 
 ## Whether a body resting at `body` is somewhere to come back to after dying:
-## not beside a hazard and not in or next to a doorway.
+## held up by the room's own floor (an Imprint breaks, and nothing would be
+## under the player), not beside a hazard, and not in or next to a doorway.
 func is_safe_spot(body: Rect2) -> bool:
+	if not MovementSim.standing(body.get_center(), _floor_rects):
+		return false
 	var cell := float(Grid.CELL)
 	var near := body.grow_individual(cell, 0.0, cell, 0.0)
 	for rect in _hazard_rects:
