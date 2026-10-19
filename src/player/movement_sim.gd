@@ -219,7 +219,9 @@ static func simulate_jump(
 	hazards: Array = [],
 	collect: Array = [],
 	later_input: float = NAN,
-	switch_frame: int = 0
+	switch_frame: int = 0,
+	limit: int = 180,
+	record: bool = false
 ) -> Dictionary:
 	var s := State.new()
 	s.position = start_position
@@ -234,9 +236,16 @@ static func simulate_jump(
 	var hazard := false
 	var floor_rect := Rect2()
 	var collected: Array[int] = []
-	for frame in 180:
+	var path := PackedVector2Array()
+	if record:
+		path.append(start_position)
+	var frames := 0
+	for frame in limit:
+		frames = frame + 1
 		var input := input_x if is_nan(later_input) or frame < switch_frame else later_input
 		step(cfg, s, rects, input, jump and frame == 0, frame < hold_frames, delta)
+		if record:
+			path.append(s.position)
 		min_feet = minf(min_feet, s.position.y + HALF.y)
 		if not s.grounded:
 			airborne = true
@@ -264,6 +273,8 @@ static func simulate_jump(
 		"trigger": trigger,
 		"hazard": hazard,
 		"collected": collected,
+		"frames": frames,
+		"path": path,
 	}
 
 

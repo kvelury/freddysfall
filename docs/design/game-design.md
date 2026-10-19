@@ -10,7 +10,7 @@ Implementation steps for the palette pass live in `docs/plans/soft-duotone-palet
 | Room legends, pickups, abilities, autosave | Built |
 | Imprint: finding it, placing it, the preview, the lifetime | Built |
 | Imprint upgrades (wider, longer, more, bounce), the tokens and the 3TM | Designed, not built |
-| The solver using Imprint | Not built |
+| The solver using Imprint, and what each room needs | Built |
 | Softer two-color palettes | Designed, not built |
 
 ## What it is
@@ -145,13 +145,14 @@ A file that cannot be read, or that a newer version of the game wrote, is moved 
 
 ### The current slice
 
-Five rooms, as content, not as the limit of the format.
+Six rooms, as content, not as the limit of the format.
 
 - **1**, one screen at `(0, 0)`. Three tiers of platforms, each a running jump apart, and an exit in the right wall. This is the movement test.
 - **2**, one screen at `(1, 0)`. The landing from 1's door, steps down to the right, and a floor-level door in the right wall. The pickup that gives the player Imprint sits on the first platform.
 - **3**, two screens wide at `(2, 0)`. Entered through that floor-level door. Platforms carry the route across the second screen. The same door is the way back. A hole in the floor of its second screen drops down to room 4.
 - **4**, one screen at `(3, 1)`, under that hole. A zigzag of platforms climbs back to the hole, and a second hole in its floor drops to room 5.
 - **5**, one screen at `(3, 2)`. A patch of spikes in the floor, a platform over it, and a zigzag of platforms up to the hole in its ceiling. The spikes are a place to use Imprint: a platform a few cells above them is something to jump from.
+- **6**, one screen at `(4, 2)`, through a door in the right wall of room 5. A pit of spikes 12 cells wide is too wide to jump, so crossing it, and the width pickup on the far side, needs Imprint: a platform put over the spikes. It is the first room that is open or shut by an ability.
 
 ### Starting in a room
 
@@ -171,7 +172,13 @@ A **ledge** is a run of cells with air above and floor below. From each ledge th
 
 `tools/render.sh` draws each room and the world map to `build/renders/`. Red bars mark unreachable ledges, yellow bars mark traps, and orange marks a door that was sealed.
 
-Imprint will add platforms to the solids and let paths use them. The solver takes the player's `Abilities` for that and ignores them for now, so every room is solved with the starting abilities, and the validator lists each pickup and what it gives. Once abilities change what a path can do, the validator will solve again after taking each pickup it can reach, and report which pickups each room needs.
+**Imprint in the solver.** The solver takes the player's `Abilities`. With Imprint unlocked, a ledge gets extra edges: a player standing there can put a platform down, jump onto it, and jump from it.
+- It does not try every platform. From each ledge the usual jumps are simulated once, and a platform is a candidate only where one of those jumps comes down through the top of a cell row, and only if it is a legal place (the same `ImprintRules` the cursor uses) within a jump of something still out of reach. Each candidate is then checked by simulating the jump again with the platform in place. A platform that passes is searched from like a ledge of its own.
+- A platform lives `imprint_duration` seconds, so each of the two jumps is cut to half of that less a little spare time. A one second platform crosses nothing.
+- A ledge that cannot get home is searched the same way, with the ledges that can as the targets, so crossing a pit one way with a platform and having no way back is still a trap.
+- Left out: putting the platform down in mid-air, and using two in a row. A room that needs either is reported as out of reach even if a player could do it. A room that needs the platform in a place the preview calls dotted is also not found.
+
+**What a room needs.** `tools/validate.sh` solves with the starting abilities, takes every pickup that solve could reach, solves again with what they gave, and repeats until nothing new turns up. A room, a ledge, or a pickup that only opens in a later round lists the pickups it needs, cut down by dropping them one at a time to a set it still opens with. Example, from the current world: `Room 6: the ledge on row 16, cells 22-30 needs r2_imprint`. Errors come from the last solve, so a room that stays shut even with every pickup is an error. A trap is judged where the player could first be in it, with the fewest abilities, because a player who has not found Imprint yet is also stuck in a place that needs it to leave.
 
 ## Camera
 

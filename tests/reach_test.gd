@@ -249,7 +249,7 @@ func _covers(rects: Array[Rect2i], cell: Vector2i) -> bool:
 ## The real world has to solve completely: every room, door and ledge
 ## reachable, and nowhere to get stuck.
 func _reach_world(data) -> bool:
-	var report := ReachGraph.new(data.rooms, _cfg).analyze(data.start_room)
+	var report := ReachGraph.new(data.rooms, _cfg).solve(data.start_room)
 	var ok := true
 	ok = _check(report.errors.is_empty(), "the world has no reach errors %s" % [report.errors]) and ok
 	ok = _check(report.reached_ledges == report.total_ledges and report.total_ledges > 0, "every ledge in the world is reachable (%d of %d)" % [report.reached_ledges, report.total_ledges]) and ok

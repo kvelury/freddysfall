@@ -8,10 +8,10 @@ Run from the repo root.
 
 | Command | What it does |
 | --- | --- |
-| `tools/validate.sh` | Loads every room and solves the world. A room is not done until this exits 0. |
+| `tools/validate.sh` | Loads every room and solves the world, with Imprint, taking pickups as it goes. A room is not done until this exits 0. It also prints what each room, ledge and pickup needs. |
 | `tools/render.sh [ids]` | PNGs of rooms and the world map in `build/renders/`. Read them to see what you built. |
 | `tools/snap.sh <id>` | A real in-game frame of a room in `build/snaps/`. Opens a window for a second, so run it on the user's machine. |
-| `godot --headless --path . --script tests/<name>.gd` | `reach_test`, `physics_test`, `parity_test`, `door_test`, `shaft_test`, `hazard_test`, `start_test`, `entity_test`, `save_test`, `pickup_test`, `imprint_test`, `imprint_play_test`. Each prints a pass line and exits 0. |
+| `godot --headless --path . --script tests/<name>.gd` | `reach_test`, `physics_test`, `parity_test`, `door_test`, `shaft_test`, `hazard_test`, `start_test`, `entity_test`, `save_test`, `pickup_test`, `imprint_test`, `imprint_play_test`, `imprint_solver_test`. Each prints a pass line and exits 0. |
 | `godot --path . -- --room=<id>` | Play starting in a room. In the browser, `?room=<id>`. In a debug build, F4, the number, Enter. |
 | `tools/build_web.sh` then `tools/serve.sh` | The browser build at http://localhost:8060. |
 

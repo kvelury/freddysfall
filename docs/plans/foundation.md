@@ -139,7 +139,7 @@ Goal: you can start handing over notebook photos after this chunk.
 - The reach solver takes `Abilities`. The validator reports per room: "needs: imprint_width≥3".
 
 ### Chunk 7: Imprint (its own plan doc)
-Split in two. **7a, the playable Imprint, is built**: the D9 questions are settled in `game-design.md` (left click, mouse only, solid, refuses spikes and doors, found as a pickup). **7b is not built**: the solver and validator using Imprint, and the per-room "needs" report.
+Split in two. **7a, the playable Imprint, is built**: the D9 questions are settled in `game-design.md` (left click, mouse only, solid, refuses spikes and doors, found as a pickup). **7b, the solver and validator using Imprint and the "needs" report, is built** (room 6 is the first room that Imprint opens).
 - Settle the D9 questions first, then build to the existing spec in `game-design.md`.
 - The reachable/unreachable cursor uses `reach_graph`/`simulate_jump` from the player's live state, against room rects plus the imprint. Thanks to Chunk 4 it is exact.
 

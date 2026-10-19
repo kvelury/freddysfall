@@ -54,7 +54,7 @@ func _initialize() -> void:
 	var report: ReachGraph.Report = null
 	if data.errors.is_empty():
 		var cfg := load("res://src/player/movement.tres") as MovementConfig
-		report = ReachGraph.new(data.rooms, cfg).analyze(data.start_room)
+		report = ReachGraph.new(data.rooms, cfg).solve(data.start_room)
 	var only := OS.get_cmdline_user_args()
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(OUT_DIR))
 	var ids: Array = data.rooms.keys()
