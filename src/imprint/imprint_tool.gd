@@ -104,7 +104,7 @@ func refresh_preview() -> void:
 
 
 func _physics_process(delta: float) -> void:
-	if _world.current == null:
+	if _world.current == null or _world.is_busy():
 		return
 	var broke := false
 	for platform in platforms.duplicate():

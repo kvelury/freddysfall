@@ -3,6 +3,11 @@ extends Node2D
 const TRANSITION_TIME := 0.5
 ## How long the shatter plays before the player is put back on safe ground.
 const DEATH_TIME := 0.6
+## How long a token takes to fly into a 3TM, the pause after each, and how
+## long the spark takes to come back to the player.
+const FEED_TIME := 0.45
+const FEED_PAUSE := 0.2
+const SPARK_TIME := 0.3
 ## How many stretches of floor are remembered, and how far apart two spots have
 ## to be, in pixels, to count as different stretches.
 const SAFE_HISTORY := 8
@@ -128,7 +133,7 @@ func _make_room(id: String) -> Room:
 	var info := WorldData.get_room(id)
 	var room := Room.new()
 	room.position = Vector2(info.grid_pos) * Grid.SCREEN_SIZE
-	room.build(info, GameState.flags)
+	room.build(info, GameState.flags, GameState.machines)
 	room.exits_opened.connect(_on_exits_opened)
 	rooms_root.add_child(room)
 	return room
@@ -140,6 +145,9 @@ func is_busy() -> bool:
 
 
 func _collect(thing: Node2D) -> void:
+	if thing is TokenMachine:
+		_feed(thing)
+		return
 	if thing is Token:
 		if not GameState.take_token(thing.def):
 			if not thing.noted:
@@ -151,6 +159,42 @@ func _collect(thing: Node2D) -> void:
 		toast.show_text(GameState.collect(thing.def))
 		thing.collect()
 	current.recheck_exits(GameState.flags)
+	_autosave(false)
+
+
+## The player touches a 3TM. With tokens they are fed in one at a time, each
+## flying from the player into the next slot; the third makes the machine give
+## its upgrade. The player is frozen until it is done.
+func _feed(machine: TokenMachine) -> void:
+	if machine.spent:
+		return
+	if GameState.tokens == 0:
+		if not machine.noted:
+			machine.noted = true
+			toast.show_text("3TM: %d of %d tokens" % [machine.filled, TokenMachine.COST])
+		return
+	_busy = true
+	player.input_enabled = false
+	player.velocity = Vector2.ZERO
+	while GameState.tokens > 0 and not machine.spent:
+		var slot := machine.filled
+		GameState.spend_token()
+		var flier := FlyingToken.launch(self, player.global_position, machine.slot_position(slot), FEED_TIME)
+		await flier.arrived
+		machine.fill()
+		GameState.machines[machine.def.id] = machine.filled
+		await get_tree().create_timer(FEED_PAUSE, true, true).timeout
+	if machine.spent:
+		await machine.dispense()
+		var spark := FlyingToken.launch(self, machine.mouth_position(), player.global_position, SPARK_TIME, true)
+		await spark.arrived
+		var burst := Shatter.new()
+		burst.position = player.global_position
+		add_child(burst)
+		toast.show_text(GameState.grant(String(machine.def.props["upgrade"]), String(machine.def.props.get("value", ""))))
+		await get_tree().create_timer(FEED_PAUSE, true, true).timeout
+	player.input_enabled = true
+	_busy = false
 	_autosave(false)
 
 

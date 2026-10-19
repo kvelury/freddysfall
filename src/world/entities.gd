@@ -12,6 +12,7 @@ extends RefCounted
 const TYPES := {
 	"pickup": {"required": ["upgrade"], "optional": ["value"]},
 	"token": {"required": [], "optional": []},
+	"machine": {"required": ["upgrade"], "optional": ["value"]},
 }
 
 
@@ -43,10 +44,10 @@ static func problems(def: EntityDef) -> Array[String]:
 	for key in def.props:
 		if not spec["required"].has(key) and not spec["optional"].has(key):
 			out.append("%s %s has %s=, which %s does not use" % [def.type, def.id, key, def.type])
-	if out.is_empty() and def.type == "pickup":
+	if out.is_empty() and (def.type == "pickup" or def.type == "machine"):
 		var message := Upgrades.check(String(def.props["upgrade"]), String(def.props.get("value", "")))
 		if not message.is_empty():
-			out.append("pickup %s: %s" % [def.id, message])
+			out.append("%s %s: %s" % [def.type, def.id, message])
 	return out
 
 
@@ -62,10 +63,13 @@ static func present(def: EntityDef, flags: Dictionary) -> bool:
 	return true
 
 
-static func create(def: EntityDef) -> Node2D:
+## Builds the thing. `fills` is how many tokens each machine holds, by id.
+static func create(def: EntityDef, fills := {}) -> Node2D:
 	match def.type:
 		"pickup":
 			return Pickup.new(def)
 		"token":
 			return Token.new(def)
+		"machine":
+			return TokenMachine.new(def, int(fills.get(def.id, 0)))
 	return null

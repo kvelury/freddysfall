@@ -155,7 +155,25 @@ static func _place_entities(info: RoomInfo, placements: Dictionary, errors: Arra
 			errors.append("Room %s: legend glyph '%s' (%s %s) is drawn %d times, at %s and elsewhere; each one needs its own glyph and id" % [info.id, glyph, def.type, def.id, cells.size(), cells[0]])
 		else:
 			def.cell = cells[0]
+			if def.type == "machine":
+				var problem := _machine_space(info, def)
+				if not problem.is_empty():
+					errors.append(problem)
 			info.entities.append(def)
+
+
+## A 3TM fills 3 x 3 cells, and they have to be open air: not wall, a door,
+## spikes, or another thing. Returns the first problem as a sentence, or "".
+static func _machine_space(info: RoomInfo, def: EntityDef) -> String:
+	var space := TokenMachine.footprint(def.cell)
+	for y in range(space.position.y, space.end.y):
+		for x in range(space.position.x, space.end.x):
+			var glyph := ""
+			if y >= 0 and y < info.rows.size() and x >= 0 and x < info.rows[y].length():
+				glyph = info.rows[y][x]
+			if glyph != Tiles.EMPTY and glyph != Tiles.NO_IMPRINT and glyph != def.glyph:
+				return "Room %s: 3TM %s at %s needs open air in the 3 x 3 cells it fills (%d,%d to %d,%d), but cell %d,%d is '%s'" % [info.id, def.id, def.cell, space.position.x, space.position.y, space.end.x - 1, space.end.y - 1, x, y, glyph if not glyph.is_empty() else "outside the room"]
+	return ""
 
 
 ## A room file is the grid, or a header, a line of three dashes, and the

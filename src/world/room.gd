@@ -5,7 +5,7 @@ var info: RoomInfo
 ## Whether touching a door changes rooms. Off while a transition is running.
 var exits_active := false
 var _hazard_rects: Array[Rect2] = []
-## Everything the player can touch: pickups and tokens.
+## Everything the player can touch: pickups, tokens and 3TMs.
 var _things: Array[Node2D] = []
 ## The room's own solids, without any Imprint, for telling real floor from a
 ## platform that will break.
@@ -20,8 +20,8 @@ signal exits_opened
 
 
 ## `flags` is what the player has already done (GameState.flags); things they
-## have taken are left out.
-func build(room_info: RoomInfo, flags := {}) -> void:
+## have taken are left out. `fills` is how full each 3TM is, by id.
+func build(room_info: RoomInfo, flags := {}, fills := {}) -> void:
 	info = room_info
 	_flags = flags
 	locked = not ExitRules.met(info, flags)
@@ -52,10 +52,10 @@ func build(room_info: RoomInfo, flags := {}) -> void:
 	for def in info.entities:
 		if not Entities.present(def, flags):
 			continue
-		var thing := Entities.create(def)
+		var thing := Entities.create(def, fills)
 		thing.position = Grid.cell_center(def.cell)
 		add_child(thing)
-		if thing is Pickup or thing is Token:
+		if thing is Pickup or thing is Token or thing is TokenMachine:
 			_things.append(thing)
 
 
@@ -88,8 +88,8 @@ func door_world_rects() -> Array[Rect2]:
 	return out
 
 
-## The pickups and tokens a body at `body` (world pixels) is touching. A token
-## the body has left forgets that it told the player they were full.
+## The pickups, tokens and 3TMs a body at `body` (world pixels) is touching. One
+## the body has left forgets that it already told the player something.
 func touched_things(body: Rect2) -> Array[Node2D]:
 	var out: Array[Node2D] = []
 	for thing in _things:
@@ -97,7 +97,7 @@ func touched_things(body: Rect2) -> Array[Node2D]:
 			continue
 		if thing.rect().intersects(body):
 			out.append(thing)
-		elif thing is Token:
+		elif thing is Token or thing is TokenMachine:
 			thing.noted = false
 	return out
 

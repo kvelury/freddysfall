@@ -11,6 +11,7 @@ func _initialize() -> void:
 	ok = _valid() and ok
 	ok = _legend_lines() and ok
 	ok = _placement() and ok
+	ok = _machines() and ok
 	ok = _exit_rules() and ok
 	ok = _world_ids() and ok
 	ok = _upgrade_file() and ok
@@ -84,6 +85,37 @@ func _legend_lines() -> bool:
 	errors.clear()
 	RoomParser.parse_room("7", Vector2i.ZERO, _room(["things:", LEGEND_LINE], {Vector2i(5, 3): "U"}), errors)
 	ok = _check(_has(errors, "legend:"), "a header that does not start with legend: is an error (%s)" % [errors]) and ok
+	return ok
+
+
+func _machines() -> bool:
+	var ok := true
+	var legend := ["legend:", "  M = machine id=m1 upgrade=imprint"]
+	var errors: Array[String] = []
+	var info := RoomParser.parse_room("7", Vector2i.ZERO, _room(legend, {Vector2i(5, 16): "M"}), errors)
+	ok = _check(errors.is_empty() and info.entities.size() == 1 and info.entities[0].type == "machine", "a 3TM standing on the floor loads %s" % [errors]) and ok
+	errors.clear()
+	RoomParser.parse_room("7", Vector2i.ZERO, _room(legend, {Vector2i(5, 8): "M"}), errors)
+	ok = _check(errors.is_empty(), "and one in the middle of the air %s" % [errors]) and ok
+
+	errors.clear()
+	RoomParser.parse_room("7", Vector2i.ZERO, _room(legend, {Vector2i(1, 16): "M"}), errors)
+	ok = _check(_has(errors, "3TM m1") and _has(errors, "open air") and _has(errors, "cell 0,"), "a 3TM whose footprint reaches the wall is an error that names the cell (%s)" % [errors]) and ok
+	errors.clear()
+	RoomParser.parse_room("7", Vector2i.ZERO, _room(legend, {Vector2i(5, 16): "M", Vector2i(6, 15): "#"}), errors)
+	ok = _check(_has(errors, "open air") and _has(errors, "cell 6,15"), "a block inside it is an error (%s)" % [errors]) and ok
+	errors.clear()
+	RoomParser.parse_room("7", Vector2i.ZERO, _room(legend, {Vector2i(5, 16): "M", Vector2i(4, 14): "^"}), errors)
+	ok = _check(_has(errors, "open air"), "spikes inside it are an error (%s)" % [errors]) and ok
+	errors.clear()
+	RoomParser.parse_room("7", Vector2i.ZERO, _room(legend, {Vector2i(5, 1): "M"}), errors)
+	ok = _check(_has(errors, "open air"), "a 3TM at the top, whose footprint leaves the room, is an error (%s)" % [errors]) and ok
+	errors.clear()
+	RoomParser.parse_room("7", Vector2i.ZERO, _room(["legend:", "  M = machine id=m1"], {Vector2i(5, 16): "M"}), errors)
+	ok = _check(_has(errors, "upgrade="), "a 3TM with no upgrade is an error (%s)" % [errors]) and ok
+	errors.clear()
+	RoomParser.parse_room("7", Vector2i.ZERO, _room(["legend:", "  M = machine id=m1 upgrade=fly"], {Vector2i(5, 16): "M"}), errors)
+	ok = _check(_has(errors, "no upgrade \"fly\""), "or one that gives an upgrade that does not exist (%s)" % [errors]) and ok
 	return ok
 
 

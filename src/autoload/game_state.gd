@@ -16,6 +16,8 @@ var abilities := Abilities.new()
 var flags := {}
 ## Tokens carried now.
 var tokens := 0
+## How many tokens each 3TM holds, by its id. At three it has given its upgrade.
+var machines := {}
 
 
 func visit(room_id: String) -> void:
@@ -65,12 +67,19 @@ func take_token(def: EntityDef) -> bool:
 	return true
 
 
+## Gives up one carried token, for a 3TM to take.
+func spend_token() -> void:
+	tokens = maxi(0, tokens - 1)
+	tokens_changed.emit()
+
+
 func to_dict() -> Dictionary:
 	return {
 		"visited": visited.keys(),
 		"abilities": abilities.to_dict(),
 		"flags": flags.keys(),
 		"tokens": tokens,
+		"machines": machines.duplicate(),
 	}
 
 
@@ -83,6 +92,11 @@ func load_dict(data: Dictionary) -> void:
 	flags = {}
 	for key in data.get("flags", []):
 		flags[String(key)] = true
+	machines = {}
+	var held = data.get("machines", {})
+	if held is Dictionary:
+		for id in held:
+			machines[String(id)] = clampi(int(held[id]), 0, 3)
 	tokens = clampi(int(data.get("tokens", 0)), 0, TOKEN_CAP)
 	tokens_changed.emit()
 	var saved = data.get("abilities", {})
