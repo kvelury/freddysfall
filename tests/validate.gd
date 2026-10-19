@@ -21,13 +21,26 @@ func _initialize() -> void:
 
 	var started := Time.get_ticks_msec()
 	var cfg := load("res://src/player/movement.tres") as MovementConfig
-	var report := ReachGraph.new(data.rooms, cfg).analyze(data.start_room)
+	var report := ReachGraph.new(data.rooms, cfg).solve(data.start_room)
 	for message in report.errors:
 		print("FAIL ", message)
 	for message in report.warnings:
 		print("warn ", message)
 	for pickup in report.pickups:
 		print("pickup %s in room %s: %s%s" % [pickup["id"], pickup["room"], (pickup["upgrade"] + " " + pickup["value"]).strip_edges(), "" if pickup["reached"] else "  (not reached)"])
+	var ids: Array = data.rooms.keys()
+	ids.sort_custom(func(a: String, b: String) -> bool: return a.naturalnocasecmp_to(b) < 0)
+	for id in ids:
+		if not report.needs.has(id):
+			print("room %s is not reached" % id)
+		else:
+			var needs: Array = report.needs[id]
+			print("room %s needs %s" % [id, "nothing" if needs.is_empty() else ", ".join(needs)])
+	var extra: Array = report.needs.keys().filter(func(k: String) -> bool: return k.contains("|"))
+	extra.sort()
+	for key in extra:
+		var parts: PackedStringArray = String(key).split("|", true, 1)
+		print("%s%s needs %s" % ["pickup " if parts[0] == "pickup" else "", parts[1], ", ".join(report.needs[key])])
 	var seconds := float(Time.get_ticks_msec() - started) / 1000.0
 	var summary := "%d rooms, %d of %d ledges reachable, %.1f s" % [data.rooms.size(), report.reached_ledges, report.total_ledges, seconds]
 	if report.errors.is_empty():

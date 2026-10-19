@@ -26,14 +26,20 @@ const REACH_DOWN := 400.0
 const MAX_CHAIN := 3
 ## Past this many lines of one kind, the report counts the rest.
 const MAX_LINES := 6
+## The most times `solve` collects pickups and solves again.
+const MAX_ROUNDS := 8
 
 var abilities: Abilities
+## How many ticks a simulated path may run. The Imprint search shortens it so a
+## platform placed for a jump is still there at the end of it.
+var frame_limit := 180
 var _cfg: MovementConfig
 var _rooms: Dictionary
 var _ledges := {}
 var _geometry := {}
 var _solved := {}
 var _landings := {}
+var _imprint: ImprintSearch
 
 
 ## `ability_set` is what the player has, the starting abilities if left out.
@@ -47,14 +53,114 @@ func _init(rooms: Dictionary, movement: MovementConfig, ability_set: Abilities =
 		_ledges[id] = _find_ledges(rooms[id])
 
 
+func movement() -> MovementConfig:
+	return _cfg
+
+
+func room_info(room_id: String) -> RoomInfo:
+	return _rooms[room_id]
+
+
 func ledges_in(room_id: String) -> Array[Ledge]:
 	var out: Array[Ledge] = []
 	out.assign(_ledges.get(room_id, []))
 	return out
 
 
-## Walks the whole graph from the start room's spawn.
+## Walks the whole graph from the start room's spawn with the abilities the
+## graph was given.
 func analyze(start_room: String) -> Report:
+	var report := _analyze(start_room)
+	_append_capped(report.errors, report.trap_lines)
+	return report
+
+
+## What the player can reach as they collect pickups. It solves with the
+## starting abilities, takes every pickup that solve could reach, and solves
+## again with what they gave, until nothing new turns up. A room's "needs" is
+## the smallest set of pickups, found by dropping them one at a time, that it
+## still opens with. Errors come from the last solve, except that a trap is
+## judged where the player could first be in it, with the fewest abilities.
+func solve(start_room: String) -> Report:
+	var base := abilities
+	var taken := {}
+	var seen := {}
+	var room_round := {}
+	var ledge_round := {}
+	var trap_lines: Array[String] = []
+	var report := Report.new()
+	for round in MAX_ROUNDS:
+		abilities = _with(base, taken.keys())
+		report = _analyze(start_room)
+		for ledge in report.reached:
+			if not room_round.has(ledge.room_id):
+				room_round[ledge.room_id] = round
+			if not ledge_round.has(ledge):
+				ledge_round[ledge] = round
+		for ledge in report.traps:
+			if not seen.has(ledge):
+				trap_lines.append("%s is a trap: once there, no path leads back to the start" % ledge.describe())
+		for ledge in report.reached:
+			seen[ledge] = true
+		var fresh := 0
+		for pickup in report.pickups:
+			if pickup["reached"] and not taken.has(pickup["id"]):
+				taken[pickup["id"]] = round
+				fresh += 1
+		if fresh == 0 or _with(base, taken.keys()).to_dict() == abilities.to_dict():
+			break
+	report.trap_lines = trap_lines
+	_append_capped(report.errors, report.trap_lines)
+	# What each thing needs: the pickups taken in earlier rounds, cut down to
+	# the ones it still opens with.
+	for room_id in room_round:
+		report.needs[String(room_id)] = _needs(start_room, base, taken, int(room_round[room_id]), func(r: Report) -> bool: return r.reached_rooms.has(room_id))
+	for ledge in ledge_round:
+		if int(ledge_round[ledge]) > int(room_round[ledge.room_id]):
+			report.needs["ledge|" + ledge.describe()] = _needs(start_room, base, taken, int(ledge_round[ledge]), func(r: Report) -> bool: return r.reached.has(ledge))
+	for pickup in report.pickups:
+		if pickup["reached"] and int(taken[pickup["id"]]) > 0:
+			var id: String = pickup["id"]
+			report.needs["pickup|" + id] = _needs(start_room, base, taken, int(taken[id]), func(r: Report) -> bool:
+				for entry in r.pickups:
+					if entry["id"] == id and entry["reached"]:
+						return true
+				return false
+			)
+	abilities = base
+	return report
+
+
+## The smallest set of the pickups taken before `round` that `opens` still
+## holds with, found by dropping them one at a time.
+func _needs(start_room: String, base: Abilities, taken: Dictionary, round: int, opens: Callable) -> Array:
+	var needed: Array = []
+	for id in taken:
+		if int(taken[id]) < round:
+			needed.append(id)
+	for id in needed.duplicate():
+		var without := needed.duplicate()
+		without.erase(id)
+		abilities = _with(base, without)
+		if opens.call(_analyze(start_room)):
+			needed = without
+	needed.sort()
+	return needed
+
+
+## `base` with the upgrades of the pickups named in `ids` applied.
+func _with(base: Abilities, ids: Array) -> Abilities:
+	var out := base.copy()
+	for id in ids:
+		for room_id in _rooms:
+			for def in _pickups_of(_rooms[room_id]):
+				if def.id == id:
+					var upgrade := String(def.props["upgrade"])
+					out.apply(Upgrades.get_def(upgrade), Upgrades.parse_value(upgrade, String(def.props.get("value", ""))))
+	return out
+
+
+func _analyze(start_room: String) -> Report:
 	var report := Report.new()
 	if not _rooms.has(start_room):
 		report.errors.append("There is no start room %s to search from" % start_room)
@@ -65,53 +171,28 @@ func analyze(start_room: String) -> Report:
 		report.errors.append("Room %s: the start %s at %s is not standing on anything" % [start_room, Tiles.SPAWN, start_info.spawn_cell])
 		return report
 
-	var reached := {}
-	var reached_doors := {}
-	# Where the bodies that touched each door ended up, to catch a door that
-	# drops everyone into a void or onto spikes.
-	var door_landings := {}
-	var forward := {}
-	var queue: Array[Ledge] = [start]
-	reached[start] = true
-	while not queue.is_empty():
-		var ledge: Ledge = queue.pop_back()
-		var info: RoomInfo = _rooms[ledge.room_id]
-		_ensure_edges(info)
-		var next: Array[Ledge] = []
-		for index in ledge.to_ledges:
-			next.append(_ledges[ledge.room_id][index])
-		for touch in ledge.touches:
-			var key := "%s#%d" % [ledge.room_id, touch.door]
-			reached_doors[key] = true
-			var landings := _landings_of(info, touch, 0)
-			door_landings[key] = int(door_landings.get(key, 0)) + landings.size()
-			next.append_array(landings)
-		forward[ledge] = next
-		for target in next:
-			if not reached.has(target):
-				reached[target] = true
-				queue.append(target)
+	var run := Run.new()
+	run.queue.append(start)
+	run.reached[start] = true
+	_flood(run)
+	if abilities.imprint_unlocked:
+		_place_imprints(run)
+	var reached := run.reached
+	var reached_doors := run.reached_doors
+	var door_landings := run.door_landings
+	var forward := run.forward
 
 	# Walking the same edges backwards from the start finds every ledge that
-	# can still get home. A reached ledge that cannot is a trap.
-	var back := {}
-	for ledge in forward:
-		for target in forward[ledge]:
-			if not back.has(target):
-				back[target] = []
-			back[target].append(ledge)
-	var home := {start: true}
-	var home_queue: Array[Ledge] = [start]
-	while not home_queue.is_empty():
-		var ledge: Ledge = home_queue.pop_back()
-		for source in back.get(ledge, []):
-			if not home.has(source):
-				home[source] = true
-				home_queue.append(source)
-
+	# can still get home. A reached ledge that cannot is a trap, unless an
+	# Imprint platform put down from it gets it home.
+	var home := _home(run, start)
+	if abilities.imprint_unlocked:
+		home = _place_imprints_to_get_home(run, start, home)
 	var reached_rooms := {}
 	for ledge in reached:
 		reached_rooms[ledge.room_id] = true
+	report.reached = reached
+	report.reached_rooms = reached_rooms
 	var unreached_rooms: Array[String] = []
 	for id in _rooms:
 		if not reached_rooms.has(id):
@@ -122,7 +203,6 @@ func analyze(start_room: String) -> Report:
 
 	var lost_doors: Array[String] = []
 	var empty_doors: Array[String] = []
-	var traps: Array[String] = []
 	var unreached_ledges: Array[String] = []
 	for id in _rooms:
 		var info: RoomInfo = _rooms[id]
@@ -141,30 +221,181 @@ func analyze(start_room: String) -> Report:
 					unreached_ledges.append("%s cannot be reached" % ledge.describe())
 			elif not home.has(ledge):
 				report.traps.append(ledge)
-				traps.append("%s is a trap: once there, no path leads back to the start" % ledge.describe())
+				report.trap_lines.append("%s is a trap: once there, no path leads back to the start" % ledge.describe())
 	var lost_pickups: Array[String] = []
 	for id in _rooms:
 		var info: RoomInfo = _rooms[id]
 		var defs := _pickups_of(info)
 		for i in defs.size():
-			var got := false
-			for ledge: Ledge in _ledges[id]:
-				if reached.has(ledge) and ledge.pickups.has(i):
-					got = true
-					break
+			var got := _pickup_reached(run, id, i)
 			report.pickups.append({"id": defs[i].id, "room": String(id), "upgrade": String(defs[i].props["upgrade"]), "value": String(defs[i].props.get("value", "")), "reached": got})
 			if reached_rooms.has(id) and not got:
 				lost_pickups.append("Room %s: pickup %s at cell %s cannot be reached: no jump from a ledge the player gets to touches it" % [id, defs[i].id, defs[i].cell])
 	_append_capped(report.errors, lost_pickups)
 	_append_capped(report.errors, lost_doors)
 	_append_capped(report.errors, empty_doors)
-	_append_capped(report.errors, traps)
 	_append_capped(report.warnings, unreached_ledges)
 	report.reached_ledges = reached.size()
 	report.total_ledges = 0
 	for id in _ledges:
 		report.total_ledges += _ledges[id].size()
 	return report
+
+
+## Spreads out from the ledges in the queue, following jumps, drops, walks and
+## the doors the player touches, until nothing new is reached. Imprint
+## platforms found by `_place_imprints` are extra edges, kept in `run`.
+func _flood(run: Run) -> void:
+	while not run.queue.is_empty():
+		var ledge: Ledge = run.queue.pop_back()
+		var info: RoomInfo = _rooms[ledge.room_id]
+		_ensure_edges(info)
+		var next: Array[Ledge] = []
+		for index in ledge.to_ledges:
+			next.append(_ledges[ledge.room_id][index])
+		next.append_array(run.extra_to.get(ledge, []))
+		var touches: Array[Touch] = []
+		touches.append_array(ledge.touches)
+		touches.append_array(run.extra_touches.get(ledge, []))
+		for touch in touches:
+			var key := "%s#%d" % [ledge.room_id, touch.door]
+			run.reached_doors[key] = true
+			var landings := _landings_of(info, touch, 0)
+			run.door_landings[key] = int(run.door_landings.get(key, 0)) + landings.size()
+			next.append_array(landings)
+		run.forward[ledge] = next
+		for target in next:
+			if not run.reached.has(target):
+				run.reached[target] = true
+				run.queue.append(target)
+
+
+## With Imprint, a platform put down from a ledge can bring more places within
+## a jump. Every reached ledge is searched once for platforms that help reach
+## something still out of reach, and the new places are flooded, until nothing
+## more opens up.
+func _place_imprints(run: Run) -> void:
+	if _imprint == null:
+		_imprint = ImprintSearch.new(self)
+	while true:
+		var targets := _unreached_targets(run)
+		if targets.is_empty():
+			return
+		var opened := false
+		for ledge in run.reached.keys():
+			if run.expanded.has(ledge):
+				continue
+			run.expanded[ledge] = true
+			var found := _imprint.expand(ledge, targets.get(ledge.room_id, []))
+			if found["ledges"].is_empty() and found["touches"].is_empty() and found["pickups"].is_empty():
+				continue
+			opened = true
+			if not run.extra_to.has(ledge):
+				run.extra_to[ledge] = []
+				run.extra_touches[ledge] = []
+				run.extra_pickups[ledge] = []
+			run.extra_to[ledge].append_array(found["ledges"])
+			run.extra_touches[ledge].append_array(found["touches"])
+			run.extra_pickups[ledge].append_array(found["pickups"])
+			run.queue.append(ledge)
+		_flood(run)
+		if not opened and not _has_unexpanded(run):
+			return
+
+
+## The ledges from which the start can still be reached.
+func _home(run: Run, start: Ledge) -> Dictionary:
+	var back := {}
+	for ledge in run.forward:
+		for target in run.forward[ledge]:
+			if not back.has(target):
+				back[target] = []
+			back[target].append(ledge)
+	var home := {start: true}
+	var home_queue: Array[Ledge] = [start]
+	while not home_queue.is_empty():
+		var ledge: Ledge = home_queue.pop_back()
+		for source in back.get(ledge, []):
+			if not home.has(source):
+				home[source] = true
+				home_queue.append(source)
+	return home
+
+
+## A ledge with no way home may have one with a platform. Each such ledge is
+## searched once, for platforms that bring it within a jump of a ledge that is
+## home or of a door.
+func _place_imprints_to_get_home(run: Run, start: Ledge, home: Dictionary) -> Dictionary:
+	if _imprint == null:
+		_imprint = ImprintSearch.new(self)
+	var tried := {}
+	while true:
+		var opened := false
+		for ledge in run.reached.keys():
+			if home.has(ledge) or tried.has(ledge):
+				continue
+			tried[ledge] = true
+			var targets: Array[Rect2] = []
+			for other: Ledge in _ledges[ledge.room_id]:
+				if home.has(other):
+					targets.append(Rect2(other.lo - 5.0, other.top - 10.0, other.hi - other.lo + 10.0, 10.0))
+			for door in _rooms[ledge.room_id].exits:
+				targets.append(door.trigger_rect())
+			var found := _imprint.expand(ledge, targets)
+			if found["ledges"].is_empty() and found["touches"].is_empty():
+				continue
+			opened = true
+			if not run.extra_to.has(ledge):
+				run.extra_to[ledge] = []
+				run.extra_touches[ledge] = []
+				run.extra_pickups[ledge] = []
+			run.extra_to[ledge].append_array(found["ledges"])
+			run.extra_touches[ledge].append_array(found["touches"])
+			run.extra_pickups[ledge].append_array(found["pickups"])
+			run.queue.append(ledge)
+		if not opened:
+			return home
+		_flood(run)
+		home = _home(run, start)
+	return home
+
+
+func _has_unexpanded(run: Run) -> bool:
+	for ledge in run.reached:
+		if not run.expanded.has(ledge):
+			return true
+	return false
+
+
+## Places nobody has reached yet, as room pixels per room: ledges to stand on,
+## door triggers, pickups.
+func _unreached_targets(run: Run) -> Dictionary:
+	var out := {}
+	for id in _rooms:
+		var info: RoomInfo = _rooms[id]
+		var list: Array[Rect2] = []
+		for ledge: Ledge in _ledges[id]:
+			if not run.reached.has(ledge):
+				list.append(Rect2(ledge.lo - 5.0, ledge.top - 10.0, ledge.hi - ledge.lo + 10.0, 10.0))
+		for i in info.exits.size():
+			if not run.reached_doors.has("%s#%d" % [id, i]):
+				list.append(info.exits[i].trigger_rect())
+		var geo := geometry_of(info)
+		for i in geo.pickups.size():
+			if not _pickup_reached(run, id, i):
+				list.append(geo.pickups[i])
+		if not list.is_empty():
+			out[id] = list
+	return out
+
+
+func _pickup_reached(run: Run, room_id: String, index: int) -> bool:
+	for ledge: Ledge in _ledges[room_id]:
+		if not run.reached.has(ledge):
+			continue
+		if ledge.pickups.has(index) or run.extra_pickups.get(ledge, []).has(index):
+			return true
+	return false
 
 
 func _append_capped(into: Array[String], lines: Array[String]) -> void:
@@ -221,7 +452,7 @@ func _ledge_at_cell(info: RoomInfo, cell: Vector2i) -> Ledge:
 
 
 ## The ledge a body resting at `pos` is standing on.
-func _ledge_at_position(info: RoomInfo, pos: Vector2) -> Ledge:
+func ledge_at_position(info: RoomInfo, pos: Vector2) -> Ledge:
 	var cell := float(Grid.CELL)
 	var row := roundi((pos.y + cell * 0.5) / cell) - 1
 	var centre := floori(pos.x / cell)
@@ -259,10 +490,10 @@ func _landings_of(info: RoomInfo, touch: Touch, depth: int) -> Array[Ledge]:
 ## door it just came through.
 func _land(dest: RoomInfo, pos: Vector2, vel: Vector2, skip_door: int, depth: int) -> Array[Ledge]:
 	var out: Array[Ledge] = []
-	var geo := _geometry_of(dest)
+	var geo := geometry_of(dest)
 	var standing := MovementSim.standing(pos, geo.rects)
 	if standing and vel.y >= 0.0:
-		var ledge := _ledge_at_position(dest, pos)
+		var ledge := ledge_at_position(dest, pos)
 		if ledge != null:
 			out.append(ledge)
 		return out
@@ -283,7 +514,7 @@ func _land(dest: RoomInfo, pos: Vector2, vel: Vector2, skip_door: int, depth: in
 					if not out.has(landed):
 						out.append(landed)
 		elif result["landed"]:
-			ledge = _ledge_at_position(dest, result["position"])
+			ledge = ledge_at_position(dest, result["position"])
 		if ledge != null and not out.has(ledge):
 			out.append(ledge)
 	return out
@@ -292,7 +523,7 @@ func _land(dest: RoomInfo, pos: Vector2, vel: Vector2, skip_door: int, depth: in
 # --- edges ----------------------------------------------------------------
 
 
-func _geometry_of(info: RoomInfo) -> Geometry:
+func geometry_of(info: RoomInfo) -> Geometry:
 	if not _geometry.has(info.id):
 		var geo := Geometry.new()
 		for cell_rect in info.solids:
@@ -313,17 +544,17 @@ func _ensure_edges(info: RoomInfo) -> void:
 	if _solved.has(info.id):
 		return
 	_solved[info.id] = true
-	var geo := _geometry_of(info)
+	var geo := geometry_of(info)
 	for ledge: Ledge in _ledges[info.id]:
 		_walk_to_doors(ledge, geo.triggers)
 		_stand_at_pickups(ledge, geo.pickups)
-		var near := _near(geo.rects, ledge)
-		for x in _start_xs(ledge):
+		var near := near_solids(geo.rects, ledge)
+		for x in start_xs(ledge):
 			for input in [-1.0, 0.0, 1.0]:
-				var speed := _run_speed(ledge, x, input)
+				var speed := run_speed(ledge, x, input)
 				for hold in HOLDS:
-					_try(info, geo, ledge, near, x, speed, input, hold, true)
-		_walk_off(info, geo, ledge, near)
+					try_plan(info, geo, ledge, near, x, speed, input, hold, true)
+		walk_off(info, geo, ledge, near)
 
 
 ## A ledge that runs into a door's trigger walks into it.
@@ -359,7 +590,7 @@ func _pickups_of(info: RoomInfo) -> Array[EntityDef]:
 
 
 ## Solids close enough to matter, so each simulated frame has fewer to test.
-func _near(rects: Array[Rect2], ledge: Ledge) -> Array[Rect2]:
+func near_solids(rects: Array[Rect2], ledge: Ledge) -> Array[Rect2]:
 	var span := Rect2(ledge.lo - REACH_X, ledge.top - REACH_UP, ledge.hi - ledge.lo + REACH_X * 2.0, REACH_UP + REACH_DOWN)
 	return _within(rects, span)
 
@@ -378,7 +609,7 @@ func _within(rects: Array[Rect2], span: Rect2) -> Array[Rect2]:
 
 ## Where to start a jump: the middle of every cell, and the two spots at the
 ## very ends, which a body can still stand on.
-func _start_xs(ledge: Ledge) -> Array[float]:
+func start_xs(ledge: Ledge) -> Array[float]:
 	var xs: Array[float] = [ledge.lo]
 	for x in range(ledge.x0, ledge.x1 + 1):
 		xs.append((float(x) + 0.5) * float(Grid.CELL))
@@ -387,7 +618,7 @@ func _start_xs(ledge: Ledge) -> Array[float]:
 
 
 ## Running speed at the start, which needs a few pixels of ground behind it.
-func _run_speed(ledge: Ledge, x: float, input: float) -> float:
+func run_speed(ledge: Ledge, x: float, input: float) -> float:
 	if input > 0.0 and x - ledge.lo >= RUN_UP:
 		return _cfg.run_speed
 	if input < 0.0 and ledge.hi - x >= RUN_UP:
@@ -395,21 +626,21 @@ func _run_speed(ledge: Ledge, x: float, input: float) -> float:
 	return 0.0
 
 
-func _walk_off(info: RoomInfo, geo: Geometry, ledge: Ledge, near: Array[Rect2]) -> void:
+func walk_off(info: RoomInfo, geo: Geometry, ledge: Ledge, near: Array[Rect2]) -> void:
 	var cell := float(Grid.CELL)
 	if not info.is_solid(ledge.x1 + 1, ledge.row) and not info.is_hazard(ledge.x1 + 1, ledge.row):
 		var edge := float(ledge.x1 + 1) * cell - 1.0
-		_try(info, geo, ledge, near, edge, _cfg.run_speed, 1.0, 0, false)
-		_try(info, geo, ledge, near, edge, _cfg.run_speed, 0.0, 0, false)
+		try_plan(info, geo, ledge, near, edge, _cfg.run_speed, 1.0, 0, false)
+		try_plan(info, geo, ledge, near, edge, _cfg.run_speed, 0.0, 0, false)
 	if not info.is_solid(ledge.x0 - 1, ledge.row) and not info.is_hazard(ledge.x0 - 1, ledge.row):
 		var edge := float(ledge.x0) * cell + 1.0
-		_try(info, geo, ledge, near, edge, -_cfg.run_speed, -1.0, 0, false)
-		_try(info, geo, ledge, near, edge, -_cfg.run_speed, 0.0, 0, false)
+		try_plan(info, geo, ledge, near, edge, -_cfg.run_speed, -1.0, 0, false)
+		try_plan(info, geo, ledge, near, edge, -_cfg.run_speed, 0.0, 0, false)
 
 
-func _try(info: RoomInfo, geo: Geometry, ledge: Ledge, near: Array[Rect2], x: float, speed: float, input: float, hold: int, jump: bool) -> void:
+func try_plan(info: RoomInfo, geo: Geometry, ledge: Ledge, near: Array[Rect2], x: float, speed: float, input: float, hold: int, jump: bool) -> void:
 	var start := Vector2(x, ledge.top - float(Grid.CELL) * 0.5)
-	var result := MovementSim.simulate_jump(_cfg, near, start, Vector2(speed, 0.0), input, hold, true, jump, geo.triggers, geo.bounds, geo.hazards, geo.pickups)
+	var result := MovementSim.simulate_jump(_cfg, near, start, Vector2(speed, 0.0), input, hold, true, jump, geo.triggers, geo.bounds, geo.hazards, geo.pickups, NAN, 0, frame_limit)
 	# A pickup is taken even on a path that then dies on spikes.
 	for index in result["collected"]:
 		ledge.add_pickup(index)
@@ -419,9 +650,22 @@ func _try(info: RoomInfo, geo: Geometry, ledge: Ledge, near: Array[Rect2], x: fl
 	if door >= 0:
 		ledge.add_touch(door, result["position"], result["velocity"])
 	elif result["landed"]:
-		var target := _ledge_at_position(info, result["position"])
+		var target := ledge_at_position(info, result["position"])
 		if target != null and target != ledge:
 			ledge.add_ledge(target.index)
+
+
+## The state of one solve: what has been reached and how.
+class Run extends RefCounted:
+	var queue: Array[Ledge] = []
+	var reached := {}
+	var reached_doors := {}
+	var door_landings := {}
+	var forward := {}
+	var expanded := {}
+	var extra_to := {}
+	var extra_touches := {}
+	var extra_pickups := {}
 
 
 class Geometry extends RefCounted:
@@ -494,3 +738,10 @@ class Report extends RefCounted:
 	var unreached_doors: Array = []
 	## One entry per pickup: {id, room, upgrade, value, reached}.
 	var pickups: Array[Dictionary] = []
+	## Every ledge that was reached, and the ids of the rooms that were.
+	var reached := {}
+	var reached_rooms := {}
+	var trap_lines: Array[String] = []
+	## From `solve`: room id -> the pickup ids it needs first. Empty for a room
+	## that opens with the starting abilities.
+	var needs := {}

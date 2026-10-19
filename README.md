@@ -45,6 +45,7 @@ godot --headless --path . --script tests/save_test.gd
 godot --headless --path . --script tests/pickup_test.gd
 godot --headless --path . --script tests/imprint_test.gd
 godot --headless --path . --script tests/imprint_play_test.gd
+godot --headless --path . --script tests/imprint_solver_test.gd
 ./tools/validate.sh
 ./tools/render.sh
 ./tools/snap.sh 3
@@ -63,6 +64,7 @@ godot --headless --path . --script tests/imprint_play_test.gd
 | `tests/pickup_test.gd` | The player takes the Imprint pickup in room 2, the game saves, and a new game from that save has Imprint and no pickup. Prints `PICKUP pass`. |
 | `tests/imprint_test.gd` | Where an Imprint platform may go (every refusal), whether the player can land on one, and the blink. Prints `IMPRINT pass`. |
 | `tests/imprint_play_test.gd` | Imprint in room 5: locked until found, placed by the action, solid under the player, replaced, broken by time, cleared on leaving a room and on dying. Prints `IMPRINTPLAY pass`. |
+| `tests/imprint_solver_test.gd` | The solver with Imprint, on strings: a pit too wide to jump is shut without Imprint and open with it, a platform that breaks too soon is no use, `~` cells forbid it, and a room reports the pickup it needs. Prints `IMPRINTSOLVER pass`. |
 | `tests/validate.gd` | Loads the whole world, then solves it: every room and door reachable from the start, nowhere to get stuck. Lists every problem and exits 1 if there is one. Run through `tools/validate.sh`. |
 | `tests/start_test.gd` | Starting in a chosen room and `warp_to` on the world scene. Prints `START pass`. |
 | `tests/render.gd` | Draws each room and the world map as PNGs in `build/renders/`, marking unreachable ledges, traps, and sealed doors. Run through `tools/render.sh`, optionally with room ids: `tools/render.sh 3 4`. |
