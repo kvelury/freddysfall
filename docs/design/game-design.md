@@ -113,7 +113,9 @@ Every opening that is left gets a halo: a dithered half-disc of light in the gap
 
 An **up** door lifts a slow player: they leave it rising at 180 px/s at least, so touching a ceiling door near the top of a jump does not stall in the doorway. A **down** door drops them in with whatever speed they had.
 
-**Dying.** Touching spikes, or leaving the room's outline by more than 60 px, shatters the player into a burst of pixels for about 0.6 s, and then puts them back on the last safe floor. A floor is safe if the player stood on it and it is not within a cell of spikes or within two cells of a doorway. The safe floor can be in the room before: dying right after a door puts the player back through it. Spawning in a room also counts as a safe floor.
+**Dying.** Touching spikes, or leaving the room's outline by more than 60 px, shatters the player into a burst of pixels for about 0.6 s, and then puts them back on the last safe floor. A floor is safe if the player stood on it, it is the room's own floor, and it is not within a cell of spikes or within two cells of a doorway. An Imprint is never safe floor, because it breaks: standing on one over spikes and dying brings the player back on the real floor they stood on before, not in the air where the platform was. The safe floor can be in the room before: dying right after a door puts the player back through it. Spawning in a room also counts as a safe floor.
+
+The last eight stretches of floor are remembered. If the player dies again before standing anywhere after a respawn, that respawn spot was no good and they go back one stretch, so a bad spot can cost one extra death and never a loop.
 
 During the slide the camera is not following. It is on the tween. Afterward it follows again.
 

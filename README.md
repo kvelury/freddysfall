@@ -57,7 +57,7 @@ godot --headless --path . --script tests/imprint_play_test.gd
 | `tests/parity_test.gd` | Replays input plans through the player and through the solver's simulator. They must end within 0.01 px. Prints `PARITY pass`. |
 | `tests/door_test.gd` | The player walks through the door from room 2 to room 3 and back. Prints `DOOR pass`. |
 | `tests/shaft_test.gd` | The player drops down the hole in room 3 into room 4 and climbs back up, keeping speed through the doors. Prints `SHAFT pass`. |
-| `tests/hazard_test.gd` | Spikes and falling out of a room shatter the player and put them back on safe floor. Prints `HAZARD pass`. |
+| `tests/hazard_test.gd` | Spikes and falling out of a room shatter the player and put them back on safe floor. An Imprint over spikes that breaks under the player does not leave a respawn in the air, and a bad respawn spot is stepped back from. Prints `HAZARD pass`. |
 | `tests/entity_test.gd` | The room legend: a valid one loads, and each way of writing one wrong is an error with its line. Prints `ENTITY pass`. |
 | `tests/save_test.gd` | `Abilities`, `GameState`, and the save file: round trip, damaged, newer, and missing-room files. Uses its own file. Prints `SAVE pass`. |
 | `tests/pickup_test.gd` | The player takes the Imprint pickup in room 2, the game saves, and a new game from that save has Imprint and no pickup. Prints `PICKUP pass`. |
