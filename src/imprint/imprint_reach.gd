@@ -5,7 +5,8 @@ extends RefCounted
 ## a small set of jumps with the same MovementSim the player runs: input left,
 ## none or right, and the jump released early, part way, or not at all. Some
 ## plans go straight up and steer left or right a moment later. It is
-## the check behind the filled and dotted looks of the cursor.
+## the check that tells whether the cursor is somewhere the player can get to.
+## The cursor does not show the answer for now (it is always a dotted outline).
 
 ## How long the jump button is held, in physics ticks.
 const HOLDS: Array[int] = [3, 8, 90]

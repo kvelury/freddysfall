@@ -25,7 +25,7 @@ The first ability is Imprint: the mouse cursor becomes a platform. Until that ex
 
 **Movement is a specific feel, taken from one place.** The jump comes from the variable-jump, apex hang, fast fall, jump buffer, coyote time, rounded-ledge correction, and momentum described in section 4 of the Hollow Knight notes. That section is the whole of the borrowing. Combat, charms, art, map style, and anything else from that source are not part of this game.
 
-**The picture stays small on purpose.** Geometry is solid pixel blocks. The player is a square the size of one cell. Effects are few and they mean something: dust when you land, a halo on an exit, a sparkle going round a platform you can reach, a shatter when a platform breaks. The drawing is one bit, black and white, so a block, a gap, and the player read instantly at 320×180.
+**The picture stays small on purpose.** Geometry is solid pixel blocks. The player is a square the size of one cell. Effects are few and they mean something: dust when you land, a halo on an exit, a shatter when a platform breaks. The drawing is one bit, black and white, so a block, a gap, and the player read instantly at 320×180.
 
 **Two colors, gentler in the dark.** Pure black and white is the authoring language and the default look. It is harsh for playing in a dark room. The softer version is still exactly two colors, remapped at the end of the frame. The world does not gain a third color.
 
@@ -241,7 +241,7 @@ A **ledge** is a run of cells with air above and floor below. From each ledge th
 - It does not try every platform. From each ledge the usual jumps are simulated once, and a platform is a candidate only where one of those jumps comes down through the top of a cell row, and only if it is a legal place (the same `ImprintRules` the cursor uses) within a jump of something still out of reach. Each candidate is then checked by simulating the jump again with the platform in place. A platform that passes is searched from like a ledge of its own.
 - A platform lives `imprint_duration` seconds, so each of the two jumps is cut to half of that less a little spare time. A one second platform crosses nothing.
 - A ledge that cannot get home is searched the same way, with the ledges that can as the targets, so crossing a pit one way with a platform and having no way back is still a trap.
-- Left out: putting the platform down in mid-air, and using two in a row. A room that needs either is reported as out of reach even if a player could do it. A room that needs the platform in a place the preview calls dotted is also not found.
+- Left out: putting the platform down in mid-air, and using two in a row. A room that needs either is reported as out of reach even if a player could do it. A room that needs the platform in a place the reach check calls out of reach is also not found.
 
 **What a room needs.** `tools/validate.sh` solves with the starting abilities, takes every pickup that solve could reach, solves again with what they gave, and repeats until nothing new turns up. A room, a ledge, or a pickup that only opens in a later round lists the pickups it needs, cut down by dropping them one at a time to a set it still opens with. Example, from the current world: `Room 5: the ledge on row 16, cells 22-31 needs r2_token, r3_token_high, r3_token_low, r4_3tm`. Errors come from the last solve, so a room that stays shut even with every pickup is an error. Tokens and 3TMs are part of this. A token reached is taken. A 3TM reached gives its upgrade if three tokens are taken for it, and several machines are paid in the order of their ids. A room with an exit rule keeps its doors shut in the search until what the rule asks for has been reached, so a room is only open if the player can first do what it asks. The search does not model the carry limit of three (a player who cannot take a fourth token before spending three is not caught), and it does not treat a blocked doorway as a wall for a body falling through a chain of doors. A trap is judged where the player could first be in it, with the fewest abilities, because a player who has not found Imprint yet is also stuck in a place that needs it to leave.
 
@@ -312,12 +312,11 @@ A legal placement lasts `duration` seconds, 4 at the start. The dashed line thro
 
 ### Reach, before the click
 
-The cursor has three looks, chosen before the player clicks.
+The cursor has two looks: a dotted outline of the platform wherever one may go, and a small × where one may not. For now the outline is the same whether or not the player can reach it. (It used to be filled, with a sparkle, when they could. That may come back.)
 
-- **Reachable.** The platform is drawn filled, with a small sparkle that goes round it clockwise, along all four edges, a pixel clear of it. A lap of a two-cell platform takes about 1.3 seconds. The plus twinkles as it goes, on for 0.2 seconds and off for 0.1. Some jump the player can perform from their current position lands on its top.
-- **Unreachable.** The platform is drawn as a dotted outline. No tested jump lands on it. The player can still place it.
+The game still works out, before the click, whether some jump the player can perform from their current position lands on the platform's top, so the look can show it again without new work.
 
-The check includes being in the air. It starts from the player's real state: on the ground, or airborne with their current velocity. It tries a small set of jumps, not every possible input: hold left, hold nothing, or hold right, and release the jump at a few different times. Those paths use the same movement rules as the player, against the room's solid rectangles. If any path lands on the candidate platform's top, the cursor is filled.
+The check includes being in the air. It starts from the player's real state: on the ground, or airborne with their current velocity. It tries a small set of jumps, not every possible input: hold left, hold nothing, or hold right, and release the jump at a few different times. Those paths use the same movement rules as the player, against the room's solid rectangles. If any path lands on the candidate platform's top, it counts as reachable.
 
 The check runs again only when the player's cell, the cursor's cell, or whether the player is on the ground changes. Moving inside a cell does not recompute it.
 
@@ -370,14 +369,13 @@ The starting values are the defaults in `Abilities` (`src/core/abilities.gd`): w
 
 Imprint uses the same black-and-white pixel language as the rest of the game.
 
-- Filled cursor with a sparkle going round it: you can get there.
-- Dotted outline: you cannot get there from here.
+- Dotted outline: a platform can go here.
 - A small ×: you cannot put one here.
 - Dashes going out, left to right: how long a placed platform has left. Blink in the last second: it is about to break.
 - A placed platform is always drawn over the cursor, so what the player can land on is never hidden by the preview.
 - Shatter into pixel shards: it is gone.
 
-The sparkle and the shards are small. They should read at 320×180 and survive the softer palette, because that palette remaps the frame rather than the sprites.
+The shards are small. They should read at 320×180 and survive the softer palette, because that palette remaps the frame rather than the sprites.
 
 ## Not decided
 

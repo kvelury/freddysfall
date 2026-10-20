@@ -169,4 +169,4 @@ Unused screens for L-shaped rooms, map panning and icons, lazy `_merge_solids` (
 - `./tools/build_web.sh && ./tools/serve.sh`, then a short local play of the rooms the chunk touched. You play it yourself, per the playtest preference.
 - Each chunk updates `game-design.md` wherever it changes behaviour (doors, collision, glyphs), so the design record stays true.
 
-**PR #18** changed how Imprint looks and nothing else: the sparkle goes round the platform, placed platforms draw over the cursor, and the dashes on a platform count down its life.
+**PR #18** changed how Imprint looks and nothing else: the cursor is always a dotted outline (the filled look and the sparkle are gone for now), placed platforms draw over the cursor, and the dashes on a platform count down its life.

@@ -13,7 +13,6 @@ func _initialize() -> void:
 	ok = _reach() and ok
 	ok = _platform() and ok
 	ok = _countdown() and ok
-	ok = _sparkle_path() and ok
 	print("IMPRINT %s" % ("pass" if ok else "fail"))
 	quit(0 if ok else 1)
 
@@ -156,32 +155,4 @@ func _countdown() -> bool:
 		wide.age = age
 		shown.append(wide.lines_left())
 	ok = _check(shown == [7, 5, 1], "a wider platform with a longer life counts down evenly (%s)" % [shown]) and ok
-	return ok
-
-
-## The sparkle goes clockwise round the platform, a pixel clear of it, and is on
-## for most of the time.
-func _sparkle_path() -> bool:
-	var ok := true
-	var area := Rect2(100, 50, 20, 10)
-	var at := func(d: float) -> Vector2: return ImprintSparkle.point(area, d)
-	ok = _check(at.call(0.0) == Vector2(97, 47), "it starts at the top left (%s)" % at.call(0.0)) and ok
-	ok = _check(at.call(10.0) == Vector2(107, 47) and at.call(25.0) == Vector2(122, 47), "it runs right along the top") and ok
-	ok = _check(at.call(30.0) == Vector2(122, 52) and at.call(40.0) == Vector2(122, 62), "then down the right side") and ok
-	ok = _check(at.call(50.0) == Vector2(112, 62) and at.call(65.0) == Vector2(97, 62), "then left along the bottom") and ok
-	ok = _check(at.call(70.0) == Vector2(97, 57), "then up the left side") and ok
-	ok = _check(at.call(80.0) == at.call(0.0) and at.call(85.0) == at.call(5.0), "and goes round again, a lap being 80 px") and ok
-	var clear := true
-	for d in 80:
-		var plus := Rect2(at.call(float(d)) - Vector2(1, 1), Vector2(3, 3))
-		clear = clear and not area.grow(1.0).intersects(plus)
-	ok = _check(clear, "every point leaves a pixel between the plus and the platform") and ok
-	var wide_lap := ImprintSparkle.point(Rect2(0, 0, 40, 10), 100.0)
-	ok = _check(wide_lap != ImprintSparkle.point(Rect2(0, 0, 40, 10), 0.0), "a wider platform has a longer lap") and ok
-	var on := 0
-	for i in 600:
-		if ImprintSparkle.visible(float(i) * 0.01):
-			on += 1
-	ok = _check(on >= 360 and on <= 420, "the sparkle blinks, on about two thirds of the time (%d of 600)" % on) and ok
-	ok = _check(ImprintSparkle.visible(0.1) and not ImprintSparkle.visible(0.25) and ImprintSparkle.visible(0.35), "on, off, and on again within a third of a second") and ok
 	return ok
