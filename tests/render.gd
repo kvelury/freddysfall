@@ -8,7 +8,8 @@ extends SceneTree
 ## sealed because nothing is on the far side, grey dots a no-imprint cell,
 ## magenta a glyph the loader does not know, a checker over a door in a room
 ## that holds its doors shut until a rule is met, a gold box round a 3TM's 3 x 3 cells. Red bar on a ledge nobody can
-## reach, yellow bar on a ledge you cannot get back from, red box on a door
+## reach, yellow bar on a ledge you cannot get back from, grey bar on one that a
+## room marked `trap: allowed` leaves one-way, red box on a door
 ## nobody can reach. Faint lines every 5 cells, bright lines between screens.
 
 const PX := 8
@@ -30,6 +31,7 @@ const NO_IMPRINT := Color(0.5, 0.5, 0.5)
 const THING := Color(0.95, 0.75, 0.2)
 const UNREACHED := Color(0.95, 0.2, 0.2)
 const LOCKED := Color(0.55, 0.9, 0.95)
+const ONE_WAY := Color(0.55, 0.55, 0.55)
 const TRAP := Color(0.95, 0.85, 0.1)
 const LABEL := Color(0.75, 0.75, 0.75)
 
@@ -121,6 +123,9 @@ func _room_image(info: RoomInfo, report: ReachGraph.Report) -> Image:
 		for ledge in report.traps:
 			if ledge.room_id == info.id:
 				_bar(image, ledge, TRAP)
+		for ledge in report.one_way:
+			if ledge.room_id == info.id:
+				_bar(image, ledge, ONE_WAY)
 		for pair in report.unreached_doors:
 			if pair[0] == info.id:
 				_box(image, _cells((pair[1] as Door).rect), UNREACHED)

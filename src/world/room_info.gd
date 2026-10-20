@@ -25,6 +25,9 @@ var legend := {}
 var entities: Array[EntityDef] = []
 ## What has to be true before the room's doors work, a key of ExitRules.RULES.
 var exit_rule := "open"
+## Whether the room is meant to be a dead end the player cannot climb out of yet
+## (`trap: allowed`). A way home that is missing is a warning here, not an error.
+var traps_allowed := false
 
 
 func occupied_cells() -> Array[Vector2i]:
