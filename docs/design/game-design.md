@@ -200,8 +200,8 @@ A file that cannot be read, or that a newer version of the game wrote, is moved 
 Seven rooms, as content, not as the limit of the format. The flow they make: take the token in room 2 to leave it, take one more in room 3 and one in room 5, spend all three at the 3TM in room 4 to get Imprint, use Imprint to cross the spikes in room 5 and then the wall in room 6, and fall into room 7.
 
 ```
- 1   2   3 3        room 2's floor door drops into 5, room 3's floor hole into 4
-     5 4            5 and 4 meet at their side doors, 5 and 6 at theirs
+ 1   2   3          room 2's floor door drops into 5, room 3's floor hole into 4
+     5   4          5 and 4 meet at their side doors, 5 and 6 at theirs
  6                  room 6's floor door drops into 7
  7 7
  7 7
@@ -211,8 +211,8 @@ Seven rooms, as content, not as the limit of the format. The flow they make: tak
 
 - **1**, one screen at `(0, 0)`. Three tiers of platforms, each a running jump apart, and an exit in the right wall. This is the movement test.
 - **2**, one screen at `(1, 0)`. The landing from 1's door, steps down to the right, a floor-level door in the right wall, and a hole in the floor (cols 23 to 27) that drops down to room 5. It has `exits: pickups` and a token on the first platform, so it cannot be left, by any of its three doors, until the token is taken.
-- **3**, two screens wide at `(2, 0)`. Entered through the floor-level door. A hole in the floor near its left door (cols 6 to 12) drops down to room 4, and a seven cell run jumps it. Platforms carry the route across the rest. One token sits on the lower right platform, all the way across.
-- **4**, one screen at `(2, 1)`, under that hole. A zigzag of platforms climbs back to the hole. The 3TM stands at the bottom left, beside the left door that leads to room 5.
+- **3**, one screen at `(2, 0)`. Entered through the floor-level door. A hole in the floor near its left door (cols 5 to 10) drops down to room 4. A staircase of four platforms climbs from the floor to the top left, where the platform holds the token. Each step is about 4 cells up.
+- **4**, one screen at `(2, 1)`, under that hole. Three platforms step down from under the ceiling door, each 4 cells apart, so the door is a short climb in and a short climb out. The 3TM stands at the bottom left, beside the left door that leads to room 5.
 - **5**, one screen at `(1, 1)`, with doors in the ceiling (up to room 2), the right wall (to room 4) and the left wall (to room 6). A pit of spikes 16 cells wide, with a short floor on its left, is too wide to jump. Three platforms climb from the right-hand floor back up to the ceiling door, and a token sits on the middle one. A player standing on the middle platform can cross the pit by putting an Imprint platform in the gap, and can cross back the same way. It is the first room that is open or shut by an ability.
 - **6**, one screen at `(0, 1)`, through the door in the right wall of room 5. A hole in the floor is covered on the player's side by a roof and a wall six cells tall, taller than a jump, so a platform put down by the wall is the only way up onto the roof, and from there the player walks off the end into the hole.
 - **7**, two screens wide and four tall at `(0, 2)`, under room 6's hole. It is empty: a long fall onto a floor. It is marked `trap: allowed`, because nothing in it leads back up yet. A 3TM and a title card that fades in during the fall and out before the landing are planned.
@@ -338,7 +338,7 @@ Authored rooms should be solvable only with the upgrades available up to that po
 
 ### Finding it
 
-The player does not start with Imprint. They earn it. A token lies in room 2, which cannot be left until it is taken, two more lie in room 3, and the 3TM in room 4 takes all three and gives Imprint. From then on the cursor is a platform, and a line appears across the player's body.
+The player does not start with Imprint. They earn it. A token lies in room 2, which cannot be left until it is taken, one more lies in room 3 and one in room 5, and the 3TM in room 4 takes all three and gives Imprint. From then on the cursor is a platform, and a line appears across the player's body.
 
 Tokens are the currency for upgrades, and a 3TM is the shop. Tokens are scattered through the world to be found by exploring, up to three at a time in the pocket, which puzzles are built around. Each 3TM is set to give one upgrade, so later upgrades (the ones below) mean placing more machines. How many tokens each costs is three for now.
 

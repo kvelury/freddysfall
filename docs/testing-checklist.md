@@ -14,10 +14,11 @@ Start with `?new-game=1`. A save from before this PR can be inside a wall of the
 
 - [ ] **Room 2's new floor door.** It sits beside the right door, with three cells of floor between them. Before the token it is a block like the other two. After it, a hole: jump it going right, and check you do not fall in by accident when you come back from room 3.
 - [ ] **Dropping from 2 into 5** lands you on the upper platform, even at the edge of the hole. You can climb back up through room 5's three platforms to room 2, and you can leave through 5's right door to room 4.
-- [ ] **Room 3's moved hole** (cols 6 to 12, by its left door). Walking in from room 2 you meet it after about five cells. Is a running jump over it fair? Dropping in leads to room 4, and room 4's zigzag climbs back to it.
-- [ ] **Room 3's lone token** is on the lower right platform, all the way across. Is the way across the hole and along the room clear enough?
+- [ ] **Room 3's hole** (cols 5 to 10, by its left door). Walking in from room 2 you meet it after about four cells. Is a running jump over it fair? Dropping in leads to room 4.
+- [ ] **Room 3's token** is on the top left platform, up a staircase of four platforms. Is the climb clear, and does the last step (a 5-cell gap, 3 up) feel fair?
+- [ ] **Room 4's way back up.** Three platforms step up to the ceiling door. Climbing out should be easy, and dropping in from room 3 should land on the top platform or beside the 3TM.
 - [ ] **Room 5's token** is on the middle platform. Is it easy to get to without Imprint?
-- [ ] **The 3TM beside room 4's new left door.** You arrive from room 5 and the machine is three cells away. Does running through it by accident (with no tokens) feel annoying? It shows "0 of 3 tokens" each time.
+- [ ] **The 3TM beside room 4's new left door.** You arrive from room 5 and the machine is seven cells away. Does running through it by accident (with no tokens) feel annoying? It shows "0 of 3 tokens" each time.
 - [ ] **Crossing room 5's spikes with Imprint,** from the middle platform to the left floor. One Imprint platform in the gap should be enough. Without Imprint it must not be possible.
 - [ ] **Crossing back** from the left floor to the middle platform. This works in the solver and needs a short run-up on a four-cell floor.
 - [ ] **Room 6's wall.** Without Imprint you cannot get onto the roof. With it, a platform by the wall gets you up, then walk off the end and fall into the hole. Does it read that the hole is the way on?

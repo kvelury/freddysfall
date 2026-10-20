@@ -80,14 +80,14 @@ func _run() -> void:
 	room = world.current
 	state.tokens = state.TOKEN_CAP
 	state.tokens_changed.emit()
-	player.place(room.position + Grid.cell_center(Vector2i(57, 14)), room.world_rects())
+	player.place(room.position + Grid.cell_center(Vector2i(7, 2)), room.world_rects())
 	await _frames(10)
-	ok = _check(state.tokens == 3 and not state.has_flag("token:r3_token_low") and _things(room, "Token").size() == 1, "a token touched with three already carried stays on the platform") and ok
+	ok = _check(state.tokens == 3 and not state.has_flag("token:r3_token") and _things(room, "Token").size() == 1, "a token touched with three already carried stays on the platform") and ok
 	ok = _check(world.get_node("Toast").get_child(0).visible and "3" in world.get_node("Toast").get_child(0).text, "and a line says why (%s)" % world.get_node("Toast").get_child(0).text) and ok
 	state.tokens = 1
 	state.tokens_changed.emit()
 	await _frames(20)
-	ok = _check(state.tokens == 2 and state.has_flag("token:r3_token_low"), "once there is room it is taken the next time it is touched (%d)" % state.tokens) and ok
+	ok = _check(state.tokens == 2 and state.has_flag("token:r3_token"), "once there is room it is taken the next time it is touched (%d)" % state.tokens) and ok
 
 	# A fresh game from the save: in room 3 with the token spent.
 	world.queue_free()

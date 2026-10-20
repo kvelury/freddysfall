@@ -50,14 +50,14 @@ func _room_shapes(data) -> bool:
 	ok = _check(_has_rect(info, Rect2i(21, 13, 5, 1)), "room 1 right platform rect") and ok
 	ok = _check(_has_rect(info, Rect2i(14, 9, 5, 1)), "room 1 middle platform rect") and ok
 	ok = _check(_has_rect(info, Rect2i(23, 5, 9, 1)), "room 1 top platform rect") and ok
-	var wide: RoomInfo = data.get_room("3")
+	var wide: RoomInfo = data.get_room("7")
 	var room := Room.new()
 	room.build(wide)
 	var chunks := 0
 	for child in room.get_children():
 		if String(child.name).begins_with("Chunk_"):
 			chunks += 1
-	ok = _check(chunks == 2, "room 3 builds one chunk per screen (%d)" % chunks) and ok
+	ok = _check(chunks == 8, "room 7, two screens by four, builds one chunk per screen (%d)" % chunks) and ok
 	room.free()
 	return ok
 
@@ -69,9 +69,10 @@ func _links(data) -> bool:
 	ok = _check(a.exit_on("right").dest_id == "2", "room 1 right exit leads to 2") and ok
 	ok = _check(b.exit_on("left").dest_id == "1", "room 2 left exit leads to 1") and ok
 	var c: RoomInfo = data.get_room("3")
-	ok = _check(c.screens == Vector2i(2, 1), "room 3 spans two screens") and ok
-	ok = _check(c.bounds_cells == Rect2i(0, 0, 64, 18), "room 3 bounds cover the whole room") and ok
-	ok = _check(data.id_at(Vector2i(2, 0)) == "3" and data.id_at(Vector2i(3, 0)) == "3", "room 3 occupies both of its screens") and ok
+	var tall: RoomInfo = data.get_room("7")
+	ok = _check(c.screens == Vector2i(1, 1) and tall.screens == Vector2i(2, 4), "room 3 is one screen and room 7 is two by four") and ok
+	ok = _check(tall.bounds_cells == Rect2i(0, 0, 64, 72), "room 7 bounds cover the whole room") and ok
+	ok = _check(data.id_at(Vector2i(0, 2)) == "7" and data.id_at(Vector2i(1, 5)) == "7" and data.id_at(Vector2i(3, 0)) == "", "room 7 occupies all eight of its screens, and room 3's old second screen is empty") and ok
 	var side := b.exit_on("right")
 	var side_rect := side.rect
 	ok = _check(b.exit_on("down").dest_id == "5", "room 2 floor exit leads down to 5") and ok
