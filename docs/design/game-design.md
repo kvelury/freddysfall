@@ -25,7 +25,7 @@ The first ability is Imprint: the mouse cursor becomes a platform. Until that ex
 
 **Movement is a specific feel, taken from one place.** The jump comes from the variable-jump, apex hang, fast fall, jump buffer, coyote time, rounded-ledge correction, and momentum described in section 4 of the Hollow Knight notes. That section is the whole of the borrowing. Combat, charms, art, map style, and anything else from that source are not part of this game.
 
-**The picture stays small on purpose.** Geometry is solid pixel blocks. The player is a square the size of one cell. Effects are few and they mean something: dust when you land, a halo on an exit, a sparkle on a platform you can reach, a shatter when a platform breaks. The drawing is one bit, black and white, so a block, a gap, and the player read instantly at 320×180.
+**The picture stays small on purpose.** Geometry is solid pixel blocks. The player is a square the size of one cell. Effects are few and they mean something: dust when you land, a halo on an exit, a sparkle going round a platform you can reach, a shatter when a platform breaks. The drawing is one bit, black and white, so a block, a gap, and the player read instantly at 320×180.
 
 **Two colors, gentler in the dark.** Pure black and white is the authoring language and the default look. It is harsh for playing in a dark room. The softer version is still exactly two colors, remapped at the end of the frame. The world does not gain a third color.
 
@@ -308,13 +308,13 @@ A platform may sit just above spikes. Bridging a spike pit with a platform a few
 
 A placed platform is solid on every side, like authored floor. It can be stood on, bumped from below, and walked into. When it breaks under the player, they fall.
 
-A legal placement lasts `duration` seconds, 4 at the start. For the last 1 second it blinks. Then it shatters into pixel shards. It does not fade out.
+A legal placement lasts `duration` seconds, 4 at the start. The dashed line through it is its clock: it starts with a dash for every pair of cells it is wide (four, at the start), and one dash goes in each equal share of its life, the leftmost first, so at 4 seconds one goes every second and the last is the one left in the final second. For that last 1 second the whole platform also blinks. Then it shatters into pixel shards. It does not fade out.
 
 ### Reach, before the click
 
 The cursor has three looks, chosen before the player clicks.
 
-- **Reachable.** The platform is drawn filled, with a small sparkle on it. Some jump the player can perform from their current position lands on its top.
+- **Reachable.** The platform is drawn filled, with a small sparkle that goes round it clockwise, along all four edges, a pixel clear of it. A lap of a two-cell platform takes about 1.3 seconds, and the sparkle is on for most of it, with a short beat off. Some jump the player can perform from their current position lands on its top.
 - **Unreachable.** The platform is drawn as a dotted outline. No tested jump lands on it. The player can still place it.
 
 The check includes being in the air. It starts from the player's real state: on the ground, or airborne with their current velocity. It tries a small set of jumps, not every possible input: hold left, hold nothing, or hold right, and release the jump at a few different times. Those paths use the same movement rules as the player, against the room's solid rectangles. If any path lands on the candidate platform's top, the cursor is filled.
@@ -370,10 +370,11 @@ The starting values are the defaults in `Abilities` (`src/core/abilities.gd`): w
 
 Imprint uses the same black-and-white pixel language as the rest of the game.
 
-- Filled cursor with a sparkle: you can get there.
+- Filled cursor with a sparkle going round it: you can get there.
 - Dotted outline: you cannot get there from here.
 - A small ×: you cannot put one here.
-- Blink in the last second: it is about to break.
+- Dashes going out, left to right: how long a placed platform has left. Blink in the last second: it is about to break.
+- A placed platform is always drawn over the cursor, so what the player can land on is never hidden by the preview.
 - Shatter into pixel shards: it is gone.
 
 The sparkle and the shards are small. They should read at 320×180 and survive the softer palette, because that palette remaps the frame rather than the sprites.

@@ -6,47 +6,18 @@ Everything here passed its headless tests or was reported as unverified in a pul
 
 ## Tried and working
 
-Played in the browser and found good, so these are not listed line by line any more: Imprint in the browser (placing, the preview, the cross, the blink), saving and resuming, the solver and the "needs" lines, and movement and doors. A new problem in any of them goes back on this list.
+Played in the browser and found good, so these are not listed line by line any more: Imprint in the browser (placing, the preview, the cross, the blink), saving and resuming, the solver and the "needs" lines, movement and doors, the whole world map of PR #17 (rooms 1 to 7, the exit rules, the tokens on the body, the 3TM and its feeding, and the spent machine). A new problem in any of them goes back on this list.
 
-## The new world map (PR #17)
+## Imprint look (PR #18)
 
-Start with `?new-game=1`. A save from before this PR can be inside a wall of the new rooms.
+You need Imprint for these. Play to the 3TM in room 4 once; the game saves, so a later visit resumes with it.
 
-- [ ] **Room 2's door on a ledge.** The door to room 3 is high on the right wall, on a ledge you reach by a jump from the lower platform (4 up, across 2 cells). Is that jump fair? A miss drops you into the floor door and down into room 5.
-- [ ] **Dropping from 2 into 5** lands you on the upper platform, even at the edge of the hole. You can climb back up through room 5's three platforms to room 2, and you can leave through 5's right door to room 4.
-- [ ] **Room 3's entrance.** The door is four cells tall and you drop two cells onto a short ledge. Going back, you step up two cells into room 2. Do both feel right?
-- [ ] **Room 3's hole** (cols 5 to 10) is mostly under the entrance ledge. Running in, you clear it and land on the first step or the floor. Walking slowly off the end of the ledge drops you into it. Is that fair?
-- [ ] **Room 3's token** is on the top left platform, now two rows lower (3 clear rows above it). The last step is 1 up across a 5-cell gap. Is the landing easy? From the entrance ledge you must not be able to reach it, or the step before it.
-- [ ] **Back to room 2 from room 3,** from the first step up onto the entrance ledge (3 up).
-- [ ] **Room 4's way back up.** Three platforms step up to the ceiling door. Climbing out should be easy, and dropping in from room 3 should land on the top platform or beside the 3TM.
-- [ ] **Room 5's token** is on the middle platform. Is it easy to get to without Imprint?
-- [ ] **The 3TM beside room 4's new left door.** You arrive from room 5 and the machine is seven cells away. Does running through it by accident (with no tokens) feel annoying? It shows "0 of 3 tokens" each time.
-- [ ] **Crossing room 5's spikes with Imprint,** from the middle platform to the left floor. One Imprint platform in the gap should be enough. Without Imprint it must not be possible.
-- [ ] **Crossing back** from the left floor to the middle platform. This works in the solver and needs a short run-up on a four-cell floor.
-- [ ] **Room 6's wall.** Without Imprint you cannot get onto the roof. With it, a platform by the wall gets you up, then walk off the end and fall into the hole. Does it read that the hole is the way on?
-- [ ] **The fall into room 7.** About 2.5 seconds in the air. The camera follows, the landing is on a floor, and nothing is wrong at the top or bottom of the fall. Room 7 is a dead end: you cannot get back up yet. (Dying there, if you can, puts you back on room 7's floor or in room 6.)
-- [ ] **Imprint over room 5's spikes** and dying on one: respawn on the right-hand floor, not in the air.
-- [ ] **Room 5's left floor** has no safe respawn spot (it is next to spikes and a door). If you die after crossing, you come back on the right side of the pit. Is that acceptable?
-- [ ] **The world map overlay** (Tab or M) shows the seven rooms as drawn, with room 7 four screens tall.
-
-The whole token flow, in order:
-
-- [ ] **Room 2 is shut.** You arrive from room 1 and the three doorways are shaded blocks with no glow. Walking into any stops you at the wall.
-- [ ] **The blocks read as a barrier,** and not as wall or as a bug. Is the checker clear at 4x scale?
-- [ ] **Taking the token opens the room.** The blocks shatter, the glow comes on, and the doors work.
-- [ ] **The token shows on your body.** One diamond cut out of the top of the square. Does it read as a diamond at this size?
-- [ ] **Three tokens look right on the body** (a triangle: top, left, right), and nothing overlaps.
-- [ ] **A fourth token** stays where it is, with "You can carry 3 tokens" on screen once. You can only test it by taking a token and then going back for another before using the 3TM (you only need three, so the tokens are all you have).
-- [ ] **The 3TM in room 4** reads as a machine: a square with a bar on top, with three diamond openings.
-- [ ] **Touching it with no tokens** says "0 of 3 tokens", once, and nothing else happens.
-- [ ] **Feeding it** is impossible to miss. Each token leaves your body, flies in an arc into an opening, and flashes. You cannot move meanwhile. Is the pace right (about half a second per token)?
-- [ ] **Bringing two tokens, leaving, and coming back with one** works: the two openings stay filled. Reload the page in between and check they are still filled.
-- [ ] **The third token** makes the machine shake and flash three times, a spark flies to you, a line says what you got, and a line appears across the bottom of your body.
-- [ ] **A spent 3TM** is drawn dotted, does nothing, and does not take a token from you.
-- [ ] **Reloading in the middle of the flow.** After taking the room 2 token but before leaving it, reload: you are in room 2, with the token on your body and the doors open.
-- [ ] **Imprint while the machine works.** Place a platform, touch the machine: the platform does not age while the machine is working.
-- Tokens and the Imprint line together cannot happen in the current rooms (the three tokens are spent to get Imprint), so only `token_test`'s pixel check covers that.
-- [ ] **The validator** says what you expect: `tools/validate.sh` lists rooms 1 to 5 as needing nothing, and room 5's left floor, room 6 and room 7 as needing the three tokens and the 3TM. It takes about 16 seconds now.
+- [ ] **The sparkle goes clockwise** round a reachable platform, along all four edges, not only the top. Does it read as a circle at 4x scale, and is it fast enough?
+- [ ] **It blinks less.** On for most of the time, with a short beat off. Is that too still, or about right?
+- [ ] **Hovering over a placed platform** keeps it on top: you see its dashes and edges through the preview. When it blinks off at the end, the preview shows through.
+- [ ] **The dashes count down,** one gone each second from the left, so a new platform has four, then three, two, one. The last one is gone as the platform shatters.
+- [ ] **The blink in the last second** looks the same as before.
+- [ ] **The countdown stops** while a 3TM is working (the platform does not age then).
 
 ## Respawn
 

@@ -206,8 +206,13 @@ func _set_cursor_hidden(hide: bool) -> void:
 
 
 func _draw() -> void:
+	_draw_preview()
+	# Last, so a platform that exists is never hidden by the one under the cursor.
 	for platform in platforms:
 		platform.draw(self)
+
+
+func _draw_preview() -> void:
 	if not is_active() or not (_mouse_seen or scripted) or _world.current == null:
 		return
 	var room: Room = _world.current
@@ -224,13 +229,13 @@ func _draw() -> void:
 			_cross(origin + Vector2(Grid.CELL, Grid.CELL) * 0.5)
 
 
-## A small plus that slides along the top edge.
+## A small plus that goes round the platform, clockwise, with a gap of a pixel.
 func _sparkle(area: Rect2) -> void:
-	var along := fposmod(_time * 12.0, area.size.x - 2.0)
-	var at := Vector2(floorf(area.position.x + 1.0 + along), area.position.y - 3.0)
-	if int(_time * 6.0) % 2 == 0:
-		draw_rect(Rect2(at.x, at.y - 1.0, 1.0, 3.0), Color.WHITE)
-		draw_rect(Rect2(at.x - 1.0, at.y, 3.0, 1.0), Color.WHITE)
+	if not ImprintSparkle.visible(_time):
+		return
+	var at := ImprintSparkle.point(area, _time * ImprintSparkle.SPEED)
+	draw_rect(Rect2(at.x, at.y - 1.0, 1.0, 3.0), Color.WHITE)
+	draw_rect(Rect2(at.x - 1.0, at.y, 3.0, 1.0), Color.WHITE)
 
 
 ## A one pixel outline, every other pixel.
