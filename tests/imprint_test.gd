@@ -12,6 +12,7 @@ func _initialize() -> void:
 	ok = _rules() and ok
 	ok = _reach() and ok
 	ok = _platform() and ok
+	ok = _countdown() and ok
 	print("IMPRINT %s" % ("pass" if ok else "fail"))
 	quit(0 if ok else 1)
 
@@ -125,3 +126,33 @@ func _room(marks: Dictionary) -> String:
 func _check(cond: bool, label: String) -> bool:
 	print(("ok   " if cond else "FAIL ") + label)
 	return cond
+
+
+## The dashes are a clock: one goes each quarter of the platform's life, from
+## the left, and the last one is the one that blinks.
+func _countdown() -> bool:
+	var ok := true
+	var p := ImprintPlatform.new(Rect2(100, 50, 20, 10), 4.0)
+	var full := p.line_rects()
+	ok = _check(full.size() == 4 and p.lines_left() == 4, "a new platform of two cells has four lines (%d)" % full.size()) and ok
+	var counts := []
+	for age in [0.5, 1.5, 2.5, 3.5]:
+		p.age = age
+		counts.append(p.lines_left())
+	ok = _check(counts == [4, 3, 2, 1], "a line goes each second: 4, 3, 2, 1 (%s)" % [counts]) and ok
+	p.age = 1.5
+	var rest := p.line_rects()
+	ok = _check(rest.size() == 3 and rest[0] == full[1] and rest[2] == full[3], "the leftmost goes first, and the rest stay where they were") and ok
+	p.age = 3.5
+	ok = _check(p.line_rects() == [full[3]], "the last line is the rightmost") and ok
+	p.age = 3.999
+	ok = _check(p.lines_left() == 1, "one line is left until the very end") and ok
+	p.age = 4.0
+	ok = _check(p.lines_left() == 0 and p.expired(), "none at the end") and ok
+	var wide := ImprintPlatform.new(Rect2(0, 0, 30, 10), 6.0)
+	var shown := []
+	for age in [0.5, 2.5, 5.5]:
+		wide.age = age
+		shown.append(wide.lines_left())
+	ok = _check(shown == [7, 5, 1], "a wider platform with a longer life counts down evenly (%s)" % [shown]) and ok
+	return ok

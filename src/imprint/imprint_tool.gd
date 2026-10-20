@@ -31,7 +31,6 @@ var _preview_cell := Vector2i.ZERO
 var _key := ""
 var _mouse_seen := false
 var _hidden_cursor := false
-var _time := 0.0
 
 
 func _ready() -> void:
@@ -119,8 +118,7 @@ func _physics_process(delta: float) -> void:
 		_update_preview()
 
 
-func _process(delta: float) -> void:
-	_time += delta
+func _process(_delta: float) -> void:
 	_set_cursor_hidden(is_active() and not scripted)
 	queue_redraw()
 
@@ -206,31 +204,26 @@ func _set_cursor_hidden(hide: bool) -> void:
 
 
 func _draw() -> void:
+	_draw_preview()
+	# Last, so a platform that exists is never hidden by the one under the cursor.
 	for platform in platforms:
 		platform.draw(self)
+
+
+func _draw_preview() -> void:
 	if not is_active() or not (_mouse_seen or scripted) or _world.current == null:
 		return
 	var room: Room = _world.current
 	var origin := room.position + Vector2(_preview_cell) * float(Grid.CELL)
 	var width := GameState.abilities.imprint_width
 	var area := Rect2(origin, Vector2(width * Grid.CELL, Grid.CELL))
-	match _state:
-		REACHABLE:
-			draw_rect(area, Color.WHITE)
-			_sparkle(area)
-		UNREACHABLE:
-			_dotted(area)
-		_:
-			_cross(origin + Vector2(Grid.CELL, Grid.CELL) * 0.5)
-
-
-## A small plus that slides along the top edge.
-func _sparkle(area: Rect2) -> void:
-	var along := fposmod(_time * 12.0, area.size.x - 2.0)
-	var at := Vector2(floorf(area.position.x + 1.0 + along), area.position.y - 3.0)
-	if int(_time * 6.0) % 2 == 0:
-		draw_rect(Rect2(at.x, at.y - 1.0, 1.0, 3.0), Color.WHITE)
-		draw_rect(Rect2(at.x - 1.0, at.y, 3.0, 1.0), Color.WHITE)
+	# Reachable or not, the cursor looks the same for now: a dotted outline
+	# wherever a platform may go. The state is still worked out, for when the
+	# look tells them apart again.
+	if _state == UNAVAILABLE:
+		_cross(origin + Vector2(Grid.CELL, Grid.CELL) * 0.5)
+	else:
+		_dotted(area)
 
 
 ## A one pixel outline, every other pixel.
