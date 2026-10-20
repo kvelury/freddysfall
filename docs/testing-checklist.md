@@ -22,7 +22,7 @@ The whole flow, in order:
 - [ ] **Three tokens look right on the body** (a triangle: top, left, right), and nothing overlaps.
 - [ ] **A fourth token** stays where it is, with "You can carry 3 tokens" on screen once. Walk off and back onto it: it says it again. It is taken once you have spent one.
 - [ ] **The 3TM in room 4** is bottom left. Does it read as a machine? A square with a bar on top, with three diamond openings.
-- [ ] **Touching it with no tokens** says "3TM: 0 of 3 tokens", once, and nothing else happens.
+- [ ] **Touching it with no tokens** says "0 of 3 tokens", once, and nothing else happens.
 - [ ] **Feeding it** is impossible to miss. Each token leaves your body, flies in an arc into an opening, and flashes. You cannot move meanwhile. Is the pace right (about half a second per token)? Is it too long with three in a row?
 - [ ] **Bringing two tokens, leaving, and coming back with one** works: the two openings stay filled. Reload the page in between and check they are still filled.
 - [ ] **The third token** makes the machine shake and flash three times, a spark flies to you, a line says what you got, and a line appears across the bottom of your body.

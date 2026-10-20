@@ -165,7 +165,7 @@ A **token** is a solid white diamond that bobs, where a pickup is hollow. Touchi
 
 A **3TM** (3 token machine, kind `machine`, settings `upgrade=` and `value=` like a pickup) is a square with a rectangle on top. The rectangle has three diamond-shaped openings. It fills 3 x 3 cells and the legend glyph marks the middle of its bottom row, so a 3TM standing on the floor has its glyph in the cell above the floor. Its 3 x 3 cells have to be open air, and it is not solid: the player walks in front of it.
 
-- Touching it with no tokens shows how full it is ("3TM: 2 of 3 tokens").
+- Touching it with no tokens shows how full it is ("2 of 3 tokens").
 - Touching it with tokens takes them all, one at a time. Each leaves the player's body, flies in an arc with a trail to the next empty opening, and fills it with a flash and a burst of pixels. The player cannot move meanwhile. An Imprint platform does not age meanwhile either.
 - Filled openings stay filled, and the count is saved, so a player can bring one token now and two later.
 - When the third opening fills, the machine shakes and flashes three times and a spark flies from its mouth to the player. The upgrade is then given, with the usual line of text at the top of the screen.

@@ -171,7 +171,7 @@ func _feed(machine: TokenMachine) -> void:
 	if GameState.tokens == 0:
 		if not machine.noted:
 			machine.noted = true
-			toast.show_text("3TM: %d of %d tokens" % [machine.filled, TokenMachine.COST])
+			toast.show_text("%d of %d tokens" % [machine.filled, TokenMachine.COST])
 		return
 	_busy = true
 	player.input_enabled = false
