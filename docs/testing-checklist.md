@@ -10,7 +10,7 @@ Played in the browser and found good, so these are not listed line by line any m
 
 ## Map zoom and new game (PR #20)
 
-Hold Tab (or M) for the map. Up zooms in, Down zooms out.
+Hold Tab (or M) for the map. Up or W zooms in, Down or S zooms out.
 
 - [ ] **Three levels.** Out shows the whole map, including all of room 7, with nothing cut off. Middle is the view you know. In is twice that. Is twice the right amount, or is it too much?
 - [ ] **Out and Middle look the same at the start,** when you have only visited one or two rooms. Is that confusing, or fine?
@@ -21,7 +21,7 @@ Hold Tab (or M) for the map. Up zooms in, Down zooms out.
 - [ ] **The level is remembered.** Set Out, let go of Tab, and hold it again: still Out. Reload the page (no `?new-game=1`): still Out.
 - [ ] **A new game wipes it.** Load with `?new-game=1`: back in room 1 with nothing, and the map at Middle. Then reload with the plain address: it is still the fresh game (the old save is gone).
 - [ ] **A plain reload keeps the game,** the map's level included.
-- [ ] **Up and Down do not move you** while the map is open, and Up does not jump you when you let go of Tab.
+- [ ] **Up, Down, W and S do not move you** while the map is open, and Up or W does not jump you when you let go of Tab.
 
 ## Respawn
 

@@ -59,6 +59,7 @@ func _view() -> bool:
 	var steps := [MapView.step(1, 1), MapView.step(2, 1), MapView.step(1, -1), MapView.step(0, -1)]
 	ok = _check(steps == [2, 2, 0, 0], "up and down move one level and stop at the ends (%s)" % [steps]) and ok
 	ok = _check(MapView.clamp_level(9) == 2 and MapView.clamp_level(-3) == 0, "a level outside the range is brought back in") and ok
+	ok = _check(_keys("map_zoom_in") == [KEY_UP, KEY_W] and _keys("map_zoom_out") == [KEY_DOWN, KEY_S], "Up or W zooms in, Down or S zooms out (%s, %s)" % [_keys("map_zoom_in"), _keys("map_zoom_out")]) and ok
 
 	# Rooms that touch still touch and rooms with a gap keep one, at any scale.
 	var apart := true
@@ -347,6 +348,15 @@ func _world(new_game: bool) -> Node:
 	root.add_child(world)
 	await process_frame
 	return world
+
+
+## The physical keys bound to an action, in order.
+func _keys(action: String) -> Array:
+	var out := []
+	for event in InputMap.action_get_events(action):
+		if event is InputEventKey:
+			out.append((event as InputEventKey).physical_keycode)
+	return out
 
 
 func _check(cond: bool, label: String) -> bool:

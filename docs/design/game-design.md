@@ -58,7 +58,7 @@ The camera snaps to whole pixels. The player stays interpolated. A camera sittin
 | Jump | Space, W, or Up |
 | Down | S or Down. Reserved. No action is assigned. |
 | Imprint | Left mouse button, once the Imprint has been found. Mouse only. |
-| Map | Hold Tab, or hold M. M exists because a browser may steal Tab for focus. While it is held, Up zooms in and Down zooms out. |
+| Map | Hold Tab, or hold M. M exists because a browser may steal Tab for focus. While it is held, Up or W zooms in and Down or S zooms out. |
 | Palettes | P, once that is built. Cycles and remembers the choice. |
 | Frame rate | F3. Shows FPS and frame time. A development readout, not a player feature. |
 | Warp | F4, a room number, Enter. Debug builds only. A development tool, not a player feature. |
@@ -263,7 +263,7 @@ A room that spans screens is one rectangle, not a row of separate rooms. The gap
 
 The room layer is drawn into a viewport and redrawn when the current room changes, a new room is visited, or the zoom changes. Each frame after that is the texture plus the marker.
 
-**Zoom.** While the map is held, Up zooms in and Down zooms out, one level per press, stopping at the ends. There are three levels:
+**Zoom.** While the map is held, Up or W zooms in and Down or S zooms out, one level per press, stopping at the ends. There are three levels:
 
 - **Out** shows every visited room, however big the map gets. It never zooms in past Middle, so a small map looks the same at Out and Middle. It is centred on the visited map.
 - **Middle** is the view the map always had: centred on the current room, clamped when the map is larger than the panel.
