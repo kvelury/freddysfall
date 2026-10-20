@@ -28,7 +28,7 @@ func _abilities() -> bool:
 	ok = _check(not a.apply(unlock, true) and a.imprint_unlocked, "and does nothing the second time") and ok
 	ok = _check(Abilities.from_dict(a.to_dict()).imprint_unlocked, "the unlock survives to_dict and from_dict") and ok
 	a = Abilities.new()
-	ok = _check(a.imprint_width == 2 and is_equal_approx(a.imprint_duration, 3.0) and a.imprint_max_active == 1 and a.imprint_effects.is_empty(), "the starting abilities are width 2, 3 s, one at a time, no effects") and ok
+	ok = _check(a.imprint_width == 2 and is_equal_approx(a.imprint_duration, 2.5) and a.imprint_max_active == 1 and a.imprint_effects.is_empty(), "the starting abilities are width 2, 2.5 s, one at a time, no effects") and ok
 	ok = _check(a.apply(width, 3) and a.imprint_width == 3, "a wider upgrade widens") and ok
 	ok = _check(not a.apply(width, 2) and a.imprint_width == 3, "a narrower one later takes nothing away") and ok
 	ok = _check(not a.apply(width, 3), "the same one again changes nothing") and ok

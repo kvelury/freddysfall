@@ -11,7 +11,7 @@ var imprint_unlocked := false
 ## Imprint platform width in cells.
 var imprint_width := 2
 ## Seconds an Imprint lasts.
-var imprint_duration := 3.0
+var imprint_duration := 2.5
 var imprint_max_active := 1
 ## Special behaviors an Imprint has, such as "bounce".
 var imprint_effects: Array[String] = []

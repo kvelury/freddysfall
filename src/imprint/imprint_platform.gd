@@ -3,8 +3,7 @@ extends RefCounted
 
 ## One placed platform: where it is, how long it has left, and how it looks.
 
-## The last stretch of its life, in seconds, when it blinks.
-const BLINK_TIME := 1.0
+## It blinks on and off this often while its last dash is the only one left.
 const BLINK_PERIOD := 0.1
 
 ## In world pixels.
@@ -22,9 +21,14 @@ func expired() -> bool:
 	return age >= lifetime
 
 
-## Off for every other tenth of a second in the last second.
+## Off for every other tenth of a second once only the last dash is left.
 func blinked_off() -> bool:
-	return age > lifetime - BLINK_TIME and int(age / BLINK_PERIOD) % 2 == 1
+	return age > lifetime - blink_time() and int(age / BLINK_PERIOD) % 2 == 1
+
+
+## How long the blink lasts at the end: the last dash's share of the life.
+func blink_time() -> float:
+	return lifetime / float(maxi(_line_xs().size(), 1))
 
 
 ## How many of the dashes are still showing. They are the platform's clock:

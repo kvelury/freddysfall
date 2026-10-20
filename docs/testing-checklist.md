@@ -8,12 +8,12 @@ Everything here passed its headless tests or was reported as unverified in a pul
 
 Played in the browser and found good, so these are not listed line by line any more: Imprint in the browser (placing, the preview, the cross, the blink), saving and resuming, the solver and the "needs" lines, movement and doors, the whole world map of PR #17 (rooms 1 to 7, the exit rules, the tokens on the body, the 3TM and its feeding, and the spent machine), and the Imprint look of PR #18 (the dotted cursor, placed platforms drawn over it, the countdown lines, and the blink), and the map zoom of PR #20 (the three levels, the legend, the level kept across reloads, a new game starting fresh, and the marker staying in its room). A new problem in any of them goes back on this list.
 
-## Imprint lasts 3 seconds (PR #21)
+## Imprint lasts 2.5 seconds (PR #21)
 
-- [ ] **A platform lasts 3 seconds,** not 4. Is that enough time to use it, and does it feel tighter in a good way?
-- [ ] **The four lines go one every 0.75 s,** from the left, so the last one is alone for the final 0.75 s.
-- [ ] **The blink starts in the last second,** a little before the last line is alone. Does that read, or should the blink start when only one line is left?
-- [ ] **Room 5's pit and room 6's wall** still work with a 3 second platform (the validator says yes).
+- [ ] **A platform lasts 2.5 seconds.** Is that enough time to use it?
+- [ ] **The four lines go one every 0.625 s,** from the left.
+- [ ] **It blinks once only the last line is left** (the last 0.625 s), not for a whole second as before. Does it still warn you in time?
+- [ ] **Room 5's pit and room 6's wall** still work with a 2.5 second platform (the validator says yes).
 
 ## Respawn
 
