@@ -27,7 +27,8 @@ func _initialize() -> void:
 	for message in report.warnings:
 		print("warn ", message)
 	for pickup in report.pickups:
-		print("pickup %s in room %s: %s%s" % [pickup["id"], pickup["room"], (pickup["upgrade"] + " " + pickup["value"]).strip_edges(), "" if pickup["reached"] else "  (not reached)"])
+		var gives: String = (pickup["upgrade"] + " " + pickup["value"]).strip_edges()
+		print("%s %s in room %s%s%s" % [pickup["type"], pickup["id"], pickup["room"], ": " + gives if not gives.is_empty() else "", "" if pickup["reached"] else "  (not reached)"])
 	var ids: Array = data.rooms.keys()
 	ids.sort_custom(func(a: String, b: String) -> bool: return a.naturalnocasecmp_to(b) < 0)
 	for id in ids:
@@ -36,11 +37,14 @@ func _initialize() -> void:
 		else:
 			var needs: Array = report.needs[id]
 			print("room %s needs %s" % [id, "nothing" if needs.is_empty() else ", ".join(needs)])
+	var kinds := {}
+	for pickup in report.pickups:
+		kinds[pickup["id"]] = pickup["type"]
 	var extra: Array = report.needs.keys().filter(func(k: String) -> bool: return k.contains("|"))
 	extra.sort()
 	for key in extra:
 		var parts: PackedStringArray = String(key).split("|", true, 1)
-		print("%s%s needs %s" % ["pickup " if parts[0] == "pickup" else "", parts[1], ", ".join(report.needs[key])])
+		print("%s%s needs %s" % [kinds[parts[1]] + " " if parts[0] == "pickup" else "", parts[1], ", ".join(report.needs[key])])
 	var seconds := float(Time.get_ticks_msec() - started) / 1000.0
 	var summary := "%d rooms, %d of %d ledges reachable, %.1f s" % [data.rooms.size(), report.reached_ledges, report.total_ledges, seconds]
 	if report.errors.is_empty():

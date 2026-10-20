@@ -15,6 +15,8 @@ func _initialize() -> void:
 
 
 func _run() -> void:
+	# Room 2 holds its doors shut until its token is taken. Start with it taken.
+	root.get_node("GameState").flags["token:r2_token"] = true
 	var world := (load("res://src/world/world.tscn") as PackedScene).instantiate()
 	world.start_override = "2"
 	root.add_child(world)
@@ -41,6 +43,7 @@ func _run() -> void:
 	player.scripted_x = 0.0
 	await _frames(90)
 	ok = _check(_room() == "2", "the player is not thrown back out of room 2") and ok
+	root.get_node("GameState").reset()
 	print("DOOR %s" % ("pass" if ok else "fail"))
 	quit(0 if ok else 1)
 

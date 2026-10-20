@@ -27,6 +27,7 @@ func _ready() -> void:
 		config = load("res://src/player/movement.tres")
 	_state.coyote = config.coyote_time
 	_visual = $Visual
+	_visual.add_child(InventoryMarks.new())
 
 
 ## Puts the body at rest in a room: at `world_position`, among `rects`.

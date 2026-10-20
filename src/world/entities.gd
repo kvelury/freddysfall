@@ -11,11 +11,31 @@ extends RefCounted
 
 const TYPES := {
 	"pickup": {"required": ["upgrade"], "optional": ["value"]},
+	"token": {"required": [], "optional": []},
+	"machine": {"required": ["upgrade"], "optional": ["value"]},
 }
+
+
+## The kinds the player takes by touching them, and that a room can wait on.
+const COLLECTIBLE: Array[String] = ["pickup", "token"]
 
 
 static func is_known(type: String) -> bool:
 	return TYPES.has(type)
+
+
+static func is_collectible(def: EntityDef) -> bool:
+	return COLLECTIBLE.has(def.type)
+
+
+## Whether the player works it by touching it: collectibles and 3TMs.
+static func is_touchable(def: EntityDef) -> bool:
+	return COLLECTIBLE.has(def.type) or def.type == "machine"
+
+
+## The key in the player's flags that says a pickup or token was taken.
+static func flag_for(def: EntityDef) -> String:
+	return Token.flag_for(def) if def.type == "token" else Pickup.flag_for(def)
 
 
 ## What is wrong with a legend line's settings, as sentences. `def` has its
@@ -34,25 +54,32 @@ static func problems(def: EntityDef) -> Array[String]:
 	for key in def.props:
 		if not spec["required"].has(key) and not spec["optional"].has(key):
 			out.append("%s %s has %s=, which %s does not use" % [def.type, def.id, key, def.type])
-	if out.is_empty() and def.type == "pickup":
+	if out.is_empty() and (def.type == "pickup" or def.type == "machine"):
 		var message := Upgrades.check(String(def.props["upgrade"]), String(def.props.get("value", "")))
 		if not message.is_empty():
-			out.append("pickup %s: %s" % [def.id, message])
+			out.append("%s %s: %s" % [def.type, def.id, message])
 	return out
 
 
-## Whether the thing is in the world, given the player's flags. A pickup is
-## gone once it has been collected. This takes the flags, not GameState, so the
+## Whether the thing is in the world, given the player's flags. A pickup or a
+## token is gone once it has been collected. This takes the flags, not GameState, so the
 ## parser and the tests can use the registry without the game running.
 static func present(def: EntityDef, flags: Dictionary) -> bool:
 	match def.type:
 		"pickup":
 			return not flags.has(Pickup.flag_for(def))
+		"token":
+			return not flags.has(Token.flag_for(def))
 	return true
 
 
-static func create(def: EntityDef) -> Node2D:
+## Builds the thing. `fills` is how many tokens each machine holds, by id.
+static func create(def: EntityDef, fills := {}) -> Node2D:
 	match def.type:
 		"pickup":
 			return Pickup.new(def)
+		"token":
+			return Token.new(def)
+		"machine":
+			return TokenMachine.new(def, int(fills.get(def.id, 0)))
 	return null

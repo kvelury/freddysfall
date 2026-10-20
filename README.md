@@ -14,7 +14,7 @@ Open the project in the editor and press Play. The main scene is `res://src/worl
 
 Start in any room instead of the first: `godot --path . -- --room=3`. In a debug build, F4, then a room number and Enter, jumps to that room while playing. On the web build, add `?room=3` to the address. A game started in a chosen room does not read or write the save.
 
-The game saves by itself when a room is entered and when a pickup is taken, to `user://save.json` (the browser's IndexedDB on the web). To start over, run with `--new-game`, or add `?new-game=1` on the web; the next autosave replaces the old save.
+The game saves by itself when a room is entered, when a pickup or token is taken, and when a 3TM finishes, to `user://save.json` (the browser's IndexedDB on the web). To start over, run with `--new-game`, or add `?new-game=1` on the web; the next autosave replaces the old save.
 
 ## Web
 
@@ -42,7 +42,8 @@ godot --headless --path . --script tests/shaft_test.gd
 godot --headless --path . --script tests/hazard_test.gd
 godot --headless --path . --script tests/entity_test.gd
 godot --headless --path . --script tests/save_test.gd
-godot --headless --path . --script tests/pickup_test.gd
+godot --headless --path . --script tests/token_test.gd
+godot --headless --path . --script tests/machine_test.gd
 godot --headless --path . --script tests/imprint_test.gd
 godot --headless --path . --script tests/imprint_play_test.gd
 godot --headless --path . --script tests/imprint_solver_test.gd
@@ -59,15 +60,16 @@ godot --headless --path . --script tests/imprint_solver_test.gd
 | `tests/door_test.gd` | The player walks through the door from room 2 to room 3 and back. Prints `DOOR pass`. |
 | `tests/shaft_test.gd` | The player drops down the hole in room 3 into room 4 and climbs back up, keeping speed through the doors. Prints `SHAFT pass`. |
 | `tests/hazard_test.gd` | Spikes and falling out of a room shatter the player and put them back on safe floor. An Imprint over spikes that breaks under the player does not leave a respawn in the air, and a bad respawn spot is stepped back from. Prints `HAZARD pass`. |
-| `tests/entity_test.gd` | The room legend: a valid one loads, and each way of writing one wrong is an error with its line. Prints `ENTITY pass`. |
-| `tests/save_test.gd` | `Abilities`, `GameState`, and the save file: round trip, damaged, newer, and missing-room files. Uses its own file. Prints `SAVE pass`. |
-| `tests/pickup_test.gd` | The player takes the Imprint pickup in room 2, the game saves, and a new game from that save has Imprint and no pickup. Prints `PICKUP pass`. |
+| `tests/entity_test.gd` | The room header: the legend and the `exits:` rule, tokens and 3TMs. A valid one loads, and each way of writing one wrong is an error with its line. Prints `ENTITY pass`. |
+| `tests/save_test.gd` | `Abilities`, `GameState`, and the save file: round trip, tokens and machines, damaged, newer, older, and missing-room files. Uses its own file. Prints `SAVE pass`. |
+| `tests/token_test.gd` | Room 2's doors are blocked until its token is taken, the blocks stop the player and then open, tokens show on the body, a full pocket leaves the next token, and a new game from the save has the token spent. Prints `TOKEN pass`. |
+| `tests/machine_test.gd` | The 3TM in room 4: how full it is, tokens flying in one at a time, the third giving Imprint, a spent machine doing nothing, and a save keeping its fill. Prints `MACHINE pass`. |
 | `tests/imprint_test.gd` | Where an Imprint platform may go (every refusal), whether the player can land on one, and the blink. Prints `IMPRINT pass`. |
 | `tests/imprint_play_test.gd` | Imprint in room 5: locked until found, placed by the action, solid under the player, replaced, broken by time, cleared on leaving a room and on dying. Prints `IMPRINTPLAY pass`. |
-| `tests/imprint_solver_test.gd` | The solver with Imprint, on strings: a pit too wide to jump is shut without Imprint and open with it, a platform that breaks too soon is no use, `~` cells forbid it, and a room reports the pickup it needs. Prints `IMPRINTSOLVER pass`. |
+| `tests/imprint_solver_test.gd` | The solver with Imprint, on strings: a pit too wide to jump is shut without Imprint and open with it, a platform that breaks too soon is no use, `~` cells forbid it, a room reports the pickup it needs, a room that holds its doors shut waits for its token, and three tokens and a 3TM give Imprint. Prints `IMPRINTSOLVER pass`. |
 | `tests/validate.gd` | Loads the whole world, then solves it: every room and door reachable from the start, nowhere to get stuck. Lists every problem and exits 1 if there is one. Run through `tools/validate.sh`. |
 | `tests/start_test.gd` | Starting in a chosen room and `warp_to` on the world scene. Prints `START pass`. |
-| `tests/render.gd` | Draws each room and the world map as PNGs in `build/renders/`, marking unreachable ledges, traps, and sealed doors. Run through `tools/render.sh`, optionally with room ids: `tools/render.sh 3 4`. |
+| `tests/render.gd` | Draws each room and the world map as PNGs in `build/renders/`, marking unreachable ledges, traps, sealed doors, blocked doors, and 3TMs. Run through `tools/render.sh`, optionally with room ids: `tools/render.sh 3 4`. |
 
 `reach_test.gd` builds small worlds from strings to check every way a room file can be wrong and that the solver finds a shelf out of reach, a trap, and a door in the sky. It does not instance the world. The other two do, and they set `Player.scripted` so input comes from the test instead of the keyboard.
 
