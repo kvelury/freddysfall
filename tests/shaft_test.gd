@@ -23,19 +23,19 @@ func _run() -> void:
 	player.scripted = true
 	var ok := true
 
-	# Down: walk off the floor into the hole at columns 38 to 44.
+	# Down: walk off the floor into the hole at columns 5 to 10.
 	var room: Room = world.current
-	player.place(room.position + Grid.cell_center(Vector2i(35, 16)), room.world_rects())
+	player.place(room.position + Grid.cell_center(Vector2i(3, 16)), room.world_rects())
 	player.scripted_x = 1.0
 	ok = _check(await _until(world, "4"), "walking into room 3's floor hole arrives in room 4") and ok
 	ok = _check(player.velocity.x > 60.0, "the player keeps running right through the door (%s)" % player.velocity) and ok
 	player.scripted_x = 0.0
 	ok = _check(await _settles(world), "the player lands on their feet in room 4") and ok
 
-	# Up: jump left from the top platform into the ceiling hole at columns 6 to 12.
+	# Up: jump straight up from the top platform into the ceiling hole at columns 5 to 10.
 	room = world.current
-	player.place(room.position + Grid.cell_center(Vector2i(15, 4)), room.world_rects())
-	player.scripted_x = -1.0
+	player.place(room.position + Grid.cell_center(Vector2i(10, 4)), room.world_rects())
+	player.scripted_x = 0.0
 	for frame in 40:
 		player.scripted_jump_pressed = frame == 0
 		player.scripted_jump_held = frame < 30

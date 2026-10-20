@@ -13,6 +13,7 @@ func _initialize() -> void:
 	ok = _placement() and ok
 	ok = _machines() and ok
 	ok = _exit_rules() and ok
+	ok = _trap_line() and ok
 	ok = _world_ids() and ok
 	ok = _upgrade_file() and ok
 	print("ENTITY %s" % ("pass" if ok else "fail"))
@@ -143,6 +144,26 @@ func _exit_rules() -> bool:
 	errors.clear()
 	RoomParser.parse_room("7", Vector2i.ZERO, _room(["exits: open", "exits: pickups"], {}), errors)
 	ok = _check(_has(errors, "given twice") and _has(errors, "line 2"), "a rule given twice is an error with its line (%s)" % [errors]) and ok
+	return ok
+
+
+func _trap_line() -> bool:
+	var ok := true
+	var errors: Array[String] = []
+	var info := RoomParser.parse_room("7", Vector2i.ZERO, _room(["trap: allowed"], {}), errors)
+	ok = _check(errors.is_empty() and info.traps_allowed, "trap: allowed loads %s" % [errors]) and ok
+	errors.clear()
+	info = RoomParser.parse_room("7", Vector2i.ZERO, _room(["trap: allowed", "exits: pickups", "legend:", LEGEND_LINE], {Vector2i(5, 3): "U"}), errors)
+	ok = _check(errors.is_empty() and info.traps_allowed and info.exit_rule == "pickups" and info.entities.size() == 1, "and sits beside exits: and a legend %s" % [errors]) and ok
+	errors.clear()
+	info = RoomParser.parse_room("7", Vector2i.ZERO, _room([], {}), errors)
+	ok = _check(not info.traps_allowed, "a room with no trap line allows no trap") and ok
+	errors.clear()
+	RoomParser.parse_room("7", Vector2i.ZERO, _room(["trap: sometimes"], {}), errors)
+	ok = _check(_has(errors, "sometimes") and _has(errors, "allowed") and _has(errors, "line 1"), "any other value is an error that says what is allowed (%s)" % [errors]) and ok
+	errors.clear()
+	RoomParser.parse_room("7", Vector2i.ZERO, _room(["trap: allowed", "trap: allowed"], {}), errors)
+	ok = _check(_has(errors, "given twice") and _has(errors, "line 2"), "a trap line given twice is an error with its line (%s)" % [errors]) and ok
 	return ok
 
 

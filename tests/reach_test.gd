@@ -50,14 +50,14 @@ func _room_shapes(data) -> bool:
 	ok = _check(_has_rect(info, Rect2i(21, 13, 5, 1)), "room 1 right platform rect") and ok
 	ok = _check(_has_rect(info, Rect2i(14, 9, 5, 1)), "room 1 middle platform rect") and ok
 	ok = _check(_has_rect(info, Rect2i(23, 5, 9, 1)), "room 1 top platform rect") and ok
-	var wide: RoomInfo = data.get_room("3")
+	var wide: RoomInfo = data.get_room("7")
 	var room := Room.new()
 	room.build(wide)
 	var chunks := 0
 	for child in room.get_children():
 		if String(child.name).begins_with("Chunk_"):
 			chunks += 1
-	ok = _check(chunks == 2, "room 3 builds one chunk per screen (%d)" % chunks) and ok
+	ok = _check(chunks == 8, "room 7, two screens by four, builds one chunk per screen (%d)" % chunks) and ok
 	room.free()
 	return ok
 
@@ -69,19 +69,25 @@ func _links(data) -> bool:
 	ok = _check(a.exit_on("right").dest_id == "2", "room 1 right exit leads to 2") and ok
 	ok = _check(b.exit_on("left").dest_id == "1", "room 2 left exit leads to 1") and ok
 	var c: RoomInfo = data.get_room("3")
-	ok = _check(c.screens == Vector2i(2, 1), "room 3 spans two screens") and ok
-	ok = _check(c.bounds_cells == Rect2i(0, 0, 64, 18), "room 3 bounds cover the whole room") and ok
-	ok = _check(data.id_at(Vector2i(2, 0)) == "3" and data.id_at(Vector2i(3, 0)) == "3", "room 3 occupies both of its screens") and ok
+	var tall: RoomInfo = data.get_room("7")
+	ok = _check(c.screens == Vector2i(1, 1) and tall.screens == Vector2i(2, 4), "room 3 is one screen and room 7 is two by four") and ok
+	ok = _check(tall.bounds_cells == Rect2i(0, 0, 64, 72), "room 7 bounds cover the whole room") and ok
+	ok = _check(data.id_at(Vector2i(0, 2)) == "7" and data.id_at(Vector2i(1, 5)) == "7" and data.id_at(Vector2i(3, 0)) == "", "room 7 occupies all eight of its screens, and room 3's old second screen is empty") and ok
 	var side := b.exit_on("right")
 	var side_rect := side.rect
-	ok = _check(b.exit_on("down") == null, "room 2 floor stays solid") and ok
+	ok = _check(b.exit_on("down").dest_id == "5", "room 2 floor exit leads down to 5") and ok
+	ok = _check(data.get_room("5").exit_on("up").dest_id == "2", "and room 5's ceiling door leads back up to 2") and ok
+	ok = _check(data.get_room("5").exit_on("right").dest_id == "4" and data.get_room("4").exit_on("left").dest_id == "5", "room 5's right door and room 4's left door lead to each other") and ok
+	ok = _check(data.get_room("5").exit_on("left").dest_id == "6" and data.get_room("6").exit_on("right").dest_id == "5", "room 5's left door and room 6's right door lead to each other") and ok
+	ok = _check(data.get_room("6").exit_on("down").dest_id == "7" and data.get_room("7").exit_on("up").dest_id == "6", "room 6's floor door drops into room 7's ceiling door") and ok
+	ok = _check(data.get_room("7").screens == Vector2i(2, 4) and data.get_room("7").traps_allowed and not data.get_room("6").traps_allowed, "room 7 is two screens wide, four tall, and the only one-way room") and ok
 	ok = _check(side.dest_id == "3", "room 2 floor exit leads to 3") and ok
-	ok = _check(side_rect.position.y == 15 and side_rect.size == Vector2i(1, 2), "room 2 exit is a floor-level side door (%s)" % side_rect) and ok
+	ok = _check(side_rect.position.y == 7 and side_rect.size == Vector2i(1, 2), "room 2 exit is a side door on its ledge (%s)" % side_rect) and ok
 	var back := c.exit_on("left")
 	var back_rect := back.rect
 	ok = _check(c.exit_on("up") == null, "room 3 ceiling stays solid") and ok
 	ok = _check(back.dest_id == "2", "room 3 side entrance leads back to 2") and ok
-	ok = _check(back_rect.position.y == 15 and back_rect.size == Vector2i(1, 2), "room 3 entrance is a floor-level side door (%s)" % back_rect) and ok
+	ok = _check(back_rect.position.y == 7 and back_rect.size == Vector2i(1, 4), "room 3 entrance is a door four tall above its ledge (%s)" % back_rect) and ok
 	return ok
 
 
@@ -103,7 +109,7 @@ func _crossing(data) -> bool:
 
 	# A door the body is not level with: it is carried along the wall to the far door.
 	var shifted := Door.crossing(two.exit_on("right"), three, Vector2(301.0, 145.0), run)
-	ok = _check(shifted["position"] == Vector2(659.5, 155.0), "crossing is clamped into the far door's rows (%s)" % shifted["position"]) and ok
+	ok = _check(shifted["position"] == Vector2(659.5, 105.0), "crossing is clamped into the far door's rows (%s)" % shifted["position"]) and ok
 
 	# Up and down, between two rooms in a column.
 	var shaft := _world([
@@ -249,12 +255,33 @@ func _covers(rects: Array[Rect2i], cell: Vector2i) -> bool:
 ## The real world has to solve completely: every room, door and ledge
 ## reachable, and nowhere to get stuck.
 func _reach_world(data) -> bool:
-	var report := ReachGraph.new(data.rooms, _cfg).solve(data.start_room)
+	var graph := ReachGraph.new(data.rooms, _cfg)
+	var report := graph.solve(data.start_room)
 	var ok := true
 	ok = _check(report.errors.is_empty(), "the world has no reach errors %s" % [report.errors]) and ok
+	ok = _check(_token_needs_the_climb(graph), "room 3's entrance ledge has no jump onto the token's platform or the step before it, and that step reaches the token") and ok
 	ok = _check(report.reached_ledges == report.total_ledges and report.total_ledges > 0, "every ledge in the world is reachable (%d of %d)" % [report.reached_ledges, report.total_ledges]) and ok
 	ok = _check(report.traps.is_empty(), "there is nowhere to get stuck") and ok
 	return ok
+
+
+## The player arrives in room 3 on a ledge low on its left wall. Nothing they
+## can do from there, without Imprint, may land them on the token's platform or
+## the step beside it: they climb the staircase to the right instead.
+func _token_needs_the_climb(graph: ReachGraph) -> bool:
+	var entrance: ReachGraph.Ledge = null
+	var token: ReachGraph.Ledge = null
+	var step: ReachGraph.Ledge = null
+	for ledge in graph.ledges_in("3"):
+		if ledge.row == 10 and ledge.x0 == 0:
+			entrance = ledge
+		elif ledge.row == 4 and ledge.x0 == 7:
+			token = ledge
+		elif ledge.row == 5 and ledge.x0 == 16:
+			step = ledge
+	if entrance == null or token == null or step == null:
+		return false
+	return not entrance.to_ledges.has(token.index) and not entrance.to_ledges.has(step.index) and step.to_ledges.has(token.index) and entrance.pickups.is_empty()
 
 
 ## Small worlds built to be wrong in one way each.

@@ -22,6 +22,9 @@ const RUN_UP := 5.0
 const REACH_X := 170.0
 const REACH_UP := 100.0
 const REACH_DOWN := 400.0
+## How many ticks a body that comes through a door may fall before it is given
+## up on. A room four screens tall is about 150 ticks of falling.
+const FALL_LIMIT := 300
 ## How many doors a body can fall through in a row before it lands.
 const MAX_CHAIN := 3
 ## Past this many lines of one kind, the report counts the rest.
@@ -232,14 +235,19 @@ func _analyze(start_room: String) -> Report:
 	var lost_doors: Array[String] = []
 	var empty_doors: Array[String] = []
 	var unreached_ledges: Array[String] = []
+	var one_way_lines: Array[String] = []
 	for id in _rooms:
 		var info: RoomInfo = _rooms[id]
 		for i in info.exits.size():
 			var key := "%s#%d" % [id, i]
 			var door := info.exits[i]
 			if reached_rooms.has(id) and not reached_doors.has(key):
-				lost_doors.append("Room %s: the %s door at %s cannot be reached" % [id, door.edge, door.rect])
-				report.unreached_doors.append([String(id), door])
+				if info.traps_allowed:
+					# A one-way room is entered by the door the player fell through, so nobody inside can touch it.
+					one_way_lines.append("Room %s: the %s door at %s cannot be reached from inside (trap: allowed)" % [id, door.edge, door.rect])
+				else:
+					lost_doors.append("Room %s: the %s door at %s cannot be reached" % [id, door.edge, door.rect])
+					report.unreached_doors.append([String(id), door])
 			elif reached_doors.has(key) and int(door_landings.get(key, 0)) == 0:
 				empty_doors.append("Room %s: the %s door at %s leads into room %s, but a body going through it never lands on anything (a void, or only spikes)" % [id, door.edge, door.rect, door.dest_id])
 		for ledge: Ledge in _ledges[id]:
@@ -248,8 +256,12 @@ func _analyze(start_room: String) -> Report:
 				if reached_rooms.has(id):
 					unreached_ledges.append("%s cannot be reached" % ledge.describe())
 			elif not home.has(ledge):
-				report.traps.append(ledge)
-				report.trap_lines.append("%s is a trap: once there, no path leads back to the start" % ledge.describe())
+				if info.traps_allowed:
+					report.one_way.append(ledge)
+					one_way_lines.append("%s is one-way (trap: allowed): once there, no path leads back to the start" % ledge.describe())
+				else:
+					report.traps.append(ledge)
+					report.trap_lines.append("%s is a trap: once there, no path leads back to the start" % ledge.describe())
 	var lost_pickups: Array[String] = []
 	for id in _rooms:
 		var info: RoomInfo = _rooms[id]
@@ -263,6 +275,7 @@ func _analyze(start_room: String) -> Report:
 	_append_capped(report.errors, lost_doors)
 	_append_capped(report.errors, empty_doors)
 	_append_capped(report.warnings, unreached_ledges)
+	_append_capped(report.warnings, one_way_lines)
 	report.reached_ledges = reached.size()
 	report.total_ledges = 0
 	for id in _ledges:
@@ -562,12 +575,12 @@ func _land(dest: RoomInfo, pos: Vector2, vel: Vector2, skip_door: int, depth: in
 		if ledge != null:
 			out.append(ledge)
 		return out
-	var near := _near_point(geo.rects, pos)
+	var near := _near_fall(geo, pos)
 	var triggers := geo.triggers.duplicate()
 	if skip_door >= 0:
 		triggers[skip_door] = Rect2(-1.0e6, -1.0e6, 0.0, 0.0)
 	for input in [-1.0, 0.0, 1.0]:
-		var result := MovementSim.simulate_jump(_cfg, near, pos, vel, input, 0, standing, false, triggers, geo.bounds, geo.hazards)
+		var result := MovementSim.simulate_jump(_cfg, near, pos, vel, input, 0, standing, false, triggers, geo.bounds, geo.hazards, [], NAN, 0, FALL_LIMIT)
 		if result["hazard"]:
 			continue
 		var door := int(result["trigger"])
@@ -664,8 +677,11 @@ func near_solids(rects: Array[Rect2], ledge: Ledge) -> Array[Rect2]:
 	return _within(rects, span)
 
 
-func _near_point(rects: Array[Rect2], pos: Vector2) -> Array[Rect2]:
-	return _within(rects, Rect2(pos.x - REACH_X, pos.y - REACH_DOWN, REACH_X * 2.0, REACH_DOWN + REACH_DOWN))
+## The solids a body falling from `pos` can meet: some way to either side and
+## all the way down to the bottom of the room, however tall it is.
+func _near_fall(geo: Geometry, pos: Vector2) -> Array[Rect2]:
+	var top := pos.y - REACH_DOWN
+	return _within(geo.rects, Rect2(pos.x - REACH_X, top, REACH_X * 2.0, geo.bounds.end.y - top))
 
 
 func _within(rects: Array[Rect2], span: Rect2) -> Array[Rect2]:
@@ -808,6 +824,8 @@ class Report extends RefCounted:
 	var total_ledges := 0
 	var unreached: Array[Ledge] = []
 	var traps: Array[Ledge] = []
+	## Ledges with no way home in a room that allows it (`trap: allowed`).
+	var one_way: Array[Ledge] = []
 	## [room_id, Door] pairs.
 	var unreached_doors: Array = []
 	## One entry per pickup: {id, room, upgrade, value, reached}.

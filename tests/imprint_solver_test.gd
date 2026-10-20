@@ -15,6 +15,10 @@ func _initialize() -> void:
 	ok = _forbidden() and ok
 	ok = _locks() and ok
 	ok = _machines() and ok
+	ok = _one_way() and ok
+	ok = _tall_fall() and ok
+	ok = _barrier() and ok
+	ok = _room_six() and ok
 	print("IMPRINTSOLVER %s" % ("pass" if ok else "fail"))
 	quit(0 if ok else 1)
 
@@ -136,11 +140,124 @@ func _machines() -> bool:
 	return ok
 
 
-## Rooms in a row from the left, one screen each, built from [marks, header] pairs.
-func _rooms(parts: Array) -> Dictionary:
+## A room you fall into and cannot climb out of is a trap, unless the room says
+## `trap: allowed`, and then it is only a warning.
+func _one_way() -> bool:
+	var ok := true
+	var hole := {Vector2i(2, 16): "P"}
+	var ceiling := {}
+	for x in range(6, 13):
+		hole[Vector2i(x, 17)] = "X"
+		ceiling[Vector2i(x, 0)] = "X"
+	var report := ReachGraph.new(_rooms([[hole, ""], [ceiling, ""]], true), _cfg).analyze("1")
+	ok = _check(_has(report.errors, "trap") and not report.traps.is_empty(), "a room you drop into and cannot leave is a trap %s" % [report.errors]) and ok
+	report = ReachGraph.new(_rooms([[hole, ""], [ceiling, "trap: allowed\n---\n"]], true), _cfg).analyze("1")
+	ok = _check(report.errors.is_empty() and report.traps.is_empty(), "with trap: allowed it is not an error %s" % [report.errors]) and ok
+	ok = _check(_has(report.warnings, "one-way") and report.one_way.size() == 1, "but it is a warning (%s)" % [report.warnings]) and ok
+	ok = _check(_has(report.warnings, "cannot be reached from inside"), "and its own door, which nobody inside can touch, is a warning too (%s)" % [report.warnings]) and ok
+	return ok
+
+
+## A room four screens tall: the body that falls through the door above lands on
+## its floor, however far down that is.
+func _tall_fall() -> bool:
+	var ok := true
+	var hole := {Vector2i(2, 16): "P"}
+	for x in range(6, 13):
+		hole[Vector2i(x, 17)] = "X"
+	var entries: Array = [
+		{"id": "1", "grid_pos": Vector2i(0, 0), "text": _room(hole)},
+		{"id": "2", "grid_pos": Vector2i(0, 1), "text": "trap: allowed\n---\n" + _tall(72)},
+	]
+	var errors: Array[String] = []
+	var built := RoomParser.build(entries, "1", errors)
+	ok = _check(errors.is_empty(), "a room four screens tall loads %s" % [errors]) and ok
+	var report := ReachGraph.new(built["rooms"], _cfg).analyze("1")
+	ok = _check(report.errors.is_empty() and report.reached_rooms.has("2"), "a fall of 70 cells lands on the floor %s" % [report.errors]) and ok
+	return ok
+
+
+## Room 6's shape: a hole in the floor that a wall and a roof cover on the side
+## the player comes from. The wall is six cells tall, more than a jump, so only
+## an Imprint platform gets the player over it.
+func _barrier() -> bool:
+	var ok := true
+	var marks := {Vector2i(28, 16): "P"}
+	for x in range(6, 11):
+		marks[Vector2i(x, 11)] = "#"
+	for y in range(12, 17):
+		marks[Vector2i(10, y)] = "#"
+	var ceiling := {}
+	for x in range(2, 10):
+		marks[Vector2i(x, 17)] = "X"
+		ceiling[Vector2i(x, 0)] = "X"
+	var rooms := _rooms([[marks, ""], [ceiling, "trap: allowed\n---\n"]], true)
+	var shut := ReachGraph.new(rooms, _cfg).analyze("1")
+	ok = _check(_has(shut.errors, "Room 2 cannot be reached"), "a wall six cells tall keeps the player from the hole %s" % [shut.errors]) and ok
+	var abilities := Abilities.new()
+	abilities.imprint_unlocked = true
+	var open := ReachGraph.new(rooms, _cfg, abilities).analyze("1")
+	ok = _check(open.errors.is_empty(), "and an Imprint platform gets them over %s" % [open.errors]) and ok
+
+	# At four cells the wall is a plain jump.
+	for y in range(11, 13):
+		for x in range(6, 11):
+			marks.erase(Vector2i(x, y)) if y == 11 else null
+	marks.clear()
+	marks[Vector2i(28, 16)] = "P"
+	for x in range(6, 11):
+		marks[Vector2i(x, 13)] = "#"
+	for y in range(14, 17):
+		marks[Vector2i(10, y)] = "#"
+	for x in range(2, 10):
+		marks[Vector2i(x, 17)] = "X"
+	var low := ReachGraph.new(_rooms([[marks, ""], [ceiling, "trap: allowed\n---\n"]], true), _cfg).analyze("1")
+	ok = _check(low.errors.is_empty(), "a wall four cells tall is just a jump %s" % [low.errors]) and ok
+	return ok
+
+
+## The real room 6 and room 7, lifted out of the world: without Imprint the
+## wall keeps the player from the hole, and with it they get over.
+func _room_six() -> bool:
+	var ok := true
+	var six := FileAccess.get_file_as_string("res://data/rooms/6.txt").split("\n")
+	six[16] = six[16].substr(0, 28) + "P" + six[16].substr(29)
+	var seven := FileAccess.get_file_as_string("res://data/rooms/7.txt")
+	var errors: Array[String] = []
+	var built := RoomParser.build([
+		{"id": "6", "grid_pos": Vector2i(0, 0), "text": "\n".join(six)},
+		{"id": "7", "grid_pos": Vector2i(0, 1), "text": seven},
+	], "6", errors)
+	ok = _check(errors.is_empty(), "room 6 and 7 load on their own %s" % [errors]) and ok
+	var shut := ReachGraph.new(built["rooms"], _cfg).analyze("6")
+	ok = _check(_has(shut.errors, "Room 7 cannot be reached"), "room 6's wall keeps the player from the hole without Imprint %s" % [shut.errors]) and ok
+	var abilities := Abilities.new()
+	abilities.imprint_unlocked = true
+	var open := ReachGraph.new(built["rooms"], _cfg, abilities).analyze("6")
+	ok = _check(open.errors.is_empty() and open.reached_rooms.has("7"), "and with Imprint they drop into room 7 %s" % [open.errors]) and ok
+	return ok
+
+
+## One screen wide and `rows` tall, a floor and walls, and a door in the ceiling
+## at columns 2 to 9 and 6 to 12.
+func _tall(rows: int) -> String:
+	var lines: Array[String] = []
+	for y in rows:
+		var row := ""
+		for x in 32:
+			var edge := x == 0 or y == 0 or x == 31 or y == rows - 1
+			var door := y == 0 and x >= 6 and x <= 12
+			row += "X" if door else ("#" if edge else ".")
+		lines.append(row)
+	return "\n".join(lines) + "\n"
+
+
+## Rooms from the left, one screen each, or from the top when `vertical`, built
+## from [marks, header] pairs.
+func _rooms(parts: Array, vertical := false) -> Dictionary:
 	var entries: Array = []
 	for i in parts.size():
-		entries.append({"id": str(i + 1), "grid_pos": Vector2i(i, 0), "text": String(parts[i][1]) + _room(parts[i][0])})
+		entries.append({"id": str(i + 1), "grid_pos": Vector2i(0, i) if vertical else Vector2i(i, 0), "text": String(parts[i][1]) + _room(parts[i][0])})
 	var errors: Array[String] = []
 	var built := RoomParser.build(entries, "1", errors)
 	if not errors.is_empty():

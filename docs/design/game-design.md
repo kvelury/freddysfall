@@ -136,7 +136,9 @@ A room's header can carry a line `exits: <rule>`. The rule says when its doors w
 
 `exits: pickups` in a room with nothing to take is a load error, because it would never mean anything. The 3TM does not count as something to take. A rule is tested when the room is built and again each time the player takes something in it, so reloading a save in the middle of a room puts the blocks back or leaves them gone as the flags say. Adding a rule is a line in `RULES` and a case in `ExitRules.met`.
 
-The header holds `exits:` and `legend:` in either order:
+The header holds `exits:`, `legend:` and `trap:` in any order. `trap: allowed` is described under Checking rooms; it is for a room that is a dead end on purpose.
+
+
 
 ```
 exits: pickups
@@ -195,14 +197,25 @@ A file that cannot be read, or that a newer version of the game wrote, is moved 
 
 ### The current slice
 
-Six rooms, as content, not as the limit of the format. The flow they make: take the token in room 2 to leave it, take two more in room 3, spend all three at the 3TM in room 4 to get Imprint, and use Imprint to cross room 5.
+Seven rooms, as content, not as the limit of the format. The flow they make: take the token in room 2 to leave it, take one more in room 3 and one in room 5, spend all three at the 3TM in room 4 to get Imprint, use Imprint to cross the spikes in room 5 and then the wall in room 6, and fall into room 7.
+
+```
+ 1   2   3          room 2's floor door drops into 5, room 3's floor hole into 4
+     5   4          5 and 4 meet at their side doors, 5 and 6 at theirs
+ 6                  room 6's floor door drops into 7
+ 7 7
+ 7 7
+ 7 7
+ 7 7
+```
 
 - **1**, one screen at `(0, 0)`. Three tiers of platforms, each a running jump apart, and an exit in the right wall. This is the movement test.
-- **2**, one screen at `(1, 0)`. The landing from 1's door, steps down to the right, and a floor-level door in the right wall. It has `exits: pickups` and a token on the first platform, so it cannot be left until the token is taken.
-- **3**, two screens wide at `(2, 0)`. Entered through that floor-level door. Platforms carry the route across the second screen. The same door is the way back. A hole in the floor of its second screen drops down to room 4. A token sits on the upper left platform and another on the lower right one. The room can be left without them.
-- **4**, one screen at `(3, 1)`, under that hole. A zigzag of platforms climbs back to the hole. The 3TM stands at the bottom left. A floor-level door in the right wall leads to room 5.
-- **5**, one screen at `(4, 1)`. A pit of spikes 12 cells wide is too wide to jump, so crossing it needs Imprint: a platform put over the spikes. A door in the right wall, past the pit, leads to room 6. It is the first room that is open or shut by an ability.
-- **6**, one screen at `(5, 1)`. Empty, with a door in the left wall. It is where the next room will go.
+- **2**, one screen at `(1, 0)`. The landing from 1's door, steps down to the right, a hole in the floor (cols 23 to 27) that drops down to room 5, and a door high in the right wall at the end of a ledge (row 9, cols 25 to 30), reached by a jump from the lower platform. It has `exits: pickups` and a token on the first platform, so it cannot be left, by any of its three doors, until the token is taken.
+- **3**, one screen at `(2, 0)`. Entered through a door four cells tall in the left wall (rows 7 to 10), dropping onto a ledge at its foot (row 11, cols 1 to 8). A hole in the floor (cols 5 to 10, mostly under the ledge) drops down to room 4. A staircase of four platforms climbs from the floor to the top left, where the platform (row 5, cols 7 to 10) holds the token. The ledge is 6 cells under the token's platform and 7 cells short of the step before it, so the player has to climb the staircase from the first step. That step also climbs back onto the ledge, for the way back to room 2.
+- **4**, one screen at `(2, 1)`, under that hole. Three platforms step down from under the ceiling door, each 4 cells apart, so the door is a short climb in and a short climb out. The 3TM stands at the bottom left, beside the left door that leads to room 5.
+- **5**, one screen at `(1, 1)`, with doors in the ceiling (up to room 2), the right wall (to room 4) and the left wall (to room 6). A pit of spikes 16 cells wide, with a short floor on its left, is too wide to jump. Three platforms climb from the right-hand floor back up to the ceiling door, and a token sits on the middle one. A player standing on the middle platform can cross the pit by putting an Imprint platform in the gap, and can cross back the same way. It is the first room that is open or shut by an ability.
+- **6**, one screen at `(0, 1)`, through the door in the right wall of room 5. A hole in the floor is covered on the player's side by a roof and a wall six cells tall, taller than a jump, so a platform put down by the wall is the only way up onto the roof, and from there the player walks off the end into the hole.
+- **7**, two screens wide and four tall at `(0, 2)`, under room 6's hole. It is empty: a long fall onto a floor. It is marked `trap: allowed`, because nothing in it leads back up yet. A 3TM and a title card that fades in during the fall and out before the landing are planned.
 
 ### Starting in a room
 
@@ -212,13 +225,14 @@ For testing, the game can begin in any room: `--room=<id>` on the command line, 
 
 A room is not finished when it loads. `tools/validate.sh` also plays the whole world with the movement simulator, starting from the `P` in the start room, and fails if the world cannot be played.
 
-A **ledge** is a run of cells with air above and floor below. From each ledge the solver tries walking off either end, and jumps from every cell with the input held left, none, or right, and the jump held for a tap, a hop, or the full leap. Each try is the same `MovementSim` the player runs. A try that lands on another ledge, or touches a door, is an edge in the graph. A try that touches a door records the body's position and velocity there. `Door.crossing`, the same function the game uses, says where that body appears on the far side, and the solver lets it fall or walk from there to see which ledge it lands on. A body that touches spikes is dead, so a path through them is not a path.
+A **ledge** is a run of cells with air above and floor below. From each ledge the solver tries walking off either end, and jumps from every cell with the input held left, none, or right, and the jump held for a tap, a hop, or the full leap. Each try is the same `MovementSim` the player runs. A try that lands on another ledge, or touches a door, is an edge in the graph. A try that touches a door records the body's position and velocity there. `Door.crossing`, the same function the game uses, says where that body appears on the far side, and the solver lets it fall or walk from there to see which ledge it lands on. A body that touches spikes is dead, so a path through them is not a path. A body that falls through a door keeps falling to the bottom of the room it lands in, however tall: room 7 is four screens high.
 
 - **Error:** a room, or a door in a reachable room, that no path from the start reaches.
 - **Error:** a door that every body going through it lands on nothing after, because the room beyond has a void or only spikes under it. The check is that some entry lands on a ledge. It does not promise that every entry does, so a shaft can still be hard to climb out of: play it.
 - **Error:** a trap, meaning a ledge the player can reach but from which no path leads back to the start. Falling into a pit too deep to jump out of is one. The first version of room 3 was one.
 - **Error:** a pickup, token or 3TM in a reachable room that no sampled path touches. A path that touches it and then dies on spikes still counts, because the pickup was taken. Only paths that start on a ledge are tried, so a pickup that can be taken only by falling through a door onto it is reported as out of reach.
 - **Error:** a room whose exit rule is never met. Its doors never work, so everything past it is out of reach and its own floor is a trap.
+- **Warning:** a ledge in a room that says `trap: allowed` with no way home, and the door that nobody inside such a room can touch. A room can say it in its header when it is meant to be a one-way drop (room 7, until its way out is built). It still has to be reachable from the start, and nothing else about it is relaxed.
 - **Warning:** a ledge nobody reached. The solver tries a fixed set of inputs, so a ledge it misses might still be reachable by a path it did not think of. Look at the render and decide.
 
 `tools/render.sh` draws each room and the world map to `build/renders/`. Red bars mark unreachable ledges, yellow bars mark traps, and orange marks a door that was sealed.
@@ -324,7 +338,7 @@ Authored rooms should be solvable only with the upgrades available up to that po
 
 ### Finding it
 
-The player does not start with Imprint. They earn it. A token lies in room 2, which cannot be left until it is taken, two more lie in room 3, and the 3TM in room 4 takes all three and gives Imprint. From then on the cursor is a platform, and a line appears across the player's body.
+The player does not start with Imprint. They earn it. A token lies in room 2, which cannot be left until it is taken, one more lies in room 3 and one in room 5, and the 3TM in room 4 takes all three and gives Imprint. From then on the cursor is a platform, and a line appears across the player's body.
 
 Tokens are the currency for upgrades, and a 3TM is the shop. Tokens are scattered through the world to be found by exploring, up to three at a time in the pocket, which puzzles are built around. Each 3TM is set to give one upgrade, so later upgrades (the ones below) mean placing more machines. How many tokens each costs is three for now.
 
@@ -373,5 +387,6 @@ The sparkle and the shards are small. They should read at 320×180 and survive t
 - What a spent 3TM should offer, if anything.
 - Whether `~` cells should ever be drawn.
 - Sound, throughout.
+- The title card for room 7, and what its 3TM is for.
 - A way to start over from inside the game. `--new-game` does it from the command line and the web address.
 - Where the player resumes: a dedicated save point glyph, if autosave on room entry feels wrong.

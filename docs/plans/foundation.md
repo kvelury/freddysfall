@@ -146,6 +146,9 @@ Split in two. **7a, the playable Imprint, is built**: the D9 questions are settl
 ### Chunk 8: exit rules, tokens and the 3TM (built)
 Added after the first seven. A room can hold its doors shut until a rule is met (`exits: pickups`), tokens are carried up to three and shown on the player's body, and a 3TM takes three tokens and gives an upgrade. Imprint is now earned that way, and the world was reshuffled to match: old room 5 is gone, old room 6 is room 5, and a new empty room 6 sits behind it.
 
+### PR #17: the new world map
+The world was redrawn. Rooms 5 and 6 come from the user's drawings, room 4 moved left to meet room 5, room 2 got a floor door down to room 5, and room 7 is a long empty fall marked `trap: allowed`. Work is called by PR number from here on, not by chunk.
+
 ### Later (D10)
 Unused screens for L-shaped rooms, map panning and icons, lazy `_merge_solids` (it's O(n²)), the duotone palettes (the plan already exists).
 
