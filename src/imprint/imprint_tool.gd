@@ -229,11 +229,15 @@ func _draw_preview() -> void:
 			_cross(origin + Vector2(Grid.CELL, Grid.CELL) * 0.5)
 
 
-## A small plus that goes round the platform, clockwise, with a gap of a pixel.
+## A small plus that goes round the platform, clockwise, with a gap of a pixel,
+## and a dotted trail behind it.
 func _sparkle(area: Rect2) -> void:
+	var along := _time * ImprintSparkle.SPEED
+	for dot in ImprintSparkle.trail(area, along):
+		draw_rect(Rect2(dot, Vector2.ONE), Color.WHITE)
 	if not ImprintSparkle.visible(_time):
 		return
-	var at := ImprintSparkle.point(area, _time * ImprintSparkle.SPEED)
+	var at := ImprintSparkle.point(area, along)
 	draw_rect(Rect2(at.x, at.y - 1.0, 1.0, 3.0), Color.WHITE)
 	draw_rect(Rect2(at.x - 1.0, at.y, 3.0, 1.0), Color.WHITE)
 

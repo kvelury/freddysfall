@@ -182,6 +182,24 @@ func _sparkle_path() -> bool:
 	for i in 600:
 		if ImprintSparkle.visible(float(i) * 0.01):
 			on += 1
-	ok = _check(on >= 480, "the sparkle is on at least 80%% of the time (%d of 600)" % on) and ok
-	ok = _check(not ImprintSparkle.visible(0.55) and ImprintSparkle.visible(0.65), "and it still blinks") and ok
+	ok = _check(on >= 360 and on <= 420, "the sparkle blinks, on about two thirds of the time (%d of 600)" % on) and ok
+	ok = _check(ImprintSparkle.visible(0.1) and not ImprintSparkle.visible(0.25) and ImprintSparkle.visible(0.35), "on, off, and on again within a third of a second") and ok
+	# The trail: behind the plus, clear of it and of the platform, thinning out.
+	var head := 30.0
+	var dots := ImprintSparkle.trail(area, head)
+	var plus := Rect2(at.call(head) - Vector2(1, 1), Vector2(3, 3))
+	var behind := true
+	for dot in dots:
+		behind = behind and not plus.intersects(Rect2(dot, Vector2.ONE)) and not area.grow(1.0).intersects(Rect2(dot, Vector2.ONE))
+	var apart := true
+	var gap := 0.0
+	for k in range(1, ImprintSparkle.TRAIL.size()):
+		var next := ImprintSparkle.TRAIL[k] - ImprintSparkle.TRAIL[k - 1]
+		apart = apart and next >= gap
+		gap = next
+	ok = _check(dots.size() >= 4 and behind, "a trail of %d pixels follows the plus, clear of it and of the platform" % dots.size()) and ok
+	ok = _check(dots[0] == at.call(head - ImprintSparkle.TRAIL[0]) and dots[0].y < at.call(head).y, "the trail is behind it, back along the path (%s, head %s)" % [dots[0], at.call(head)]) and ok
+	ok = _check(apart and gap > ImprintSparkle.TRAIL[1] - ImprintSparkle.TRAIL[0], "and its dots get further apart toward the end") and ok
+	var corner := ImprintSparkle.trail(area, 2.0)
+	ok = _check(corner[-1] == at.call(2.0 - ImprintSparkle.TRAIL[-1]) and corner[-1].x == 97.0, "round a corner it follows the path (%s)" % corner[-1]) and ok
 	return ok
