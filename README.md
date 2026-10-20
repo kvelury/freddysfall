@@ -42,6 +42,7 @@ godot --headless --path . --script tests/shaft_test.gd
 godot --headless --path . --script tests/hazard_test.gd
 godot --headless --path . --script tests/entity_test.gd
 godot --headless --path . --script tests/save_test.gd
+godot --headless --path . --script tests/map_test.gd
 godot --headless --path . --script tests/token_test.gd
 godot --headless --path . --script tests/machine_test.gd
 godot --headless --path . --script tests/imprint_test.gd
@@ -61,6 +62,7 @@ godot --headless --path . --script tests/imprint_solver_test.gd
 | `tests/shaft_test.gd` | The player drops down the hole in room 3 into room 4 and climbs back up, keeping speed through the doors. Prints `SHAFT pass`. |
 | `tests/hazard_test.gd` | In room 5, spikes and falling out of a room shatter the player and put them back on safe floor. An Imprint over spikes that breaks under the player does not leave a respawn in the air, and a bad respawn spot is stepped back from. Prints `HAZARD pass`. |
 | `tests/entity_test.gd` | The room header: the legend and the `exits:` rule, tokens and 3TMs. A valid one loads, and each way of writing one wrong is an error with its line. Prints `ENTITY pass`. |
+| `tests/map_test.gd` | The map's three zoom levels (what each shows, that Out always fits the whole map), the legend, the keys, and that the level is saved with the game, while a new game wipes the save and a reload keeps it. Prints `MAP pass`. |
 | `tests/save_test.gd` | `Abilities`, `GameState`, and the save file: round trip, tokens and machines, damaged, newer, older, and missing-room files. Uses its own file. Prints `SAVE pass`. |
 | `tests/token_test.gd` | Room 2's doors are blocked until its token is taken, the blocks stop the player and then open, tokens show on the body, a full pocket leaves the next token, and a new game from the save has the token spent. Prints `TOKEN pass`. |
 | `tests/machine_test.gd` | The 3TM in room 4: how full it is, tokens flying in one at a time, the third giving Imprint, a spent machine doing nothing, and a save keeping its fill. Prints `MACHINE pass`. |

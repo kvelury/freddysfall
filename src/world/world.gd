@@ -22,8 +22,12 @@ const SAFE_SPACING := 30.0
 ## Set before the world enters the tree to start in this room. The command
 ## line (`-- --room=3`) and, on the web, `?room=3` fill it in when it is empty.
 ## Starting in a chosen room is for testing: it uses no save and writes none.
-## `--new-game` (`?new-game=1`) starts over and replaces the save.
+## `--new-game` (`?new-game=1`) starts over: it deletes the save and empties
+## the game's state, so even a reload before the first autosave cannot bring
+## the old game back. A reload without it keeps the save. `new_game` does the
+## same for a test.
 var start_override := ""
+var new_game := false
 var current: Room
 var _pending: Room
 var _busy := false
@@ -55,7 +59,10 @@ func _ready() -> void:
 			id = WorldData.start_room
 	else:
 		id = WorldData.start_room
-		if _launch_arg("new-game").is_empty():
+		if new_game or not _launch_arg("new-game").is_empty():
+			Save.erase()
+			GameState.reset()
+		else:
 			var saved := Save.load_game()
 			if not saved.is_empty():
 				id = String(saved["room"])
@@ -201,6 +208,13 @@ func _feed(machine: TokenMachine) -> void:
 ## The doors of the room just opened: the blocks no longer collide.
 func _on_exits_opened() -> void:
 	imprint.sync_solids()
+
+
+## Saves the game as it stands, at the last safe floor. For things that change
+## the saved state with no door or pickup to trigger it, like the map's zoom.
+func save_now() -> void:
+	if current != null:
+		_autosave(false)
 
 
 ## Writes the save. On entering a room it records where the player is; after
