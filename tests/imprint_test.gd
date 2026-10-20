@@ -155,4 +155,20 @@ func _countdown() -> bool:
 		wide.age = age
 		shown.append(wide.lines_left())
 	ok = _check(shown == [7, 5, 1], "a wider platform with a longer life counts down evenly (%s)" % [shown]) and ok
+
+	# The starting platform: 3 seconds and four lines, so one goes every 0.75 s,
+	# and it blinks in its last second.
+	var start := ImprintPlatform.new(Rect2(0, 0, 20, 10), Abilities.new().imprint_duration)
+	ok = _check(is_equal_approx(start.lifetime, 3.0), "a starting platform lasts 3 seconds") and ok
+	var quarters := []
+	for age in [0.5, 1.0, 1.8, 2.5]:
+		start.age = age
+		quarters.append(start.lines_left())
+	ok = _check(quarters == [4, 3, 2, 1], "its four lines go one every 0.75 s: 4, 3, 2, 1 (%s)" % [quarters]) and ok
+	start.age = 1.95
+	ok = _check(not start.blinked_off(), "it does not blink before its last second") and ok
+	start.age = 2.15
+	ok = _check(start.blinked_off() and not start.expired(), "it blinks in its last second") and ok
+	start.age = 3.0
+	ok = _check(start.expired() and start.lines_left() == 0, "and is gone at 3 seconds") and ok
 	return ok

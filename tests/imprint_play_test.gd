@@ -107,7 +107,7 @@ func _run() -> void:
 	tool.scripted_cell = Vector2i(5, 5)
 	tool.place()
 	ok = _check(is_equal_approx(tool.platforms[0].lifetime, 6.0) and is_equal_approx(tool.platforms[0].rect.size.x, 30.0), "width and duration come from the abilities") and ok
-	state.abilities.imprint_duration = 4.0
+	state.abilities.imprint_duration = Abilities.new().imprint_duration
 	state.abilities.imprint_width = 2
 
 	# Leaving the room clears it.
