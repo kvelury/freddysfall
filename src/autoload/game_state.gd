@@ -10,6 +10,9 @@ const TOKEN_CAP := 3
 
 var current_room_id := ""
 var visited := {}
+## How zoomed the map is (MapView.OUT, MIDDLE or IN). The player's choice
+## stays with the game, so a new game starts it at the middle again.
+var map_zoom := MapView.MIDDLE
 var abilities := Abilities.new()
 ## Things the player has done that stay done: "pickup:<id>" for each pickup
 ## collected. Keys are text and values are true.
@@ -80,6 +83,7 @@ func to_dict() -> Dictionary:
 		"flags": flags.keys(),
 		"tokens": tokens,
 		"machines": machines.duplicate(),
+		"map_zoom": map_zoom,
 	}
 
 
@@ -98,6 +102,7 @@ func load_dict(data: Dictionary) -> void:
 		for id in held:
 			machines[String(id)] = clampi(int(held[id]), 0, 3)
 	tokens = clampi(int(data.get("tokens", 0)), 0, TOKEN_CAP)
+	map_zoom = MapView.clamp_level(int(data.get("map_zoom", MapView.MIDDLE)))
 	tokens_changed.emit()
 	var saved = data.get("abilities", {})
 	abilities = Abilities.from_dict(saved if saved is Dictionary else {})

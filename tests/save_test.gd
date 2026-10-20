@@ -94,6 +94,14 @@ func _file() -> bool:
 	save.load_game()
 	ok = _check(state.tokens == _cap(state) and state.machines.get("m") == 3, "a damaged save cannot hold more than the cap or fill a machine past three (%d, %s)" % [state.tokens, state.machines]) and ok
 
+	# The map's zoom is saved with the game.
+	state.reset()
+	state.map_zoom = 2
+	save.write("3", Vector2(10, 10))
+	state.reset()
+	save.load_game()
+	ok = _check(state.map_zoom == 2, "a save keeps the map's zoom (%d)" % state.map_zoom) and ok
+
 	save.enabled = false
 	ok = _check(not save.write("3", Vector2.ZERO) and save.load_game().is_empty(), "a disabled save neither writes nor reads") and ok
 	save.enabled = true
@@ -117,6 +125,12 @@ func _file() -> bool:
 
 	save.erase()
 	ok = _check(not FileAccess.file_exists(TEMP), "erase removes the save") and ok
+	save.write("3", Vector2(10, 10))
+	save.enabled = false
+	save.erase()
+	ok = _check(FileAccess.file_exists(TEMP), "erase does nothing while saving is off") and ok
+	save.enabled = true
+	save.erase()
 	save.enabled = false
 	state.reset()
 	return ok

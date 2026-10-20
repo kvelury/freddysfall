@@ -67,8 +67,10 @@ func load_game() -> Dictionary:
 	return {"room": room, "position": Vector2(float(at[0]), float(at[1]))}
 
 
+## Deletes the save. Like writing and reading, it does nothing when saving is
+## off, so a test or a debugging start never touches a real file.
 func erase() -> void:
-	if FileAccess.file_exists(path):
+	if enabled and FileAccess.file_exists(path):
 		DirAccess.remove_absolute(path)
 
 

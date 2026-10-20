@@ -58,7 +58,7 @@ The camera snaps to whole pixels. The player stays interpolated. A camera sittin
 | Jump | Space, W, or Up |
 | Down | S or Down. Reserved. No action is assigned. |
 | Imprint | Left mouse button, once the Imprint has been found. Mouse only. |
-| Map | Hold Tab, or hold M. M exists because a browser may steal Tab for focus. |
+| Map | Hold Tab, or hold M. M exists because a browser may steal Tab for focus. While it is held, Up zooms in and Down zooms out. |
 | Palettes | P, once that is built. Cycles and remembers the choice. |
 | Frame rate | F3. Shows FPS and frame time. A development readout, not a player feature. |
 | Warp | F4, a room number, Enter. Debug builds only. A development tool, not a player feature. |
@@ -191,9 +191,9 @@ The player's body is the inventory. Each token carried cuts a small black diamon
 
 ### Saving
 
-The game saves to `user://save.json` when a room is entered and when a pickup is taken, and loads it on start. The file holds a version number, the room and the position in it, the visited rooms, the abilities, the number of tokens carried, how full each 3TM is, and the flags (one per pickup taken, `pickup:<id>`, and one per token taken, `token:<id>`). On entering a room the position is where the player arrived. After a pickup it is the last safe floor in that room, so loading never puts the player in the air above spikes.
+The game saves to `user://save.json` when a room is entered, when a pickup is taken, and when the map is closed after its zoom changed, and loads it on start. The file holds a version number, the room and the position in it, the visited rooms, the abilities, the map's zoom level, the number of tokens carried, how full each 3TM is, and the flags (one per pickup taken, `pickup:<id>`, and one per token taken, `token:<id>`). On entering a room the position is where the player arrived. After a pickup it is the last safe floor in that room, so loading never puts the player in the air above spikes.
 
-A file that cannot be read, or that a newer version of the game wrote, is moved aside as `save.json.bad` and the game starts new, so it is never overwritten. A save for a room that no longer exists keeps the abilities and the map and starts in the start room. Headless runs and games started with `--room=` or `?room=` never read or write a save. F4 only warps inside a normal game, which keeps saving. `--new-game` ignores the save and the next autosave replaces it. A save from before tokens existed (version 1) is also set aside, because it comes from a world where Imprint was free and its flags mean something else now. To change the save's shape, raise `Save.VERSION` and add a step to `Save._migrate`; to give up on older files, raise `Save.OLDEST`.
+A file that cannot be read, or that a newer version of the game wrote, is moved aside as `save.json.bad` and the game starts new, so it is never overwritten. A save for a room that no longer exists keeps the abilities and the map and starts in the start room. Headless runs and games started with `--room=` or `?room=` never read or write a save. F4 only warps inside a normal game, which keeps saving. `--new-game` (`?new-game=1`) is the only way to start over: it deletes the save and empties the game's state before anything is placed, so even a reload before the first autosave cannot bring the old game back, and the map's zoom goes back to the middle. A plain reload keeps the save. While `?new-game=1` stays in the address, every reload is a new game. A save from before tokens existed (version 1) is also set aside, because it comes from a world where Imprint was free and its flags mean something else now. To change the save's shape, raise `Save.VERSION` and add a step to `Save._migrate`; to give up on older files, raise `Save.OLDEST`.
 
 ### The current slice
 
@@ -261,7 +261,17 @@ Visited rooms are outlined rectangles. The current room is filled. The player is
 
 A room that spans screens is one rectangle, not a row of separate rooms. The gap that normally separates neighboring rooms is filled in across the screens that room owns, so the shape on the map matches the continuous space. Door gaps and the player marker are placed per screen, so a door on the second screen sits on the outer edge of that wide rectangle, in line with a one-screen neighbor.
 
-The room layer is drawn into a viewport and redrawn when the current room changes or a new room is visited. Each frame after that is the texture plus the marker. The view centers on the current room and clamps when the map is larger than the panel.
+The room layer is drawn into a viewport and redrawn when the current room changes, a new room is visited, or the zoom changes. Each frame after that is the texture plus the marker.
+
+**Zoom.** While the map is held, Up zooms in and Down zooms out, one level per press, stopping at the ends. There are three levels:
+
+- **Out** shows every visited room, however big the map gets. It never zooms in past Middle, so a small map looks the same at Out and Middle. It is centred on the visited map.
+- **Middle** is the view the map always had: centred on the current room, clamped when the map is larger than the panel.
+- **In** is twice that, centred on the player's marker and clamped to the map.
+
+The map is redrawn at each scale and not stretched. Every corner is scaled and rounded to a whole pixel, and lines stay one pixel thick, so outlines and door gaps are as sharp at every level and rooms that touched or had a gap keep that. The level is part of the saved game (see Saving), and the map opens at the level the player left it at.
+
+**Legend.** In the bottom-right corner of the map, two rows of symbols and no words, on a small black patch: an up arrow beside a magnifying glass with a plus (zoom in) over a down arrow beside a magnifying glass with a minus (zoom out). A row that can do nothing more, because the map is at that end, is drawn grey.
 
 ## Look, and the softer palettes
 

@@ -8,6 +8,20 @@ Everything here passed its headless tests or was reported as unverified in a pul
 
 Played in the browser and found good, so these are not listed line by line any more: Imprint in the browser (placing, the preview, the cross, the blink), saving and resuming, the solver and the "needs" lines, movement and doors, the whole world map of PR #17 (rooms 1 to 7, the exit rules, the tokens on the body, the 3TM and its feeding, and the spent machine), and the Imprint look of PR #18 (the dotted cursor, placed platforms drawn over it, the countdown lines, and the blink). A new problem in any of them goes back on this list.
 
+## Map zoom and new game (PR #20)
+
+Hold Tab (or M) for the map. Up zooms in, Down zooms out.
+
+- [ ] **Three levels.** Out shows the whole map, including all of room 7, with nothing cut off. Middle is the view you know. In is twice that. Is twice the right amount, or is it too much?
+- [ ] **Out and Middle look the same at the start,** when you have only visited one or two rooms. Is that confusing, or fine?
+- [ ] **It is sharp at every level.** The outlines are one pixel, the door gaps are clear, and rooms that were apart still have a gap between them. Check Out especially: it is not a whole number scale.
+- [ ] **In follows you.** In room 7 (the tall one), zoomed in, the view is on your marker. Does the marker read at 2x, where it is still one pixel?
+- [ ] **The legend** in the bottom-right corner reads at 4x: an up arrow and a magnifying glass with a plus over a down arrow and one with a minus. Is it clear which key does what? The row that can do nothing more goes grey. Is that clear, or noise?
+- [ ] **The level is remembered.** Set Out, let go of Tab, and hold it again: still Out. Reload the page (no `?new-game=1`): still Out.
+- [ ] **A new game wipes it.** Load with `?new-game=1`: back in room 1 with nothing, and the map at Middle. Then reload with the plain address: it is still the fresh game (the old save is gone).
+- [ ] **A plain reload keeps the game,** the map's level included.
+- [ ] **Up and Down do not move you** while the map is open, and Up does not jump you when you let go of Tab.
+
 ## Respawn
 
 - [ ] **Dying right after a door.** The respawn spot may be in the previous room. Check that it feels right, and that you do not die twice.
