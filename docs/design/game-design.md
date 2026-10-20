@@ -318,7 +318,7 @@ A platform may sit just above spikes. Bridging a spike pit with a platform a few
 
 A placed platform is solid on every side, like authored floor. It can be stood on, bumped from below, and walked into. When it breaks under the player, they fall.
 
-A legal placement lasts `duration` seconds, 4 at the start. The dashed line through it is its clock: it starts with a dash for every pair of cells it is wide (four, at the start), and one dash goes in each equal share of its life, the leftmost first, so at 4 seconds one goes every second and the last is the one left in the final second. For that last 1 second the whole platform also blinks. Then it shatters into pixel shards. It does not fade out.
+A legal placement lasts `duration` seconds, 2.5 at the start. The dashed line through it is its clock: it starts with a dash for every pair of cells it is wide (four, at the start), and one dash goes in each equal share of its life, the leftmost first, so at 2.5 seconds one goes every 0.625 seconds. While the last dash is the only one left, the whole platform also blinks, every tenth of a second. Then it shatters into pixel shards. It does not fade out.
 
 ### Reach, before the click
 
@@ -358,7 +358,7 @@ Upgrades are pickups in the world, written into a room's legend and drawn with t
 | Upgrade | Starts at | Grows to |
 | --- | --- | --- |
 | Width | 2 cells | 3, then 5 |
-| Duration | 4 seconds | longer |
+| Duration | 2.5 seconds | longer |
 | How many at once | 1 | stays 1 unless a later upgrade says otherwise |
 | Behavior | a still platform | bounce, and others after that |
 
@@ -373,7 +373,7 @@ Ideas for later upgrades, none of them built:
 - A longer life for the platform.
 - A bouncy platform.
 
-The starting values are the defaults in `Abilities` (`src/core/abilities.gd`): width 2, duration 4 seconds, one at a time, no special behavior, and Imprint itself locked. They live in `GameState.abilities`, and the width and duration are read when a platform is placed.
+The starting values are the defaults in `Abilities` (`src/core/abilities.gd`): width 2, duration 2.5 seconds, one at a time, no special behavior, and Imprint itself locked. They live in `GameState.abilities`, and the width and duration are read when a platform is placed.
 
 ### Look
 
@@ -381,7 +381,7 @@ Imprint uses the same black-and-white pixel language as the rest of the game.
 
 - Dotted outline: a platform can go here.
 - A small ×: you cannot put one here.
-- Dashes going out, left to right: how long a placed platform has left. Blink in the last second: it is about to break.
+- Dashes going out, left to right: how long a placed platform has left. Blinking with one dash left: it is about to break.
 - A placed platform is always drawn over the cursor, so what the player can land on is never hidden by the preview.
 - Shatter into pixel shards: it is gone.
 
