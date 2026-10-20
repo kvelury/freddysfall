@@ -3,7 +3,9 @@ extends SceneTree
 ## Loads the whole world, then checks it can be played: every room and door
 ## reachable from the start, and no place you cannot get back from.
 ## Exits non-zero on any error. Warnings (ledges nobody reached) do not fail.
-## tools/validate.sh runs this.
+## tools/validate.sh runs this. What the solver works out about each room is
+## kept in build/solver-cache/ between runs, so a run after editing one room
+## only redoes that room. `--no-cache` ignores and does not write it.
 
 
 func _initialize() -> void:
@@ -21,7 +23,13 @@ func _initialize() -> void:
 
 	var started := Time.get_ticks_msec()
 	var cfg := load("res://src/player/movement.tres") as MovementConfig
-	var report := ReachGraph.new(data.rooms, cfg).solve(data.start_room)
+	var graph := ReachGraph.new(data.rooms, cfg)
+	var cache: SolverCache = null
+	if not OS.get_cmdline_user_args().has("--no-cache"):
+		cache = SolverCache.new("res://build/solver-cache")
+		graph.cache = cache
+	var report := graph.solve(data.start_room)
+	var written := cache.save() if cache != null else 0
 	for message in report.errors:
 		print("FAIL ", message)
 	for message in report.warnings:
@@ -46,6 +54,20 @@ func _initialize() -> void:
 		var parts: PackedStringArray = String(key).split("|", true, 1)
 		print("%s%s needs %s" % [kinds[parts[1]] + " " if parts[0] == "pickup" else "", parts[1], ", ".join(report.needs[key])])
 	var seconds := float(Time.get_ticks_msec() - started) / 1000.0
+	var timing := graph.timing()
+	print("time: ledges' jumps %.1f s, Imprint search %.1f s (jumps %.1f, landings %.1f, platforms' legs %.1f), %d platforms looked at, %d legs worked out" % [
+		timing["edges"] / 1000.0,
+		(timing["arcs"] + timing["lands"] + timing["legs"]) / 1000.0,
+		timing["arcs"] / 1000.0,
+		timing["lands"] / 1000.0,
+		timing["legs"] / 1000.0,
+		timing["candidates"],
+		timing["legs_made"],
+	])
+	if cache != null:
+		print("cache: %d rooms' ledges from it and %d worked out, %d legs from it and %d worked out, %d files written" % [cache.stats["edge_rooms_cached"], cache.stats["edge_rooms_solved"], cache.stats["legs_cached"], cache.stats["legs_solved"], written])
+	else:
+		print("cache: off")
 	var summary := "%d rooms, %d of %d ledges reachable, %.1f s" % [data.rooms.size(), report.reached_ledges, report.total_ledges, seconds]
 	if report.errors.is_empty():
 		print("validate pass: " + summary)

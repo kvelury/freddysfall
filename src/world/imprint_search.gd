@@ -30,6 +30,9 @@ const MAX_ARCS_PER_CANDIDATE := 6
 var _graph: ReachGraph
 var _arcs := {}
 var _legs := {}
+## Where the time goes, in microseconds, and how many platforms were looked at:
+## "arcs", "lands" and "legs", "candidates", and "legs_made".
+var stats := {"arcs": 0, "lands": 0, "legs": 0, "candidates": 0, "legs_made": 0}
 
 
 func _init(graph: ReachGraph) -> void:
@@ -48,7 +51,9 @@ func expand(ledge: ReachGraph.Ledge, targets: Array) -> Dictionary:
 	var width := _graph.abilities.imprint_width
 	var limit := _leg_limit()
 	var cell := float(Grid.CELL)
+	var started := Time.get_ticks_usec()
 	var arcs := _arcs_of(ledge, info, geo)
+	stats["arcs"] += Time.get_ticks_usec() - started
 	var candidates := {}
 	for arc: Arc in arcs:
 		if arc.path.size() < 3:
@@ -64,13 +69,18 @@ func expand(ledge: ReachGraph.Ledge, targets: Array) -> Dictionary:
 				_collect(candidates, info, arc, row, arc.path[i].x, width, start_body, targets)
 				row += 1
 	var found := 0
+	var landed: Array[Candidate] = []
+	started = Time.get_ticks_usec()
 	for key in candidates:
 		if found >= MAX_CANDIDATES:
 			break
 		found += 1
 		var candidate: Candidate = candidates[key]
-		if not _lands_on(info, geo, ledge, candidate, limit):
-			continue
+		if _lands_on(info, geo, ledge, candidate, limit):
+			landed.append(candidate)
+	stats["lands"] += Time.get_ticks_usec() - started
+	stats["candidates"] += found
+	for candidate in landed:
 		var leg := _leg_of(info, geo, candidate.cell, width, limit)
 		for index in leg.to_ledges:
 			var target: ReachGraph.Ledge = _graph.ledges_in(ledge.room_id)[index]
@@ -147,12 +157,41 @@ func _lands_on(info: RoomInfo, geo: ReachGraph.Geometry, ledge: ReachGraph.Ledge
 	return false
 
 
+func _leg_key(cell: Vector2i, width: int, limit: int) -> String:
+	return "%d|%d|%d|%d" % [cell.x, cell.y, width, limit]
+
+
 ## Where a body standing on the platform can get to, worked out like a ledge.
 ## The platform is treated as a ledge of its own whose floor is the platform.
+## A leg is kept for the rest of the run, and in the solver's cache, if it has
+## one, for the next.
 func _leg_of(info: RoomInfo, geo: ReachGraph.Geometry, cell: Vector2i, width: int, limit: int) -> ReachGraph.Ledge:
-	var key := "%s|%d|%d|%d|%d" % [info.id, cell.x, cell.y, width, limit]
+	var local := _leg_key(cell, width, limit)
+	var key := "%s|%s" % [info.id, local]
 	if _legs.has(key):
 		return _legs[key]
+	var started := Time.get_ticks_usec()
+	var entry: SolverCache.Entry = _graph.cache.entry_for(info) if _graph.cache != null else null
+	var stored = entry.legs.get(local) if entry != null else null
+	var pseudo: ReachGraph.Ledge
+	if stored != null:
+		pseudo = ReachGraph.Ledge.new()
+		pseudo.room_id = info.id
+		pseudo.index = -1
+		SolverCache.unpack(pseudo, stored)
+		_graph.cache.stats["legs_cached"] += 1
+	else:
+		pseudo = _compute_leg(info, geo, cell, width, limit)
+		stats["legs_made"] += 1
+		if entry != null:
+			entry.store_leg(local, pseudo)
+			_graph.cache.stats["legs_solved"] += 1
+	_legs[key] = pseudo
+	stats["legs"] += Time.get_ticks_usec() - started
+	return pseudo
+
+
+func _compute_leg(info: RoomInfo, geo: ReachGraph.Geometry, cell: Vector2i, width: int, limit: int) -> ReachGraph.Ledge:
 	var cellpx := float(Grid.CELL)
 	var platform := Grid.cell_rect(Rect2i(cell, Vector2i(width, 1)))
 	var pseudo := ReachGraph.Ledge.new()
@@ -166,16 +205,12 @@ func _leg_of(info: RoomInfo, geo: ReachGraph.Geometry, cell: Vector2i, width: in
 	pseudo.hi = platform.end.x + cellpx * 0.5 - 0.01
 	var near := _graph.near_solids(geo.rects, pseudo)
 	near.append(platform)
-	var old_limit := _graph.frame_limit
-	_graph.frame_limit = limit
 	for x in _graph.start_xs(pseudo):
 		for input in [-1.0, 0.0, 1.0]:
 			var speed := _graph.run_speed(pseudo, x, input)
 			for hold in ReachGraph.HOLDS:
-				_graph.try_plan(info, geo, pseudo, near, x, speed, input, hold, true)
-	_graph.walk_off(info, geo, pseudo, near)
-	_graph.frame_limit = old_limit
-	_legs[key] = pseudo
+				_graph.try_plan(info, geo, pseudo, near, x, speed, input, hold, true, limit)
+	_graph.walk_off(info, geo, pseudo, near, limit)
 	return pseudo
 
 

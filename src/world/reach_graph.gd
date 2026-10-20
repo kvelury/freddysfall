@@ -35,7 +35,12 @@ const MAX_ROUNDS := 8
 const MACHINE_COST := TokenMachine.COST
 
 var abilities: Abilities
-## How many ticks a simulated path may run. The Imprint search shortens it so a
+## Kept between runs when set: what each room's ledges and platforms can reach,
+## which depends on nothing but the room and the solver. Left out, everything is
+## worked out from scratch, as the tests do.
+var cache: SolverCache = null
+## How many ticks a simulated path may run, unless the caller gives its own
+## limit. The Imprint search gives each leg off a platform a shorter one, so a
 ## platform placed for a jump is still there at the end of it.
 var frame_limit := 180
 var _cfg: MovementConfig
@@ -45,6 +50,8 @@ var _geometry := {}
 var _solved := {}
 var _landings := {}
 var _imprint: ImprintSearch
+## Microseconds spent building the jumps of every ledge.
+var _edge_usec := 0
 ## Every pickup, token and 3TM in the world by id.
 var _things := {}
 
@@ -64,6 +71,19 @@ func _init(rooms: Dictionary, movement: MovementConfig, ability_set: Abilities =
 
 func movement() -> MovementConfig:
 	return _cfg
+
+
+## Where the time went so far: milliseconds for the ledges' jumps, and for the
+## Imprint search's three parts, and how many platforms it looked at.
+func timing() -> Dictionary:
+	var out := {"edges": float(_edge_usec) / 1000.0, "arcs": 0.0, "lands": 0.0, "legs": 0.0, "candidates": 0, "legs_made": 0}
+	if _imprint != null:
+		out["arcs"] = float(_imprint.stats["arcs"]) / 1000.0
+		out["lands"] = float(_imprint.stats["lands"]) / 1000.0
+		out["legs"] = float(_imprint.stats["legs"]) / 1000.0
+		out["candidates"] = _imprint.stats["candidates"]
+		out["legs_made"] = _imprint.stats["legs_made"]
+	return out
 
 
 func room_info(room_id: String) -> RoomInfo:
@@ -625,6 +645,12 @@ func _ensure_edges(info: RoomInfo) -> void:
 	if _solved.has(info.id):
 		return
 	_solved[info.id] = true
+	var started := Time.get_ticks_usec()
+	var entry: SolverCache.Entry = cache.entry_for(info) if cache != null else null
+	if entry != null and _restore_edges(entry, _ledges[info.id]):
+		cache.stats["edge_rooms_cached"] += 1
+		_edge_usec += Time.get_ticks_usec() - started
+		return
 	var geo := geometry_of(info)
 	for ledge: Ledge in _ledges[info.id]:
 		_walk_to_doors(ledge, geo.triggers)
@@ -636,6 +662,23 @@ func _ensure_edges(info: RoomInfo) -> void:
 				for hold in HOLDS:
 					try_plan(info, geo, ledge, near, x, speed, input, hold, true)
 		walk_off(info, geo, ledge, near)
+	if entry != null:
+		entry.store_edges(_ledges[info.id])
+		cache.stats["edge_rooms_solved"] += 1
+	_edge_usec += Time.get_ticks_usec() - started
+
+
+## Fills the room's ledges from the cache. False, and nothing touched, if the
+## cache has no answer for every one of them.
+func _restore_edges(entry: SolverCache.Entry, ledges: Array) -> bool:
+	if not entry.has_edges or entry.edges.size() != ledges.size():
+		return false
+	for ledge: Ledge in ledges:
+		if not entry.edges.get(str(ledge.index)) is Dictionary:
+			return false
+	for ledge: Ledge in ledges:
+		SolverCache.unpack(ledge, entry.edges[str(ledge.index)])
+	return true
 
 
 ## A ledge that runs into a door's trigger walks into it.
@@ -711,21 +754,23 @@ func run_speed(ledge: Ledge, x: float, input: float) -> float:
 	return 0.0
 
 
-func walk_off(info: RoomInfo, geo: Geometry, ledge: Ledge, near: Array[Rect2]) -> void:
+func walk_off(info: RoomInfo, geo: Geometry, ledge: Ledge, near: Array[Rect2], limit := -1) -> void:
 	var cell := float(Grid.CELL)
 	if not info.is_solid(ledge.x1 + 1, ledge.row) and not info.is_hazard(ledge.x1 + 1, ledge.row):
 		var edge := float(ledge.x1 + 1) * cell - 1.0
-		try_plan(info, geo, ledge, near, edge, _cfg.run_speed, 1.0, 0, false)
-		try_plan(info, geo, ledge, near, edge, _cfg.run_speed, 0.0, 0, false)
+		try_plan(info, geo, ledge, near, edge, _cfg.run_speed, 1.0, 0, false, limit)
+		try_plan(info, geo, ledge, near, edge, _cfg.run_speed, 0.0, 0, false, limit)
 	if not info.is_solid(ledge.x0 - 1, ledge.row) and not info.is_hazard(ledge.x0 - 1, ledge.row):
 		var edge := float(ledge.x0) * cell + 1.0
-		try_plan(info, geo, ledge, near, edge, -_cfg.run_speed, -1.0, 0, false)
-		try_plan(info, geo, ledge, near, edge, -_cfg.run_speed, 0.0, 0, false)
+		try_plan(info, geo, ledge, near, edge, -_cfg.run_speed, -1.0, 0, false, limit)
+		try_plan(info, geo, ledge, near, edge, -_cfg.run_speed, 0.0, 0, false, limit)
 
 
-func try_plan(info: RoomInfo, geo: Geometry, ledge: Ledge, near: Array[Rect2], x: float, speed: float, input: float, hold: int, jump: bool) -> void:
+## `limit` is how many ticks the path may run, `frame_limit` if left out. It is
+## an argument so several paths can be worked out at once without sharing it.
+func try_plan(info: RoomInfo, geo: Geometry, ledge: Ledge, near: Array[Rect2], x: float, speed: float, input: float, hold: int, jump: bool, limit := -1) -> void:
 	var start := Vector2(x, ledge.top - float(Grid.CELL) * 0.5)
-	var result := MovementSim.simulate_jump(_cfg, near, start, Vector2(speed, 0.0), input, hold, true, jump, geo.triggers, geo.bounds, geo.hazards, geo.things, NAN, 0, frame_limit)
+	var result := MovementSim.simulate_jump(_cfg, near, start, Vector2(speed, 0.0), input, hold, true, jump, geo.triggers, geo.bounds, geo.hazards, geo.things, NAN, 0, frame_limit if limit < 0 else limit)
 	# A pickup is taken even on a path that then dies on spikes.
 	for index in result["collected"]:
 		ledge.add_pickup(index)

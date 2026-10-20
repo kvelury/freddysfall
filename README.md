@@ -43,6 +43,7 @@ godot --headless --path . --script tests/hazard_test.gd
 godot --headless --path . --script tests/entity_test.gd
 godot --headless --path . --script tests/save_test.gd
 godot --headless --path . --script tests/map_test.gd
+godot --headless --path . --script tests/cache_test.gd
 godot --headless --path . --script tests/token_test.gd
 godot --headless --path . --script tests/machine_test.gd
 godot --headless --path . --script tests/imprint_test.gd
@@ -69,7 +70,8 @@ godot --headless --path . --script tests/imprint_solver_test.gd
 | `tests/imprint_test.gd` | Where an Imprint platform may go (every refusal), whether the player can land on one, the blink, and the countdown lines. Prints `IMPRINT pass`. |
 | `tests/imprint_play_test.gd` | Imprint in room 5: locked until found, placed by the action, solid under the player, replaced, broken by time, cleared on leaving a room and on dying. Prints `IMPRINTPLAY pass`. |
 | `tests/imprint_solver_test.gd` | The solver with Imprint, on strings: a pit too wide to jump is shut without Imprint and open with it, a platform that breaks too soon is no use, `~` cells forbid it, a room reports the pickup it needs, a room that holds its doors shut waits for its token, three tokens and a 3TM give Imprint, a `trap: allowed` room is a warning and not an error, a fall four screens tall lands, and room 6's wall needs Imprint. Prints `IMPRINTSOLVER pass`. |
-| `tests/validate.gd` | Loads the whole world, then solves it: every room and door reachable from the start, nowhere to get stuck. Lists every problem and exits 1 if there is one. Run through `tools/validate.sh`. |
+| `tests/cache_test.gd` | The solver's cache on disk: a run that reads it says exactly what a run without it says, and a room is only taken from it while the room, its doors' neighbours and the solver are unchanged. Prints `CACHE pass`. |
+| `tests/validate.gd` | Loads the whole world, then solves it: every room and door reachable from the start, nowhere to get stuck. Lists every problem and exits 1 if there is one, and says where the time went. Keeps what it works out about each room in `build/solver-cache/` (`--no-cache` skips it). Run through `tools/validate.sh`. |
 | `tests/start_test.gd` | Starting in a chosen room and `warp_to` on the world scene. Prints `START pass`. |
 | `tests/render.gd` | Draws each room and the world map as PNGs in `build/renders/`, marking unreachable ledges, traps, sealed doors, blocked doors, and 3TMs. Run through `tools/render.sh`, optionally with room ids: `tools/render.sh 3 4`. |
 

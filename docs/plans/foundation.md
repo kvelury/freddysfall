@@ -170,3 +170,5 @@ Unused screens for L-shaped rooms, map panning and icons, lazy `_merge_solids` (
 - Each chunk updates `game-design.md` wherever it changes behaviour (doors, collision, glyphs), so the design record stays true.
 
 **PR #18** changed how Imprint looks and nothing else: the cursor is always a dotted outline (the filled look and the sparkle are gone for now), placed platforms draw over the cursor, and the dashes on a platform count down its life.
+
+**PR #22** made the validator keep what it works out about each room between runs (`build/solver-cache/`), so a run after editing one room takes about 2 s instead of 16, and added a breakdown of where the time goes. Threads were tried and dropped: GDScript simulation scales to about 1.5x at best.
