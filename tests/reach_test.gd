@@ -87,7 +87,7 @@ func _links(data) -> bool:
 	var back_rect := back.rect
 	ok = _check(c.exit_on("up") == null, "room 3 ceiling stays solid") and ok
 	ok = _check(back.dest_id == "2", "room 3 side entrance leads back to 2") and ok
-	ok = _check(back_rect.position.y == 7 and back_rect.size == Vector2i(1, 2), "room 3 entrance is a side door above its ledge (%s)" % back_rect) and ok
+	ok = _check(back_rect.position.y == 7 and back_rect.size == Vector2i(1, 4), "room 3 entrance is a door four tall above its ledge (%s)" % back_rect) and ok
 	return ok
 
 
@@ -109,7 +109,7 @@ func _crossing(data) -> bool:
 
 	# A door the body is not level with: it is carried along the wall to the far door.
 	var shifted := Door.crossing(two.exit_on("right"), three, Vector2(301.0, 145.0), run)
-	ok = _check(shifted["position"] == Vector2(659.5, 85.0), "crossing is clamped into the far door's rows (%s)" % shifted["position"]) and ok
+	ok = _check(shifted["position"] == Vector2(659.5, 105.0), "crossing is clamped into the far door's rows (%s)" % shifted["position"]) and ok
 
 	# Up and down, between two rooms in a column.
 	var shaft := _world([
@@ -259,29 +259,29 @@ func _reach_world(data) -> bool:
 	var report := graph.solve(data.start_room)
 	var ok := true
 	ok = _check(report.errors.is_empty(), "the world has no reach errors %s" % [report.errors]) and ok
-	ok = _check(_token_needs_the_climb(graph), "room 3's entrance ledge has no jump onto the token's platform, and the last step does") and ok
+	ok = _check(_token_needs_the_climb(graph), "room 3's entrance ledge has no jump onto the token's platform or the step before it, and that step reaches the token") and ok
 	ok = _check(report.reached_ledges == report.total_ledges and report.total_ledges > 0, "every ledge in the world is reachable (%d of %d)" % [report.reached_ledges, report.total_ledges]) and ok
 	ok = _check(report.traps.is_empty(), "there is nowhere to get stuck") and ok
 	return ok
 
 
-## The player arrives in room 3 on a ledge under the token's platform. Nothing
-## they can do from there, without Imprint, may land them on it: they climb the
-## staircase to the right instead.
+## The player arrives in room 3 on a ledge low on its left wall. Nothing they
+## can do from there, without Imprint, may land them on the token's platform or
+## the step beside it: they climb the staircase to the right instead.
 func _token_needs_the_climb(graph: ReachGraph) -> bool:
 	var entrance: ReachGraph.Ledge = null
-	var shelf: ReachGraph.Ledge = null
+	var token: ReachGraph.Ledge = null
 	var step: ReachGraph.Ledge = null
 	for ledge in graph.ledges_in("3"):
-		if ledge.row == 8 and ledge.x0 == 0:
+		if ledge.row == 10 and ledge.x0 == 0:
 			entrance = ledge
-		elif ledge.row == 5 and ledge.x0 == 1:
-			shelf = ledge
+		elif ledge.row == 4 and ledge.x0 == 7:
+			token = ledge
 		elif ledge.row == 5 and ledge.x0 == 16:
 			step = ledge
-	if entrance == null or shelf == null or step == null:
+	if entrance == null or token == null or step == null:
 		return false
-	return not entrance.to_ledges.has(shelf.index) and step.to_ledges.has(shelf.index) and entrance.pickups.is_empty()
+	return not entrance.to_ledges.has(token.index) and not entrance.to_ledges.has(step.index) and step.to_ledges.has(token.index) and entrance.pickups.is_empty()
 
 
 ## Small worlds built to be wrong in one way each.

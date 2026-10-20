@@ -14,9 +14,10 @@ Start with `?new-game=1`. A save from before this PR can be inside a wall of the
 
 - [ ] **Room 2's door on a ledge.** The door to room 3 is high on the right wall, on a ledge you reach by a jump from the lower platform (4 up, across 2 cells). Is that jump fair? A miss drops you into the floor door and down into room 5.
 - [ ] **Dropping from 2 into 5** lands you on the upper platform, even at the edge of the hole. You can climb back up through room 5's three platforms to room 2, and you can leave through 5's right door to room 4.
-- [ ] **Room 3's entrance.** You arrive on a ledge in a low corridor, under the token's platform. Does it read that the way on is to drop off the end, and not up?
-- [ ] **Room 3's hole** (cols 5 to 10) is under the entrance ledge, so you cannot fall into it on arrival. Dropping in from the floor leads to room 4.
-- [ ] **Room 3's token** is on the shelf at the top left, up a staircase. The last step is a level 2-cell jump onto the shelf. Is it easy to land with the token above you? You must not be able to get onto the shelf from the entrance ledge.
+- [ ] **Room 3's entrance.** The door is four cells tall and you drop two cells onto a short ledge. Going back, you step up two cells into room 2. Do both feel right?
+- [ ] **Room 3's hole** (cols 5 to 10) is mostly under the entrance ledge. Running in, you clear it and land on the first step or the floor. Walking slowly off the end of the ledge drops you into it. Is that fair?
+- [ ] **Room 3's token** is on the top left platform, now two rows lower (3 clear rows above it). The last step is 1 up across a 5-cell gap. Is the landing easy? From the entrance ledge you must not be able to reach it, or the step before it.
+- [ ] **Back to room 2 from room 3,** from the first step up onto the entrance ledge (3 up).
 - [ ] **Room 4's way back up.** Three platforms step up to the ceiling door. Climbing out should be easy, and dropping in from room 3 should land on the top platform or beside the 3TM.
 - [ ] **Room 5's token** is on the middle platform. Is it easy to get to without Imprint?
 - [ ] **The 3TM beside room 4's new left door.** You arrive from room 5 and the machine is seven cells away. Does running through it by accident (with no tokens) feel annoying? It shows "0 of 3 tokens" each time.
