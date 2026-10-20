@@ -8,10 +8,10 @@ Run from the repo root.
 
 | Command | What it does |
 | --- | --- |
-| `tools/validate.sh` | Loads every room and solves the world, with Imprint, taking pickups as it goes. A room is not done until this exits 0. It also prints what each room, ledge and pickup needs. |
+| `tools/validate.sh` | Loads every room and solves the world, with Imprint, taking pickups and tokens as it goes. A room is not done until this exits 0. It also prints what each room, ledge and pickup needs. |
 | `tools/render.sh [ids]` | PNGs of rooms and the world map in `build/renders/`. Read them to see what you built. |
 | `tools/snap.sh <id>` | A real in-game frame of a room in `build/snaps/`. Opens a window for a second, so run it on the user's machine. |
-| `godot --headless --path . --script tests/<name>.gd` | `reach_test`, `physics_test`, `parity_test`, `door_test`, `shaft_test`, `hazard_test`, `start_test`, `entity_test`, `save_test`, `pickup_test`, `imprint_test`, `imprint_play_test`, `imprint_solver_test`. Each prints a pass line and exits 0. |
+| `godot --headless --path . --script tests/<name>.gd` | `reach_test`, `physics_test`, `parity_test`, `door_test`, `shaft_test`, `hazard_test`, `start_test`, `entity_test`, `save_test`, `token_test`, `machine_test`, `imprint_test`, `imprint_play_test`, `imprint_solver_test`. Each prints a pass line and exits 0. |
 | `godot --path . -- --room=<id>` | Play starting in a room. In the browser, `?room=<id>`. In a debug build, F4, the number, Enter. |
 | `tools/build_web.sh` then `tools/serve.sh` | The browser build at http://localhost:8060. |
 
@@ -40,18 +40,20 @@ Letters and digits that the legend below defines are also allowed. Any other cha
 
 **Doors.** Doors are crossed with momentum: a body keeps its speed and its place along the wall, and is pushed about 20 px (two cells) into the next room, so leave that much clear space behind a door. A door in a floor drops the player in. A door in a ceiling lifts them: aim the room below so a platform within a jump of it leads up to the hole, and leave the room above floor on one side of the hole to land on. Draw an `X` run in the outer wall, one cell thick. It pairs with the `X` run on the facing wall of the room that sits next to it, and the two have to overlap along the wall. A door that crosses a screen boundary is split into one door per screen. If nothing sits on the far side, the door is sealed to wall until a room is placed there. If a room sits there and the doors do not line up, that is an error.
 
-**Things in a room (the legend).** A room that holds a pickup starts with a header, then a line of three dashes, then the grid as usual:
+**Things in a room (the legend).** A room that holds a pickup, a token or a 3TM starts with a header, then a line of three dashes, then the grid as usual:
 
 ```
+exits: pickups
 legend:
-  U = pickup id=r2_imprint upgrade=imprint
+  T = token id=r2_token
+  M = machine id=r4_3tm upgrade=imprint
 ---
 ######...
 ```
 
-`U` is any letter or digit the glyph table does not use. Draw it once in the grid, in open air or on a platform, and never in the outer wall. A legend glyph is one thing: two pickups need two glyphs and two ids. `id` is required, stable, and unique across the whole world, because the save remembers a pickup by it: never rename one, and never derive it from where it sits. `upgrade` is a key of `data/upgrades.json` (`imprint`, `imprint_width`, `imprint_duration`, `imprint_max_active`, `imprint_effect`), and `value` is a whole number, a number, or an effect name to match. `imprint` itself takes no `value`. A pickup that no jump can touch is a validation error. The user's key for pickups in a drawing becomes legend lines: ask what upgrade and value a drawn pickup is if the drawing does not say.
+`T` and `M` are any letter or digit the glyph table does not use. Draw one once in the grid, in open air or on a platform, and never in the outer wall. A legend glyph is one thing: two tokens need two glyphs and two ids. `id` is required, stable, and unique across the whole world, because the save remembers a pickup by it: never rename one, and never derive it from where it sits. `upgrade` is a key of `data/upgrades.json` (`imprint`, `imprint_width`, `imprint_duration`, `imprint_max_active`, `imprint_effect`), and `value` is a whole number, a number, or an effect name to match. `imprint` itself takes no `value`. A pickup, token or 3TM that no jump can touch is a validation error. A `token` takes only an `id`: the player carries up to three. A `machine` (a 3TM) takes `upgrade` and `value` like a pickup and gives that upgrade when it has been fed three tokens. It fills 3 x 3 cells of open air, and its glyph marks the middle of the bottom row, so on a floor the glyph goes in the cell just above the floor. `exits: pickups` is the one rule so far (`open` is the default). It blocks every door in the room until every pickup and token in it has been taken, and it is an error in a room with nothing to take. The user's key for things in a drawing becomes legend lines: ask what upgrade and value a drawn pickup or 3TM is if the drawing does not say, and whether the room holds its doors shut.
 
-For worked examples, open `data/rooms/2.txt` (one screen, a door in each side wall) and `data/rooms/3.txt` (two screens wide, one door).
+For worked examples, open `data/rooms/2.txt` (one screen, a door in each side wall, a token, `exits: pickups`), `data/rooms/3.txt` (two screens wide, one door, two tokens) and `data/rooms/4.txt` (a 3TM).
 
 ## Movement envelope
 

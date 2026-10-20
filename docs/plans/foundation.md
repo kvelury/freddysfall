@@ -143,6 +143,9 @@ Split in two. **7a, the playable Imprint, is built**: the D9 questions are settl
 - Settle the D9 questions first, then build to the existing spec in `game-design.md`.
 - The reachable/unreachable cursor uses `reach_graph`/`simulate_jump` from the player's live state, against room rects plus the imprint. Thanks to Chunk 4 it is exact.
 
+### Chunk 8: exit rules, tokens and the 3TM (built)
+Added after the first seven. A room can hold its doors shut until a rule is met (`exits: pickups`), tokens are carried up to three and shown on the player's body, and a 3TM takes three tokens and gives an upgrade. Imprint is now earned that way, and the world was reshuffled to match: old room 5 is gone, old room 6 is room 5, and a new empty room 6 sits behind it.
+
 ### Later (D10)
 Unused screens for L-shaped rooms, map panning and icons, lazy `_merge_solids` (it's O(n²)), the duotone palettes (the plan already exists).
 

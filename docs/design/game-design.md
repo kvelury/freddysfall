@@ -1,6 +1,6 @@
 # Freddy's Fall — game design
 
-This is the game as specified so far: what it is for, the rules that shape it, and the numbers those rules run on. It is the design record. Where a piece is already in the build, the section says so. Imprint and the softer palettes are specified and not built.
+This is the game as specified so far: what it is for, the rules that shape it, and the numbers those rules run on. It is the design record. Where a piece is already in the build, the section says so. The softer palettes are specified and not built.
 
 Implementation steps for the palette pass live in `docs/plans/soft-duotone-palettes.md`. Decisions stay here.
 
@@ -9,7 +9,9 @@ Implementation steps for the palette pass live in `docs/plans/soft-duotone-palet
 | Movement, grid, rooms, doors, spikes, camera, map, transitions | Built |
 | Room legends, pickups, abilities, autosave | Built |
 | Imprint: finding it, placing it, the preview, the lifetime | Built |
-| Imprint upgrades (wider, longer, more, bounce), the tokens and the 3TM | Designed, not built |
+| Exit rules: a room's doors blocked until a condition is met | Built |
+| Tokens, carried and shown on the player, and the 3TM | Built |
+| Imprint upgrades beyond the numbers (longer, more at once, bounce) | Designed, not built |
 | The solver using Imprint, and what each room needs | Built |
 | Softer two-color palettes | Designed, not built |
 
@@ -113,6 +115,8 @@ Every opening that is left gets a halo: a dithered half-disc of light in the gap
 
 An **up** door lifts a slow player: they leave it rising at 180 px/s at least, so touching a ceiling door near the top of a jump does not stall in the doorway. A **down** door drops them in with whatever speed they had.
 
+**Blocked doors.** A room can hold its doors shut until a condition is met (see Exit rules below). While it does, each doorway is filled with a **block**: a solid frame around a checker of pixels, drawn where the halo would be. The block is solid and does not change rooms. There is no halo. When the condition is met the blocks shatter and the halos appear at once, and the player can leave.
+
 **Dying.** Touching spikes, or leaving the room's outline by more than 60 px, shatters the player into a burst of pixels for about 0.6 s, and then puts them back on the last safe floor. A floor is safe if the player stood on it, it is the room's own floor, and it is not within a cell of spikes or within two cells of a doorway. An Imprint is never safe floor, because it breaks: standing on one over spikes and dying brings the player back on the real floor they stood on before, not in the air where the platform was. The safe floor can be in the room before: dying right after a door puts the player back through it. Spawning in a room also counts as a safe floor.
 
 The last eight stretches of floor are remembered. If the player dies again before standing anywhere after a respawn, that respawn spot was no good and they go back one stretch, so a bad spot can cost one extra death and never a loop.
@@ -120,6 +124,26 @@ The last eight stretches of floor are remembered. If the player dies again befor
 During the slide the camera is not following. It is on the tween. Afterward it follows again.
 
 Solids are drawn in one chunk per screen, clipped to that screen, so a room several screens wide does not redraw geometry the camera cannot see. The player collides with every solid in the room, drawn or not, so it can land on a platform that is just off screen. Touching a door is a box overlap tested every tick.
+
+### Exit rules
+
+A room's header can carry a line `exits: <rule>`. The rule says when its doors work. It applies to every door in the room, the one the player came in by included. The rules are listed in `src/world/exit_rules.gd`:
+
+| Rule | The doors work when |
+| --- | --- |
+| `open` | always. This is what a room with no `exits:` line has. |
+| `pickups` | every pickup and token in the room has been taken. |
+
+`exits: pickups` in a room with nothing to take is a load error, because it would never mean anything. The 3TM does not count as something to take. A rule is tested when the room is built and again each time the player takes something in it, so reloading a save in the middle of a room puts the blocks back or leaves them gone as the flags say. Adding a rule is a line in `RULES` and a case in `ExitRules.met`.
+
+The header holds `exits:` and `legend:` in either order:
+
+```
+exits: pickups
+legend:
+  T = token id=r2_token
+---
+```
 
 ### Things in rooms
 
@@ -133,26 +157,52 @@ legend:
 
 The glyph must be a letter or digit that `Tiles` does not use. Every legend problem is a load error with the room and the line: an unknown kind, a missing or misspelled setting, an upgrade or value that does not exist, a glyph drawn zero or two times, a glyph in the outer wall, a legend with no `---`. `id` is required on every thing. It is written in the file, never derived from position, so a room can be redrawn without losing what the save remembers. Ids are unique across the world.
 
-The kinds are listed in `src/world/entities.gd`, with the settings each needs. There is one, `pickup`. Adding a kind is a line there, a script in `src/world/entities/`, and a case in `Entities.create`. `Room.build` makes the things in a room and leaves out any that the player has already taken.
+The kinds are listed in `src/world/entities.gd`, with the settings each needs. There are three: `pickup`, `token` and `machine`. Adding a kind is a line there, a script in `src/world/entities/`, and a case in `Entities.create`. `Room.build` makes the things in a room and leaves out any that the player has already taken.
 
 A **pickup** is a small diamond. Touching it gives its upgrade, shows one line at the top of the screen, and saves. It is gone from then on. What it gives is looked up in `data/upgrades.json`: each upgrade is a name, the ability it changes (`stat`), and a `kind`. A `max` upgrade raises a number and never lowers it, so finding a smaller one late does nothing. An `add` upgrade gains a named effect, once.
 
+A **token** is a solid white diamond that bobs, where a pickup is hollow. Touching it puts it in the player's pocket. The player carries at most three. Touching a token with three already carried leaves it where it is and shows "You can carry 3 tokens", once for each time the player steps onto it, and it can be taken once there is room. A token that has been taken stays gone, even after it has been spent. A token has no settings besides its `id`.
+
+A **3TM** (3 token machine, kind `machine`, settings `upgrade=` and `value=` like a pickup) is a square with a rectangle on top. The rectangle has three diamond-shaped openings. It fills 3 x 3 cells and the legend glyph marks the middle of its bottom row, so a 3TM standing on the floor has its glyph in the cell above the floor. Its 3 x 3 cells have to be open air, and it is not solid: the player walks in front of it.
+
+- Touching it with no tokens shows how full it is ("3TM: 2 of 3 tokens").
+- Touching it with tokens takes them all, one at a time. Each leaves the player's body, flies in an arc with a trail to the next empty opening, and fills it with a flash and a burst of pixels. The player cannot move meanwhile. An Imprint platform does not age meanwhile either.
+- Filled openings stay filled, and the count is saved, so a player can bring one token now and two later.
+- When the third opening fills, the machine shakes and flashes three times and a spark flies from its mouth to the player. The upgrade is then given, with the usual line of text at the top of the screen.
+- After that the machine is **spent**: its outline turns dotted, and touching it does nothing. A second upgrade needs a second machine.
+
+The player's body is the inventory. Each token carried cuts a small black diamond out of it, in a fixed triangle in the upper body: top, then left, then right. Once the player has Imprint, a line is cut across the bottom row. The tokens and the line never share a pixel, so more marks can go above the line later.
+
+```
+3 tokens       Imprint+3      Imprint only
+##########     ##########     ##########
+####.#####     ####.#####     ##########
+###...####     ###...####     ##########
+##.#.#.###     ##.#.#.###     ##########
+#...#...##     #...#...##     ##########
+##.###.###     ##.###.###     ##########
+##########     ##########     ##########
+##########     ##########     ##########
+##########     #........#     #........#
+##########     ##########     ##########
+```
+
 ### Saving
 
-The game saves to `user://save.json` when a room is entered and when a pickup is taken, and loads it on start. The file holds a version number, the room and the position in it, the visited rooms, the abilities, and the flags (one per pickup taken, `pickup:<id>`). On entering a room the position is where the player arrived. After a pickup it is the last safe floor in that room, so loading never puts the player in the air above spikes.
+The game saves to `user://save.json` when a room is entered and when a pickup is taken, and loads it on start. The file holds a version number, the room and the position in it, the visited rooms, the abilities, the number of tokens carried, how full each 3TM is, and the flags (one per pickup taken, `pickup:<id>`, and one per token taken, `token:<id>`). On entering a room the position is where the player arrived. After a pickup it is the last safe floor in that room, so loading never puts the player in the air above spikes.
 
-A file that cannot be read, or that a newer version of the game wrote, is moved aside as `save.json.bad` and the game starts new, so it is never overwritten. A save for a room that no longer exists keeps the abilities and the map and starts in the start room. Headless runs and games started with `--room=` or `?room=` never read or write a save. F4 only warps inside a normal game, which keeps saving. `--new-game` ignores the save and the next autosave replaces it. To change the save's shape, raise `Save.VERSION` and add a step to `Save._migrate`.
+A file that cannot be read, or that a newer version of the game wrote, is moved aside as `save.json.bad` and the game starts new, so it is never overwritten. A save for a room that no longer exists keeps the abilities and the map and starts in the start room. Headless runs and games started with `--room=` or `?room=` never read or write a save. F4 only warps inside a normal game, which keeps saving. `--new-game` ignores the save and the next autosave replaces it. A save from before tokens existed (version 1) is also set aside, because it comes from a world where Imprint was free and its flags mean something else now. To change the save's shape, raise `Save.VERSION` and add a step to `Save._migrate`; to give up on older files, raise `Save.OLDEST`.
 
 ### The current slice
 
-Six rooms, as content, not as the limit of the format.
+Six rooms, as content, not as the limit of the format. The flow they make: take the token in room 2 to leave it, take two more in room 3, spend all three at the 3TM in room 4 to get Imprint, and use Imprint to cross room 5.
 
 - **1**, one screen at `(0, 0)`. Three tiers of platforms, each a running jump apart, and an exit in the right wall. This is the movement test.
-- **2**, one screen at `(1, 0)`. The landing from 1's door, steps down to the right, and a floor-level door in the right wall. The pickup that gives the player Imprint sits on the first platform.
-- **3**, two screens wide at `(2, 0)`. Entered through that floor-level door. Platforms carry the route across the second screen. The same door is the way back. A hole in the floor of its second screen drops down to room 4.
-- **4**, one screen at `(3, 1)`, under that hole. A zigzag of platforms climbs back to the hole, and a second hole in its floor drops to room 5.
-- **5**, one screen at `(3, 2)`. A patch of spikes in the floor, a platform over it, and a zigzag of platforms up to the hole in its ceiling. The spikes are a place to use Imprint: a platform a few cells above them is something to jump from.
-- **6**, one screen at `(4, 2)`, through a door in the right wall of room 5. A pit of spikes 12 cells wide is too wide to jump, so crossing it, and the width pickup on the far side, needs Imprint: a platform put over the spikes. It is the first room that is open or shut by an ability.
+- **2**, one screen at `(1, 0)`. The landing from 1's door, steps down to the right, and a floor-level door in the right wall. It has `exits: pickups` and a token on the first platform, so it cannot be left until the token is taken.
+- **3**, two screens wide at `(2, 0)`. Entered through that floor-level door. Platforms carry the route across the second screen. The same door is the way back. A hole in the floor of its second screen drops down to room 4. A token sits on the upper left platform and another on the lower right one. The room can be left without them.
+- **4**, one screen at `(3, 1)`, under that hole. A zigzag of platforms climbs back to the hole. The 3TM stands at the bottom left. A floor-level door in the right wall leads to room 5.
+- **5**, one screen at `(4, 1)`. A pit of spikes 12 cells wide is too wide to jump, so crossing it needs Imprint: a platform put over the spikes. A door in the right wall, past the pit, leads to room 6. It is the first room that is open or shut by an ability.
+- **6**, one screen at `(5, 1)`. Empty, with a door in the left wall. It is where the next room will go.
 
 ### Starting in a room
 
@@ -167,7 +217,8 @@ A **ledge** is a run of cells with air above and floor below. From each ledge th
 - **Error:** a room, or a door in a reachable room, that no path from the start reaches.
 - **Error:** a door that every body going through it lands on nothing after, because the room beyond has a void or only spikes under it. The check is that some entry lands on a ledge. It does not promise that every entry does, so a shaft can still be hard to climb out of: play it.
 - **Error:** a trap, meaning a ledge the player can reach but from which no path leads back to the start. Falling into a pit too deep to jump out of is one. The first version of room 3 was one.
-- **Error:** a pickup in a reachable room that no sampled path touches. A path that touches it and then dies on spikes still counts, because the pickup was taken. Only paths that start on a ledge are tried, so a pickup that can be taken only by falling through a door onto it is reported as out of reach.
+- **Error:** a pickup, token or 3TM in a reachable room that no sampled path touches. A path that touches it and then dies on spikes still counts, because the pickup was taken. Only paths that start on a ledge are tried, so a pickup that can be taken only by falling through a door onto it is reported as out of reach.
+- **Error:** a room whose exit rule is never met. Its doors never work, so everything past it is out of reach and its own floor is a trap.
 - **Warning:** a ledge nobody reached. The solver tries a fixed set of inputs, so a ledge it misses might still be reachable by a path it did not think of. Look at the render and decide.
 
 `tools/render.sh` draws each room and the world map to `build/renders/`. Red bars mark unreachable ledges, yellow bars mark traps, and orange marks a door that was sealed.
@@ -178,7 +229,7 @@ A **ledge** is a run of cells with air above and floor below. From each ledge th
 - A ledge that cannot get home is searched the same way, with the ledges that can as the targets, so crossing a pit one way with a platform and having no way back is still a trap.
 - Left out: putting the platform down in mid-air, and using two in a row. A room that needs either is reported as out of reach even if a player could do it. A room that needs the platform in a place the preview calls dotted is also not found.
 
-**What a room needs.** `tools/validate.sh` solves with the starting abilities, takes every pickup that solve could reach, solves again with what they gave, and repeats until nothing new turns up. A room, a ledge, or a pickup that only opens in a later round lists the pickups it needs, cut down by dropping them one at a time to a set it still opens with. Example, from the current world: `Room 6: the ledge on row 16, cells 22-30 needs r2_imprint`. Errors come from the last solve, so a room that stays shut even with every pickup is an error. A trap is judged where the player could first be in it, with the fewest abilities, because a player who has not found Imprint yet is also stuck in a place that needs it to leave.
+**What a room needs.** `tools/validate.sh` solves with the starting abilities, takes every pickup that solve could reach, solves again with what they gave, and repeats until nothing new turns up. A room, a ledge, or a pickup that only opens in a later round lists the pickups it needs, cut down by dropping them one at a time to a set it still opens with. Example, from the current world: `Room 5: the ledge on row 16, cells 22-31 needs r2_token, r3_token_high, r3_token_low, r4_3tm`. Errors come from the last solve, so a room that stays shut even with every pickup is an error. Tokens and 3TMs are part of this. A token reached is taken. A 3TM reached gives its upgrade if three tokens are taken for it, and several machines are paid in the order of their ids. A room with an exit rule keeps its doors shut in the search until what the rule asks for has been reached, so a room is only open if the player can first do what it asks. The search does not model the carry limit of three (a player who cannot take a fourth token before spending three is not caught), and it does not treat a blocked doorway as a wall for a body falling through a chain of doors. A trap is judged where the player could first be in it, with the fewest abilities, because a player who has not found Imprint yet is also stuck in a place that needs it to leave.
 
 ## Camera
 
@@ -273,9 +324,9 @@ Authored rooms should be solvable only with the upgrades available up to that po
 
 ### Finding it
 
-The player does not start with Imprint. They find it as a pickup, and from then on the cursor is a platform. The pickup that gives it is in room 2.
+The player does not start with Imprint. They earn it. A token lies in room 2, which cannot be left until it is taken, two more lie in room 3, and the 3TM in room 4 takes all three and gives Imprint. From then on the cursor is a platform, and a line appears across the player's body.
 
-The pickup is a stand-in for the **token**. Eventually tokens are scattered through the world and found by exploring, and a stationary machine, the **3TM** (3 token machine), takes three of them and dispenses an upgrade: Imprint first, then the others below. Neither the tokens nor the machine are built. For now a pickup gives Imprint directly, so it can be tested at once. The data already allows for the change: a pickup names an upgrade in `data/upgrades.json`, and the 3TM would give the same upgrades.
+Tokens are the currency for upgrades, and a 3TM is the shop. Tokens are scattered through the world to be found by exploring, up to three at a time in the pocket, which puzzles are built around. Each 3TM is set to give one upgrade, so later upgrades (the ones below) mean placing more machines. How many tokens each costs is three for now.
 
 ### Upgrades
 
@@ -318,7 +369,8 @@ The sparkle and the shards are small. They should read at 320×180 and survive t
 - What S / Down does.
 - How hard a bounce platform throws the player, and whether the player aims it.
 - A gamepad or keyboard way to aim and place an Imprint.
-- What the tokens and the 3TM look like, and how many tokens each upgrade costs.
+- How many tokens an upgrade after Imprint should cost, and whether the pocket should ever hold more than three.
+- What a spent 3TM should offer, if anything.
 - Whether `~` cells should ever be drawn.
 - Sound, throughout.
 - A way to start over from inside the game. `--new-game` does it from the command line and the web address.
