@@ -1,5 +1,7 @@
 # Freddy's Fall — foundation plan before building out the metroidvania
 
+> **History.** This is the plan the project was set up from. Its statuses and chunk numbers are out of date: work is called by pull request number now. The current record is `README.md` (code and rules), `docs/design/game-design.md` (the game, how it is built, and the decision log) and `AGENTS.md`.
+
 ## Context
 
 You want to grow Freddy's Fall into an exploration metroidvania. Rooms will come from photos of notebook drawings (graph paper, any scale, each room numbered) and upgrades like Imprint will gate the paths. The first design review was written against a stale checkout. This plan is re-based on `origin/main` @ `029ab4f`, plus the two unmerged Cursor branches. It orders every fix so that each chunk makes the next one cheaper, and so that adding rooms from drawings is reliable before you start drawing seriously.
@@ -170,3 +172,5 @@ Unused screens for L-shaped rooms, map panning and icons, lazy `_merge_solids` (
 - Each chunk updates `game-design.md` wherever it changes behaviour (doors, collision, glyphs), so the design record stays true.
 
 **PR #18** changed how Imprint looks and nothing else: the cursor is always a dotted outline (the filled look and the sparkle are gone for now), placed platforms draw over the cursor, and the dashes on a platform count down its life.
+
+**PR #22** made the validator keep what it works out about each room between runs (`build/solver-cache/`), so a run after editing one room takes about 2 s instead of 16, and added a breakdown of where the time goes. Threads were tried and dropped: GDScript simulation scales to about 1.5x at best.

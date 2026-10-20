@@ -33,7 +33,7 @@ Played in the browser and found good, so these are not listed line by line any m
 - [ ] **A room that the validator calls shut but that a person can open.** The search leaves out placing a platform in mid-air and using two in a row. If you find a way across with either, we know which one to add. Room 5's pit is the best place to try: it might be crossable from the floor with two platforms in a row.
 - [ ] **A room that the validator opens but a person cannot.** The search ignores the limit of three tokens, and does not treat a blocked doorway as a wall for a body falling through a chain of doors.
 - [ ] **A `~` cell in a real room.** None of the rooms use one. Try it on the pit in room 5 or the wall in room 6 to see the solver shut the room again and the cross appear in the game.
-- [ ] **Validator time.** `tools/validate.sh` takes about 16 seconds for 7 rooms. Check how it grows as you add rooms.
+- [ ] **Validator time.** `tools/validate.sh` takes about 16 seconds for 7 rooms the first time and about 2 seconds after that, because it keeps what it works out about each room in `build/solver-cache/`. Edit one room and run it again: only that room should be redone (the `cache:` line says how many). If an answer ever looks stale, `tools/validate.sh --no-cache` or deleting `build/solver-cache` gives the answer from scratch.
 
 ## Movement and doors
 
