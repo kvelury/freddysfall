@@ -7,7 +7,7 @@ extends RefCounted
 
 ## Pixels a second along the path, and the cycle it is on for, then off for.
 const SPEED := 60.0
-const ON := 0.5
+const ON := 0.2
 const OFF := 0.1
 
 

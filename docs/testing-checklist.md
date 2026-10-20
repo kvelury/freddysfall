@@ -13,7 +13,7 @@ Played in the browser and found good, so these are not listed line by line any m
 You need Imprint for these. Play to the 3TM in room 4 once; the game saves, so a later visit resumes with it.
 
 - [ ] **The sparkle goes clockwise** round a reachable platform, along all four edges, not only the top. Does it read as a circle at 4x scale, and is it fast enough?
-- [ ] **It blinks less.** On for most of the time, with a short beat off. Is that too still, or about right?
+- [ ] **It twinkles as it goes:** on 0.2 s, off 0.1 s. Is that the right amount of blink?
 - [ ] **Hovering over a placed platform** keeps it on top: you see its dashes and edges through the preview. When it blinks off at the end, the preview shows through.
 - [ ] **The dashes count down,** one gone each second from the left, so a new platform has four, then three, two, one. The last one is gone as the platform shatters.
 - [ ] **The blink in the last second** looks the same as before.

@@ -314,7 +314,7 @@ A legal placement lasts `duration` seconds, 4 at the start. The dashed line thro
 
 The cursor has three looks, chosen before the player clicks.
 
-- **Reachable.** The platform is drawn filled, with a small sparkle that goes round it clockwise, along all four edges, a pixel clear of it. A lap of a two-cell platform takes about 1.3 seconds, and the sparkle is on for most of it, with a short beat off. Some jump the player can perform from their current position lands on its top.
+- **Reachable.** The platform is drawn filled, with a small sparkle that goes round it clockwise, along all four edges, a pixel clear of it. A lap of a two-cell platform takes about 1.3 seconds. The plus twinkles as it goes, on for 0.2 seconds and off for 0.1. Some jump the player can perform from their current position lands on its top.
 - **Unreachable.** The platform is drawn as a dotted outline. No tested jump lands on it. The player can still place it.
 
 The check includes being in the air. It starts from the player's real state: on the ground, or airborne with their current velocity. It tries a small set of jumps, not every possible input: hold left, hold nothing, or hold right, and release the jump at a few different times. Those paths use the same movement rules as the player, against the room's solid rectangles. If any path lands on the candidate platform's top, the cursor is filled.

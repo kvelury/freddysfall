@@ -182,6 +182,6 @@ func _sparkle_path() -> bool:
 	for i in 600:
 		if ImprintSparkle.visible(float(i) * 0.01):
 			on += 1
-	ok = _check(on >= 480, "the sparkle is on at least 80%% of the time (%d of 600)" % on) and ok
-	ok = _check(not ImprintSparkle.visible(0.55) and ImprintSparkle.visible(0.65), "and it still blinks") and ok
+	ok = _check(on >= 360 and on <= 420, "the sparkle blinks, on about two thirds of the time (%d of 600)" % on) and ok
+	ok = _check(ImprintSparkle.visible(0.1) and not ImprintSparkle.visible(0.25) and ImprintSparkle.visible(0.35), "on, off, and on again within a third of a second") and ok
 	return ok
