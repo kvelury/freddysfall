@@ -85,10 +85,10 @@ static func scaled_rect(rect: Rect2, scale: float) -> Rect2:
 	return Rect2(a, b - a)
 
 
-## Where the window's centre is, in the scaled map, to look at `focus` (in map
+## The point of the scaled map at the window's centre, to look at `focus` (in map
 ## units). It does not look past the edge of the visited map when the map
 ## fills the window, and is a whole pixel so the lines stay sharp.
-static func camera_for(focus: Vector2, bounds: Rect2, scale: float, view: Vector2) -> Vector2:
+static func view_center(focus: Vector2, bounds: Rect2, scale: float, view: Vector2) -> Vector2:
 	var center := focus * scale
 	var low := bounds.position * scale + view * 0.5
 	var high := bounds.end * scale - view * 0.5

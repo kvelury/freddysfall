@@ -9,16 +9,16 @@ var _we_paused := false
 var _dim: ColorRect
 var _panel: Panel
 var _viewport: SubViewport
-var _camera: Camera2D
 var _layer: MapLayer
 var _marker: Marker
 var _legend: Legend
 ## Whether the zoom changed since the map opened, so closing it saves the game.
 var _zoom_changed := false
-## What the map is drawn at, and where the window's centre is in that scaled
-## map.
+## What the map is drawn at, and the point of that scaled map at the window's
+## centre. The room layer is moved by this, and the marker is placed by it, so
+## the two always agree.
 var zoom := 1.0
-var camera_position := Vector2.ZERO
+var view_center := Vector2.ZERO
 
 
 func _ready() -> void:
@@ -90,10 +90,12 @@ func refresh() -> void:
 		focus = MapLayer.room_rect(info).get_center()
 	elif info != null and GameState.map_zoom == MapView.IN:
 		focus = _player_on_map()
-	camera_position = MapView.camera_for(focus, bounds, zoom, view)
-	if _camera != null:
-		_camera.position = camera_position
+	view_center = MapView.view_center(focus, bounds, zoom, view)
 	if _layer != null:
+		# The layer is moved itself. A Camera2D here only moves in the physics
+		# step, after the one picture this viewport renders for a change, and
+		# the map showed the previous step's view.
+		_layer.position = view * 0.5 - view_center
 		_layer.zoom = zoom
 		_layer.queue_redraw()
 	if _legend != null:
@@ -119,7 +121,7 @@ func marker_position() -> Vector2:
 	var info: RoomInfo = WorldData.rooms.get(GameState.current_room_id)
 	if player == null or info == null:
 		return Vector2(-10, -10)
-	return _player_on_map() * zoom - camera_position + Vector2(VIEW_SIZE) * 0.5
+	return _player_on_map() * zoom - view_center + Vector2(VIEW_SIZE) * 0.5
 
 
 func _visited_bounds() -> Rect2:
@@ -173,12 +175,9 @@ func _build() -> void:
 	_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
 	_viewport.canvas_item_default_texture_filter = Viewport.DEFAULT_CANVAS_ITEM_TEXTURE_FILTER_NEAREST
 	_layer = MapLayer.new()
-	_camera = Camera2D.new()
-	_camera.position_smoothing_enabled = false
+	_layer.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 	_viewport.add_child(_layer)
-	_viewport.add_child(_camera)
 	add_child(_viewport)
-	_camera.make_current()
 
 	var texture := TextureRect.new()
 	texture.texture = _viewport.get_texture()

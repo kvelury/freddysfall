@@ -26,6 +26,7 @@ func _run() -> void:
 	ok = await _overlay() and ok
 	ok = await _new_game() and ok
 	ok = await _no_jump() and ok
+	ok = await _marker_in_room() and ok
 	print("MAP %s" % ("pass" if ok else "fail"))
 	quit(0 if ok else 1)
 
@@ -75,14 +76,14 @@ func _view() -> bool:
 	ok = _check(MapView.scaled_rect(Rect2(10, 10, 32, 18), 2.0) == Rect2(20, 20, 64, 36), "zoomed in doubles a room") and ok
 
 	# Where the window looks.
-	var fits := MapView.camera_for(Vector2(60, 40), one, 1.0, VIEW)
+	var fits := MapView.view_center(Vector2(60, 40), one, 1.0, VIEW)
 	ok = _check(fits == Vector2(60, 40), "a map that fits the window is looked at where it was asked") and ok
 	var wide := world.grow(40.0)
-	var corner := MapView.camera_for(Vector2(-9999, -9999), wide, 2.0, VIEW)
+	var corner := MapView.view_center(Vector2(-9999, -9999), wide, 2.0, VIEW)
 	ok = _check(corner == (wide.position * 2.0 + VIEW * 0.5).round(), "zoomed in on the corner of a big map, the window stays on the map (%s)" % corner) and ok
-	var far := MapView.camera_for(Vector2(9999, 9999), wide, 2.0, VIEW)
+	var far := MapView.view_center(Vector2(9999, 9999), wide, 2.0, VIEW)
 	ok = _check(far == (wide.end * 2.0 - VIEW * 0.5).round(), "and at the far corner too (%s)" % far) and ok
-	var odd := MapView.camera_for(Vector2(31.3, 17.7), wide, 2.0, VIEW)
+	var odd := MapView.view_center(Vector2(31.3, 17.7), wide, 2.0, VIEW)
 	ok = _check(odd == odd.round(), "the window sits on a whole pixel") and ok
 	return ok
 
@@ -278,6 +279,62 @@ func _no_jump() -> bool:
 		await physics_frame
 		rose = maxf(rose, floor_y - player.global_position.y)
 	ok = _check(rose < 1.0, "pressing Up while the map is open does not jump the player after (rose %.1f px)" % rose) and ok
+	world.queue_free()
+	await process_frame
+	state.reset()
+	return ok
+
+
+## Where the room layer is drawn from, in window pixels: what the viewport
+## will render with on the very next frame.
+func _drawn_offset(overlay: Node) -> Vector2:
+	var viewport: SubViewport = overlay._viewport
+	var layer: Node2D = overlay._layer
+	return (viewport.canvas_transform * layer.get_transform()).origin
+
+
+## The map and the marker are drawn from the same place, at once, at every
+## level. The room layer's picture is rendered once, right after a change, so
+## it must already be where the marker will be, and not a step behind.
+func _marker_in_room() -> bool:
+	var ok := true
+	var state: Node = root.get_node("GameState")
+	state.reset()
+	var world: Node = await _world(true)
+	for id in ["1", "2", "3", "4", "5", "6", "7"]:
+		state.visited[id] = true
+	world.warp_to("7")
+	var player: Player = world.get_node("Player")
+	var room: Room = world.current
+	var overlay: Node = world.get_node("MapOverlay")
+	var layer_class = overlay.get_script().get_script_constant_map()["MapLayer"]
+	var info: RoomInfo = room.info
+	var window := Rect2(Vector2.ZERO, VIEW)
+	var names := ["Out", "Middle", "In"]
+	# With physics interpolation on, a node moved between physics steps is drawn
+	# part of the way from where it was. The layer has to jump, not glide.
+	ok = _check(overlay._layer.physics_interpolation_mode == Node.PHYSICS_INTERPOLATION_MODE_OFF, "the map's layer is not interpolated, so it is drawn where it was put") and ok
+	for level in 3:
+		overlay.set_level(level)
+		var expected: Vector2 = VIEW * 0.5 - overlay.view_center
+		var drawn := _drawn_offset(overlay)
+		ok = _check(drawn == expected, "%s: the map is drawn from where the marker thinks it is, with no frame in between (%s, expected %s)" % [names[level], drawn, expected]) and ok
+		for cell in [Vector2i(3, 70), Vector2i(60, 70), Vector2i(3, 3), Vector2i(60, 3), Vector2i(30, 35)]:
+			player.place(room.position + Grid.cell_center(cell), room.world_rects())
+			overlay.refresh()
+			var box := MapView.scaled_rect(layer_class.room_rect(info), overlay.zoom)
+			box.position += _drawn_offset(overlay)
+			var marker: Vector2 = overlay.marker_position()
+			ok = _check(box.grow(1.0).has_point(marker) and window.has_point(marker), "%s: the marker for cell %s is inside room 7 and the window (marker %s, room %s)" % [names[level], cell, marker, box]) and ok
+		if level == MapView.OUT:
+			overlay.refresh()
+			var all_in := true
+			for id in state.visited.keys():
+				var other: RoomInfo = root.get_node("WorldData").rooms.get(id)
+				var other_box := MapView.scaled_rect(layer_class.room_rect(other), overlay.zoom)
+				other_box.position += _drawn_offset(overlay)
+				all_in = all_in and window.encloses(other_box)
+			ok = _check(all_in, "Out: every visited room is inside the window") and ok
 	world.queue_free()
 	await process_frame
 	state.reset()
