@@ -13,6 +13,8 @@ func _initialize() -> void:
 	ok = _gate() and ok
 	ok = _progression() and ok
 	ok = _forbidden() and ok
+	ok = _locks() and ok
+	ok = _machines() and ok
 	print("IMPRINTSOLVER %s" % ("pass" if ok else "fail"))
 	quit(0 if ok else 1)
 
@@ -76,6 +78,74 @@ func _forbidden() -> bool:
 	var report := ReachGraph.new(rooms, _cfg, abilities).analyze("1")
 	ok = _check(_has(report.errors, "Room 2 cannot be reached"), "~ cells over the pit forbid the platform, and the room stays shut %s" % [report.errors]) and ok
 	return ok
+
+
+## Exit rules: a room that holds its doors shut until its token is taken is
+## reachable when the token is, and a dead end when it is not.
+func _locks() -> bool:
+	var ok := true
+	var legend := "exits: pickups\nlegend:\n  T = token id=t1\n---\n"
+	var door_right := {Vector2i(31, 15): "X", Vector2i(31, 16): "X"}
+	var door_left := {Vector2i(0, 15): "X", Vector2i(0, 16): "X"}
+
+	# The token is on the floor of the second room, which has a third room behind it.
+	var first := {Vector2i(2, 16): "P"}
+	first.merge(door_right)
+	var second := {Vector2i(10, 16): "T"}
+	second.merge(door_left)
+	second.merge(door_right)
+	var third := door_left
+	var rooms := _rooms([[first, ""], [second, legend], [third, ""]])
+	var report := ReachGraph.new(rooms, _cfg).analyze("1")
+	ok = _check(report.errors.is_empty(), "a locked room whose token is on its floor lets the player through %s" % [report.errors]) and ok
+	ok = _check(report.reached_rooms.has("3"), "and the room behind it is reached") and ok
+
+	# The same token seven cells up in the air: nobody gets it, nobody gets out.
+	second = {Vector2i(10, 8): "T"}
+	second.merge(door_left)
+	second.merge(door_right)
+	rooms = _rooms([[first, ""], [second, legend], [third, ""]])
+	report = ReachGraph.new(rooms, _cfg).analyze("1")
+	ok = _check(_has(report.errors, "Room 3 cannot be reached"), "a locked room whose token cannot be reached shuts the way on %s" % [report.errors]) and ok
+	ok = _check(_has(report.errors, "token t1"), "and says which token %s" % [report.errors]) and ok
+	ok = _check(not report.traps.is_empty(), "and its floor is a trap, since the player came in and cannot leave") and ok
+	return ok
+
+
+## Three tokens and a 3TM that gives Imprint, on the near side of the pit. The
+## machine only pays out once all three are taken.
+func _machines() -> bool:
+	var ok := true
+	var legend := "legend:\n  A = token id=t1\n  B = token id=t2\n  C = token id=t3\n  M = machine id=m upgrade=imprint\n---\n"
+	var marks := {Vector2i(3, 16): "A", Vector2i(4, 16): "B", Vector2i(4, 13): "C", Vector2i(6, 16): "M"}
+	var report := ReachGraph.new(_world(marks, legend), _cfg).solve("1")
+	ok = _check(report.errors.is_empty(), "three tokens and a 3TM give Imprint, which opens the pit %s" % [report.errors]) and ok
+	ok = _check(report.needs.get("2") == ["m", "t1", "t2", "t3"], "room 2 needs all three tokens and the machine (%s)" % [report.needs.get("2")]) and ok
+	ok = _check(report.needs.get("1") == [], "room 1 needs nothing (%s)" % [report.needs.get("1")]) and ok
+
+	marks.erase(Vector2i(4, 13))
+	legend = "legend:\n  A = token id=t1\n  B = token id=t2\n  M = machine id=m upgrade=imprint\n---\n"
+	report = ReachGraph.new(_world(marks, legend), _cfg).solve("1")
+	ok = _check(_has(report.errors, "Room 2 cannot be reached"), "two tokens are not enough, and the room stays shut %s" % [report.errors]) and ok
+
+	# A 3TM nobody can touch is reported like any other thing out of reach.
+	marks = {Vector2i(3, 16): "A", Vector2i(4, 16): "B", Vector2i(4, 13): "C", Vector2i(6, 6): "M"}
+	legend = "legend:\n  A = token id=t1\n  B = token id=t2\n  C = token id=t3\n  M = machine id=m upgrade=imprint\n---\n"
+	report = ReachGraph.new(_world(marks, legend), _cfg).solve("1")
+	ok = _check(_has(report.errors, "machine m"), "a 3TM up where nobody can touch it is an error %s" % [report.errors]) and ok
+	return ok
+
+
+## Rooms in a row from the left, one screen each, built from [marks, header] pairs.
+func _rooms(parts: Array) -> Dictionary:
+	var entries: Array = []
+	for i in parts.size():
+		entries.append({"id": str(i + 1), "grid_pos": Vector2i(i, 0), "text": String(parts[i][1]) + _room(parts[i][0])})
+	var errors: Array[String] = []
+	var built := RoomParser.build(entries, "1", errors)
+	if not errors.is_empty():
+		print("  world did not load: ", errors)
+	return built["rooms"]
 
 
 ## Two rooms side by side. Room 1 is a floor with a pit of spikes 12 cells wide

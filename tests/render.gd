@@ -6,7 +6,8 @@ extends SceneTree
 ##
 ## Colours: white solid, green door, cyan player start, purple spikes, gold a pickup, orange a door that was
 ## sealed because nothing is on the far side, grey dots a no-imprint cell,
-## magenta a glyph the loader does not know. Red bar on a ledge nobody can
+## magenta a glyph the loader does not know, a checker over a door in a room
+## that holds its doors shut until a rule is met, a gold box round a 3TM's 3 x 3 cells. Red bar on a ledge nobody can
 ## reach, yellow bar on a ledge you cannot get back from, red box on a door
 ## nobody can reach. Faint lines every 5 cells, bright lines between screens.
 
@@ -28,6 +29,7 @@ const HAZARD := Color(0.65, 0.35, 0.95)
 const NO_IMPRINT := Color(0.5, 0.5, 0.5)
 const THING := Color(0.95, 0.75, 0.2)
 const UNREACHED := Color(0.95, 0.2, 0.2)
+const LOCKED := Color(0.55, 0.9, 0.95)
 const TRAP := Color(0.95, 0.85, 0.1)
 const LABEL := Color(0.75, 0.75, 0.75)
 
@@ -106,6 +108,12 @@ func _room_image(info: RoomInfo, report: ReachGraph.Report) -> Image:
 					_hatch(image, cell)
 	for rect in info.sealed:
 		image.fill_rect(_cells(rect), SEALED)
+	if info.exit_rule != ExitRules.OPEN:
+		for door in info.exits:
+			_checker(image, _cells(door.rect))
+	for def in info.entities:
+		if def.type == "machine":
+			_box(image, _cells(TokenMachine.footprint(def.cell)), THING)
 	if report != null:
 		for ledge in report.unreached:
 			if ledge.room_id == info.id:
@@ -150,6 +158,13 @@ func _box(image: Image, rect: Rect2i, color: Color) -> void:
 	image.fill_rect(Rect2i(outer.position.x, outer.end.y - 2, outer.size.x, 2), color)
 	image.fill_rect(Rect2i(outer.position.x, outer.position.y, 2, outer.size.y), color)
 	image.fill_rect(Rect2i(outer.end.x - 2, outer.position.y, 2, outer.size.y), color)
+
+
+func _checker(image: Image, area: Rect2i) -> void:
+	for y in area.size.y:
+		for x in area.size.x:
+			if (x + y) % 2 == 0:
+				image.set_pixel(area.position.x + x, area.position.y + y, LOCKED)
 
 
 func _hatch(image: Image, cell: Rect2i) -> void:

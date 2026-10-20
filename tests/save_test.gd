@@ -73,11 +73,36 @@ func _file() -> bool:
 	ok = _check(where.get("room") == "3" and where.get("position") == Vector2(120.5, 80.0), "loading says which room and where (%s)" % [where]) and ok
 	ok = _check(state.has_flag("pickup:p") and state.abilities.imprint_width == 4 and state.visited.has("1") and state.visited.has("3"), "and restores the flags, abilities and visited rooms") and ok
 
+	# Tokens and how full each 3TM is come back too.
+	var token := EntityDef.new()
+	token.type = "token"
+	token.id = "t"
+	state.reset()
+	state.take_token(token)
+	state.take_token(token)
+	state.machines["m"] = 2
+	save.write("3", Vector2(10, 10))
+	state.reset()
+	ok = _check(state.tokens == 0 and state.machines.is_empty(), "resetting empties the pockets and the machines") and ok
+	save.load_game()
+	ok = _check(state.tokens == 2 and state.machines == {"m": 2} and state.has_flag("token:t"), "a save keeps the tokens carried, the machines' fill and the token flag (%d, %s)" % [state.tokens, state.machines]) and ok
+	state.reset()
+	for i in 5:
+		state.take_token(token)
+	ok = _check(state.tokens == _cap(state), "a pocket holds at most the cap (%d)" % state.tokens) and ok
+	_write('{"version": 2, "room": "1", "position": [10, 10], "tokens": 99, "machines": {"m": 7, "n": "x"}}')
+	save.load_game()
+	ok = _check(state.tokens == _cap(state) and state.machines.get("m") == 3, "a damaged save cannot hold more than the cap or fill a machine past three (%d, %s)" % [state.tokens, state.machines]) and ok
+
 	save.enabled = false
 	ok = _check(not save.write("3", Vector2.ZERO) and save.load_game().is_empty(), "a disabled save neither writes nor reads") and ok
 	save.enabled = true
 
-	_write('{"version": 1, "room": "99", "position": [10, 10], "abilities": {"imprint_width": 5}, "flags": ["pickup:x"], "visited": ["1"]}')
+	_write('{"version": 1, "room": "1", "position": [10, 10], "flags": ["pickup:r2_imprint"]}')
+	ok = _check(save.load_game().is_empty() and FileAccess.file_exists(TEMP + ".bad") and not FileAccess.file_exists(TEMP), "a save from the world where Imprint was free is set aside, not loaded") and ok
+	DirAccess.remove_absolute(TEMP + ".bad")
+
+	_write('{"version": 2, "room": "99", "position": [10, 10], "abilities": {"imprint_width": 5}, "flags": ["pickup:x"], "visited": ["1"]}')
 	where = save.load_game()
 	ok = _check(where.is_empty() and state.abilities.imprint_width == 5 and state.has_flag("pickup:x"), "a save for a room that is gone still gives the abilities, but no place") and ok
 
@@ -87,7 +112,7 @@ func _file() -> bool:
 	_write('{"version": 99, "room": "1", "position": [10, 10]}')
 	ok = _check(save.load_game().is_empty() and not FileAccess.file_exists(TEMP), "a save from a newer game is set aside, not overwritten") and ok
 
-	_write('{"version": 1, "room": "1"}')
+	_write('{"version": 2, "room": "1"}')
 	ok = _check(save.load_game().is_empty(), "a save with no position gives no place") and ok
 
 	save.erase()
@@ -95,6 +120,10 @@ func _file() -> bool:
 	save.enabled = false
 	state.reset()
 	return ok
+
+
+func _cap(state: Node) -> int:
+	return state.TOKEN_CAP
 
 
 func _write(text: String) -> void:

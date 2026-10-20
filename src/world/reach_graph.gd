@@ -28,6 +28,8 @@ const MAX_CHAIN := 3
 const MAX_LINES := 6
 ## The most times `solve` collects pickups and solves again.
 const MAX_ROUNDS := 8
+## What a 3TM costs, in tokens.
+const MACHINE_COST := TokenMachine.COST
 
 var abilities: Abilities
 ## How many ticks a simulated path may run. The Imprint search shortens it so a
@@ -40,6 +42,8 @@ var _geometry := {}
 var _solved := {}
 var _landings := {}
 var _imprint: ImprintSearch
+## Every pickup, token and 3TM in the world by id.
+var _things := {}
 
 
 ## `ability_set` is what the player has, the starting abilities if left out.
@@ -51,6 +55,8 @@ func _init(rooms: Dictionary, movement: MovementConfig, ability_set: Abilities =
 	abilities = ability_set if ability_set != null else Abilities.new()
 	for id in rooms:
 		_ledges[id] = _find_ledges(rooms[id])
+		for def in _things_of(rooms[id]):
+			_things[def.id] = def
 
 
 func movement() -> MovementConfig:
@@ -76,8 +82,10 @@ func analyze(start_room: String) -> Report:
 
 
 ## What the player can reach as they collect pickups. It solves with the
-## starting abilities, takes every pickup that solve could reach, and solves
-## again with what they gave, until nothing new turns up. A room's "needs" is
+## starting abilities, takes every pickup, token and 3TM that solve could
+## reach, and solves again with what they gave, until nothing new turns up.
+## Tokens do nothing alone: a 3TM that was reached gives its upgrade if there
+## are three tokens for it, and the machines are paid in order of their ids. A room's "needs" is
 ## the smallest set of pickups, found by dropping them one at a time, that it
 ## still opens with. Errors come from the last solve, except that a trap is
 ## judged where the player could first be in it, with the fewest abilities.
@@ -148,15 +156,30 @@ func _needs(start_room: String, base: Abilities, taken: Dictionary, round: int, 
 	return needed
 
 
-## `base` with the upgrades of the pickups named in `ids` applied.
+## `base` with what the things named in `ids` give: a pickup's upgrade, and
+## the upgrade of each 3TM that the tokens among them can pay for.
 func _with(base: Abilities, ids: Array) -> Abilities:
 	var out := base.copy()
+	var tokens := 0
+	var machines: Array[String] = []
 	for id in ids:
-		for room_id in _rooms:
-			for def in _pickups_of(_rooms[room_id]):
-				if def.id == id:
-					var upgrade := String(def.props["upgrade"])
-					out.apply(Upgrades.get_def(upgrade), Upgrades.parse_value(upgrade, String(def.props.get("value", ""))))
+		var def: EntityDef = _things.get(id)
+		if def == null:
+			continue
+		match def.type:
+			"pickup":
+				out.apply(Upgrades.get_def(String(def.props["upgrade"])), Upgrades.parse_value(String(def.props["upgrade"]), String(def.props.get("value", ""))))
+			"token":
+				tokens += 1
+			"machine":
+				machines.append(String(id))
+	machines.sort()
+	for id in machines:
+		if tokens < MACHINE_COST:
+			break
+		tokens -= MACHINE_COST
+		var def: EntityDef = _things[id]
+		out.apply(Upgrades.get_def(String(def.props["upgrade"])), Upgrades.parse_value(String(def.props["upgrade"]), String(def.props.get("value", ""))))
 	return out
 
 
@@ -172,11 +195,12 @@ func _analyze(start_room: String) -> Report:
 		return report
 
 	var run := Run.new()
+	for id in _rooms:
+		if not ExitRules.met(_rooms[id], {}):
+			run.locked[id] = true
 	run.queue.append(start)
 	run.reached[start] = true
-	_flood(run)
-	if abilities.imprint_unlocked:
-		_place_imprints(run)
+	_settle(run)
 	var reached := run.reached
 	var reached_doors := run.reached_doors
 	var door_landings := run.door_landings
@@ -188,6 +212,10 @@ func _analyze(start_room: String) -> Report:
 	var home := _home(run, start)
 	if abilities.imprint_unlocked:
 		home = _place_imprints_to_get_home(run, start, home)
+		# A platform put down on the way home may have reached what a locked room waits for.
+		while _open_locks(run):
+			_settle(run)
+			home = _place_imprints_to_get_home(run, start, _home(run, start))
 	var reached_rooms := {}
 	for ledge in reached:
 		reached_rooms[ledge.room_id] = true
@@ -225,12 +253,12 @@ func _analyze(start_room: String) -> Report:
 	var lost_pickups: Array[String] = []
 	for id in _rooms:
 		var info: RoomInfo = _rooms[id]
-		var defs := _pickups_of(info)
+		var defs := _things_of(info)
 		for i in defs.size():
 			var got := _pickup_reached(run, id, i)
-			report.pickups.append({"id": defs[i].id, "room": String(id), "upgrade": String(defs[i].props["upgrade"]), "value": String(defs[i].props.get("value", "")), "reached": got})
+			report.pickups.append({"id": defs[i].id, "type": defs[i].type, "room": String(id), "upgrade": String(defs[i].props.get("upgrade", "")), "value": String(defs[i].props.get("value", "")), "reached": got})
 			if reached_rooms.has(id) and not got:
-				lost_pickups.append("Room %s: pickup %s at cell %s cannot be reached: no jump from a ledge the player gets to touches it" % [id, defs[i].id, defs[i].cell])
+				lost_pickups.append("Room %s: %s %s at cell %s cannot be reached: no jump from a ledge the player gets to touches it" % [id, defs[i].type, defs[i].id, defs[i].cell])
 	_append_capped(report.errors, lost_pickups)
 	_append_capped(report.errors, lost_doors)
 	_append_capped(report.errors, empty_doors)
@@ -257,6 +285,13 @@ func _flood(run: Run) -> void:
 		var touches: Array[Touch] = []
 		touches.append_array(ledge.touches)
 		touches.append_array(run.extra_touches.get(ledge, []))
+		# The doors of a locked room are blocks: its touches wait until it opens.
+		if run.locked.has(ledge.room_id) and not touches.is_empty():
+			if not run.held.has(ledge.room_id):
+				run.held[ledge.room_id] = []
+			if not run.held[ledge.room_id].has(ledge):
+				run.held[ledge.room_id].append(ledge)
+			touches.clear()
 		for touch in touches:
 			var key := "%s#%d" % [ledge.room_id, touch.door]
 			run.reached_doors[key] = true
@@ -268,6 +303,36 @@ func _flood(run: Run) -> void:
 			if not run.reached.has(target):
 				run.reached[target] = true
 				run.queue.append(target)
+
+
+## Floods, then (with Imprint) searches for platforms, and opens any room whose
+## exit rule has become met, until nothing more changes.
+func _settle(run: Run) -> void:
+	while true:
+		_flood(run)
+		if abilities.imprint_unlocked:
+			_place_imprints(run)
+		if not _open_locks(run):
+			return
+
+
+## Opens every locked room whose rule is now met by what this run has reached,
+## and queues the ledges whose door touches were waiting. Says whether any opened.
+func _open_locks(run: Run) -> bool:
+	var opened := false
+	for id in run.locked.keys():
+		var flags := {}
+		for i in _things_of(_rooms[id]).size():
+			if _pickup_reached(run, id, i):
+				flags[Entities.flag_for(_things_of(_rooms[id])[i])] = true
+		if not ExitRules.met(_rooms[id], flags):
+			continue
+		run.locked.erase(id)
+		opened = true
+		for ledge in run.held.get(id, []):
+			run.queue.append(ledge)
+		run.held.erase(id)
+	return opened
 
 
 ## With Imprint, a platform put down from a ledge can bring more places within
@@ -381,9 +446,9 @@ func _unreached_targets(run: Run) -> Dictionary:
 			if not run.reached_doors.has("%s#%d" % [id, i]):
 				list.append(info.exits[i].trigger_rect())
 		var geo := geometry_of(info)
-		for i in geo.pickups.size():
+		for i in geo.things.size():
 			if not _pickup_reached(run, id, i):
-				list.append(geo.pickups[i])
+				list.append(geo.things[i])
 		if not list.is_empty():
 			out[id] = list
 	return out
@@ -532,9 +597,12 @@ func geometry_of(info: RoomInfo) -> Geometry:
 			geo.triggers.append(door.trigger_rect())
 		for cell in info.hazards:
 			geo.hazards.append(Grid.cell_rect(Rect2i(cell, Vector2i.ONE)))
-		for def in _pickups_of(info):
-			var centre := Grid.cell_center(def.cell)
-			geo.pickups.append(Rect2(centre - Vector2(Pickup.HALF, Pickup.HALF), Vector2(Pickup.HALF, Pickup.HALF) * 2.0))
+		for def in _things_of(info):
+			if def.type == "machine":
+				geo.things.append(TokenMachine.touch_rect_for(def.cell))
+			else:
+				var centre := Grid.cell_center(def.cell)
+				geo.things.append(Rect2(centre - Vector2(Pickup.HALF, Pickup.HALF), Vector2(Pickup.HALF, Pickup.HALF) * 2.0))
 		geo.bounds = Rect2(Vector2(-40.0, -120.0), info.pixel_size + Vector2(80.0, 160.0))
 		_geometry[info.id] = geo
 	return _geometry[info.id]
@@ -547,7 +615,7 @@ func _ensure_edges(info: RoomInfo) -> void:
 	var geo := geometry_of(info)
 	for ledge: Ledge in _ledges[info.id]:
 		_walk_to_doors(ledge, geo.triggers)
-		_stand_at_pickups(ledge, geo.pickups)
+		_stand_at_things(ledge, geo.things)
 		var near := near_solids(geo.rects, ledge)
 		for x in start_xs(ledge):
 			for input in [-1.0, 0.0, 1.0]:
@@ -571,20 +639,21 @@ func _walk_to_doors(ledge: Ledge, triggers: Array[Rect2]) -> void:
 			ledge.add_touch(i, Vector2(spot, ledge.top - half), Vector2(heading * running, 0.0))
 
 
-## A body standing on the ledge collects a pickup its body overlaps.
-func _stand_at_pickups(ledge: Ledge, pickups: Array[Rect2]) -> void:
+## A body standing on the ledge touches a pickup, token or 3TM its body overlaps.
+func _stand_at_things(ledge: Ledge, things: Array[Rect2]) -> void:
 	var cell := float(Grid.CELL)
 	var standing := Rect2(ledge.lo - cell * 0.5, ledge.top - cell, ledge.hi - ledge.lo + cell, cell)
-	for i in pickups.size():
-		if standing.intersects(pickups[i]):
+	for i in things.size():
+		if standing.intersects(things[i]):
 			ledge.add_pickup(i)
 
 
-## The pickups in a room, in the order Geometry.pickups lists their rects.
-func _pickups_of(info: RoomInfo) -> Array[EntityDef]:
+## The pickups, tokens and 3TMs in a room, in the order Geometry.things lists
+## their rects. Touching one is what takes it or works it.
+func _things_of(info: RoomInfo) -> Array[EntityDef]:
 	var out: Array[EntityDef] = []
 	for def in info.entities:
-		if def.type == "pickup":
+		if Entities.is_touchable(def):
 			out.append(def)
 	return out
 
@@ -640,7 +709,7 @@ func walk_off(info: RoomInfo, geo: Geometry, ledge: Ledge, near: Array[Rect2]) -
 
 func try_plan(info: RoomInfo, geo: Geometry, ledge: Ledge, near: Array[Rect2], x: float, speed: float, input: float, hold: int, jump: bool) -> void:
 	var start := Vector2(x, ledge.top - float(Grid.CELL) * 0.5)
-	var result := MovementSim.simulate_jump(_cfg, near, start, Vector2(speed, 0.0), input, hold, true, jump, geo.triggers, geo.bounds, geo.hazards, geo.pickups, NAN, 0, frame_limit)
+	var result := MovementSim.simulate_jump(_cfg, near, start, Vector2(speed, 0.0), input, hold, true, jump, geo.triggers, geo.bounds, geo.hazards, geo.things, NAN, 0, frame_limit)
 	# A pickup is taken even on a path that then dies on spikes.
 	for index in result["collected"]:
 		ledge.add_pickup(index)
@@ -666,13 +735,18 @@ class Run extends RefCounted:
 	var extra_to := {}
 	var extra_touches := {}
 	var extra_pickups := {}
+	## Rooms whose exit rule is not met yet, and for each the ledges whose door
+	## touches are waiting for it.
+	var locked := {}
+	var held := {}
 
 
 class Geometry extends RefCounted:
 	var rects: Array[Rect2] = []
 	var triggers: Array[Rect2] = []
 	var hazards: Array[Rect2] = []
-	var pickups: Array[Rect2] = []
+	## The rects that touch a pickup, token or 3TM.
+	var things: Array[Rect2] = []
 	var bounds := Rect2()
 
 

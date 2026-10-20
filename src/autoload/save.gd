@@ -9,7 +9,11 @@ extends Node
 ## into the current one; a file from a newer game, or one that cannot be
 ## read, is set aside as save.json.bad and the game starts fresh.
 
-const VERSION := 1
+const VERSION := 2
+## Saves older than this are from a game whose rooms and rules cannot be
+## carried over. Version 1 gave Imprint away in room 2, before tokens and the
+## 3TM, so its flags and rooms mean something else now.
+const OLDEST := 2
 
 var path := "user://save.json"
 ## Off in headless runs, so tests never touch a real save. World turns it off
@@ -50,6 +54,9 @@ func load_game() -> Dictionary:
 	if int(data["version"]) > VERSION:
 		_set_aside("was written by a newer version of the game")
 		return {}
+	if int(data["version"]) < OLDEST:
+		_set_aside("is from before tokens and the 3TM, when the world was different")
+		return {}
 	data = _migrate(data)
 	WorldData.ensure_loaded()
 	GameState.load_dict(data)
@@ -66,7 +73,7 @@ func erase() -> void:
 
 
 ## Turns a file of an older VERSION into the current shape. There is only one
-## version so far; add a step here each time VERSION goes up.
+## step so far; add one here each time VERSION goes up and OLDEST does not.
 func _migrate(data: Dictionary) -> Dictionary:
 	return data
 

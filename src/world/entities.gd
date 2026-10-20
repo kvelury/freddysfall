@@ -28,6 +28,16 @@ static func is_collectible(def: EntityDef) -> bool:
 	return COLLECTIBLE.has(def.type)
 
 
+## Whether the player works it by touching it: collectibles and 3TMs.
+static func is_touchable(def: EntityDef) -> bool:
+	return COLLECTIBLE.has(def.type) or def.type == "machine"
+
+
+## The key in the player's flags that says a pickup or token was taken.
+static func flag_for(def: EntityDef) -> String:
+	return Token.flag_for(def) if def.type == "token" else Pickup.flag_for(def)
+
+
 ## What is wrong with a legend line's settings, as sentences. `def` has its
 ## type, id and props filled in.
 static func problems(def: EntityDef) -> Array[String]:
