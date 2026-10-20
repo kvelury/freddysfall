@@ -6,17 +6,7 @@ Everything here passed its headless tests or was reported as unverified in a pul
 
 ## Tried and working
 
-Played in the browser and found good, so these are not listed line by line any more: Imprint in the browser (placing, the preview, the cross, the blink), saving and resuming, the solver and the "needs" lines, movement and doors, the whole world map of PR #17 (rooms 1 to 7, the exit rules, the tokens on the body, the 3TM and its feeding, and the spent machine). A new problem in any of them goes back on this list.
-
-## Imprint look (PR #18)
-
-You need Imprint for these. Play to the 3TM in room 4 once; the game saves, so a later visit resumes with it.
-
-- [ ] **The cursor is always a dotted outline** where a platform may go, whether or not you can reach it, and a small × where it may not. Nothing is filled and there is no sparkle.
-- [ ] **Hovering over a placed platform** keeps it on top: the dotted outline never hides it. When it blinks off at the end, the outline shows.
-- [ ] **The dashes count down,** one gone each second from the left, so a new platform has four, then three, two, one. The last one is gone as the platform shatters.
-- [ ] **The blink in the last second** looks the same as before.
-- [ ] **The countdown stops** while a 3TM is working (the platform does not age then).
+Played in the browser and found good, so these are not listed line by line any more: Imprint in the browser (placing, the preview, the cross, the blink), saving and resuming, the solver and the "needs" lines, movement and doors, the whole world map of PR #17 (rooms 1 to 7, the exit rules, the tokens on the body, the 3TM and its feeding, and the spent machine), and the Imprint look of PR #18 (the dotted cursor, placed platforms drawn over it, the countdown lines, and the blink). A new problem in any of them goes back on this list.
 
 ## Respawn
 
