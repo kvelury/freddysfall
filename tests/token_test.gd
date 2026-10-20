@@ -32,8 +32,8 @@ func _run() -> void:
 	player.scripted = true
 	var room: Room = world.current
 	ok = _check(room.locked, "room 2 starts with its doors blocked") and ok
-	ok = _check(_count(room, "DoorBlock") == 2 and _count(room, "ExitHalo") == 0, "two blocks fill its two doorways, and no halo shows (%d blocks, %d halos)" % [_count(room, "DoorBlock"), _count(room, "ExitHalo")]) and ok
-	ok = _check(room.world_rects().size() == room.info.solids.size() + 2, "the blocks are solid") and ok
+	ok = _check(_count(room, "DoorBlock") == 3 and _count(room, "ExitHalo") == 0, "three blocks fill its three doorways, and no halo shows (%d blocks, %d halos)" % [_count(room, "DoorBlock"), _count(room, "ExitHalo")]) and ok
+	ok = _check(room.world_rects().size() == room.info.solids.size() + 3, "the blocks are solid") and ok
 	ok = _check(_things(room, "Token").size() == 1, "room 2 shows its token") and ok
 	ok = _check(not state.abilities.imprint_unlocked and state.tokens == 0, "the player starts with nothing") and ok
 
@@ -59,8 +59,8 @@ func _run() -> void:
 	await _frames(3)
 	ok = _check(state.tokens == 1 and state.has_flag("token:r2_token"), "walking into the token takes it") and ok
 	ok = _check(opened[0] and not room.locked, "and the room's doors open") and ok
-	ok = _check(_count(room, "DoorBlock") == 0 and _count(room, "ExitHalo") == 2, "the blocks are gone and the halos are there (%d blocks, %d halos)" % [_count(room, "DoorBlock"), _count(room, "ExitHalo")]) and ok
-	ok = _check(player.solids.size() == rects_before - 2, "and the player no longer collides with them (%d to %d)" % [rects_before, player.solids.size()]) and ok
+	ok = _check(_count(room, "DoorBlock") == 0 and _count(room, "ExitHalo") == 3, "the blocks are gone and the halos are there (%d blocks, %d halos)" % [_count(room, "DoorBlock"), _count(room, "ExitHalo")]) and ok
+	ok = _check(player.solids.size() == rects_before - 3, "and the player no longer collides with them (%d to %d)" % [rects_before, player.solids.size()]) and ok
 	ok = _check(_things(room, "Token").is_empty(), "the token is gone from the room") and ok
 	ok = _check(FileAccess.file_exists(TEMP), "and the game saved") and ok
 	ok = _check(not state.abilities.imprint_unlocked, "the token alone gives no Imprint") and ok
@@ -80,14 +80,14 @@ func _run() -> void:
 	room = world.current
 	state.tokens = state.TOKEN_CAP
 	state.tokens_changed.emit()
-	player.place(room.position + Grid.cell_center(Vector2i(22, 7)), room.world_rects())
+	player.place(room.position + Grid.cell_center(Vector2i(57, 14)), room.world_rects())
 	await _frames(10)
-	ok = _check(state.tokens == 3 and not state.has_flag("token:r3_token_high") and _things(room, "Token").size() == 2, "a token touched with three already carried stays on the platform") and ok
+	ok = _check(state.tokens == 3 and not state.has_flag("token:r3_token_low") and _things(room, "Token").size() == 1, "a token touched with three already carried stays on the platform") and ok
 	ok = _check(world.get_node("Toast").get_child(0).visible and "3" in world.get_node("Toast").get_child(0).text, "and a line says why (%s)" % world.get_node("Toast").get_child(0).text) and ok
 	state.tokens = 1
 	state.tokens_changed.emit()
 	await _frames(20)
-	ok = _check(state.tokens == 2 and state.has_flag("token:r3_token_high"), "once there is room it is taken the next time it is touched (%d)" % state.tokens) and ok
+	ok = _check(state.tokens == 2 and state.has_flag("token:r3_token_low"), "once there is room it is taken the next time it is touched (%d)" % state.tokens) and ok
 
 	# A fresh game from the save: in room 3 with the token spent.
 	world.queue_free()

@@ -23,9 +23,9 @@ func _run() -> void:
 	player.scripted = true
 	var ok := true
 
-	# Down: walk off the floor into the hole at columns 38 to 44.
+	# Down: walk off the floor into the hole at columns 6 to 12.
 	var room: Room = world.current
-	player.place(room.position + Grid.cell_center(Vector2i(35, 16)), room.world_rects())
+	player.place(room.position + Grid.cell_center(Vector2i(3, 16)), room.world_rects())
 	player.scripted_x = 1.0
 	ok = _check(await _until(world, "4"), "walking into room 3's floor hole arrives in room 4") and ok
 	ok = _check(player.velocity.x > 60.0, "the player keeps running right through the door (%s)" % player.velocity) and ok

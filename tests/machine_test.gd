@@ -103,7 +103,7 @@ func _run() -> void:
 
 ## Walks the player in from the right until they touch the machine, then stops.
 func _touch(player: Player, room: Room) -> void:
-	player.place(room.position + Grid.cell_center(Vector2i(7, 16)), room.world_rects())
+	player.place(room.position + Grid.cell_center(Vector2i(11, 16)), room.world_rects())
 	player.scripted_x = -1.0
 	for i in 120:
 		await physics_frame

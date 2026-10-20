@@ -74,7 +74,12 @@ func _links(data) -> bool:
 	ok = _check(data.id_at(Vector2i(2, 0)) == "3" and data.id_at(Vector2i(3, 0)) == "3", "room 3 occupies both of its screens") and ok
 	var side := b.exit_on("right")
 	var side_rect := side.rect
-	ok = _check(b.exit_on("down") == null, "room 2 floor stays solid") and ok
+	ok = _check(b.exit_on("down").dest_id == "5", "room 2 floor exit leads down to 5") and ok
+	ok = _check(data.get_room("5").exit_on("up").dest_id == "2", "and room 5's ceiling door leads back up to 2") and ok
+	ok = _check(data.get_room("5").exit_on("right").dest_id == "4" and data.get_room("4").exit_on("left").dest_id == "5", "room 5's right door and room 4's left door lead to each other") and ok
+	ok = _check(data.get_room("5").exit_on("left").dest_id == "6" and data.get_room("6").exit_on("right").dest_id == "5", "room 5's left door and room 6's right door lead to each other") and ok
+	ok = _check(data.get_room("6").exit_on("down").dest_id == "7" and data.get_room("7").exit_on("up").dest_id == "6", "room 6's floor door drops into room 7's ceiling door") and ok
+	ok = _check(data.get_room("7").screens == Vector2i(2, 4) and data.get_room("7").traps_allowed and not data.get_room("6").traps_allowed, "room 7 is two screens wide, four tall, and the only one-way room") and ok
 	ok = _check(side.dest_id == "3", "room 2 floor exit leads to 3") and ok
 	ok = _check(side_rect.position.y == 15 and side_rect.size == Vector2i(1, 2), "room 2 exit is a floor-level side door (%s)" % side_rect) and ok
 	var back := c.exit_on("left")

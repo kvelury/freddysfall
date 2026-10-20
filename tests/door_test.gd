@@ -25,9 +25,10 @@ func _run() -> void:
 	var camera: Camera2D = world.get_node("Camera2D")
 	player.scripted = true
 
-	# Room 2 has a floor-level door in its right wall. Start a few cells short.
+	# Room 2 has a floor-level door in its right wall, with one cell of floor in
+	# front of it (a hole in the floor leads down to room 5 just before).
 	var room: Room = world.current
-	player.place(room.position + Grid.cell_center(Vector2i(24, 16)), room.world_rects())
+	player.place(room.position + Grid.cell_center(Vector2i(30, 16)), room.world_rects())
 	var ok := true
 	player.scripted_x = 1.0
 	ok = _check(await _until(world, "3"), "walking right through room 2's door arrives in room 3") and ok
@@ -37,7 +38,14 @@ func _run() -> void:
 	await _frames(90)
 	ok = _check(_room() == "3", "the player is not thrown back out of room 3") and ok
 
+	# Room 2's floor has a hole just inside this door, so stop pushing left the
+	# moment the door is touched and let the carried speed do the rest.
 	player.scripted_x = -1.0
+	for i in 480:
+		await physics_frame
+		if _room() == "2":
+			break
+	player.scripted_x = 0.0
 	ok = _check(await _until(world, "2"), "walking left through room 3's door arrives back in room 2") and ok
 	ok = _check(_standing(world), "the player is standing on floor inside room 2") and ok
 	player.scripted_x = 0.0
