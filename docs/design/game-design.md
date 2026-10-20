@@ -2,6 +2,8 @@
 
 This is the game as specified so far: what it is for, the rules that shape it, and the numbers those rules run on. It is the design record. Where a piece is already in the build, the section says so. The softer palettes are specified and not built.
 
+Two sections at the end are for whoever changes the code: **Implementation reference** says how each system is built and which constants matter, and **Decision log** says what was decided, what was tried and dropped, and why. `README.md` has the code map and the rules the code keeps. If a change makes any of these untrue, it updates them in the same pull request.
+
 Implementation steps for the palette pass live in `docs/plans/soft-duotone-palettes.md`. Decisions stay here.
 
 | Area | State |
@@ -13,6 +15,8 @@ Implementation steps for the palette pass live in `docs/plans/soft-duotone-palet
 | Tokens, carried and shown on the player, and the 3TM | Built |
 | Imprint upgrades beyond the numbers (longer, more at once, bounce) | Designed, not built |
 | The solver using Imprint, and what each room needs | Built |
+| The solver's cache between runs (a repeat validate takes about 2 s) | Built |
+| The map's three zoom levels, its legend, saved with the game | Built |
 | Softer two-color palettes | Designed, not built |
 
 ## What it is
@@ -138,8 +142,6 @@ A room's header can carry a line `exits: <rule>`. The rule says when its doors w
 
 The header holds `exits:`, `legend:` and `trap:` in any order. `trap: allowed` is described under Checking rooms; it is for a room that is a dead end on purpose.
 
-
-
 ```
 exits: pickups
 legend:
@@ -243,7 +245,7 @@ A **ledge** is a run of cells with air above and floor below. From each ledge th
 - A ledge that cannot get home is searched the same way, with the ledges that can as the targets, so crossing a pit one way with a platform and having no way back is still a trap.
 - Left out: putting the platform down in mid-air, and using two in a row. A room that needs either is reported as out of reach even if a player could do it. A room that needs the platform in a place the reach check calls out of reach is also not found.
 
-**What a room needs.** `tools/validate.sh` solves with the starting abilities, takes every pickup that solve could reach, solves again with what they gave, and repeats until nothing new turns up. A room, a ledge, or a pickup that only opens in a later round lists the pickups it needs, cut down by dropping them one at a time to a set it still opens with. Example, from the current world: `Room 5: the ledge on row 16, cells 22-31 needs r2_token, r3_token_high, r3_token_low, r4_3tm`. Errors come from the last solve, so a room that stays shut even with every pickup is an error. Tokens and 3TMs are part of this. A token reached is taken. A 3TM reached gives its upgrade if three tokens are taken for it, and several machines are paid in the order of their ids. A room with an exit rule keeps its doors shut in the search until what the rule asks for has been reached, so a room is only open if the player can first do what it asks. The search does not model the carry limit of three (a player who cannot take a fourth token before spending three is not caught), and it does not treat a blocked doorway as a wall for a body falling through a chain of doors. A trap is judged where the player could first be in it, with the fewest abilities, because a player who has not found Imprint yet is also stuck in a place that needs it to leave.
+**What a room needs.** `tools/validate.sh` solves with the starting abilities, takes every pickup that solve could reach, solves again with what they gave, and repeats until nothing new turns up. A room, a ledge, or a pickup that only opens in a later round lists the pickups it needs, cut down by dropping them one at a time to a set it still opens with. Example, from the current world: `Room 5: the ledge on row 16, cells 0-4 needs r2_token, r3_token, r4_3tm, r5_token`. Errors come from the last solve, so a room that stays shut even with every pickup is an error. Tokens and 3TMs are part of this. A token reached is taken. A 3TM reached gives its upgrade if three tokens are taken for it, and several machines are paid in the order of their ids. A room with an exit rule keeps its doors shut in the search until what the rule asks for has been reached, so a room is only open if the player can first do what it asks. The search does not model the carry limit of three (a player who cannot take a fourth token before spending three is not caught), and it does not treat a blocked doorway as a wall for a body falling through a chain of doors. A trap is judged where the player could first be in it, with the fewest abilities, because a player who has not found Imprint yet is also stuck in a place that needs it to leave.
 
 **Speed, and the cache.** A cold run is about 16 s for 7 rooms, and nearly all of it is the Imprint search: each ledge's jumps (about 1 s) and, for every platform Imprint could put down, a "leg" of about 40 simulated jumps from it (about 12 s). What the solver works out about a room depends on nothing but the room and the solver, so it is kept between runs in `build/solver-cache/<room>.json`: the jumps from each ledge, and each platform's leg by cell, width and length. A room's file is used only if two fingerprints match: the room's (its grid with the openings that lead nowhere sealed, its doors and where they lead, its things, where it sits, so a neighbour that appears or moves counts) and the solver's (a hash of the code and numbers that decide a jump: `reach_graph.gd`, `imprint_search.gd`, `movement_sim.gd`, `movement.tres`, and the others listed in `SolverCache.SOLVER_FILES`). Change either and that room, or every room, is worked out again. What is not kept is cheap and depends on more than one room: where a door leads, and the search that spreads out from the start. A warm run takes about 2 s however many rooms are unchanged, and a run after editing one room redoes that room's share. A file that cannot be read is ignored. The tests never read the cache. `tools/validate.sh --no-cache` ignores it too, and prints the same answers.
 
@@ -294,7 +296,7 @@ The build steps for that pass are in `docs/plans/soft-duotone-palettes.md`.
 
 ## Imprint
 
-Status: the first version is built: finding it, placing it, the reach preview, the lifetime, and the rules below. The solver does not know about Imprint yet, so `tools/validate.sh` cannot prove that a room is open or locked by it. Widening, lengthening and the other upgrades are stored as numbers and unused.
+Status: built: finding it (three tokens at a 3TM), placing it, the reach check, the lifetime and its countdown, and the rules below. The solver knows about it, so `tools/validate.sh` proves which rooms are open or shut by it. Widening, lengthening, more at once and bounce are stored as numbers (width and duration are read when a platform is placed) and no room gives them yet.
 
 Imprint is the ability that makes Freddy's Fall a metroidvania. The mouse cursor is a platform. The player places it, jumps from it, and uses longer, longer-lasting, and stranger versions of it to open paths that the authored rooms withhold.
 
@@ -391,6 +393,172 @@ Imprint uses the same black-and-white pixel language as the rest of the game.
 
 The shards are small. They should read at 320×180 and survive the softer palette, because that palette remaps the frame rather than the sprites.
 
+## Implementation reference
+
+How each system is built, with the constants that matter. File names are under `src/`. Where a number is a named constant, the name is given, so a change to the number is a change to that line and to this page.
+
+### Loading a room (`world/room_parser.gd`)
+
+`WorldData` reads `data/world.json` and each room's file, then calls `RoomParser.build(entries, start_room, errors)`. Nothing in the parser touches the disk or the scene tree, so a test can build a whole world from strings. In order:
+
+1. **Per room** (`parse_room`): split the header from the grid at a line of `---` (a header with no divider is an error); read the header (`legend:` lines, `exits:`, `trap:`, each given at most once, every bad line an error with its line number); read the rows (every row the same width, the room a whole number of 32×18 screens); work out `screens`, `pixel_size` and `bounds_cells` (the whole room, not one screen, since an Imprint may go anywhere in it); scan the cells once (the spawn, `~` cells, spikes, glyphs that mean nothing, outer-wall cells that are not `#` or `X`, and where each legend glyph is drawn); check each 3TM's 3×3 cells are open air; check the exit rule makes sense for the room.
+2. **Across rooms:** two rooms may not occupy the same screen cell; an entity id may be used in only one room.
+3. **Doors** (`_parse_exits`, `_link_exits`): runs of `X` on one edge become doors, split where they cross a screen boundary; an `X` on a corner or off the edge is an error. A door's destination is the room on the neighbouring screen cell. It pairs with exactly one opening on the opposite edge whose span overlaps it (any other count is an error and the door is cleared).
+4. **Sealing:** an opening with no room beyond it becomes solid (`_seal_dead_ends`), so `RoomInfo.rows` is the room as played, and room fingerprints see it.
+5. **Solids:** `merge_solids` joins runs of `#` into rectangles (a run is merged with the run directly under it when both have the same start and length). The player and the solver collide with these rectangles, never with cells, so there are no seams to snag on.
+6. **Start room** must exist and have a `P`.
+
+Errors are sentences naming the room (and the line, for the header). A bad drawing tends to repeat one mistake along a wall, so each kind is capped at `MAX_PER_KIND` (5) per room and the rest counted.
+
+### The movement (`player/movement_sim.gd`, `player/movement_config.gd`)
+
+`MovementSim.State` holds a body's position, velocity, `grounded`, `coyote`, `buffer`, `launched`, `cut`, and, after a step, `jumped` and the `floor_rect` it stands on. `step(cfg, state, rects, input_x, jump_pressed, jump_held, delta)` does one tick, in this order:
+
+1. `integrate`: horizontal speed moves toward `input × run_speed` at the ground or air acceleration (or friction when there is no input); the coyote timer is set while grounded and counts down; the jump buffer is set on a press and counts down; if both are above zero a jump starts (`vy = -jump_speed`); otherwise a released jump that is still rising is cut (`vy × jump_cut`, once), and gravity is applied, scaled by `apex_gravity_scale` while `|vy| < apex_threshold` and by `fall_gravity_scale` while falling, capped at `max_fall_speed`.
+2. `corner_correct`: a body moving sideways into a block and not rising is lifted up to `corner_correction` px if that clears it; a rising body that clips a ceiling corner is pushed sideways by up to the same. Both look ahead with a blocked test and never move through a block.
+3. `resolve`: move on x, push out of any block it overlaps; move on y, push out, and `grounded` is set when it came down on a block.
+
+The body is `HALF` = 5 px either side (a 10×10 box). `standing(position, rects)` is a probe one pixel down. `simulate_jump(...)` repeats `step` at a fixed 1/60 s from a start position and velocity until the body lands (grounded after leaving the ground, past tick 2), touches a trigger rect (a door), touches a hazard rect (it died), leaves `bounds`, or runs `limit` ticks (180 by default). It returns the final position and velocity, `landed`, the floor rect, `trigger` (the index touched or -1), `hazard`, the `collected` indices among rects passed as `collect`, the tick count, and, with `record`, the whole path. `later_input` and `switch_frame` change the steering part way through. Everything that needs to ask "what would the player do" calls this. The player's own node calls `step` with the real input and `delta`.
+
+### Doors in play (`world/door.gd`, `world/room.gd`, `world/world.gd`)
+
+A door's **trigger** (`Door.trigger_rect`) is its opening plus 4 px of the room beside it. `Room.touched_door` tests the player's box against it every tick, and returns nothing while the room is locked or a slide is under way. The solver tests simulated paths against the same rectangle.
+
+`World._on_exit` runs a crossing: the world goes busy and the player freezes, with their velocity kept aside; the next room is built and placed at its `grid_pos × 320×180`; `Door.crossing` says where the player appears and with what velocity; the camera tweens to the new room over `TRANSITION_TIME` (0.5 s, sine in and out, stepped on physics time); then the old room is freed, the kept velocity is given back, and the game autosaves. `Door.crossing` keeps the place along the wall (clamped into the far door's span) and tries pushes of `CLEAR` (19.5 px), 15, 10, then 5 px into the room, taking the first that is not inside a wall. Going up it raises the upward speed to at least `UP_BOOST` (180 px/s). The solver calls the same function, so it lands bodies where the game does.
+
+### Blocked doors and exit rules (`world/exit_rules.gd`, `world/room.gd`)
+
+`Room.build` sets `locked = not ExitRules.met(info, flags)`. A locked room puts a `DoorBlock` in each doorway instead of a halo. The blocks are in `Room.world_rects()` (so the player collides with them) and not in the private floor list used to judge safe floor. Taking something calls `World._collect`, which calls `Room.recheck_exits(flags)`: if the rule is now met the blocks shatter, halos appear, and `exits_opened` fires; `World._on_exits_opened` then calls `ImprintTool.sync_solids()` so the player's collision list stops including the blocks. Nothing is stored about the blocks: the flags decide them each time the room is built, so a reload puts them back or leaves them gone correctly.
+
+### Things in rooms (`world/entities.gd`, `world/entities/`, `world/world.gd`)
+
+`Entities.TYPES` lists each kind's required and optional legend keys; `Entities.problems` turns a bad legend line into sentences. `Room.build` skips anything `Entities.present(def, flags)` says is already taken and builds the rest with `Entities.create`. The player touches things by box overlap each tick (`Room.touched_things`), and `World._collect` decides what that means:
+
+- a **pickup** calls `GameState.collect` (set `pickup:<id>`, apply the upgrade), toasts the message, and the thing leaves;
+- a **token** is taken if the pocket has room (`GameState.TOKEN_CAP` = 3), sets `token:<id>`, and leaves; with a full pocket it stays and says so once per visit (`noted`, cleared when the player steps off it);
+- a **3TM** runs `World._feed`, a coroutine: the world goes busy; for each carried token (until the machine is full) a `FlyingToken` arcs from the body to the next slot over `FEED_TIME` (0.45 s), the slot fills and `GameState.machines[id]` is updated, then a pause of `FEED_PAUSE` (0.2 s); when the third slot fills the machine dispenses (about 0.8 s of shaking and flashing), a spark flies to the player over `SPARK_TIME` (0.3 s), and `GameState.grant` applies the upgrade; then control returns and the game autosaves. A machine is spent when `filled >= TokenMachine.COST`.
+
+After any take, `recheck_exits` runs and the game autosaves.
+
+### Dying and safe floor (`world/world.gd`, `world/room.gd`)
+
+Touching spikes, or leaving the room's outline by 60 px, calls `_die`: the world goes busy, platforms are cleared with shards, the player shatters, and after `DEATH_TIME` (0.6 s, on physics time) `_respawn` puts them on the last safe spot. The world keeps `SAFE_HISTORY` (8) stretches of floor. Each entry is a room and a position, and a new position within `SAFE_SPACING` (30 px) of the stretch's start updates that entry instead of adding one. A spot is recorded when the player stands on the room's own floor (not an Imprint, not a door block) with no spikes within a cell to either side and no door within two cells (`Room.is_safe_spot`). If the player dies again before standing anywhere new after a respawn, that spot was no good and the newest entry is dropped first.
+
+### Saving (`autoload/game_state.gd`, `autoload/save.gd`)
+
+`GameState` holds what a save holds: `visited` (a set of room ids), `abilities`, `flags` (`pickup:<id>`, `token:<id>`), `tokens` carried, `machines` (id → tokens inside), `map_zoom`. `to_dict` and `load_dict` are the only two places that know the shape, and `load_dict` clamps and defaults everything, so a damaged file gives a smaller state and not a crash. `Save.write(room, position)` adds `version`, `room` and `position` (room pixels) and writes `user://save.json`. `Save.load_game()` returns where to put the player, or `{}`. `VERSION` is 2 and `OLDEST` is 2: a file older than `OLDEST`, newer than `VERSION`, or not valid JSON is renamed `save.json.bad` and the game starts new. `Save.enabled` is off in headless runs and for `--room=` starts, and `write`, `load_game` and `erase` all do nothing while it is off. A save written before a field existed loads with that field at its starting value, which is why changing a starting number (Imprint's duration) does not reach old saves.
+
+Writes happen on entering a room (the arrival position), after a pickup, token or 3TM (the last safe floor in the room, so a load never puts the player in the air over spikes), and when the map is closed after the zoom changed (`World.save_now`).
+
+### The camera (`core/grid.gd`, `world/world.gd`)
+
+`Grid.camera_focus` centres a one-screen room, and otherwise follows the player clamped so the 320×180 view stays inside the room, rounded to whole pixels. The camera has no smoothing and no interpolation. During a door slide it is on a tween and not following.
+
+### Imprint in play (`imprint/`)
+
+`ImprintTool` is a `Node2D` child of the world, with interpolation off and drawing in world space. It is active when Imprint is unlocked, the player is in control, a room is current, and the world is not busy.
+
+- **Placing** (`place`, on the `imprint` action): the cell under the cursor is the platform's left end and it is `imprint_width` cells wide. `ImprintRules.check` refuses, in this order, with the reason: outside the room, on solid, on spikes, within a cell of a door's trigger, on a `~` cell, overlapping the player, overlapping another platform that will survive. Platforms newer than the limit (`imprint_max_active − 1`) survive; older ones shatter. A placed platform is a rectangle added to the player's collision list by `sync_solids` (the room's rects plus every platform), which is also called when one expires and when a room's doors open.
+- **Ageing:** each platform's `age` grows by the physics delta unless the world is busy (a door slide, a death, a 3TM feed). At `lifetime` it shatters and `sync_solids` runs. Leaving a room, dying, and warping clear them (`clear`).
+- **The clock** (`ImprintPlatform`): `_line_xs` gives the dashes (one 2 px dash every 4 px, starting 2 px in, while 2 px fit before the end, so a 2-cell platform has four). `lines_left()` is `ceil(total × (lifetime − age) / lifetime)`, so one dash goes in each equal share of the life, the leftmost first. `blink_time()` is `lifetime / total` (the last dash's share), and `blinked_off()` is true for every other `BLINK_PERIOD` (0.1 s) while `age > lifetime − blink_time()`.
+- **The preview:** `_update_preview` recomputes only when the key (cursor cell, player cell, on the floor, width, platform count) changes. It sets `_state` to unavailable (a rule refused it), unreachable, or reachable (`ImprintReach.can_land_on` found a jump). `ImprintReach` tries input left, none and right, with the jump held for `HOLDS` (3, 8 or 90 ticks) or, from the ground, not jumped; and plans that go straight and steer `STEER_AT` ticks later. A path counts if it lands on the platform's top (within 0.6 px, overlapping it by more than 0.5 px) and does not touch spikes or a door. Its window is `REACH_X` 170, `REACH_UP` 70, `REACH_DOWN` 400 px. The look ignores reachable versus unreachable for now (both are the dotted outline).
+- **Drawing:** the preview first, then the placed platforms, so a platform is never hidden by the cursor. The operating system's cursor is hidden while the tool is active.
+
+### The solver (`world/reach_graph.gd`, `world/imprint_search.gd`)
+
+The solver answers "can a player get here, and get back", using `MovementSim` and no scene. It is used by `tools/validate.sh` and the tests only.
+
+- **Ledges.** A ledge is a run of standable cells on one row (air, spikes-free, with solid below). `lo` and `hi` are the range a body's centre can have while still on it: a body hangs on until its centre is half a cell past the end, unless a wall or spikes are right there.
+- **Edges.** For every ledge, `_ensure_edges` simulates: a jump from the left end, every cell centre and the right end (`start_xs`), with input left, none or right (running only if there are `RUN_UP` = 5 px of ground behind it), and the jump held `HOLDS` = 3, 8 or 90 ticks; and walking off either end. `try_plan` simulates for `limit` ticks (`frame_limit`, 180) against the nearby solids (`near_solids`: ±`REACH_X` 170, up `REACH_UP` 100, down `REACH_DOWN` 400). A path that lands on another ledge is an edge; one that touches a door records a `Touch` (door, position, velocity; two touches within 10 px and 45 px/s are one); one that touches a pickup, token or 3TM records it, even if it then dies on spikes; one that touches spikes is dead and counts for nothing else. A ledge that runs into a door's trigger walks into it.
+- **Doors.** A touch lands where `Door.crossing` puts the body, and `_land` finds what it comes to rest on: standing on something, or falling with input left, none and right for up to `FALL_LIMIT` (300 ticks, so a four-screen drop lands) through the near solids down to the bottom of the room, or through another door, up to `MAX_CHAIN` (3) in a row. Results are cached per touch.
+- **Flooding.** `analyze` starts at the start room's spawn and floods along the edges (`_flood`). A room whose exit rule is unmet is **locked**: the door touches of its ledges are held until `_open_locks` finds the rule met by what the run has reached (`ExitRules.met` with flags built from reached things), then released. `_settle` repeats flood, Imprint search and unlock until nothing changes.
+- **Imprint.** With Imprint unlocked, `ImprintSearch.expand(ledge, targets)` adds edges from a ledge by one platform put down from it (see below). The edges are kept in the run (`extra_to`, `extra_touches`, `extra_pickups`) and flooded like any other.
+- **Home.** `_home` walks the edges backwards from the start; a reached ledge not in it is a trap. For ledges with no way home with Imprint unlocked, `_place_imprints_to_get_home` searches again with the ledges that are home and the doors as targets. In a `trap: allowed` room a trap is a one-way warning instead.
+- **The report** (`Report`): `errors` (a room, door, pickup or exit rule that cannot be reached; a door that lands nowhere; traps), `warnings` (ledges nobody reached, one-way ledges and doors nobody inside can touch), counts, `pickups`, `needs`. Lines are capped at `MAX_LINES` (6) per kind.
+- **Progression** (`solve`): solve with the starting abilities; take every pickup, token and 3TM reached; give the abilities those make (`_with`: each pickup's upgrade, and each machine's upgrade if tokens can pay `MACHINE_COST` = 3 for it, machines paid in id order); solve again; at most `MAX_ROUNDS` (8), until nothing new. `needs` for a room, ledge or pickup is the set of things taken before the round it first opened, cut down by dropping one at a time (`_needs`). Errors come from the last solve; a trap is judged in the first round it appears, with the fewest abilities.
+- **`ImprintSearch`** keeps three caches: `_arcs` (each ledge's jumps, recorded tick by tick), `_legs`, and the graph's `_landings`. `expand` takes the arcs of a ledge; wherever a falling arc crosses the top of a cell row, the platforms of `width` cells that arc would land on are **candidates**, if `ImprintRules` allows them and one of the targets is within `REACH_X`/`REACH_UP`/`REACH_DOWN` of standing on them (at most `MAX_CANDIDATES` = 600 per ledge, and `MAX_ARCS_PER_CANDIDATE` = 6 arcs each). Each candidate is checked by re-simulating its arc with the platform in place (`_lands_on`). A candidate that passes gets a **leg**: it is treated as a ledge of its own (`_compute_leg`: about 40 simulated jumps and walks from it) and what it reaches is merged in. A leg's tick limit is `clamp((duration × 60 − SPARE_TICKS) / 2, MIN_LEG, 180)` (55 ticks at 2.5 s): each of the two jumps gets half the platform's life less 40 ticks to spare. Legs are keyed by cell, width and limit.
+
+### The solver's cache (`world/solver_cache.gd`)
+
+`ReachGraph.cache` is empty by default (the tests solve from scratch). `tests/validate.gd` sets it. `SolverCache.entry_for(info)` loads `build/solver-cache/<room id>.json` if its `format`, `solver` and `room` fields match; the entry holds `edges` (every ledge's reach, by index) and `legs` (by `x|y|width|limit`). `_ensure_edges` and `ImprintSearch._leg_of` read an entry before simulating and store what they simulated; `save()` writes the entries that changed. The solver fingerprint hashes `FORMAT` and the text of every file in `SOLVER_FILES`; the room fingerprint hashes the id, position, size, spawn, exit rule, trap flag, the rows (as sealed), the doors (edge, rect, screen, destination, far rect), `~` cells and every thing (type, id, cell, settings). A file that cannot be read, or that does not match, is ignored and rewritten. Not cached, because they are cheap and depend on more than one room: where a door lands a body (`_landings`), and the flood itself. `validate.gd` prints how much came from the cache.
+
+### The map (`ui/map_overlay.gd`, `ui/map_view.gd`)
+
+`MapOverlay` is a `CanvasLayer` (layer 10, process mode always). Holding `map` pauses the tree (it remembers that it did so, and unpauses only when the fade-out ends), fades a dim in over about 0.1 s, and scales a 256×148 panel from 0.92 to 1. The panel holds a 240×132 `SubViewport` texture (`VIEW_SIZE`) with a `MapLayer` in it, a `Marker` and a `Legend` control on top.
+
+- **Map units:** one pixel per cell, a screen being `ROOM_PX` 32×18 and neighbours set `STRIDE` 40×26 apart, so there is an 8×8 gap between rooms. A room of several screens is one rectangle (`room_rect`).
+- **Drawing:** visited rooms are outlined (gaps where doors are), the current one filled grey (an opaque grey: a translucent white is premultiplied twice in the web build and vanishes), and connectors drawn to visited neighbours. It redraws, rendering the viewport once (`UPDATE_ONCE`), when the room changes, a room is visited, or the zoom changes.
+- **Zoom** (`MapView`, pure statics): `scale_for(level, bounds, view)` is `min(1, view / bounds)` for Out, 1 for Middle, 2 for In; `scaled_rect` scales both corners and rounds them, so lines stay one pixel and neighbours keep their gaps; `view_center(focus, bounds, scale, view)` picks the point at the window's centre (clamped to the visited bounds when the map is bigger than the window, rounded to a pixel). `refresh()` focuses on the visited map (Out), the current room (Middle) or the player (In). `MapLayer` is **moved** to `view/2 − view_center`; a `Camera2D` here only moves in the physics step, after the one frame the viewport renders for a change, so it showed the previous zoom's view.
+- **Keys:** while open, `map_zoom_in` and `map_zoom_out` (just pressed) step the level and stop at the ends. `GameState.map_zoom` is the stored level. Closing the map after a change asks the world to save (`save_now`).
+- **Legend** (`MapView.legend`): two rows, each an arrow and a magnifying glass drawn from 5- and 7-pixel pictures, on a black patch 1 px from the bottom-right corner. A row that can do nothing is grey.
+
+### Effects and small parts
+
+`ExitHalo` is a dithered half-disc of 12 pre-painted 64 px frames, played as a pulse. `Shatter` is 14 square shards that fly out and fall for 0.5 s; nothing fades. `Toast` (layer 15) shows a line for 2.5 s. `FlyingToken` arcs 16 px high with a trail of 6 recent positions, every other one drawn. `InventoryMarks` cuts black plus-shaped 3×3 marks out of the body at (4,2), (2,4) and (6,4) for tokens one to three, and a line on row 8 from column 1 to 8 once Imprint is unlocked. `DebugOverlay` (layer 20) shows F3's readout, and in a debug build the load errors and the F4 warp.
+
+### What the solver and the preview do not model
+
+- Placing a platform in mid-air, and using two in a row. A room that needs either is reported out of reach.
+- The carry limit of three tokens, and a blocked doorway as a wall for a body falling through a chain of doors.
+- Paths other than the fixed plans (the inputs and holds above), so "unreachable" can mean "a plan it did not try". That is why an unreached ledge is a warning and an unreached room, door or pickup is an error.
+- A ledge's `MAX_CANDIDATES` cap, and `REACH_*` windows: a platform beyond them is not tried.
+
+## Decision log
+
+What was decided, in the order it came up, with the reason. Pull requests are named by number.
+
+**The world and the data**
+- **Rooms are ASCII files, ids are numbers, rooms are whole screens.** Easy to write from a drawing, easy to diff, and a room is checked by the same code that plays it. Every rounding made when translating a drawing is reported to the user.
+- **`grid_pos` in `world.json`, doors inferred from facing openings.** No hand-written door table to disagree with the map. An opening with nothing beyond it is sealed until a room is placed there.
+- **Legend ids are written in the file and never derived.** The save remembers things by id, so a room can be redrawn without losing what the player did.
+- **Errors are collected and reported, never thrown.** A bad room should tell its author everything wrong with it at once.
+
+**Movement and the player**
+- **The player is a `Node2D` with a box and no physics body; all movement is `MovementSim`.** The solver, the Imprint preview and the player then agree by construction, and `parity_test` enforces it.
+- **Fixed 60 Hz, interpolation on for the player only.** The jump does not depend on the display's refresh rate. The camera and anything moved in `_process` are not interpolated, or they would glide from their last position.
+- **Doors keep momentum and place** (a body crossing keeps its height or column and its speed, and is pushed in about 20 px); a ceiling door gives a minimum upward speed so a slow player does not stall in the doorway.
+- **Death goes back to the last safe floor, not a save point,** with a history of eight stretches so a bad spot costs one extra death and never a loop. An Imprint is never safe floor, because it breaks.
+
+**Tokens, the 3TM, exit rules (PR #16)**
+- **Imprint is earned: three tokens at a 3TM.** Tokens are the currency, a 3TM the shop, one upgrade per machine. Partial deposits are saved; a spent machine does nothing; the pocket holds three.
+- **A room's exit rule blocks every door, including the one the player came in by,** with solid shaded blocks, not glows. `exits: pickups` is the first rule. A rule is a flag test, so a reload gives the same answer.
+- **The body is the inventory.** Tokens and the Imprint line are cut into the player's square, so no HUD is needed.
+
+**The world map and one-way rooms (PR #17)**
+- **`trap: allowed`** marks a room that is a dead end on purpose (room 7, until its way out is built). It turns "no way home" into a warning in that room and relaxes nothing else.
+- **The solver follows a fall of any height** (`FALL_LIMIT`), because room 7 is four screens tall.
+- **Room 3's entrance is a ledge the player cannot use to reach the token,** and `reach_test` says so, so a later edit cannot quietly make the climb optional.
+
+**Imprint's look and timing (PRs #18 and #21)**
+- **The cursor is always a dotted outline,** whether or not the platform can be reached. A filled cursor with a circling sparkle (and a trailing dotted tail) was built and removed at the user's request. The reach check still runs, so a look that tells them apart can return.
+- **A placed platform is drawn over the cursor,** so what can be landed on is never hidden.
+- **The dashes are a clock:** four, one going in each equal share of the life, from the left; the last dash blinks (the blink lasts the last dash's share, so it scales with duration and width).
+- **A platform lasts 2.5 s** (it was 4, then 3). It was tuned by playing. Saves from before the change keep their old value.
+
+**The map and saving (PR #20)**
+- **Three zoom levels,** Out always showing every visited room, however big the world gets. In is twice Middle, on the player. Redrawn at each scale and not stretched, so lines stay one pixel.
+- **The zoom is part of the saved game, and a new game resets it** (the user's choice over a separate preferences file). Closing the map after a change saves.
+- **`?new-game=1` deletes the save at startup.** Before, it only ignored the save until the first autosave, so a reload in between brought the old game back. A plain reload keeps the save.
+- **The map layer is moved, not viewed through a `Camera2D`.** The camera lagged one zoom step behind the marker because it only moves in the physics step.
+- **W and S zoom like Up and Down.** The game is paused with the map open, so jump (W, Up) is not triggered by pressing them there.
+
+**The solver (PR #22 and before)**
+- **Sample, do not search everything.** Fixed input plans per ledge. An unreached ledge is a warning, an unreached room, door or pickup an error.
+- **Imprint is searched from ledges only, one platform at a time,** from the arcs a jump actually makes, then verified with the platform in place. Mid-air placement and two in a row are left out, and the docs say so.
+- **A room's "needs" is found by dropping pickups one at a time.** It is the answer to "what must the player have first", and is printed by `validate.sh`.
+- **The validator's time was the Imprint search, not repeated solves** (measured: about 12 of 16 s was the legs off each candidate platform). So the fix is a cache of what depends only on a room and the solver, in `build/solver-cache/`, keyed by two fingerprints.
+- **Threads were tried and dropped.** GDScript's simulation only runs about 1.5 times faster on two or four threads and slower on eight; the whole validator went from 15.6 s to 13.2 s. Not worth the risk. A collision step with no dictionary was worth about 7% and was not kept.
+- **The tests never read the cache,** so they always check the solver itself.
+
+**Process**
+- **One record.** `AGENTS.md` for how an agent works, `README.md` for the code and its rules, this file for the game and its decisions, `docs/testing-checklist.md` for what nobody has played. `docs/plans/` is history.
+- **Every new test is mutation-checked,** and the pull request says which mutants were tried.
+- **A pull request is one piece of work, called by its number,** opened on a branch, with the docs in the same change. Merged only when the user says so.
+
+### Guardrails for a change
+
+Do not: copy a movement formula; reference an autoload from a pure class; derive or rename an entity id; change the save's shape without `Save.VERSION` and a `_migrate` step; put a `Camera2D` back in the map; add threads to the solver; make the cursor or any effect fade (nothing fades: a pixel is on or off); add colours (the picture is two colours); call a tuned number the default without saying so in the docs; or leave a test you have not tried to break.
+
 ## Not decided
 
 - What S / Down does.
@@ -401,5 +569,6 @@ The shards are small. They should read at 320×180 and survive the softer palett
 - Whether `~` cells should ever be drawn.
 - Sound, throughout.
 - The title card for room 7, and what its 3TM is for.
+- Whether a save from before a change to a starting number (Imprint's duration went from 4 to 2.5 s) should be brought up to date. Today it keeps the old number, because the save stores the abilities.
 - A way to start over from inside the game. `--new-game` does it from the command line and the web address.
 - Where the player resumes: a dedicated save point glyph, if autosave on room entry feels wrong.

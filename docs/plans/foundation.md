@@ -1,5 +1,7 @@
 # Freddy's Fall — foundation plan before building out the metroidvania
 
+> **History.** This is the plan the project was set up from. Its statuses and chunk numbers are out of date: work is called by pull request number now. The current record is `README.md` (code and rules), `docs/design/game-design.md` (the game, how it is built, and the decision log) and `AGENTS.md`.
+
 ## Context
 
 You want to grow Freddy's Fall into an exploration metroidvania. Rooms will come from photos of notebook drawings (graph paper, any scale, each room numbered) and upgrades like Imprint will gate the paths. The first design review was written against a stale checkout. This plan is re-based on `origin/main` @ `029ab4f`, plus the two unmerged Cursor branches. It orders every fix so that each chunk makes the next one cheaper, and so that adding rooms from drawings is reliable before you start drawing seriously.

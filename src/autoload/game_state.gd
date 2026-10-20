@@ -15,7 +15,8 @@ var visited := {}
 var map_zoom := MapView.MIDDLE
 var abilities := Abilities.new()
 ## Things the player has done that stay done: "pickup:<id>" for each pickup
-## collected. Keys are text and values are true.
+## collected and "token:<id>" for each token taken. Keys are text and values
+## are true.
 var flags := {}
 ## Tokens carried now.
 var tokens := 0
@@ -100,7 +101,7 @@ func load_dict(data: Dictionary) -> void:
 	var held = data.get("machines", {})
 	if held is Dictionary:
 		for id in held:
-			machines[String(id)] = clampi(int(held[id]), 0, 3)
+			machines[String(id)] = clampi(int(held[id]), 0, TokenMachine.COST)
 	tokens = clampi(int(data.get("tokens", 0)), 0, TOKEN_CAP)
 	map_zoom = MapView.clamp_level(int(data.get("map_zoom", MapView.MIDDLE)))
 	tokens_changed.emit()

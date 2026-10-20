@@ -1,6 +1,6 @@
 # Freddy's Fall: guide for agents
 
-Godot 4.7, GDScript. A metroidvania whose rooms are ASCII files. What the game is: `docs/design/game-design.md`. The order work is done in: `docs/plans/foundation.md`. How to run and test: `README.md`.
+Godot 4.7, GDScript. A metroidvania whose rooms are ASCII files. What the game is: `docs/design/game-design.md`. The order work is done in: `docs/plans/foundation.md`. How to run and test, how the code fits together, and the rules the code keeps: `README.md`. How each system is built and why it was decided that way: the design doc's "Implementation reference" and "Decision log". Read those before changing code; their rules and guardrails are not suggestions, and a change that makes one untrue updates it in the same pull request.
 
 ## Commands
 

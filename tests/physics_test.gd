@@ -1,7 +1,7 @@
 extends SceneTree
 
-## Drives the real player through room 1, to confirm move_and_slide can make
-## the running jump the kinematic test allows.
+## Drives the real player through room 1, to confirm the player's own movement
+## can make the running jumps the solver says the room asks for.
 
 func _initialize() -> void:
 	var world := (load("res://src/world/world.tscn") as PackedScene).instantiate()

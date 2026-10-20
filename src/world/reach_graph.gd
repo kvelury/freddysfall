@@ -57,8 +57,8 @@ var _things := {}
 
 
 ## `ability_set` is what the player has, the starting abilities if left out.
-## It is not consulted yet. Imprint will add platforms to the solids and widen
-## what a path may do according to it.
+## With Imprint unlocked the search also puts platforms down (see ImprintSearch),
+## using the width and duration it holds. `solve` swaps it as it collects.
 func _init(rooms: Dictionary, movement: MovementConfig, ability_set: Abilities = null) -> void:
 	_rooms = rooms
 	_cfg = movement
