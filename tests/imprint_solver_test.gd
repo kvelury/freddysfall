@@ -12,6 +12,7 @@ func _initialize() -> void:
 	var ok := true
 	ok = _gate() and ok
 	ok = _progression() and ok
+	ok = _many_rounds() and ok
 	ok = _forbidden() and ok
 	ok = _locks() and ok
 	ok = _machines() and ok
@@ -65,6 +66,50 @@ func _progression() -> bool:
 	rooms = _world({Vector2i(26, 16): "U"}, "legend:\n  U = pickup id=key upgrade=imprint\n---\n")
 	report = ReachGraph.new(rooms, _cfg).solve("1")
 	ok = _check(_has(report.errors, "Room 2 cannot be reached") and _has(report.errors, "pickup key"), "a pickup behind its own gate is an error %s" % [report.errors]) and ok
+	return ok
+
+
+## Nine ability-changing pickups in sequence need more rounds than the old
+## fixed limit allowed. Reachability is scripted so this tests the progression
+## loop and real upgrade application without nine expensive Imprint searches.
+func _many_rounds() -> bool:
+	var glyphs := "ABCDEFGHIJ"
+	var spots: Array[Vector2i] = [
+		Vector2i(3, 16), Vector2i(4, 16), Vector2i(5, 16),
+		Vector2i(6, 16), Vector2i(7, 16), Vector2i(8, 16),
+		Vector2i(21, 16), Vector2i(22, 16), Vector2i(23, 16),
+		Vector2i(24, 16),
+	]
+	var marks := {}
+	var legend: Array[String] = ["legend:"]
+	var chain: Array[String] = []
+	for i in 9:
+		var glyph := glyphs.substr(i, 1)
+		var id := "effect_%d" % (i + 1)
+		var effect := "step_%d" % (i + 1)
+		marks[spots[i]] = glyph
+		legend.append("  %s = pickup id=%s upgrade=imprint_effect value=%s" % [glyph, id, effect])
+		chain.append(id)
+	var goal_glyph := glyphs.substr(9, 1)
+	marks[spots[9]] = goal_glyph
+	legend.append("  %s = pickup id=goal upgrade=imprint_effect value=step_9" % goal_glyph)
+	legend.append("---")
+	chain.append("goal")
+
+	var base := Abilities.new()
+	var graph := ChainReachGraph.new(_world(marks, "\n".join(legend) + "\n"), _cfg, base, chain)
+	var report := graph.solve("1")
+	var goal_reached := false
+	for pickup in report.pickups:
+		if pickup["id"] == "goal":
+			goal_reached = pickup["reached"]
+	var expected: Array[String] = []
+	expected.assign(chain.slice(0, 9))
+	var ok := true
+	ok = _check(report.errors.is_empty(), "a progression chain longer than eight rounds has no errors %s" % [report.errors]) and ok
+	ok = _check(goal_reached, "the pickup after nine sequential upgrades is reached") and ok
+	ok = _check(report.needs.get("pickup|goal") == expected, "the final pickup needs all nine earlier upgrades (%s)" % [report.needs.get("pickup|goal")]) and ok
+	ok = _check(base.imprint_effects.is_empty() and graph.abilities.imprint_effects.is_empty(), "the long solve leaves the starting abilities alone") and ok
 	return ok
 
 
@@ -303,3 +348,36 @@ func _has(lines: Array, fragment: String) -> bool:
 func _check(cond: bool, label: String) -> bool:
 	print(("ok   " if cond else "FAIL ") + label)
 	return cond
+
+
+## A cheap progression fixture: each exact ability prefix reveals the next
+## real pickup. `solve` and `_with` remain the production implementations.
+class ChainReachGraph extends ReachGraph:
+	var chain: Array[String] = []
+
+	func _init(rooms: Dictionary, movement: MovementConfig, ability_set: Abilities, ids: Array[String]) -> void:
+		chain.assign(ids)
+		super._init(rooms, movement, ability_set)
+
+	func _analyze(_start_room: String) -> Report:
+		var report := Report.new()
+		var empty := Abilities.new()
+		var reached_count := 0
+		for i in chain.size():
+			if abilities.to_dict() == _with(empty, chain.slice(0, i)).to_dict():
+				reached_count = i + 1
+				break
+		var reached_ids := {}
+		for i in reached_count:
+			reached_ids[chain[i]] = true
+		for id in _things:
+			var def: EntityDef = _things[id]
+			report.pickups.append({
+				"id": id,
+				"type": def.type,
+				"room": "1",
+				"upgrade": String(def.props.get("upgrade", "")),
+				"value": String(def.props.get("value", "")),
+				"reached": reached_ids.has(id),
+			})
+		return report

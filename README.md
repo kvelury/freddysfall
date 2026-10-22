@@ -36,9 +36,11 @@ Room files are plain text. The preset's `include_filter` is `*.txt` so those fil
 
 ## Checking your work
 
-Run these before opening a pull request. Each test is a `SceneTree` script that prints one pass line (or `FAIL ...` lines) and quits with status 0 on success.
+Run `tools/check.sh` before opening a pull request. It imports the project, runs all 16 headless tests, validates the whole world without the solver cache, builds the release web export, and checks that the room data and cache-tagged browser files are present. CI runs the same command. After it passes, serve that build and play the affected route yourself; the automated checks do not judge movement feel, room readability or visual feedback.
 
 ```sh
+tools/check.sh                 # the complete automated gate and a fresh web build
+tools/serve.sh                 # serve that build at http://localhost:8060 for the playthrough
 tools/validate.sh              # the whole world, solved: a room is not done until this exits 0
 tools/validate.sh --no-cache   # the same, without the solver's cache
 tools/render.sh [ids]          # PNGs of rooms and the world map in build/renders/
@@ -98,7 +100,7 @@ Two kinds of test, and which to write:
 | `src/player/` | `MovementConfig` (`movement.tres`), `MovementSim` (all of the movement), `Player` (a `Node2D` that advances a `MovementSim.State`), `InventoryMarks` (tokens and the Imprint line cut into the body). |
 | `src/ui/` | `MapOverlay` (the map, drawn into its own viewport) and `MapView` (its zoom and legend maths), `Toast` (a line of text), `DebugOverlay` (F3, F4, and load errors). |
 | `tests/` | The tests above. |
-| `tools/` | `validate.sh`, `render.sh`, `snap.sh`, `build_web.sh`, `serve.sh`. |
+| `tools/` | `check.sh` (the complete automated gate), `validate.sh`, `render.sh`, `snap.sh`, `build_web.sh`, `serve.sh`. |
 | `AGENTS.md`, `CLAUDE.md` | How an agent works here. |
 | `docs/design/game-design.md` | The design record: what the game is, the rules, how each system is built, and why. |
 | `docs/testing-checklist.md` | What nobody has played yet. Mark things played here, and keep it short. |
@@ -173,7 +175,7 @@ What the existing code does, so new code reads the same:
 ### Working here
 
 - Work on a branch and open a pull request; do not push to `main`. One pull request is one piece of work, and is called by its number.
-- Run `tools/validate.sh` and every test before opening one. Say in the pull request what was not checked (anything a person has to play).
+- Run `tools/check.sh` before opening one. Then serve its web build and play the affected route on the user's machine. Say in the pull request what was not checked (anything a person has to play).
 - Update `docs/design/game-design.md` when behaviour changes, and this file when the layout, a rule above, or a command changes.
 - Do not playtest inside a cloud agent environment. A headless or brief launch to confirm it runs is fine.
 - Put what nobody has played in `docs/testing-checklist.md`, and take it out once it has been played.
