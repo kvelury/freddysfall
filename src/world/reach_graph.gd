@@ -29,8 +29,6 @@ const FALL_LIMIT := 300
 const MAX_CHAIN := 3
 ## Past this many lines of one kind, the report counts the rest.
 const MAX_LINES := 6
-## The most times `solve` collects pickups and solves again.
-const MAX_ROUNDS := 8
 ## What a 3TM costs, in tokens.
 const MACHINE_COST := TokenMachine.COST
 
@@ -120,7 +118,12 @@ func solve(start_room: String) -> Report:
 	var ledge_round := {}
 	var trap_lines: Array[String] = []
 	var report := Report.new()
-	for round in MAX_ROUNDS:
+	# `taken` only grows, and every round that continues adds at least one of
+	# the finite things in the world. One last round applies the final upgrade
+	# and proves that nothing else opens.
+	var max_rounds := _things.size() + 1
+	var converged := false
+	for round in max_rounds:
 		abilities = _with(base, taken.keys())
 		report = _analyze(start_room)
 		for ledge in report.reached:
@@ -138,8 +141,12 @@ func solve(start_room: String) -> Report:
 			if pickup["reached"] and not taken.has(pickup["id"]):
 				taken[pickup["id"]] = round
 				fresh += 1
-		if fresh == 0 or _with(base, taken.keys()).to_dict() == abilities.to_dict():
+		var next_abilities := _with(base, taken.keys())
+		if fresh == 0 or next_abilities.to_dict() == abilities.to_dict():
+			converged = true
 			break
+	if not converged:
+		report.errors.append("Progression search did not converge after %d rounds (%d things in the world)" % [max_rounds, _things.size()])
 	report.trap_lines = trap_lines
 	_append_capped(report.errors, report.trap_lines)
 	# What each thing needs: the pickups taken in earlier rounds, cut down to
