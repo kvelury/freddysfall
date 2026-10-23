@@ -31,14 +31,9 @@ func _run() -> void:
 	var ok := true
 	player.scripted_x = 1.0
 	ok = _check(await _until(world, "3"), "walking right through room 2's door arrives in room 3") and ok
-	# Room 3's ledge is two cells below the door's top: let go and drop onto it.
 	player.scripted_x = 0.0
-	for i in 60:
-		await physics_frame
-		if player.is_on_floor():
-			break
 	var landed := Grid.world_to_cell(player.global_position - world.current.position)
-	ok = _check(_standing(world) and landed.y == 10 and landed.x <= 8, "the player lands on room 3's entrance ledge (%s)" % landed) and ok
+	ok = _check(_standing(world) and landed.y == 8 and landed.x <= 8, "the player crosses level onto room 3's entrance ledge (%s)" % landed) and ok
 	ok = _check(camera.position.x >= 800.0 - 0.5, "the camera has slid to room 3 (%s)" % camera.position) and ok
 	player.scripted_x = 0.0
 	await _frames(90)

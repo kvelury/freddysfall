@@ -81,13 +81,13 @@ func _links(data) -> bool:
 	ok = _check(data.get_room("5").exit_on("left").dest_id == "6" and data.get_room("6").exit_on("right").dest_id == "5", "room 5's left door and room 6's right door lead to each other") and ok
 	ok = _check(data.get_room("6").exit_on("down").dest_id == "7" and data.get_room("7").exit_on("up").dest_id == "6", "room 6's floor door drops into room 7's ceiling door") and ok
 	ok = _check(data.get_room("7").screens == Vector2i(2, 4) and data.get_room("7").traps_allowed and not data.get_room("6").traps_allowed, "room 7 is two screens wide, four tall, and the only one-way room") and ok
-	ok = _check(side.dest_id == "3", "room 2 floor exit leads to 3") and ok
+	ok = _check(side.dest_id == "3", "room 2 side exit leads to 3") and ok
 	ok = _check(side_rect.position.y == 7 and side_rect.size == Vector2i(1, 2), "room 2 exit is a side door on its ledge (%s)" % side_rect) and ok
 	var back := c.exit_on("left")
 	var back_rect := back.rect
 	ok = _check(c.exit_on("up") == null, "room 3 ceiling stays solid") and ok
 	ok = _check(back.dest_id == "2", "room 3 side entrance leads back to 2") and ok
-	ok = _check(back_rect.position.y == 7 and back_rect.size == Vector2i(1, 4), "room 3 entrance is a door four tall above its ledge (%s)" % back_rect) and ok
+	ok = _check(back_rect.position.y == 7 and back_rect.size == Vector2i(1, 2), "room 3 entrance lines up with room 2 (%s)" % back_rect) and ok
 	return ok
 
 
@@ -109,7 +109,7 @@ func _crossing(data) -> bool:
 
 	# A door the body is not level with: it is carried along the wall to the far door.
 	var shifted := Door.crossing(two.exit_on("right"), three, Vector2(301.0, 145.0), run)
-	ok = _check(shifted["position"] == Vector2(659.5, 105.0), "crossing is clamped into the far door's rows (%s)" % shifted["position"]) and ok
+	ok = _check(shifted["position"] == Vector2(659.5, 85.0), "crossing is clamped into the far door's rows (%s)" % shifted["position"]) and ok
 
 	# Up and down, between two rooms in a column.
 	var shaft := _world([
@@ -265,7 +265,7 @@ func _reach_world(data) -> bool:
 	return ok
 
 
-## The player arrives in room 3 on a ledge low on its left wall. Nothing they
+## The player arrives in room 3 on a ledge level with room 2. Nothing they
 ## can do from there, without Imprint, may land them on the token's platform or
 ## the step beside it: they climb the staircase to the right instead.
 func _token_needs_the_climb(graph: ReachGraph) -> bool:
@@ -273,11 +273,11 @@ func _token_needs_the_climb(graph: ReachGraph) -> bool:
 	var token: ReachGraph.Ledge = null
 	var step: ReachGraph.Ledge = null
 	for ledge in graph.ledges_in("3"):
-		if ledge.row == 10 and ledge.x0 == 0:
+		if ledge.row == 8 and ledge.x0 == 0:
 			entrance = ledge
-		elif ledge.row == 4 and ledge.x0 == 7:
+		elif ledge.row == 4 and ledge.x0 == 18:
 			token = ledge
-		elif ledge.row == 5 and ledge.x0 == 16:
+		elif ledge.row == 5 and ledge.x0 == 26:
 			step = ledge
 	if entrance == null or token == null or step == null:
 		return false
