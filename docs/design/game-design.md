@@ -547,7 +547,7 @@ What was decided, in the order it came up, with the reason. Pull requests are na
 - **A room's exit rule blocks every door, including the one the player came in by,** with solid shaded blocks, not glows. `exits: pickups` is the first rule. A rule is a flag test, so a reload gives the same answer.
 - **The body is the inventory.** Tokens and the Imprint line are cut into the player's square, so no HUD is needed.
 
-**Save rooms and health (PR #NN)**
+**Save rooms and health (PR #26)**
 - **Dying with no health goes to the save room.** Health is a count of pips, none at the start. With a pip, a death spends it and keeps the old safe-floor respawn. A pip is a pickup that is designed and not built, so today every death goes to the save room.
 - **A save room is named `s<n>`, and has exactly one save machine.** The id says what the room is, so a numbered room can never be one and a save room cannot be without its machine.
 - **Entering a save room makes it the save room.** Before the first, a death goes to the start room's `P`. Only the latest counts.
