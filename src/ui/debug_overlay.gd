@@ -79,8 +79,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			_warp.text = "no such room"
 			return
 		_set_typing(false)
-	elif key.unicode >= 48 and key.unicode <= 57:
-		_typed += char(key.unicode)
+	elif (key.unicode >= 48 and key.unicode <= 57) or key.unicode == 115 or key.unicode == 83:
+		_typed += char(key.unicode).to_lower()
 	else:
 		return
 	_warp.text = "warp to room: %s_" % _typed

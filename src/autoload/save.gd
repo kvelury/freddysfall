@@ -9,7 +9,7 @@ extends Node
 ## into the current one; a file from a newer game, or one that cannot be
 ## read, is set aside as save.json.bad and the game starts fresh.
 
-const VERSION := 2
+const VERSION := 3
 ## Saves older than this are from a game whose rooms and rules cannot be
 ## carried over. Version 1 gave Imprint away in room 2, before tokens and the
 ## 3TM, so its flags and rooms mean something else now.
@@ -74,10 +74,29 @@ func erase() -> void:
 		DirAccess.remove_absolute(path)
 
 
-## Turns a file of an older VERSION into the current shape. There is only one
-## step so far; add one here each time VERSION goes up and OLDEST does not.
+## Turns a file of an older VERSION into the current shape. Add a step here
+## each time VERSION goes up and OLDEST does not.
 func _migrate(data: Dictionary) -> Dictionary:
+	if int(data["version"]) < 3:
+		# Version 3 made room 1 the first save room, s1, whose doors wait for
+		# its machine. A game from before had left room 1 already, so the machine
+		# counts as used and the player's last save is there.
+		data["room"] = _renamed(String(data.get("room", "")))
+		var visited := []
+		for id in (data["visited"] if data.get("visited") is Array else []):
+			visited.append(_renamed(String(id)))
+		data["visited"] = visited
+		var flags: Array = data["flags"] if data.get("flags") is Array else []
+		if not flags.has("save:s1_save"):
+			flags.append("save:s1_save")
+		data["flags"] = flags
+		data["save_room"] = "s1"
+		data["version"] = 3
 	return data
+
+
+func _renamed(room_id: String) -> String:
+	return "s1" if room_id == "1" else room_id
 
 
 func _set_aside(reason: String) -> void:

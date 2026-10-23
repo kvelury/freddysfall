@@ -8,7 +8,20 @@ Everything here passed its headless tests or was reported as unverified in a pul
 
 Played in the browser and found good, so these are not listed line by line any more: Imprint in the browser (placing, the preview, the cross, the blink), saving and resuming, the solver and the "needs" lines, movement and doors, the whole world map of PR #17 (rooms 1 to 7, the exit rules, the tokens on the body, the 3TM and its feeding, and the spent machine), and the Imprint look of PR #18 (the dotted cursor, placed platforms drawn over it, the countdown lines, and the blink), and the map zoom of PR #20 (the three levels, the legend, the level kept across reloads, a new game starting fresh, and the marker staying in its room), and the 2.5 second Imprint of PR #21 (the time, the four lines, and the blink on the last line). On 2026-10-22 the release export was also smoke-tested in Chrome: it loaded without console errors, sustained keyboard movement and running jumps worked, and the map opened while held and closed on release. The cloud test executor could not reliably observe and steer a whole platforming route, so that smoke did not replace the earlier full progression playthroughs. A new problem in any of them goes back on this list.
 
+## Save rooms
+
+Nobody has played these yet. Use `tools/build_web.sh`, `tools/serve.sh` and `?new-game=1` for the first.
+
+- [ ] **Room s1 on a new game.** The door in the right wall is blocked. Jump up to the middle platform: walking into the ring stops you for about a second, it lights segment by segment, the centre fills, a "Game saved" line shows, and the blocks shatter. Check the pause and the light feel right and are not too long.
+- [ ] **Stepping off and on again** saves again, with the same pause.
+- [ ] **Dying in room 5.** With no pips you come back in s1, standing on the machine, with no second pause and the door open. The whole route to room 5 is walked again.
+- [ ] **Reload** (a plain reload, not `?new-game=1`) after getting as far as room 5 or past the 3TM: you start on the machine in s1 with Imprint and the tokens you had, and rooms you took things in still have them gone.
+- [ ] **An old save.** If you have a save from before this change, a plain reload carries it over: you start in s1 with the door open.
+- [ ] **F4, `s`, `1`, Enter** warps to s1 in a debug build, and `?room=s1` starts there with the door blocked.
+
 ## Respawn
+
+The safe-floor respawns below only happen when the player has health, and no pip exists yet, so every death goes to s1 and these cannot be played. They are held by `hazard_test`, which gives the player health. Play them once the first pip can be found.
 
 - [ ] **Dying right after a door.** The respawn spot may be in the previous room. Check that it feels right, and that you do not die twice.
 - [ ] **A respawn that is not safe.** Make one by standing on an Imprint over spikes and then dying; you were shown this fixed. Also try standing half on a ledge and half on an Imprint.

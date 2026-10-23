@@ -44,12 +44,12 @@ func _feel(cfg: MovementConfig) -> bool:
 
 
 func _room_shapes(data) -> bool:
-	var info: RoomInfo = data.get_room("1")
+	var info: RoomInfo = data.get_room("s1")
 	var ok := true
-	ok = _check(_has_rect(info, Rect2i(6, 13, 5, 1)), "room 1 left platform rect") and ok
-	ok = _check(_has_rect(info, Rect2i(21, 13, 5, 1)), "room 1 right platform rect") and ok
-	ok = _check(_has_rect(info, Rect2i(14, 9, 5, 1)), "room 1 middle platform rect") and ok
-	ok = _check(_has_rect(info, Rect2i(23, 5, 9, 1)), "room 1 top platform rect") and ok
+	ok = _check(_has_rect(info, Rect2i(6, 13, 5, 1)), "room s1 left platform rect") and ok
+	ok = _check(_has_rect(info, Rect2i(21, 13, 5, 1)), "room s1 right platform rect") and ok
+	ok = _check(_has_rect(info, Rect2i(14, 9, 5, 1)), "room s1 middle platform rect") and ok
+	ok = _check(_has_rect(info, Rect2i(23, 5, 9, 1)), "room s1 top platform rect") and ok
 	var wide: RoomInfo = data.get_room("7")
 	var room := Room.new()
 	room.build(wide)
@@ -63,11 +63,11 @@ func _room_shapes(data) -> bool:
 
 
 func _links(data) -> bool:
-	var a: RoomInfo = data.get_room("1")
+	var a: RoomInfo = data.get_room("s1")
 	var b: RoomInfo = data.get_room("2")
 	var ok := true
-	ok = _check(a.exit_on("right").dest_id == "2", "room 1 right exit leads to 2") and ok
-	ok = _check(b.exit_on("left").dest_id == "1", "room 2 left exit leads to 1") and ok
+	ok = _check(a.exit_on("right").dest_id == "2", "room s1 right exit leads to 2") and ok
+	ok = _check(b.exit_on("left").dest_id == "s1", "room 2 left exit leads to s1") and ok
 	var c: RoomInfo = data.get_room("3")
 	var tall: RoomInfo = data.get_room("7")
 	ok = _check(c.screens == Vector2i(1, 1) and tall.screens == Vector2i(1, 4), "room 3 is one screen and room 7 is one by four") and ok
@@ -94,14 +94,14 @@ func _links(data) -> bool:
 ## Where a body appears on the far side of a door.
 func _crossing(data) -> bool:
 	var ok := true
-	var one: RoomInfo = data.get_room("1")
+	var one: RoomInfo = data.get_room("s1")
 	var two: RoomInfo = data.get_room("2")
 	var three: RoomInfo = data.get_room("3")
 	var run := Vector2(90.0, 0.0)
 
 	# Same place along the wall, same velocity, and just clear of the far door.
 	var across := Door.crossing(one.exit_on("right"), two, Vector2(301.0, 35.0), run)
-	ok = _check(across["position"] == Vector2(339.5, 35.0), "crossing room 1's door keeps height and pushes in (%s)" % across["position"]) and ok
+	ok = _check(across["position"] == Vector2(339.5, 35.0), "crossing room s1's door keeps height and pushes in (%s)" % across["position"]) and ok
 	ok = _check(across["velocity"] == run, "crossing keeps velocity") and ok
 	var body := Rect2(across["position"] - Vector2(5, 5), Vector2(10, 10))
 	var trigger := two.exit_on("left").trigger_rect()

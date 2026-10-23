@@ -8,10 +8,12 @@ extends RefCounted
 
 const OPEN := "open"
 const PICKUPS := "pickups"
+const SAVED := "saved"
 
 const RULES := {
 	"open": "The doors are always open.",
 	"pickups": "The doors open once every pickup and token in the room has been taken.",
+	"saved": "The doors open once the room's save machine has been used.",
 }
 
 
@@ -25,6 +27,8 @@ static func problem(rule: String, info: RoomInfo) -> String:
 		return "exits: \"%s\" is not a rule (rules: %s)" % [rule, ", ".join(RULES.keys())]
 	if rule == PICKUPS and not info.entities.any(func(def: EntityDef) -> bool: return Entities.is_collectible(def)):
 		return "exits: pickups, but the room has no pickup or token to take"
+	if rule == SAVED and not info.entities.any(func(def: EntityDef) -> bool: return def.type == "save"):
+		return "exits: saved, but the room has no save machine"
 	return ""
 
 
@@ -36,5 +40,9 @@ static func met(info: RoomInfo, flags: Dictionary) -> bool:
 		PICKUPS:
 			for def in info.entities:
 				if Entities.is_collectible(def) and Entities.present(def, flags):
+					return false
+		SAVED:
+			for def in info.entities:
+				if def.type == "save" and not flags.has(SaveMachine.flag_for(def)):
 					return false
 	return true

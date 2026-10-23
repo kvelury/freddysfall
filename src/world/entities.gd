@@ -13,6 +13,7 @@ const TYPES := {
 	"pickup": {"required": ["upgrade"], "optional": ["value"]},
 	"token": {"required": [], "optional": []},
 	"machine": {"required": ["upgrade"], "optional": ["value"]},
+	"save": {"required": [], "optional": []},
 }
 
 
@@ -28,14 +29,22 @@ static func is_collectible(def: EntityDef) -> bool:
 	return COLLECTIBLE.has(def.type)
 
 
-## Whether the player works it by touching it: collectibles and 3TMs.
+## Whether the player works it by touching it: collectibles, 3TMs and save
+## machines. A save machine is not collectible, so a room's `exits: pickups`
+## never waits for it.
 static func is_touchable(def: EntityDef) -> bool:
-	return COLLECTIBLE.has(def.type) or def.type == "machine"
+	return COLLECTIBLE.has(def.type) or def.type == "machine" or def.type == "save"
 
 
-## The key in the player's flags that says a pickup or token was taken.
+## The key in the player's flags that says a pickup or token was taken, or a
+## save machine used.
 static func flag_for(def: EntityDef) -> String:
-	return Token.flag_for(def) if def.type == "token" else Pickup.flag_for(def)
+	match def.type:
+		"token":
+			return Token.flag_for(def)
+		"save":
+			return SaveMachine.flag_for(def)
+	return Pickup.flag_for(def)
 
 
 ## What is wrong with a legend line's settings, as sentences. `def` has its
@@ -82,4 +91,6 @@ static func create(def: EntityDef, fills := {}) -> Node2D:
 			return Token.new(def)
 		"machine":
 			return TokenMachine.new(def, int(fills.get(def.id, 0)))
+		"save":
+			return SaveMachine.new(def)
 	return null

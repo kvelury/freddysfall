@@ -70,10 +70,10 @@ func _run() -> void:
 	player.scripted_x = -1.0
 	for i in 240:
 		await physics_frame
-		if world.current.info.id == "1" and player.input_enabled:
+		if world.current.info.id == "s1" and player.input_enabled:
 			break
 	player.scripted_x = 0.0
-	ok = _check(world.current.info.id == "1", "the door works now, into room 1") and ok
+	ok = _check(world.current.info.id == "s1", "the door works now, into room s1") and ok
 
 	# A full pocket leaves the next token where it is.
 	world.warp_to("3")
@@ -95,7 +95,7 @@ func _run() -> void:
 	state.reset()
 	world = await _world()
 	room = world.current
-	ok = _check(room.info.id == "3", "starting again resumes where the last save was (%s)" % room.info.id) and ok
+	ok = _check(room.info.id == "s1", "starting again resumes at the save room, not where the player was (%s)" % room.info.id) and ok
 	ok = _check(state.has_flag("token:r2_token") and state.tokens == 2, "with the token flags and the two carried (%d)" % state.tokens) and ok
 	world.warp_to("2")
 	ok = _check(not world.current.locked and _count(world.current, "DoorBlock") == 0, "and room 2 comes up with its doors open") and ok

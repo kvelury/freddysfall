@@ -18,6 +18,7 @@ save_test.gd
 map_test.gd
 cache_test.gd
 token_test.gd
+save_room_test.gd
 machine_test.gd
 imprint_test.gd
 imprint_play_test.gd
@@ -70,8 +71,8 @@ if tag != f"g{digest}":
 pck = web / "index.pck"
 wasm = web / "index.wasm"
 pck_bytes = pck.read_bytes()
-if b"data/rooms/1.txt" not in pck_bytes:
-    sys.exit("index.pck does not contain data/rooms/1.txt")
+if b"data/rooms/s1.txt" not in pck_bytes:
+    sys.exit("index.pck does not contain data/rooms/s1.txt")
 if hashlib.sha256(pck_bytes).hexdigest()[:12] != digest:
     sys.exit("index.html cache tag does not match index.pck")
 
@@ -101,4 +102,4 @@ for suffix in (".pck", ".wasm", ".audio.worklet.js", ".audio.position.worklet.js
 print(f"web export ok ({tag})")
 PY
 
-echo "CHECK pass: 16 tests, uncached world validation, and web export"
+echo "CHECK pass: 17 tests, uncached world validation, and web export"

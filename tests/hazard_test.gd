@@ -20,6 +20,10 @@ func _run() -> void:
 	await process_frame
 	var player: Player = world.get_node("Player")
 	player.scripted = true
+	# With no health a death goes to the save room (save_room_test covers that).
+	# This test is about coming back on safe floor, which is what a death with
+	# health does.
+	root.get_node("GameState").health = 99
 	var room: Room = world.current
 	var ok := true
 

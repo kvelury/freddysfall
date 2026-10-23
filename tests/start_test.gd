@@ -17,10 +17,10 @@ func _initialize() -> void:
 func _run() -> void:
 	var ok := true
 	ok = await _start("3", "3", "start_override puts the player in room 3") and ok
-	ok = await _start("99", "1", "an unknown room falls back to the start room") and ok
-	ok = await _start("", "1", "no request starts in the start room") and ok
+	ok = await _start("99", "s1", "an unknown room falls back to the start room") and ok
+	ok = await _start("", "s1", "no request starts in the start room") and ok
 
-	var world: Node = await _world("1")
+	var world: Node = await _world("s1")
 	ok = _check(world.warp_to("2") and _in(world, "2"), "warp_to moves the player to room 2") and ok
 	ok = _check(not world.warp_to("99") and _in(world, "2"), "warp_to refuses an unknown room and stays put") and ok
 	ok = _check(world.warp_to("3") and _stands(world), "after a warp the player is standing on floor") and ok
@@ -37,6 +37,11 @@ func _run() -> void:
 	_press(overlay, KEY_2, 50)
 	_press(overlay, KEY_ENTER)
 	ok = _check(_in(world, "3"), "keys typed after Escape do nothing") and ok
+	_press(overlay, KEY_F4)
+	_press(overlay, KEY_S, 115)
+	_press(overlay, KEY_1, 49)
+	_press(overlay, KEY_ENTER)
+	ok = _check(_in(world, "s1"), "F4, s, 1, Enter warps to save room s1") and ok
 	print("START %s" % ("pass" if ok else "fail"))
 	quit(0 if ok else 1)
 

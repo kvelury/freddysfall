@@ -22,6 +22,13 @@ var flags := {}
 var tokens := 0
 ## How many tokens each 3TM holds, by its id. At three it has given its upgrade.
 var machines := {}
+## The save room the player last entered, or "" before they have entered one.
+## Dying with no health puts them back at its save machine.
+var save_room := ""
+## Health pips. The player starts with none. Dying with one or more spends one
+## and puts them back on the last safe floor; dying with none sends them to
+## their save room.
+var health := 0
 
 
 func visit(room_id: String) -> void:
@@ -85,6 +92,8 @@ func to_dict() -> Dictionary:
 		"tokens": tokens,
 		"machines": machines.duplicate(),
 		"map_zoom": map_zoom,
+		"save_room": save_room,
+		"health": health,
 	}
 
 
@@ -104,6 +113,9 @@ func load_dict(data: Dictionary) -> void:
 			machines[String(id)] = clampi(int(held[id]), 0, TokenMachine.COST)
 	tokens = clampi(int(data.get("tokens", 0)), 0, TOKEN_CAP)
 	map_zoom = MapView.clamp_level(int(data.get("map_zoom", MapView.MIDDLE)))
+	var saved_room = data.get("save_room", "")
+	save_room = String(saved_room) if saved_room is String else ""
+	health = maxi(0, int(data.get("health", 0)))
 	tokens_changed.emit()
 	var saved = data.get("abilities", {})
 	abilities = Abilities.from_dict(saved if saved is Dictionary else {})
