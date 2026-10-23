@@ -2,7 +2,7 @@ extends SceneTree
 
 ## The player and the reach solver have to move the same. Each case replays one
 ## input plan through the real Player node and through MovementSim.simulate_jump
-## in room 1, and the two must end in the same place.
+## in room s1, and the two must end in the same place.
 
 const TOLERANCE := 0.01
 
@@ -18,7 +18,7 @@ func _initialize() -> void:
 
 func _run() -> void:
 	var world := (load("res://src/world/world.tscn") as PackedScene).instantiate()
-	world.start_override = "1"
+	world.start_override = "s1"
 	root.add_child(world)
 	await process_frame
 	# Stop the world ticking by itself, so the test is the only thing moving.

@@ -24,6 +24,8 @@ static func build(entries: Array, start_room: String, errors: Array[String]) -> 
 	var by_pos := {}
 	var order: Array[RoomInfo] = []
 	for entry in entries:
+		if not is_valid_id(String(entry["id"])):
+			errors.append("Room id \"%s\" is not allowed; a room id is a number (\"4\") or s and a number (\"s1\", a save room)" % String(entry["id"]))
 		var info := parse_room(String(entry["id"]), Vector2i(entry["grid_pos"]), String(entry["text"]), errors)
 		if rooms.has(info.id):
 			errors.append("Room id %s is listed twice" % info.id)
@@ -55,6 +57,12 @@ static func build(entries: Array, start_room: String, errors: Array[String]) -> 
 	return {"rooms": rooms, "by_pos": by_pos}
 
 
+## Whether `id` is a number, or `s` and a number for a save room.
+static func is_valid_id(id: String) -> bool:
+	var digits := id.substr(1) if RoomInfo.is_save_id(id) else id
+	return not digits.is_empty() and digits.is_valid_int() and not digits.begins_with("-") and not digits.begins_with("+")
+
+
 static func parse_room(id: String, grid_pos: Vector2i, text: String, errors: Array[String]) -> RoomInfo:
 	var info := RoomInfo.new()
 	info.id = id
@@ -67,6 +75,7 @@ static func parse_room(id: String, grid_pos: Vector2i, text: String, errors: Arr
 	info.rows = _read_rows(String(parts["grid"]), id, errors)
 	_apply_size(info)
 	_scan_cells(info, errors)
+	_check_save_things(info, errors)
 	var problem := ExitRules.problem(info.exit_rule, info)
 	if not problem.is_empty():
 		errors.append("Room %s: %s" % [id, problem])
@@ -159,24 +168,46 @@ static func _place_entities(info: RoomInfo, placements: Dictionary, errors: Arra
 			errors.append("Room %s: legend glyph '%s' (%s %s) is drawn %d times, at %s and elsewhere; each one needs its own glyph and id" % [info.id, glyph, def.type, def.id, cells.size(), cells[0]])
 		else:
 			def.cell = cells[0]
-			if def.type == "machine":
+			if def.type == "machine" or def.type == "save":
 				var problem := _machine_space(info, def)
+				if def.type == "save" and problem.is_empty():
+					problem = _save_floor(info, def)
 				if not problem.is_empty():
 					errors.append(problem)
 			info.entities.append(def)
 
 
-## A 3TM fills 3 x 3 cells, and they have to be open air: not wall, a door,
-## spikes, or another thing. Returns the first problem as a sentence, or "".
+## A save room has exactly one save machine, and no other room has one.
+static func _check_save_things(info: RoomInfo, errors: Array[String]) -> void:
+	var saves := info.entities.filter(func(def: EntityDef) -> bool: return def.type == "save").size()
+	if info.is_save_room() and saves != 1:
+		errors.append("Room %s is a save room (its id starts with s) and needs exactly one save machine in its legend, but has %d" % [info.id, saves])
+	elif not info.is_save_room() and saves > 0:
+		errors.append("Room %s has a save machine, but only a room whose id is s and a number (like s1) can be a save room" % info.id)
+
+
+## A save machine's glyph is where the player comes back, so the cell under it
+## must be solid for them to stand on. Returns a sentence, or "".
+static func _save_floor(info: RoomInfo, def: EntityDef) -> String:
+	var below := def.cell + Vector2i(0, 1)
+	if below.y >= info.rows.size() or below.x >= info.rows[below.y].length() or not Tiles.has_flag(info.rows[below.y][below.x], "solid"):
+		return "Room %s: save machine %s at %s needs solid floor in the cell under it (%d,%d), for the player to stand on" % [info.id, def.id, def.cell, below.x, below.y]
+	return ""
+
+
+## A 3TM or a save machine fills 3 x 3 cells, and they have to be open air: not
+## wall, a door, spikes, or another thing. Returns the first problem as a
+## sentence, or "".
 static func _machine_space(info: RoomInfo, def: EntityDef) -> String:
 	var space := TokenMachine.footprint(def.cell)
+	var label := "3TM" if def.type == "machine" else "save machine"
 	for y in range(space.position.y, space.end.y):
 		for x in range(space.position.x, space.end.x):
 			var glyph := ""
 			if y >= 0 and y < info.rows.size() and x >= 0 and x < info.rows[y].length():
 				glyph = info.rows[y][x]
 			if glyph != Tiles.EMPTY and glyph != Tiles.NO_IMPRINT and glyph != def.glyph:
-				return "Room %s: 3TM %s at %s needs open air in the 3 x 3 cells it fills (%d,%d to %d,%d), but cell %d,%d is '%s'" % [info.id, def.id, def.cell, space.position.x, space.position.y, space.end.x - 1, space.end.y - 1, x, y, glyph if not glyph.is_empty() else "outside the room"]
+				return "Room %s: %s %s at %s needs open air in the 3 x 3 cells it fills (%d,%d to %d,%d), but cell %d,%d is '%s'" % [info.id, label, def.id, def.cell, space.position.x, space.position.y, space.end.x - 1, space.end.y - 1, x, y, glyph if not glyph.is_empty() else "outside the room"]
 	return ""
 
 

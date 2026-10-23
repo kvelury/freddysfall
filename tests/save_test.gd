@@ -102,6 +102,29 @@ func _file() -> bool:
 	save.load_game()
 	ok = _check(state.map_zoom == 2, "a save keeps the map's zoom (%d)" % state.map_zoom) and ok
 
+	# The save room and the health come back, and a damaged value cannot hurt.
+	state.reset()
+	ok = _check(state.save_room == "" and state.health == 0, "a new game has no save room and no health") and ok
+	state.save_room = "s1"
+	state.health = 3
+	save.write("s1", Vector2(165, 85))
+	state.reset()
+	ok = _check(state.save_room == "" and state.health == 0, "resetting forgets them") and ok
+	where = save.load_game()
+	ok = _check(state.save_room == "s1" and state.health == 3 and where.get("room") == "s1", "a save keeps the save room and the health (%s, %d)" % [state.save_room, state.health]) and ok
+	_write('{"version": 3, "room": "s1", "position": [10, 10], "save_room": 5, "health": -4}')
+	save.load_game()
+	ok = _check(state.save_room == "" and state.health == 0, "a save room that is not text, or health below zero, is dropped (%s, %d)" % [state.save_room, state.health]) and ok
+
+	# A game from before room 1 became the save room s1 carries over.
+	_write('{"version": 2, "room": "1", "position": [10, 10], "visited": ["1", "2"], "flags": ["token:r2_token"]}')
+	where = save.load_game()
+	ok = _check(where.get("room") == "s1" and state.visited.has("s1") and state.visited.has("2") and not state.visited.has("1"), "a version 2 save has room 1 renamed s1 (%s, %s)" % [where, state.visited.keys()]) and ok
+	ok = _check(state.has_flag("save:s1_save") and state.has_flag("token:r2_token") and state.save_room == "s1", "its machine counts as used and it keeps what it had") and ok
+	_write('{"version": 2, "room": "1", "position": [10, 10], "visited": "x", "flags": 5}')
+	where = save.load_game()
+	ok = _check(where.get("room") == "s1" and state.has_flag("save:s1_save"), "and a version 2 save with damaged lists still loads") and ok
+
 	save.enabled = false
 	ok = _check(not save.write("3", Vector2.ZERO) and save.load_game().is_empty(), "a disabled save neither writes nor reads") and ok
 	save.enabled = true

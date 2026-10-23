@@ -15,6 +15,7 @@ func _initialize() -> void:
 	ok = _many_rounds() and ok
 	ok = _forbidden() and ok
 	ok = _locks() and ok
+	ok = _saved_lock() and ok
 	ok = _machines() and ok
 	ok = _one_way() and ok
 	ok = _tall_fall() and ok
@@ -126,6 +127,39 @@ func _forbidden() -> bool:
 	abilities.imprint_unlocked = true
 	var report := ReachGraph.new(rooms, _cfg, abilities).analyze("1")
 	ok = _check(_has(report.errors, "Room 2 cannot be reached"), "~ cells over the pit forbid the platform, and the room stays shut %s" % [report.errors]) and ok
+	return ok
+
+
+## `exits: saved`: the doors of a save room wait for its machine, which is
+## touched like a pickup but gives nothing.
+func _saved_lock() -> bool:
+	var ok := true
+	var legend := "exits: saved\nlegend:\n  S = save id=s2_save\n---\n"
+	var door_right := {Vector2i(31, 15): "X", Vector2i(31, 16): "X"}
+	var door_left := {Vector2i(0, 15): "X", Vector2i(0, 16): "X"}
+	var first := {Vector2i(2, 16): "P"}
+	first.merge(door_right)
+	var third := door_left
+
+	# The machine stands on the floor of the second room, which has a third behind it.
+	var second := {Vector2i(10, 16): "S"}
+	second.merge(door_left)
+	second.merge(door_right)
+	var rooms := _rooms([[first, ""], [second, legend], [third, ""]], false, ["1", "s2", "3"])
+	var things := ReachGraph.new(rooms, _cfg).geometry_of(rooms["s2"]).things
+	ok = _check(things.size() == 1 and things[0].size == Vector2(30, 30), "the solver touches a save machine over its whole 30 x 30 area, as the game does (%s)" % [things]) and ok
+	var report := ReachGraph.new(rooms, _cfg).solve("1")
+	ok = _check(report.errors.is_empty() and report.reached_rooms.has("3"), "a save room whose machine is on its floor lets the player through %s" % [report.errors]) and ok
+	ok = _check(report.pickups.any(func(p: Dictionary) -> bool: return p["id"] == "s2_save" and p["type"] == "save" and p["reached"]), "and the machine is listed as reached") and ok
+	ok = _check(report.needs.get("3") == [], "taking it gives nothing, so the room behind needs nothing (%s)" % [report.needs.get("3")]) and ok
+
+	# The machine on a platform nobody can jump up to: the doors stay shut.
+	second = {Vector2i(10, 8): "S", Vector2i(9, 9): "#", Vector2i(10, 9): "#", Vector2i(11, 9): "#"}
+	second.merge(door_left)
+	second.merge(door_right)
+	rooms = _rooms([[first, ""], [second, legend], [third, ""]], false, ["1", "s2", "3"])
+	report = ReachGraph.new(rooms, _cfg).solve("1")
+	ok = _check(_has(report.errors, "Room 3 cannot be reached") and _has(report.errors, "save s2_save"), "a machine that cannot be reached shuts the way on, and is named %s" % [report.errors]) and ok
 	return ok
 
 
@@ -299,10 +333,10 @@ func _tall(rows: int) -> String:
 
 ## Rooms from the left, one screen each, or from the top when `vertical`, built
 ## from [marks, header] pairs.
-func _rooms(parts: Array, vertical := false) -> Dictionary:
+func _rooms(parts: Array, vertical := false, ids := []) -> Dictionary:
 	var entries: Array = []
 	for i in parts.size():
-		entries.append({"id": str(i + 1), "grid_pos": Vector2i(0, i) if vertical else Vector2i(i, 0), "text": String(parts[i][1]) + _room(parts[i][0])})
+		entries.append({"id": String(ids[i]) if i < ids.size() else str(i + 1), "grid_pos": Vector2i(0, i) if vertical else Vector2i(i, 0), "text": String(parts[i][1]) + _room(parts[i][0])})
 	var errors: Array[String] = []
 	var built := RoomParser.build(entries, "1", errors)
 	if not errors.is_empty():

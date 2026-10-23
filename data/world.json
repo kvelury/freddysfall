@@ -1,7 +1,7 @@
 {
-  "start_room": "1",
+  "start_room": "s1",
   "rooms": [
-    {"id": "1", "grid_pos": [0, 0]},
+    {"id": "s1", "grid_pos": [0, 0]},
     {"id": "2", "grid_pos": [1, 0]},
     {"id": "3", "grid_pos": [2, 0]},
     {"id": "4", "grid_pos": [2, 1]},

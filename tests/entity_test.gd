@@ -12,6 +12,7 @@ func _initialize() -> void:
 	ok = _legend_lines() and ok
 	ok = _placement() and ok
 	ok = _machines() and ok
+	ok = _save_rooms() and ok
 	ok = _exit_rules() and ok
 	ok = _trap_line() and ok
 	ok = _world_ids() and ok
@@ -117,6 +118,58 @@ func _machines() -> bool:
 	errors.clear()
 	RoomParser.parse_room("7", Vector2i.ZERO, _room(["legend:", "  M = machine id=m1 upgrade=fly"], {Vector2i(5, 16): "M"}), errors)
 	ok = _check(_has(errors, "no upgrade \"fly\""), "or one that gives an upgrade that does not exist (%s)" % [errors]) and ok
+	return ok
+
+
+func _save_rooms() -> bool:
+	var ok := true
+	var legend := ["legend:", "  S = save id=s2_save"]
+	var errors: Array[String] = []
+	var info := RoomParser.parse_room("s2", Vector2i.ZERO, _room(legend, {Vector2i(5, 16): "S"}), errors)
+	ok = _check(errors.is_empty() and info.entities.size() == 1 and info.entities[0].type == "save", "a save room with its machine on the floor loads %s" % [errors]) and ok
+	ok = _check(info.is_save_room() and info.save_cell() == Vector2i(5, 16), "it is a save room and knows where its machine is (%s)" % [info.save_cell()]) and ok
+	ok = _check(not RoomParser.parse_room("7", Vector2i.ZERO, _room([], {}), errors).is_save_room(), "a numbered room is not one") and ok
+	errors.clear()
+	info = RoomParser.parse_room("s2", Vector2i.ZERO, _room(legend, {Vector2i(5, 12): "S", Vector2i(5, 13): "#", Vector2i(4, 13): "#", Vector2i(6, 13): "#"}), errors)
+	ok = _check(errors.is_empty(), "a machine on a platform loads %s" % [errors]) and ok
+
+	errors.clear()
+	RoomParser.parse_room("7", Vector2i.ZERO, _room(legend, {Vector2i(5, 16): "S"}), errors)
+	ok = _check(_has(errors, "only a room whose id is s and a number"), "a save machine in a numbered room is an error (%s)" % [errors]) and ok
+	errors.clear()
+	RoomParser.parse_room("s2", Vector2i.ZERO, _room([], {}), errors)
+	ok = _check(_has(errors, "needs exactly one save machine") and _has(errors, "has 0"), "a save room with no machine is an error (%s)" % [errors]) and ok
+	errors.clear()
+	RoomParser.parse_room("s2", Vector2i.ZERO, _room(["legend:", "  S = save id=s2_save", "  T = save id=s2_other"], {Vector2i(5, 16): "S", Vector2i(15, 16): "T"}), errors)
+	ok = _check(_has(errors, "needs exactly one save machine") and _has(errors, "has 2"), "and one with two is too (%s)" % [errors]) and ok
+	errors.clear()
+	RoomParser.parse_room("s2", Vector2i.ZERO, _room(legend, {Vector2i(5, 12): "S"}), errors)
+	ok = _check(_has(errors, "save machine s2_save") and _has(errors, "solid floor"), "a machine over air, where nobody could stand to come back, is an error (%s)" % [errors]) and ok
+	errors.clear()
+	RoomParser.parse_room("s2", Vector2i.ZERO, _room(legend, {Vector2i(1, 16): "S"}), errors)
+	ok = _check(_has(errors, "save machine s2_save") and _has(errors, "open air"), "one whose footprint reaches the wall is an error (%s)" % [errors]) and ok
+	errors.clear()
+	RoomParser.parse_room("s2", Vector2i.ZERO, _room(["legend:", "  S = save id=s2_save upgrade=imprint"], {Vector2i(5, 16): "S"}), errors)
+	ok = _check(_has(errors, "upgrade="), "a save machine takes no settings (%s)" % [errors]) and ok
+
+	errors.clear()
+	info = RoomParser.parse_room("s2", Vector2i.ZERO, _room(["exits: saved"] + legend, {Vector2i(5, 16): "S"}), errors)
+	ok = _check(errors.is_empty() and info.exit_rule == "saved", "exits: saved loads in a room with a save machine %s" % [errors]) and ok
+	ok = _check(not ExitRules.met(info, {}) and not ExitRules.met(info, {"save:other": true}) and ExitRules.met(info, {"save:s2_save": true}), "and the doors wait for that machine's flag") and ok
+	errors.clear()
+	RoomParser.parse_room("7", Vector2i.ZERO, _room(["exits: saved"], {}), errors)
+	ok = _check(_has(errors, "no save machine"), "exits: saved with no machine is an error (%s)" % [errors]) and ok
+	errors.clear()
+	RoomParser.parse_room("s2", Vector2i.ZERO, _room(["exits: pickups"] + legend, {Vector2i(5, 16): "S"}), errors)
+	ok = _check(_has(errors, "no pickup or token"), "a save machine is not something to take for exits: pickups (%s)" % [errors]) and ok
+
+	for id in ["4", "12", "s1", "s12"]:
+		ok = _check(RoomParser.is_valid_id(id), "room id %s is allowed" % id) and ok
+	for id in ["", "s", "a3", "-1", "s-1", "1a", "+2", "ss1", "1s"]:
+		ok = _check(not RoomParser.is_valid_id(id), "room id \"%s\" is not" % id) and ok
+	errors.clear()
+	RoomParser.build([{"id": "a3", "grid_pos": Vector2i.ZERO, "text": _room([], {Vector2i(2, 16): "P"})}], "a3", errors)
+	ok = _check(_has(errors, "\"a3\" is not allowed"), "a world with a room called a3 is an error (%s)" % [errors]) and ok
 	return ok
 
 

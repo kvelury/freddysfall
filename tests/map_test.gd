@@ -140,8 +140,8 @@ func _overlay() -> bool:
 	var ok := true
 	var state: Node = root.get_node("GameState")
 	state.reset()
-	state.current_room_id = "1"
-	for id in ["1", "2", "3", "4", "5", "6", "7"]:
+	state.current_room_id = "s1"
+	for id in ["s1", "2", "3", "4", "5", "6", "7"]:
 		state.visited[id] = true
 
 	var stub := GDScript.new()
@@ -204,7 +204,7 @@ func _overlay() -> bool:
 	ok = _check(state.map_zoom == MapView.IN, "a saved game brings the level back") and ok
 	state.load_dict({"map_zoom": 9})
 	ok = _check(state.map_zoom == MapView.IN, "a level out of range in a save is brought back in range") and ok
-	state.load_dict({"visited": ["1"]})
+	state.load_dict({"visited": ["s1"]})
 	ok = _check(state.map_zoom == MapView.MIDDLE, "a save from before the zoom existed opens at the middle") and ok
 
 	parent.queue_free()
@@ -222,7 +222,7 @@ func _new_game() -> bool:
 	save.enabled = true
 	DirAccess.remove_absolute(TEMP)
 	state.reset()
-	state.visit("1")
+	state.visit("s1")
 	state.visit("2")
 	state.map_zoom = MapView.OUT
 	ok = _check(save.write("2", Vector2(100, 100)), "a game is saved with the map zoomed out") and ok
@@ -238,13 +238,13 @@ func _new_game() -> bool:
 	# A new game: the file goes at once, before anything is autosaved.
 	world = await _world(true)
 	ok = _check(not FileAccess.file_exists(TEMP), "a new game deletes the save straight away") and ok
-	ok = _check(world.current.info.id == "1" and state.map_zoom == MapView.MIDDLE and state.visited.size() == 1, "it starts in room 1 with nothing visited, the map at the middle (%s, level %d, %d visited)" % [world.current.info.id, state.map_zoom, state.visited.size()]) and ok
+	ok = _check(world.current.info.id == "s1" and state.map_zoom == MapView.MIDDLE and state.visited.size() == 1, "it starts in room s1 with nothing visited, the map at the middle (%s, level %d, %d visited)" % [world.current.info.id, state.map_zoom, state.visited.size()]) and ok
 	world.queue_free()
 	await process_frame
 
 	# So a reload after that has nothing to bring back.
 	world = await _world(false)
-	ok = _check(world.current.info.id == "1" and state.map_zoom == MapView.MIDDLE, "reloading right after a new game cannot bring the old game back") and ok
+	ok = _check(world.current.info.id == "s1" and state.map_zoom == MapView.MIDDLE, "reloading right after a new game cannot bring the old game back") and ok
 	world.queue_free()
 	await process_frame
 	DirAccess.remove_absolute(TEMP)
@@ -302,7 +302,7 @@ func _marker_in_room() -> bool:
 	var state: Node = root.get_node("GameState")
 	state.reset()
 	var world: Node = await _world(true)
-	for id in ["1", "2", "3", "4", "5", "6", "7"]:
+	for id in ["s1", "2", "3", "4", "5", "6", "7"]:
 		state.visited[id] = true
 	world.warp_to("7")
 	var player: Player = world.get_node("Player")

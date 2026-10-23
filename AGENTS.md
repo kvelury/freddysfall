@@ -8,11 +8,11 @@ Run from the repo root.
 
 | Command | What it does |
 | --- | --- |
-| `tools/check.sh` | The complete automated gate before a pull request: imports once, runs all 16 headless tests, validates the world without cache, builds the release web export, and checks its room data and cache-tagged files. CI runs this command too. It leaves `build/web/` ready for `tools/serve.sh` and the user's playthrough. |
+| `tools/check.sh` | The complete automated gate before a pull request: imports once, runs all 17 headless tests, validates the world without cache, builds the release web export, and checks its room data and cache-tagged files. CI runs this command too. It leaves `build/web/` ready for `tools/serve.sh` and the user's playthrough. |
 | `tools/validate.sh` | Loads every room and solves the world, with Imprint, taking pickups and tokens as it goes. A room is not done until this exits 0. It also prints what each room, ledge and pickup needs, and where the time went. What it works out about each room is kept in `build/solver-cache/`, so a run after editing one room only redoes that room (about 2 s instead of 16); `--no-cache` ignores it, and deleting `build/` clears it. |
 | `tools/render.sh [ids]` | PNGs of rooms and the world map in `build/renders/`. Read them to see what you built. |
 | `tools/snap.sh <id>` | A real in-game frame of a room in `build/snaps/`. Opens a window for a second, so run it on the user's machine. |
-| `godot --headless --path . --script tests/<name>.gd` | `reach_test`, `physics_test`, `parity_test`, `door_test`, `shaft_test`, `hazard_test`, `start_test`, `entity_test`, `save_test`, `map_test`, `cache_test`, `token_test`, `machine_test`, `imprint_test`, `imprint_play_test`, `imprint_solver_test`. Each prints a pass line and exits 0. |
+| `godot --headless --path . --script tests/<name>.gd` | `reach_test`, `physics_test`, `parity_test`, `door_test`, `shaft_test`, `hazard_test`, `start_test`, `entity_test`, `save_test`, `map_test`, `cache_test`, `token_test`, `save_room_test`, `machine_test`, `imprint_test`, `imprint_play_test`, `imprint_solver_test`. Each prints a pass line and exits 0. |
 | `godot --path . -- --room=<id>` | Play starting in a room. In the browser, `?room=<id>`. In a debug build, F4, the number, Enter. |
 | `tools/build_web.sh` then `tools/serve.sh` | The browser build at http://localhost:8060. |
 
@@ -24,7 +24,7 @@ Do not playtest Freddy's Fall inside the Cloud Agent environment, and do not rec
 
 ## Room files
 
-A room is `data/rooms/<id>.txt`, and is listed in `data/world.json` as `{"id": "<id>", "grid_pos": [x, y]}`. The id is a number. `grid_pos` is the screen cell of the room's top-left corner, so a room one screen to the right of room 1 is `[1, 0]`. The file name is always the id.
+A room is `data/rooms/<id>.txt`, and is listed in `data/world.json` as `{"id": "<id>", "grid_pos": [x, y]}`. The id is a number, or `s` and a number for a save room (`s1`, `s2`, …). `grid_pos` is the screen cell of the room's top-left corner, so a room one screen to the right of `s1` is `[1, 0]`. The file name is always the id.
 
 A screen is **32 columns by 18 rows**, one cell being 10 px. A room is a whole number of screens in each direction: 32 or 64 columns, 18 or 36 rows. Two rooms may not occupy the same screen cell.
 
@@ -35,13 +35,13 @@ A screen is **32 columns by 18 rows**, one cell being 10 px. A room is a whole n
 | `X` | A door: an opening in the room's outer wall. |
 | `P` | Where the player starts. Required in the start room. In any other room it is where `--room=<id>` puts the player. |
 | `~` | A cell that refuses an Imprint. Open air otherwise, and not drawn. |
-| `^` | Spikes. Not solid. The player dies on touching one and comes back on the last safe floor. |
+| `^` | Spikes. Not solid. The player dies on touching one. With health they come back on the last safe floor, and with none at their save room. |
 
 Letters and digits that the legend below defines are also allowed. Any other character is an error. Every cell on the border of a room has to be `#` or `X`, and an `X` cannot sit on a corner.
 
 **Doors.** Doors are crossed with momentum: a body keeps its speed and its place along the wall, and is pushed about 20 px (two cells) into the next room, so leave that much clear space behind a door. A door in a floor drops the player in. A door in a ceiling lifts them: aim the room below so a platform within a jump of it leads up to the hole, and leave the room above floor on one side of the hole to land on. Draw an `X` run in the outer wall, one cell thick. It pairs with the `X` run on the facing wall of the room that sits next to it, and the two have to overlap along the wall. A door that crosses a screen boundary is split into one door per screen. If nothing sits on the far side, the door is sealed to wall until a room is placed there. If a room sits there and the doors do not line up, that is an error.
 
-**Things in a room (the legend).** A room that holds a pickup, a token or a 3TM starts with a header, then a line of three dashes, then the grid as usual:
+**Things in a room (the legend).** A room that holds a pickup, a token, a 3TM or a save machine starts with a header, then a line of three dashes, then the grid as usual:
 
 ```
 exits: pickups
@@ -52,9 +52,9 @@ legend:
 ######...
 ```
 
-`T` and `M` are any letter or digit the glyph table does not use. Draw one once in the grid, in open air or on a platform, and never in the outer wall. A legend glyph is one thing: two tokens need two glyphs and two ids. `id` is required, stable, and unique across the whole world, because the save remembers a pickup by it: never rename one, and never derive it from where it sits. `upgrade` is a key of `data/upgrades.json` (`imprint`, `imprint_width`, `imprint_duration`, `imprint_max_active`, `imprint_effect`), and `value` is a whole number, a number, or an effect name to match. `imprint` itself takes no `value`. A pickup, token or 3TM that no jump can touch is a validation error. A `token` takes only an `id`: the player carries up to three. A `machine` (a 3TM) takes `upgrade` and `value` like a pickup and gives that upgrade when it has been fed three tokens. It fills 3 x 3 cells of open air, and its glyph marks the middle of the bottom row, so on a floor the glyph goes in the cell just above the floor. `exits: pickups` is the one rule so far (`open` is the default). It blocks every door in the room until every pickup and token in it has been taken, and it is an error in a room with nothing to take. A header line `trap: allowed` marks a room that is a dead end on purpose (a drop the player cannot climb out of yet): the validator reports its missing way home as a warning and not an error. Use it sparingly, and take it off when the way out is built. The user's key for things in a drawing becomes legend lines: ask what upgrade and value a drawn pickup or 3TM is if the drawing does not say, and whether the room holds its doors shut.
+`T` and `M` are any letter or digit the glyph table does not use. Draw one once in the grid, in open air or on a platform, and never in the outer wall. A legend glyph is one thing: two tokens need two glyphs and two ids. `id` is required, stable, and unique across the whole world, because the save remembers a pickup by it: never rename one, and never derive it from where it sits. `upgrade` is a key of `data/upgrades.json` (`imprint`, `imprint_width`, `imprint_duration`, `imprint_max_active`, `imprint_effect`), and `value` is a whole number, a number, or an effect name to match. `imprint` itself takes no `value`. A pickup, token or 3TM that no jump can touch is a validation error. A `token` takes only an `id`: the player carries up to three. A `machine` (a 3TM) takes `upgrade` and `value` like a pickup and gives that upgrade when it has been fed three tokens. It fills 3 x 3 cells of open air, and its glyph marks the middle of the bottom row, so on a floor the glyph goes in the cell just above the floor. A `save` is the save machine of a save room, with no settings besides `id` (`S = save id=s2_save`). It fills 3 x 3 cells of open air like a 3TM, its glyph marks the middle of the bottom row, and the cell under the glyph has to be solid, because the player comes back there. A save room (an id of `s` and a number) has exactly one, and no other room may have one. The exit rules are `open` (the default), `pickups` and `saved`. `exits: pickups` blocks every door in the room until every pickup and token in it has been taken, and it is an error in a room with nothing to take. `exits: saved` blocks every door until the room's save machine has been used, and it is an error in a room without one. A header line `trap: allowed` marks a room that is a dead end on purpose (a drop the player cannot climb out of yet): the validator reports its missing way home as a warning and not an error. Use it sparingly, and take it off when the way out is built. The user's key for things in a drawing becomes legend lines: ask what upgrade and value a drawn pickup or 3TM is if the drawing does not say, and whether the room holds its doors shut.
 
-For worked examples, open `data/rooms/2.txt` (one screen, a door in each side wall, a token, `exits: pickups`), `data/rooms/3.txt` (a token on a staircase of platforms), `data/rooms/4.txt` (a 3TM) and `data/rooms/7.txt` (a one-way room, one screen wide and four tall).
+For worked examples, open `data/rooms/s1.txt` (a save room: the machine on the middle platform, `exits: saved`), `data/rooms/2.txt` (one screen, a door in each side wall, a token, `exits: pickups`), `data/rooms/3.txt` (a token on a staircase of platforms), `data/rooms/4.txt` (a 3TM) and `data/rooms/7.txt` (a one-way room, one screen wide and four tall).
 
 ## Movement envelope
 

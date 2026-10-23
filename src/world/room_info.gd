@@ -30,6 +30,24 @@ var exit_rule := "open"
 var traps_allowed := false
 
 
+## Whether this is a save room: its id is `s` and a number (`s1`). Dying with no
+## health sends the player back to the save room they last entered.
+func is_save_room() -> bool:
+	return is_save_id(id)
+
+
+static func is_save_id(room_id: String) -> bool:
+	return room_id.begins_with("s")
+
+
+## The cell of the room's save machine, or (-1, -1) if it has none.
+func save_cell() -> Vector2i:
+	for def in entities:
+		if def.type == "save":
+			return def.cell
+	return Vector2i(-1, -1)
+
+
 func occupied_cells() -> Array[Vector2i]:
 	var cells: Array[Vector2i] = []
 	for sy in screens.y:

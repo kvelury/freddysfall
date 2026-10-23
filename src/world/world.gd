@@ -98,6 +98,9 @@ func _place_in(id: String, world_position := Vector2.INF, respawn := false) -> v
 		_record_safe(id, at)
 	camera.position = _camera_focus(current, player.global_position)
 	current.set_exits_active(true)
+	if current.info.is_save_room():
+		GameState.save_room = id
+	current.settle_on(player.body_rect())
 	GameState.visit(id)
 
 
@@ -152,6 +155,9 @@ func is_busy() -> bool:
 
 
 func _collect(thing: Node2D) -> void:
+	if thing is SaveMachine:
+		_save_at(thing)
+		return
 	if thing is TokenMachine:
 		_feed(thing)
 		return
@@ -166,7 +172,28 @@ func _collect(thing: Node2D) -> void:
 		toast.show_text(GameState.collect(thing.def))
 		thing.collect()
 	current.recheck_exits(GameState.flags)
-	_autosave(false)
+	_autosave()
+
+
+## The player touches a save machine. They are held while it lights, then the
+## game is saved and the room's doors are checked (a save room can hold its doors
+## shut until this). Stepping off and back on saves again.
+func _save_at(machine: SaveMachine) -> void:
+	if machine.noted:
+		return
+	machine.noted = true
+	_busy = true
+	player.input_enabled = false
+	player.velocity = Vector2.ZERO
+	machine.dim()
+	await machine.light()
+	GameState.flags[SaveMachine.flag_for(machine.def)] = true
+	GameState.save_room = current.info.id
+	current.recheck_exits(GameState.flags)
+	_autosave()
+	toast.show_text("Game saved")
+	player.input_enabled = true
+	_busy = false
 
 
 ## The player touches a 3TM. With tokens they are fed in one at a time, each
@@ -202,7 +229,7 @@ func _feed(machine: TokenMachine) -> void:
 		await get_tree().create_timer(FEED_PAUSE, true, true).timeout
 	player.input_enabled = true
 	_busy = false
-	_autosave(false)
+	_autosave()
 
 
 ## The doors of the room just opened: the blocks no longer collide.
@@ -214,17 +241,26 @@ func _on_exits_opened() -> void:
 ## the saved state with no door or pickup to trigger it, like the map's zoom.
 func save_now() -> void:
 	if current != null:
-		_autosave(false)
+		_autosave()
 
 
-## Writes the save. On entering a room it records where the player is; after
-## a pickup it records the last safe floor in this room, so loading never
-## puts anyone mid-jump above spikes.
-func _autosave(entering: bool) -> void:
-	var spot := player.global_position
-	if not entering and _safe[-1]["room"] == current.info.id:
-		spot = _safe[-1]["position"]
-	Save.write(current.info.id, spot - current.position)
+## Writes the save. Everything the player has done is kept, but the place they
+## resume at is always the resume point, not where they happen to be.
+func _autosave() -> void:
+	var point := _resume_point()
+	Save.write(point["room"], point["position"])
+
+
+## Where the player comes back with no health left, and where a reloaded game
+## starts: the machine of the save room they last entered, or else the start
+## room's start. Returns {"room": id, "position": room pixels}.
+func _resume_point() -> Dictionary:
+	if WorldData.rooms.has(GameState.save_room):
+		var saved := WorldData.get_room(GameState.save_room)
+		if saved.save_cell().x >= 0:
+			return {"room": saved.id, "position": Grid.cell_center(saved.save_cell())}
+	var start := WorldData.get_room(WorldData.start_room)
+	return {"room": start.id, "position": start.start_position()}
 
 
 ## Remembers that the player stood at `at` in room `room_id`.
@@ -241,10 +277,15 @@ func _record_safe(room_id: String, at: Vector2) -> void:
 
 
 func _die() -> void:
-	# Dying again without having stood anywhere since the last respawn means
-	# that spot was no good. Go back to the floor before it.
-	if not _stood_since_respawn and _safe.size() > 1:
-		_safe.pop_back()
+	# With health, a pip is spent and the player comes back on the last safe
+	# floor. With none they go back to their save room.
+	var to_save := GameState.health <= 0
+	if not to_save:
+		GameState.health -= 1
+		# Dying again without having stood anywhere since the last respawn
+		# means that spot was no good. Go back to the floor before it.
+		if not _stood_since_respawn and _safe.size() > 1:
+			_safe.pop_back()
 	_busy = true
 	imprint.clear(true)
 	player.input_enabled = false
@@ -256,13 +297,18 @@ func _die() -> void:
 	var timer := create_tween()
 	timer.set_process_mode(Tween.TWEEN_PROCESS_PHYSICS)
 	timer.tween_interval(DEATH_TIME)
-	timer.finished.connect(_respawn)
+	timer.finished.connect(_respawn.bind(to_save))
 
 
-func _respawn() -> void:
-	var spot := _safe[-1]
-	_place_in(spot["room"], spot["position"], true)
-	_stood_since_respawn = false
+func _respawn(to_save: bool) -> void:
+	if to_save:
+		# A fresh placement: the old safe floors are in rooms they may never reach again.
+		var point := _resume_point()
+		_place_in(point["room"], Vector2(WorldData.get_room(point["room"]).grid_pos) * Grid.SCREEN_SIZE + (point["position"] as Vector2))
+	else:
+		var spot := _safe[-1]
+		_place_in(spot["room"], spot["position"], true)
+		_stood_since_respawn = false
 	player.visible = true
 	player.input_enabled = true
 	_follow = true
@@ -308,7 +354,9 @@ func _finish_transition() -> void:
 	_busy = false
 	_follow = true
 	if current != null:
-		_autosave(true)
+		if current.info.is_save_room():
+			GameState.save_room = current.info.id
+		_autosave()
 
 
 func _camera_focus(room: Room, focus: Vector2) -> Vector2:

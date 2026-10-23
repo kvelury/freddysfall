@@ -5,7 +5,7 @@ var info: RoomInfo
 ## Whether touching a door changes rooms. Off while a transition is running.
 var exits_active := false
 var _hazard_rects: Array[Rect2] = []
-## Everything the player can touch: pickups, tokens and 3TMs.
+## Everything the player can touch: pickups, tokens, 3TMs and save machines.
 var _things: Array[Node2D] = []
 ## The room's own solids, without any Imprint, for telling real floor from a
 ## platform that will break.
@@ -55,7 +55,7 @@ func build(room_info: RoomInfo, flags := {}, fills := {}) -> void:
 		var thing := Entities.create(def, fills)
 		thing.position = Grid.cell_center(def.cell)
 		add_child(thing)
-		if thing is Pickup or thing is Token or thing is TokenMachine:
+		if thing is Pickup or thing is Token or thing is TokenMachine or thing is SaveMachine:
 			_things.append(thing)
 
 
@@ -97,9 +97,18 @@ func touched_things(body: Rect2) -> Array[Node2D]:
 			continue
 		if thing.rect().intersects(body):
 			out.append(thing)
-		elif thing is Token or thing is TokenMachine:
+		elif thing is Token or thing is TokenMachine or thing is SaveMachine:
 			thing.noted = false
 	return out
+
+
+## A body put down at `body` (world pixels) by a respawn or a load is not
+## walking into a save machine it has already used: that machine lights at once
+## and does not stop the player. One not used yet is left to work on its own.
+func settle_on(body: Rect2) -> void:
+	for thing in _things:
+		if thing is SaveMachine and thing.rect().intersects(body) and _flags.has(SaveMachine.flag_for(thing.def)):
+			thing.settle()
 
 
 ## Whether a body at `body` (world pixels) is touching a hazard.

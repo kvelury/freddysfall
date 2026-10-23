@@ -32,6 +32,7 @@ const SOLVER_FILES: Array[String] = [
 	"res://src/world/room_info.gd",
 	"res://src/world/entities.gd",
 	"res://src/world/entities/token_machine.gd",
+	"res://src/world/entities/save_machine.gd",
 	"res://src/world/entities/pickup.gd",
 	"res://src/core/grid.gd",
 ]

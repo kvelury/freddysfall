@@ -35,7 +35,7 @@ const ONE_WAY := Color(0.55, 0.55, 0.55)
 const TRAP := Color(0.95, 0.85, 0.1)
 const LABEL := Color(0.75, 0.75, 0.75)
 
-## 3 x 5 digits, one row per string.
+## 3 x 5 digits, and the s of a save room's id, one row per string.
 const DIGITS := {
 	"0": ["111", "101", "101", "101", "111"],
 	"1": ["010", "110", "010", "010", "111"],
@@ -47,6 +47,7 @@ const DIGITS := {
 	"7": ["111", "001", "001", "001", "001"],
 	"8": ["111", "101", "111", "101", "111"],
 	"9": ["111", "101", "111", "001", "111"],
+	"s": ["111", "100", "111", "001", "111"],
 }
 
 
@@ -114,7 +115,7 @@ func _room_image(info: RoomInfo, report: ReachGraph.Report) -> Image:
 		for door in info.exits:
 			_checker(image, _cells(door.rect))
 	for def in info.entities:
-		if def.type == "machine":
+		if def.type == "machine" or def.type == "save":
 			_box(image, _cells(TokenMachine.footprint(def.cell)), THING)
 	if report != null:
 		for ledge in report.unreached:

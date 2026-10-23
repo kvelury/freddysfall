@@ -1,7 +1,9 @@
 extends SceneTree
 
-## Drives the real player through room 1, to confirm the player's own movement
-## can make the running jumps the solver says the room asks for.
+## Drives the real player through room s1, to confirm the player's own movement
+## can make the running jumps the solver says the room asks for. It lands on
+## the middle platform beside the save machine, which holds the doors shut until
+## it has been used, so reaching room 2 also shows that walking past it saves.
 
 func _initialize() -> void:
 	var world := (load("res://src/world/world.tscn") as PackedScene).instantiate()
