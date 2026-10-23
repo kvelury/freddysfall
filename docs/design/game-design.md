@@ -205,19 +205,19 @@ Seven rooms, as content, not as the limit of the format. The flow they make: tak
  1   2   3          room 2's floor door drops into 5, room 3's floor hole into 4
      5   4          5 and 4 meet at their side doors, 5 and 6 at theirs
  6                  room 6's floor door drops into 7
- 7 7
- 7 7
- 7 7
- 7 7
+ 7
+ 7
+ 7
+ 7
 ```
 
 - **1**, one screen at `(0, 0)`. Three tiers of platforms, each a running jump apart, and an exit in the right wall. This is the movement test.
 - **2**, one screen at `(1, 0)`. The landing from 1's door, steps down to the right, a hole in the floor (cols 23 to 27) that drops down to room 5, and a door high in the right wall at the end of a ledge (row 9, cols 25 to 30), reached by a jump from the lower platform. It has `exits: pickups` and a token on the first platform, so it cannot be left, by any of its three doors, until the token is taken.
-- **3**, one screen at `(2, 0)`. Entered through a door four cells tall in the left wall (rows 7 to 10), dropping onto a ledge at its foot (row 11, cols 1 to 8). A hole in the floor (cols 5 to 10, mostly under the ledge) drops down to room 4. A staircase of four platforms climbs from the floor to the top left, where the platform (row 5, cols 7 to 10) holds the token. The ledge is 6 cells under the token's platform and 7 cells short of the step before it, so the player has to climb the staircase from the first step. That step also climbs back onto the ledge, for the way back to room 2.
+- **3**, one screen at `(2, 0)`. Its two-cell door and entrance ledge line up with room 2 (door rows 7 to 8, ledge row 9, cols 1 to 8), so crossing between them stays level. A hole in the floor (cols 5 to 10, mostly under the ledge) drops down to room 4. A staircase climbs from the first step (row 14, cols 13 to 17) to platforms on row 10 (cols 22 to 27) and row 6 (cols 26 to 29), then back left to the token platform (row 5, cols 18 to 21). The upper platforms are too far right for a jump from the entrance ledge, so the player still has to descend and climb the staircase. Its first step also climbs back onto the ledge, for the way back to room 2.
 - **4**, one screen at `(2, 1)`, under that hole. Three platforms step down from under the ceiling door, each 4 cells apart, so the door is a short climb in and a short climb out. The 3TM stands at the bottom left, beside the left door that leads to room 5.
 - **5**, one screen at `(1, 1)`, with doors in the ceiling (up to room 2), the right wall (to room 4) and the left wall (to room 6). A pit of spikes 16 cells wide, with a short floor on its left, is too wide to jump. Three platforms climb from the right-hand floor back up to the ceiling door, and a token sits on the middle one. A player standing on the middle platform can cross the pit by putting an Imprint platform in the gap, and can cross back the same way. It is the first room that is open or shut by an ability.
 - **6**, one screen at `(0, 1)`, through the door in the right wall of room 5. A hole in the floor is covered on the player's side by a roof and a wall six cells tall, taller than a jump, so a platform put down by the wall is the only way up onto the roof, and from there the player walks off the end into the hole.
-- **7**, two screens wide and four tall at `(0, 2)`, under room 6's hole. It is empty: a long fall onto a floor. It is marked `trap: allowed`, because nothing in it leads back up yet. A 3TM and a title card that fades in during the fall and out before the landing are planned.
+- **7**, one screen wide and four tall at `(0, 2)`, under room 6's hole. It is empty: a long fall onto a floor. It is marked `trap: allowed`, because nothing in it leads back up yet. A 3TM and a title card that fades in during the fall and out before the landing are planned.
 
 ### Starting in a room
 
@@ -527,7 +527,8 @@ What was decided, in the order it came up, with the reason. Pull requests are na
 **The world map and one-way rooms (PR #17)**
 - **`trap: allowed`** marks a room that is a dead end on purpose (room 7, until its way out is built). It turns "no way home" into a warning in that room and relaxes nothing else.
 - **The solver follows a fall of any height** (`FALL_LIMIT`), because room 7 is four screens tall.
-- **Room 3's entrance is a ledge the player cannot use to reach the token,** and `reach_test` says so, so a later edit cannot quietly make the climb optional.
+- **Room 7 is one screen wide.** The screen to its right was empty. The fall stays four screens tall, and the ceiling door stays lined up with room 6.
+- **Room 3's entrance lines up with room 2 but cannot reach the token,** and `door_test` checks the level crossing while `reach_test` checks that the staircase is still required, so a later edit cannot restore the old drop or quietly make the climb optional.
 
 **Imprint's look and timing (PRs #18 and #21)**
 - **The cursor is always a dotted outline,** whether or not the platform can be reached. A filled cursor with a circling sparkle (and a trailing dotted tail) was built and removed at the user's request. The reach check still runs, so a look that tells them apart can return.

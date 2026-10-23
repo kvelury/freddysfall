@@ -320,7 +320,7 @@ func _marker_in_room() -> bool:
 		var expected: Vector2 = VIEW * 0.5 - overlay.view_center
 		var drawn := _drawn_offset(overlay)
 		ok = _check(drawn == expected, "%s: the map is drawn from where the marker thinks it is, with no frame in between (%s, expected %s)" % [names[level], drawn, expected]) and ok
-		for cell in [Vector2i(3, 70), Vector2i(60, 70), Vector2i(3, 3), Vector2i(60, 3), Vector2i(30, 35)]:
+		for cell in [Vector2i(3, 70), Vector2i(28, 70), Vector2i(3, 3), Vector2i(28, 3), Vector2i(16, 35)]:
 			player.place(room.position + Grid.cell_center(cell), room.world_rects())
 			overlay.refresh()
 			var box := MapView.scaled_rect(layer_class.room_rect(info), overlay.zoom)
