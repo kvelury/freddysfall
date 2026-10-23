@@ -52,10 +52,10 @@ After adding a script with a `class_name`, run `godot --headless --path . --impo
 
 | Script | What it drives |
 | --- | --- |
-| `tests/reach_test.gd` | `MovementSim` against the room rectangles, the world's room shapes and door links, door crossing, the camera clamp, the loader's every error (built from strings), and the solver on small worlds built to be wrong in one way each. Includes the check that room 3's entrance cannot reach its token. Prints `RESULT pass`. |
+| `tests/reach_test.gd` | `MovementSim` against the room rectangles, the world's room shapes and door links, door crossing, the camera clamp, the loader's every error (built from strings), and the solver on small worlds built to be wrong in one way each. Includes the check that room 3's level entrance cannot bypass the staircase to its token. Prints `RESULT pass`. |
 | `tests/physics_test.gd` | The player scene through room 1, jump by jump, and out its door. Prints `PHYSICS pass`. |
 | `tests/parity_test.gd` | Replays input plans through the player and through the solver's simulator. They must end within 0.01 px. Prints `PARITY pass`. |
-| `tests/door_test.gd` | The player walks through the door from room 2 (on its ledge) to room 3, drops onto room 3's entrance ledge, and goes back. Prints `DOOR pass`. |
+| `tests/door_test.gd` | The player walks level through the aligned door from room 2 onto room 3's entrance ledge, and goes back. Prints `DOOR pass`. |
 | `tests/shaft_test.gd` | The player drops down the hole in room 3 into room 4 and climbs back up, keeping speed through the doors. Prints `SHAFT pass`. |
 | `tests/hazard_test.gd` | In room 5, spikes and falling out of a room shatter the player and put them back on safe floor. An Imprint over spikes that breaks under the player does not leave a respawn in the air, and a bad respawn spot is stepped back from. Prints `HAZARD pass`. |
 | `tests/start_test.gd` | Starting in a chosen room, an unknown room, `warp_to`, and the F4 warp. Prints `START pass`. |
