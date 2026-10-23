@@ -57,7 +57,7 @@ func _room_shapes(data) -> bool:
 	for child in room.get_children():
 		if String(child.name).begins_with("Chunk_"):
 			chunks += 1
-	ok = _check(chunks == 8, "room 7, two screens by four, builds one chunk per screen (%d)" % chunks) and ok
+	ok = _check(chunks == 4, "room 7, one screen by four, builds one chunk per screen (%d)" % chunks) and ok
 	room.free()
 	return ok
 
@@ -70,9 +70,9 @@ func _links(data) -> bool:
 	ok = _check(b.exit_on("left").dest_id == "1", "room 2 left exit leads to 1") and ok
 	var c: RoomInfo = data.get_room("3")
 	var tall: RoomInfo = data.get_room("7")
-	ok = _check(c.screens == Vector2i(1, 1) and tall.screens == Vector2i(2, 4), "room 3 is one screen and room 7 is two by four") and ok
-	ok = _check(tall.bounds_cells == Rect2i(0, 0, 64, 72), "room 7 bounds cover the whole room") and ok
-	ok = _check(data.id_at(Vector2i(0, 2)) == "7" and data.id_at(Vector2i(1, 5)) == "7" and data.id_at(Vector2i(3, 0)) == "", "room 7 occupies all eight of its screens, and room 3's old second screen is empty") and ok
+	ok = _check(c.screens == Vector2i(1, 1) and tall.screens == Vector2i(1, 4), "room 3 is one screen and room 7 is one by four") and ok
+	ok = _check(tall.bounds_cells == Rect2i(0, 0, 32, 72), "room 7 bounds cover the whole room") and ok
+	ok = _check(data.id_at(Vector2i(0, 2)) == "7" and data.id_at(Vector2i(0, 5)) == "7" and data.id_at(Vector2i(1, 5)) == "" and data.id_at(Vector2i(3, 0)) == "", "room 7 occupies its four stacked screens, and the screen to its right is empty") and ok
 	var side := b.exit_on("right")
 	var side_rect := side.rect
 	ok = _check(b.exit_on("down").dest_id == "5", "room 2 floor exit leads down to 5") and ok
@@ -80,7 +80,7 @@ func _links(data) -> bool:
 	ok = _check(data.get_room("5").exit_on("right").dest_id == "4" and data.get_room("4").exit_on("left").dest_id == "5", "room 5's right door and room 4's left door lead to each other") and ok
 	ok = _check(data.get_room("5").exit_on("left").dest_id == "6" and data.get_room("6").exit_on("right").dest_id == "5", "room 5's left door and room 6's right door lead to each other") and ok
 	ok = _check(data.get_room("6").exit_on("down").dest_id == "7" and data.get_room("7").exit_on("up").dest_id == "6", "room 6's floor door drops into room 7's ceiling door") and ok
-	ok = _check(data.get_room("7").screens == Vector2i(2, 4) and data.get_room("7").traps_allowed and not data.get_room("6").traps_allowed, "room 7 is two screens wide, four tall, and the only one-way room") and ok
+	ok = _check(data.get_room("7").screens == Vector2i(1, 4) and data.get_room("7").traps_allowed and not data.get_room("6").traps_allowed, "room 7 is one screen wide, four tall, and the only one-way room") and ok
 	ok = _check(side.dest_id == "3", "room 2 side exit leads to 3") and ok
 	ok = _check(side_rect.position.y == 7 and side_rect.size == Vector2i(1, 2), "room 2 exit is a side door on its ledge (%s)" % side_rect) and ok
 	var back := c.exit_on("left")

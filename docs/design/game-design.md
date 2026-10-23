@@ -205,10 +205,10 @@ Seven rooms, as content, not as the limit of the format. The flow they make: tak
  1   2   3          room 2's floor door drops into 5, room 3's floor hole into 4
      5   4          5 and 4 meet at their side doors, 5 and 6 at theirs
  6                  room 6's floor door drops into 7
- 7 7
- 7 7
- 7 7
- 7 7
+ 7
+ 7
+ 7
+ 7
 ```
 
 - **1**, one screen at `(0, 0)`. Three tiers of platforms, each a running jump apart, and an exit in the right wall. This is the movement test.
@@ -217,7 +217,7 @@ Seven rooms, as content, not as the limit of the format. The flow they make: tak
 - **4**, one screen at `(2, 1)`, under that hole. Three platforms step down from under the ceiling door, each 4 cells apart, so the door is a short climb in and a short climb out. The 3TM stands at the bottom left, beside the left door that leads to room 5.
 - **5**, one screen at `(1, 1)`, with doors in the ceiling (up to room 2), the right wall (to room 4) and the left wall (to room 6). A pit of spikes 16 cells wide, with a short floor on its left, is too wide to jump. Three platforms climb from the right-hand floor back up to the ceiling door, and a token sits on the middle one. A player standing on the middle platform can cross the pit by putting an Imprint platform in the gap, and can cross back the same way. It is the first room that is open or shut by an ability.
 - **6**, one screen at `(0, 1)`, through the door in the right wall of room 5. A hole in the floor is covered on the player's side by a roof and a wall six cells tall, taller than a jump, so a platform put down by the wall is the only way up onto the roof, and from there the player walks off the end into the hole.
-- **7**, two screens wide and four tall at `(0, 2)`, under room 6's hole. It is empty: a long fall onto a floor. It is marked `trap: allowed`, because nothing in it leads back up yet. A 3TM and a title card that fades in during the fall and out before the landing are planned.
+- **7**, one screen wide and four tall at `(0, 2)`, under room 6's hole. It is empty: a long fall onto a floor. It is marked `trap: allowed`, because nothing in it leads back up yet. A 3TM and a title card that fades in during the fall and out before the landing are planned.
 
 ### Starting in a room
 
@@ -527,6 +527,7 @@ What was decided, in the order it came up, with the reason. Pull requests are na
 **The world map and one-way rooms (PR #17)**
 - **`trap: allowed`** marks a room that is a dead end on purpose (room 7, until its way out is built). It turns "no way home" into a warning in that room and relaxes nothing else.
 - **The solver follows a fall of any height** (`FALL_LIMIT`), because room 7 is four screens tall.
+- **Room 7 is one screen wide.** The screen to its right was empty. The fall stays four screens tall, and the ceiling door stays lined up with room 6.
 - **Room 3's entrance lines up with room 2 but cannot reach the token,** and `door_test` checks the level crossing while `reach_test` checks that the staircase is still required, so a later edit cannot restore the old drop or quietly make the climb optional.
 
 **Imprint's look and timing (PRs #18 and #21)**

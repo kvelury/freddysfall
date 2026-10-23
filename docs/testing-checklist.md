@@ -38,6 +38,7 @@ Played in the browser and found good, so these are not listed line by line any m
 ## Movement and doors
 
 - [ ] **Room 2 to room 3.** Cross both ways at different speeds. The floors and two-cell openings line up with no drop, and room 3's entrance still cannot skip the staircase to its token.
+- [ ] **Room 7's shaft.** It is one screen wide and four tall. Falling in from room 6 lands on the floor, and the map shows one column under room 6.
 - [ ] **The up-boost** of 180 px/s at ceiling doors: helps, or feels like a jump pad. The validator would still pass with a much weaker boost, because it only checks that some entry through the door lands.
 - [ ] **Doors that are not level,** and a door with a wall right behind it.
 - [ ] **Every way into a door,** not only the one the validator tried: slow, fast, from above, from the side.
