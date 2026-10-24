@@ -3,7 +3,7 @@ extends SceneTree
 ## Save rooms. s1 holds its door shut until the player has used its save
 ## machine, a split sphere: walking into its zone hops the player into the
 ## middle, it closes and spins, the game saves, a line says so, the door opens,
-## and it pops them out on the far side in about a second. It works once each
+## and it pops them out on the far side in about 1.2 s. It works once each
 ## time the room is entered, and stays shut after. Put back inside it (by a
 ## reload, or by dying with no health) the player is popped out to the right
 ## without a save. Dying with a pip spends it and keeps today's safe-floor
@@ -47,7 +47,7 @@ func _run() -> void:
 	var right := room.position + Grid.cell_center(Vector2i(18, 8))
 	var run := await _save_from(player, room, left)
 	ok = _check(run["held"], "entering the machine's zone takes control from the player") and ok
-	ok = _check(run["released"] and run["pause"] >= 0.9 and run["pause"] < 1.3, "and gives it back about a second later (%.2f s)" % run["pause"]) and ok
+	ok = _check(run["released"] and run["pause"] >= 1.1 and run["pause"] < 1.6, "and gives it back about 1.2 s later (%.2f s)" % run["pause"]) and ok
 	ok = _check(run["hidden"] and run["shut"], "the player is inside while it is shut round them") and ok
 	ok = _check(run["top"] < machine.centre().y - 3.0, "they hop in on an arc (highest point %.1f, the middle is %.1f)" % [run["top"], machine.centre().y]) and ok
 	await _frames(12)
@@ -79,7 +79,7 @@ func _run() -> void:
 	machine = _machine(room)
 	ok = _check(machine.openness == 1.0 and not machine.used and not room.locked, "entering the room again finds it open and unused, with the door open") and ok
 	run = await _save_from(player, room, right)
-	ok = _check(run["held"] and run["released"] and run["pause"] >= 0.9 and run["pause"] < 1.3, "so it works again (%.2f s)" % run["pause"]) and ok
+	ok = _check(run["held"] and run["released"] and run["pause"] >= 1.1 and run["pause"] < 1.6, "so it works again (%.2f s)" % run["pause"]) and ok
 	ok = _check(player.global_position.distance_to(machine.global_position + Vector2(-20, 0)) < 1.0, "and entered from the right it pops them out on the left (%s)" % player.global_position) and ok
 
 	# A reload resumes inside the machine, and it lets the player out.
