@@ -220,7 +220,7 @@ A file that cannot be read, or that a newer version of the game wrote, is moved 
 
 ### The current slice
 
-Eight rooms (the first is the save room s1, and s2 is a second save room), as content, not as the limit of the format. The flow they make: save at the machine in s1 to leave it, take the token in room 2 to leave that, take one more in room 3 and one in room 5, spend all three at the 3TM in room 4 to get Imprint, use Imprint to cross the spikes in room 5 and then the wall in room 6, fall into room 7, and walk left into the save room s2.
+Nine rooms (the first is the save room s1, and s2 is a second save room), as content, not as the limit of the format. The flow they make: save at the machine in s1 to leave it, take the token in room 2 to leave that, take one more in room 3 and one in room 5, spend all three at the 3TM in room 4 to get Imprint, use Imprint to cross the spikes in room 5 and then the wall in room 6, fall into room 7, and walk left into the save room s2 or right into room 8, a floor of spikes.
 
 ```
  s1  2   3          room 2's floor door drops into 5, room 3's floor hole into 4
@@ -229,7 +229,7 @@ Eight rooms (the first is the save room s1, and s2 is a second save room), as co
  7
  7
  7
-s2 7                7 and s2 meet at their side doors, at the floor
+s2 7 8              7 meets s2 and 8 at their side doors, at the floor
 ```
 
 - **s1**, the save room, one screen at `(0, 0)` and the start room. Three tiers of platforms, each a running jump apart, and an exit in the right wall. The save machine stands on the middle platform (row 8, col 16) and the room has `exits: saved`, so the door stays blocked until the player has entered the machine's zone and been saved. The zone fills the platform's width (cols 14 to 18). It is the movement test, and the place a player comes back to when they die with no health.
@@ -238,8 +238,9 @@ s2 7                7 and s2 meet at their side doors, at the floor
 - **4**, one screen at `(2, 1)`, under that hole. Three platforms step down from under the ceiling door, each 4 cells apart, so the door is a short climb in and a short climb out. The 3TM stands at the bottom left, beside the left door that leads to room 5.
 - **5**, one screen at `(1, 1)`, with doors in the ceiling (up to room 2), the right wall (to room 4) and the left wall (to room 6). A pit of spikes 16 cells wide, with a short floor on its left, is too wide to jump. Three platforms climb from the right-hand floor back up to the ceiling door, and a token sits on the middle one. A player standing on the middle platform can cross the pit by putting an Imprint platform in the gap, and can cross back the same way. It is the first room that is open or shut by an ability.
 - **6**, one screen at `(0, 1)`, through the door in the right wall of room 5. A hole in the floor is covered on the player's side by a roof and a wall six cells tall, taller than a jump, so a platform put down by the wall is the only way up onto the roof, and from there the player walks off the end into the hole.
-- **7**, one screen wide and four tall at `(0, 2)`, under room 6's hole. It is empty: a long fall onto a floor, with a door at the floor in the bottom of the left wall (rows 68 to 70) to s2. It is marked `trap: allowed`, because nothing in it leads back up yet. A 3TM and a title card that fades in during the fall and out before the landing are planned.
+- **7**, one screen wide and four tall at `(0, 2)`, under room 6's hole. It is empty: a long fall onto a floor, with a door at the floor at each end of its bottom screen (rows 68 to 70): the left wall to s2, the right wall to room 8. It is marked `trap: allowed`, because nothing in it leads back up yet. A 3TM and a title card that fades in during the fall and out before the landing are planned.
 - **s2**, a save room, one screen at `(-1, 5)`, left of room 7's bottom screen. It is empty but for its save machine, which stands on the floor in the middle (row 16, col 16), and a door at the floor in the right wall (rows 14 to 16) back to room 7. Its exits are open, so saving is a choice. It is marked `trap: allowed` like room 7, because its only door leads there; both lose the mark when room 7's way out is built.
+- **8**, one screen at `(1, 5)`, right of room 7's bottom screen, the mirror of s2: a door at the floor in the left wall (rows 14 to 16) and nothing else but spikes. The first 5 cells inside the door (cols 1 to 5) are clear floor, and spikes cover the rest of it (row 16, cols 6 to 30), so a player who keeps running right dies. It is marked `trap: allowed`, like 7 and s2.
 
 ### Starting in a room
 
@@ -256,7 +257,7 @@ A **ledge** is a run of cells with air above and floor below. From each ledge th
 - **Error:** a trap, meaning a ledge the player can reach but from which no path leads back to the start. Falling into a pit too deep to jump out of is one. The first version of room 3 was one.
 - **Error:** a pickup, token, 3TM or save machine in a reachable room that no sampled path touches. A path that touches it and then dies on spikes still counts, because the pickup was taken. Only paths that start on a ledge are tried, so a pickup that can be taken only by falling through a door onto it is reported as out of reach.
 - **Error:** a room whose exit rule is never met. Its doors never work, so everything past it is out of reach and its own floor is a trap.
-- **Warning:** a ledge in a room that says `trap: allowed` with no way home, and the door that nobody inside such a room can touch. A room can say it in its header when it is meant to be a one-way drop (room 7 and the save room s2 beside it, until room 7's way out is built). It still has to be reachable from the start, and nothing else about it is relaxed.
+- **Warning:** a ledge in a room that says `trap: allowed` with no way home, and the door that nobody inside such a room can touch. A room can say it in its header when it is meant to be a one-way drop (room 7 and the rooms s2 and 8 beside it, until room 7's way out is built). It still has to be reachable from the start, and nothing else about it is relaxed.
 - **Warning:** a ledge nobody reached. The solver tries a fixed set of inputs, so a ledge it misses might still be reachable by a path it did not think of. Look at the render and decide.
 
 `tools/render.sh` draws each room and the world map to `build/renders/`. Red bars mark unreachable ledges, yellow bars mark traps, and orange marks a door that was sealed.
@@ -568,7 +569,7 @@ What was decided, in the order it came up, with the reason. Pull requests are na
 - **The save file has not changed.**
 
 **The world map and one-way rooms (PR #17)**
-- **`trap: allowed`** marks a room that is a dead end on purpose (room 7 and s2, until room 7's way out is built). It turns "no way home" into a warning in that room and relaxes nothing else.
+- **`trap: allowed`** marks a room that is a dead end on purpose (rooms 7, 8 and s2, until room 7's way out is built). It turns "no way home" into a warning in that room and relaxes nothing else.
 - **The solver follows a fall of any height** (`FALL_LIMIT`), because room 7 is four screens tall.
 - **Room 7 is one screen wide.** The screen to its right was empty. The fall stays four screens tall, and the ceiling door stays lined up with room 6.
 - **Room 3's entrance lines up with room 2 but cannot reach the token,** and `door_test` checks the level crossing while `reach_test` checks that the staircase is still required, so a later edit cannot restore the old drop or quietly make the climb optional.

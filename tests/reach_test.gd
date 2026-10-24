@@ -72,7 +72,7 @@ func _links(data) -> bool:
 	var tall: RoomInfo = data.get_room("7")
 	ok = _check(c.screens == Vector2i(1, 1) and tall.screens == Vector2i(1, 4), "room 3 is one screen and room 7 is one by four") and ok
 	ok = _check(tall.bounds_cells == Rect2i(0, 0, 32, 72), "room 7 bounds cover the whole room") and ok
-	ok = _check(data.id_at(Vector2i(0, 2)) == "7" and data.id_at(Vector2i(0, 5)) == "7" and data.id_at(Vector2i(1, 5)) == "" and data.id_at(Vector2i(3, 0)) == "", "room 7 occupies its four stacked screens, and the screen to its right is empty") and ok
+	ok = _check(data.id_at(Vector2i(0, 2)) == "7" and data.id_at(Vector2i(0, 5)) == "7" and data.id_at(Vector2i(1, 5)) == "8" and data.id_at(Vector2i(1, 4)) == "" and data.id_at(Vector2i(3, 0)) == "", "room 7 occupies its four stacked screens, room 8 sits right of its bottom one, and the screen above 8 is empty") and ok
 	var side := b.exit_on("right")
 	var side_rect := side.rect
 	ok = _check(b.exit_on("down").dest_id == "5", "room 2 floor exit leads down to 5") and ok
