@@ -556,7 +556,7 @@ What was decided, in the order it came up, with the reason. Pull requests are na
 - **The machine holds the player for a second and lights up,** so saving is something they see. A player put on a used machine by a respawn or a reload is not held again.
 - **The save is version 3,** and a version 2 file carries over (room 1 renamed, its machine counted as used, `s1` as the save room), because the player's own game was a version 2 file.
 
-**The save machine becomes a split sphere (PR #N)**
+**The save machine becomes a split sphere (PR #27)**
 - **It is a sphere that takes the player in, spins, and pops them out on the other side,** from the user's drawing: an open sphere with an invisible zone around it, the player hopping into the middle, it closing and saving, then opening and popping them out. The whole thing keeps taking about a second, as the ring did.
 - **It works once each time the room is entered.** Stepping off and on used to save again and take control again, which stopped the player over and over and left them unsure whether they had saved. The machine now stays closed after use, so it looks done, and a new visit builds it open.
 - **A save room holds only its machine, and platforms.** The user's plan is for a save room to be a place to save and nothing else, and the loader enforces it.
