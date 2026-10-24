@@ -88,8 +88,9 @@ func door_world_rects() -> Array[Rect2]:
 	return out
 
 
-## The pickups, tokens and 3TMs a body at `body` (world pixels) is touching. One
-## the body has left forgets that it already told the player something.
+## The pickups, tokens, 3TMs and save machines a body at `body` (world pixels)
+## is touching. A token or 3TM the body has left forgets that it already told
+## the player something.
 func touched_things(body: Rect2) -> Array[Node2D]:
 	var out: Array[Node2D] = []
 	for thing in _things:
@@ -97,18 +98,18 @@ func touched_things(body: Rect2) -> Array[Node2D]:
 			continue
 		if thing.rect().intersects(body):
 			out.append(thing)
-		elif thing is Token or thing is TokenMachine or thing is SaveMachine:
+		elif thing is Token or thing is TokenMachine:
 			thing.noted = false
 	return out
 
 
-## A body put down at `body` (world pixels) by a respawn or a load is not
-## walking into a save machine it has already used: that machine lights at once
-## and does not stop the player. One not used yet is left to work on its own.
-func settle_on(body: Rect2) -> void:
+## The save machine that a body at `body` (world pixels) is inside, or null. A
+## body put there by a respawn or a load has to come out of it, not walk in.
+func save_machine_holding(body: Rect2) -> SaveMachine:
 	for thing in _things:
-		if thing is SaveMachine and thing.rect().intersects(body) and _flags.has(SaveMachine.flag_for(thing.def)):
-			thing.settle()
+		if thing is SaveMachine and thing.footprint_rect().intersects(body):
+			return thing
+	return null
 
 
 ## Whether a body at `body` (world pixels) is touching a hazard.

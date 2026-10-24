@@ -177,29 +177,39 @@ static func _place_entities(info: RoomInfo, placements: Dictionary, errors: Arra
 			info.entities.append(def)
 
 
-## A save room has exactly one save machine, and no other room has one.
+## A save room has exactly one save machine and nothing else (no pickup, token,
+## 3TM or spikes, though platforms are fine), and no other room has a machine.
 static func _check_save_things(info: RoomInfo, errors: Array[String]) -> void:
 	var saves := info.entities.filter(func(def: EntityDef) -> bool: return def.type == "save").size()
 	if info.is_save_room() and saves != 1:
 		errors.append("Room %s is a save room (its id starts with s) and needs exactly one save machine in its legend, but has %d" % [info.id, saves])
 	elif not info.is_save_room() and saves > 0:
 		errors.append("Room %s has a save machine, but only a room whose id is s and a number (like s1) can be a save room" % info.id)
+	if info.is_save_room() and saves == 1:
+		var others := info.entities.size() - saves
+		if others > 0:
+			errors.append("Room %s is a save room, and a save room holds nothing but its save machine and platforms, but its legend has %d other thing(s)" % [info.id, others])
+		if not info.hazards.is_empty():
+			errors.append("Room %s is a save room, and a save room holds nothing but its save machine and platforms, but it has spikes" % info.id)
 
 
-## A save machine's glyph is where the player comes back, so the cell under it
-## must be solid for them to stand on. Returns a sentence, or "".
+## A save machine pops the player out onto the floor on either side of it, so
+## the five cells under its zone must all be solid, for them to stand on and to
+## come back to. Returns a sentence, or "".
 static func _save_floor(info: RoomInfo, def: EntityDef) -> String:
-	var below := def.cell + Vector2i(0, 1)
-	if below.y >= info.rows.size() or below.x >= info.rows[below.y].length() or not Tiles.has_flag(info.rows[below.y][below.x], "solid"):
-		return "Room %s: save machine %s at %s needs solid floor in the cell under it (%d,%d), for the player to stand on" % [info.id, def.id, def.cell, below.x, below.y]
+	var zone := SaveMachine.zone(def.cell)
+	for x in range(zone.position.x, zone.end.x):
+		var below := Vector2i(x, zone.end.y)
+		if below.y >= info.rows.size() or below.x >= info.rows[below.y].length() or not Tiles.has_flag(info.rows[below.y][below.x], "solid"):
+			return "Room %s: save machine %s at %s needs solid floor in the five cells under its zone, for the player to stand on, but (%d,%d) is not" % [info.id, def.id, def.cell, below.x, below.y]
 	return ""
 
 
-## A 3TM or a save machine fills 3 x 3 cells, and they have to be open air: not
-## wall, a door, spikes, or another thing. Returns the first problem as a
-## sentence, or "".
+## A 3TM fills 3 x 3 cells and a save machine's zone is 5 x 3, and they have to
+## be open air: not wall, a door, spikes, or another thing. Returns the first
+## problem as a sentence, or "".
 static func _machine_space(info: RoomInfo, def: EntityDef) -> String:
-	var space := TokenMachine.footprint(def.cell)
+	var space := SaveMachine.zone(def.cell) if def.type == "save" else TokenMachine.footprint(def.cell)
 	var label := "3TM" if def.type == "machine" else "save machine"
 	for y in range(space.position.y, space.end.y):
 		for x in range(space.position.x, space.end.x):
@@ -207,7 +217,7 @@ static func _machine_space(info: RoomInfo, def: EntityDef) -> String:
 			if y >= 0 and y < info.rows.size() and x >= 0 and x < info.rows[y].length():
 				glyph = info.rows[y][x]
 			if glyph != Tiles.EMPTY and glyph != Tiles.NO_IMPRINT and glyph != def.glyph:
-				return "Room %s: %s %s at %s needs open air in the 3 x 3 cells it fills (%d,%d to %d,%d), but cell %d,%d is '%s'" % [info.id, label, def.id, def.cell, space.position.x, space.position.y, space.end.x - 1, space.end.y - 1, x, y, glyph if not glyph.is_empty() else "outside the room"]
+				return "Room %s: %s %s at %s needs open air in the %d x %d cells it fills (%d,%d to %d,%d), but cell %d,%d is '%s'" % [info.id, label, def.id, def.cell, space.size.x, space.size.y, space.position.x, space.position.y, space.end.x - 1, space.end.y - 1, x, y, glyph if not glyph.is_empty() else "outside the room"]
 	return ""
 
 

@@ -130,8 +130,8 @@ func _save_rooms() -> bool:
 	ok = _check(info.is_save_room() and info.save_cell() == Vector2i(5, 16), "it is a save room and knows where its machine is (%s)" % [info.save_cell()]) and ok
 	ok = _check(not RoomParser.parse_room("7", Vector2i.ZERO, _room([], {}), errors).is_save_room(), "a numbered room is not one") and ok
 	errors.clear()
-	info = RoomParser.parse_room("s2", Vector2i.ZERO, _room(legend, {Vector2i(5, 12): "S", Vector2i(5, 13): "#", Vector2i(4, 13): "#", Vector2i(6, 13): "#"}), errors)
-	ok = _check(errors.is_empty(), "a machine on a platform loads %s" % [errors]) and ok
+	info = RoomParser.parse_room("s2", Vector2i.ZERO, _room(legend, {Vector2i(5, 12): "S", Vector2i(3, 13): "#", Vector2i(4, 13): "#", Vector2i(5, 13): "#", Vector2i(6, 13): "#", Vector2i(7, 13): "#"}), errors)
+	ok = _check(errors.is_empty(), "a machine on a platform as wide as its zone loads %s" % [errors]) and ok
 
 	errors.clear()
 	RoomParser.parse_room("7", Vector2i.ZERO, _room(legend, {Vector2i(5, 16): "S"}), errors)
@@ -145,6 +145,18 @@ func _save_rooms() -> bool:
 	errors.clear()
 	RoomParser.parse_room("s2", Vector2i.ZERO, _room(legend, {Vector2i(5, 12): "S"}), errors)
 	ok = _check(_has(errors, "save machine s2_save") and _has(errors, "solid floor"), "a machine over air, where nobody could stand to come back, is an error (%s)" % [errors]) and ok
+	errors.clear()
+	RoomParser.parse_room("s2", Vector2i.ZERO, _room(legend, {Vector2i(5, 12): "S", Vector2i(3, 13): "#", Vector2i(4, 13): "#", Vector2i(5, 13): "#", Vector2i(6, 13): "#"}), errors)
+	ok = _check(_has(errors, "solid floor") and _has(errors, "(7,13)"), "a platform one cell short of its zone, where the player could be popped onto air, is an error naming the cell (%s)" % [errors]) and ok
+	errors.clear()
+	RoomParser.parse_room("s2", Vector2i.ZERO, _room(legend, {Vector2i(5, 16): "S", Vector2i(7, 15): "#"}), errors)
+	ok = _check(_has(errors, "save machine s2_save") and _has(errors, "open air") and _has(errors, "cell 7,15"), "a wall in the zone, beside the 3 x 3 the machine fills, is an error (%s)" % [errors]) and ok
+	errors.clear()
+	RoomParser.parse_room("s2", Vector2i.ZERO, _room(["legend:", "  S = save id=s2_save", "  T = token id=s2_token"], {Vector2i(5, 16): "S", Vector2i(20, 16): "T"}), errors)
+	ok = _check(_has(errors, "holds nothing but its save machine") and _has(errors, "1 other thing"), "a save room with a token in it is an error (%s)" % [errors]) and ok
+	errors.clear()
+	RoomParser.parse_room("s2", Vector2i.ZERO, _room(legend, {Vector2i(5, 16): "S", Vector2i(20, 16): "^"}), errors)
+	ok = _check(_has(errors, "holds nothing but its save machine") and _has(errors, "spikes"), "and so is one with spikes (%s)" % [errors]) and ok
 	errors.clear()
 	RoomParser.parse_room("s2", Vector2i.ZERO, _room(legend, {Vector2i(1, 16): "S"}), errors)
 	ok = _check(_has(errors, "save machine s2_save") and _has(errors, "open air"), "one whose footprint reaches the wall is an error (%s)" % [errors]) and ok

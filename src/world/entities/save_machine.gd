@@ -1,38 +1,61 @@
 class_name SaveMachine
 extends Node2D
 
-## The save machine in a save room: a ring with a dark centre. Walking into it
-## stops the player for SAVE_TIME while the ring lights one segment at a time and
-## then the centre fills. The world does the rest (it sets the flag, saves, and
-## says so), because that needs the player and the game's state.
+## The save machine in a save room: a sphere split into two halves, hinged at
+## the bottom and standing open. A player who enters its zone is hopped into
+## the middle, the halves close on them and spin, the game saves, and it opens
+## and pops them out on the far side. The world does the moving and the saving,
+## because that needs the player and the game's state; this draws the sphere and
+## times its parts.
+##
+## It works once each time the room is entered: afterwards it stays closed until
+## the room is left, so the player is never stopped twice and can see it is done.
+## The room is rebuilt on every entry, so a new visit finds it open and unused.
 ##
 ## It fills 3 x 3 cells like a 3TM and its legend glyph marks the middle of the
-## bottom row, so on a floor the glyph goes in the cell just above the floor.
-## Once lit it stays lit until the room is left. Touching it again, after
-## stepping off, saves again.
+## bottom row, so on a floor the glyph goes in the cell just above the floor. Its
+## zone is the 3 x 3 and one more cell on each side, and the player is popped
+## out onto the floor at the edge of that.
 
-## How long the player is held while it lights.
-const SAVE_TIME := 1.0
-## The ring is lit in this many segments, and the centre fills after the last.
-const SEGMENTS := 8
-## The ring's middle, from the middle of the glyph's cell, and its radii in pixels.
-const CENTRE := Vector2(0, -10)
-const OUTER := 13.0
-const INNER := 8.0
-const HOLE := 4.0
+## The parts of a save, which add up to SAVE_TIME.
+const HOP_TIME := 0.2
+const CLOSE_TIME := 0.1
+const SPIN_TIME := 0.4
+const OPEN_TIME := 0.1
+const POP_TIME := 0.2
+const SAVE_TIME := HOP_TIME + CLOSE_TIME + SPIN_TIME + OPEN_TIME + POP_TIME
+## How long a player put back inside it waits, shut, before it opens.
+const EMERGE_PAUSE := 0.1
+## How high above a straight line the player's hop and pop rise, in pixels.
+const ARC_HEIGHT := 14.0
+
+## The zone that starts a save, in pixels from the glyph's cell middle.
+const ZONE_WIDTH := 50.0
+const ZONE_HEIGHT := 30.0
+## The sphere's radius in pixels. It is one pixel wider than twice this.
+const RADIUS := 12
+## How far each half swings from shut when open, in radians (about 29 degrees).
+const OPEN_ANGLE := 0.5
+## The pixel row of the hinge, the lowest pixel of the sphere: the one on the floor.
+const HINGE_ROW := 4
 
 var def: EntityDef
-## Whether the player is still standing in it since it last worked, so that
-## staying put does not save over and over.
-var noted := false
-## How many ring segments are lit, and whether the centre is filled.
-var segments := 0
-var core := false
+## Whether it has worked since the room was entered.
+var used := false
+## How open it is, from 0 (shut) to 1, and how far round it has turned while shut.
+var openness := 1.0:
+	set(value):
+		openness = value
+		queue_redraw()
+var phase := 0.0:
+	set(value):
+		phase = value
+		queue_redraw()
 
 
 func _init(entity: EntityDef = null) -> void:
 	def = entity
-	# It is redrawn from _process, so interpolation would have nothing to smooth.
+	# It is redrawn when it changes, so interpolation would have nothing to smooth.
 	physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 
 
@@ -46,68 +69,145 @@ static func footprint(cell: Vector2i) -> Rect2i:
 	return TokenMachine.footprint(cell)
 
 
-## Room-local pixels that touch it, given the glyph's cell.
+## The cells of its zone: the 3 x 3 and a cell more each side. They are open air.
+static func zone(cell: Vector2i) -> Rect2i:
+	return Rect2i(cell + Vector2i(-2, -2), Vector2i(5, 3))
+
+
+## The cell a player is popped out onto, on the left (-1) or the right (1).
+static func landing(cell: Vector2i, side: int) -> Vector2i:
+	return cell + Vector2i(2 * side, 0)
+
+
+## Room-local pixels that start a save, given the glyph's cell.
 static func touch_rect_for(cell: Vector2i) -> Rect2:
-	return TokenMachine.touch_rect_for(cell)
+	return Rect2(Grid.cell_center(cell) + Vector2(-ZONE_WIDTH * 0.5, -ZONE_HEIGHT + float(Grid.CELL) * 0.5), Vector2(ZONE_WIDTH, ZONE_HEIGHT))
 
 
-## The area that works it, in world pixels.
+## The area that starts a save, in world pixels.
 func rect() -> Rect2:
+	return Rect2(global_position + Vector2(-ZONE_WIDTH * 0.5, -ZONE_HEIGHT + float(Grid.CELL) * 0.5), Vector2(ZONE_WIDTH, ZONE_HEIGHT))
+
+
+## The 3 x 3 cells it fills, in world pixels. A body in this is inside it.
+func footprint_rect() -> Rect2:
 	return Rect2(global_position + Vector2(-TokenMachine.WIDTH * 0.5, -TokenMachine.HEIGHT + float(Grid.CELL) * 0.5), Vector2(TokenMachine.WIDTH, TokenMachine.HEIGHT))
 
 
-var lit: bool:
-	get:
-		return segments >= SEGMENTS and core
+## The middle of the sphere, in world pixels, where the player is while it is shut.
+func centre() -> Vector2:
+	return global_position + Vector2(0.5, float(HINGE_ROW - RADIUS) + 0.5)
 
 
-## Lights it all at once, for a player who was put on it by a respawn or a load.
-func settle() -> void:
-	noted = true
-	segments = SEGMENTS
-	core = true
-	queue_redraw()
+## Closes it at once, and leaves it that way.
+func shut() -> void:
+	openness = 0.0
+	phase = 0.0
 
 
-## Lights the ring a segment at a time, then the centre. Returns when it is
-## done, SAVE_TIME later.
-func light() -> void:
-	segments = 0
-	core = false
-	var step := SAVE_TIME / float(SEGMENTS + 2)
-	for i in SEGMENTS:
-		await get_tree().create_timer(step, true, true).timeout
-		segments = i + 1
-		queue_redraw()
-	await get_tree().create_timer(step * 2.0, true, true).timeout
-	core = true
-	queue_redraw()
+func close() -> void:
+	await _ease("openness", 0.0, CLOSE_TIME)
 
 
-## Switches the light off, for a machine about to be used again.
-func dim() -> void:
-	segments = 0
-	core = false
-	queue_redraw()
+## Turns it once round while it is shut.
+func spin() -> void:
+	phase = 0.0
+	await _ease("phase", TAU, SPIN_TIME)
+	phase = 0.0
+
+
+func open() -> void:
+	await _ease("openness", 1.0, OPEN_TIME)
+
+
+func _ease(property: String, to: float, time: float) -> void:
+	var tween := create_tween()
+	tween.set_process_mode(Tween.TWEEN_PROCESS_PHYSICS)
+	tween.tween_property(self, property, to, time)
+	await tween.finished
 
 
 func _draw() -> void:
-	# A one pixel outline of the ring and of the hole when dark. Each lit
-	# segment fills the band between them.
-	for y in range(-24, 5):
-		for x in range(-14, 14):
-			var at := Vector2(x, y) + Vector2(0.5, 0.5) - CENTRE
-			var d := at.length()
-			if d > OUTER:
-				continue
-			var segment := int(fmod(at.angle() + PI * 2.5, TAU) / (TAU / float(SEGMENTS)))
-			var on := false
-			if d >= OUTER - 1.0 or (d >= HOLE - 0.5 and d < HOLE + 0.5 and not core):
-				on = true
-			elif d >= INNER and segment < segments:
-				on = true
-			elif d < HOLE + 0.5 and core:
-				on = true
-			if on:
-				draw_rect(Rect2(x, y, 1, 1), Color.WHITE)
-	draw_rect(Rect2(-6, 3, 12, 2), Color.WHITE)
+	for pixel in pixels(openness, phase):
+		draw_rect(Rect2(pixel.x, pixel.y, 1, 1), Color.WHITE)
+
+
+## The pixels of the outline, from the glyph's cell middle. `open` is how far
+## open it is (0 to 1). Shut, `turn` is how far round it has gone: the seam is a
+## line down the middle at 0, and rounds the ball as it grows.
+static func pixels(open: float, turn: float) -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	if open <= 0.0:
+		for pixel in _shut(turn):
+			out.append(pixel + Vector2i(0, HINGE_ROW))
+	else:
+		for pixel in _open(open * OPEN_ANGLE):
+			out.append(pixel + Vector2i(0, HINGE_ROW))
+	return out
+
+
+## Pixels are given with the hinge at (0, 0), x across and y up as negatives.
+static func _disc() -> Dictionary:
+	var disc := {}
+	for y in range(-2 * RADIUS, 1):
+		for x in range(-RADIUS, RADIUS + 1):
+			if x * x + (y + RADIUS) * (y + RADIUS) <= RADIUS * RADIUS:
+				disc[Vector2i(x, y)] = true
+	return disc
+
+
+static func _shut(turn: float) -> Array[Vector2i]:
+	var disc := _disc()
+	var out := {}
+	for pixel in disc:
+		if _edge(disc, pixel):
+			out[pixel] = true
+	# Four lines of longitude: the ones facing the front are drawn.
+	for y in range(-2 * RADIUS, 1):
+		var wide := sqrt(float(RADIUS * RADIUS - (y + RADIUS) * (y + RADIUS)))
+		for k in 4:
+			var angle := turn + float(k) * PI * 0.5
+			if cos(angle) > 0.01:
+				var pixel := Vector2i(roundi(wide * sin(angle)), y)
+				if disc.has(pixel):
+					out[pixel] = true
+	var list: Array[Vector2i] = []
+	list.assign(out.keys())
+	return list
+
+
+## Two half discs, each swung about the hinge by `angle`. The left one's edge is
+## its whole outline; the right one's skips pixels the left one fills, so shut
+## they share one line down the middle. Anything below the floor is cut.
+static func _open(angle: float) -> Array[Vector2i]:
+	var left := _half(-1, angle)
+	var right := _half(1, angle)
+	var list: Array[Vector2i] = []
+	for pixel in left:
+		if _edge(left, pixel):
+			list.append(pixel)
+	for pixel in right:
+		if _edge(right, pixel, left):
+			list.append(pixel)
+	return list
+
+
+static func _half(side: int, angle: float) -> Dictionary:
+	var half := {}
+	for y in range(-2 * RADIUS - 2, 1):
+		for x in range(-2 * RADIUS, 2 * RADIUS + 1):
+			var back := Vector2(x, y).rotated(-float(side) * angle)
+			var from_middle := back - Vector2(0, -RADIUS)
+			if from_middle.length_squared() <= float(RADIUS * RADIUS) and back.x * float(side) > -0.5:
+				half[Vector2i(x, y)] = true
+	return half
+
+
+## Whether `pixel` is on the edge of `set`: a side of it is not in the set (nor,
+## when `other` is given, in that one).
+static func _edge(set: Dictionary, pixel: Vector2i, other := {}) -> bool:
+	for step in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+		var next: Vector2i = pixel + step
+		if not set.has(next) and not other.has(next):
+			return true
+	return false

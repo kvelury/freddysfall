@@ -12,10 +12,11 @@ Played in the browser and found good, so these are not listed line by line any m
 
 Nobody has played these yet. Use `tools/build_web.sh`, `tools/serve.sh` and `?new-game=1` for the first.
 
-- [ ] **Room s1 on a new game.** The door in the right wall is blocked. Jump up to the middle platform: walking into the ring stops you for about a second, it lights segment by segment, the centre fills, a "Game saved" line shows, and the blocks shatter. Check the pause and the light feel right and are not too long.
-- [ ] **Stepping off and on again** saves again, with the same pause.
-- [ ] **Dying in room 5.** With no pips you come back in s1, standing on the machine, with no second pause and the door open. The whole route to room 5 is walked again.
-- [ ] **Reload** (a plain reload, not `?new-game=1`) after getting as far as room 5 or past the 3TM: you start on the machine in s1 with Imprint and the tokens you had, and rooms you took things in still have them gone.
+- [ ] **Room s1 on a new game.** The door in the right wall is blocked and the machine stands open, a split sphere on the middle platform. Jump up to the platform: as soon as you are in front of it you hop into the middle, it closes and spins, a "Game saved" line shows, the blocks shatter, and you are popped out on the far side, in about a second. Check the hop, the spin and the pop read well, and the time feels right.
+- [ ] **Entering from the other side.** Leave by the door, come back in, and enter the zone from the right end of the platform: you pop out on the left.
+- [ ] **Once per visit.** After a save, walking back and forth in front of the machine does nothing, and the sphere stays closed. Leave s1 and come back: it is open again and works once more.
+- [ ] **Dying in room 5.** With no pips you come back in s1 inside the closed sphere, which opens after a moment and pops you out to the right, with no "Game saved" and the door open. The whole route to room 5 is walked again.
+- [ ] **Reload** (a plain reload, not `?new-game=1`) after getting as far as room 5 or past the 3TM: you start inside the machine in s1 (it opens and pops you out to the right) with Imprint and the tokens you had, and rooms you took things in still have them gone.
 - [ ] **An old save.** If you have a save from before this change, a plain reload carries it over: you start in s1 with the door open.
 - [ ] **F4, `s`, `1`, Enter** warps to s1 in a debug build, and `?room=s1` starts there with the door blocked.
 
