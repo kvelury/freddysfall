@@ -24,8 +24,6 @@ const SPIN_TIME := 0.6
 const OPEN_TIME := 0.1
 const POP_TIME := 0.2
 const SAVE_TIME := HOP_TIME + CLOSE_TIME + SPIN_TIME + OPEN_TIME + POP_TIME
-## How long a player put back inside it waits, shut, before it opens.
-const EMERGE_PAUSE := 0.1
 ## How high above a straight line the player's hop and pop rise, in pixels.
 const ARC_HEIGHT := 14.0
 

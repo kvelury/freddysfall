@@ -198,18 +198,17 @@ func _save_at(machine: SaveMachine) -> void:
 
 
 ## A player put back inside a save machine, by dying with no health or by a
-## reload: it is shut round them, and opens to pop them out on the right. If it
-## was never used it saves first, as it does when walked into.
+## reload: it is shut round them, spins as it does for a save, and opens to pop
+## them out on the right. If it was never used it saves first, as it does when
+## walked into.
 func _emerge(machine: SaveMachine) -> void:
 	machine.used = true
 	_hold_player()
 	player.visible = false
 	machine.shut()
-	if GameState.has_flag(SaveMachine.flag_for(machine.def)):
-		await get_tree().create_timer(SaveMachine.EMERGE_PAUSE, true, true).timeout
-	else:
+	if not GameState.has_flag(SaveMachine.flag_for(machine.def)):
 		_commit_save(machine)
-		await machine.spin()
+	await machine.spin()
 	await _pop(machine, 1)
 
 

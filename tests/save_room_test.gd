@@ -5,8 +5,8 @@ extends SceneTree
 ## middle, it closes and spins, the game saves, a line says so, the door opens,
 ## and it pops them out on the far side in about 1.2 s. It works once each
 ## time the room is entered, and stays shut after. Put back inside it (by a
-## reload, or by dying with no health) the player is popped out to the right
-## without a save. Dying with a pip spends it and keeps today's safe-floor
+## reload, or by dying with no health) it spins as it does for a save, and the
+## player is popped out to the right without a save. Dying with a pip spends it and keeps today's safe-floor
 ## respawn; with no save room entered yet, death goes to the start room.
 
 const TEMP := "user://save_room_test.json"
@@ -93,8 +93,9 @@ func _run() -> void:
 	machine = _machine(room)
 	ok = _check(room.info.id == "s1" and state.has_flag("save:s1_save"), "a reload resumes in s1 with the machine used") and ok
 	ok = _check(world.is_busy() and not player.visible and machine.used and machine.openness == 0.0, "the player is inside it, shut") and ok
-	var emerged := await _emerge_time(world, player)
-	ok = _check(emerged >= 0.3 and emerged < 0.7, "and it opens and pops them out in under a second (%.2f s)" % emerged) and ok
+	var emerged := await _emerge(world, player, machine)
+	ok = _check(emerged["spun"], "it spins, as it does for a save") and ok
+	ok = _check(emerged["time"] >= 0.75 and emerged["time"] < 1.2, "then opens and pops them out, in about 0.9 s (%.2f s)" % emerged["time"]) and ok
 	ok = _check(player.global_position.distance_to(machine.global_position + Vector2(20, 0)) < 1.0 and player.is_on_floor(), "to the right of it, standing (%s)" % player.global_position) and ok
 	await _frames(12)
 	ok = _check(machine.openness == 0.0 and not room.locked, "it is shut again, with the door open") and ok
@@ -181,15 +182,18 @@ func _save_from(player: Player, room: Room, at: Vector2) -> Dictionary:
 	return out
 
 
-## How long a world just loaded with the player inside a machine takes to give
-## them control, in seconds.
-func _emerge_time(world: Node, player: Player) -> float:
+## Watches a world just loaded with the player inside a machine until it gives
+## them control. Returns how long that took in seconds, and whether it spun.
+func _emerge(world: Node, player: Player, machine: SaveMachine) -> Dictionary:
+	var out := {"time": 0.0, "spun": false}
 	var begun := Time.get_ticks_msec()
 	for i in 240:
 		await physics_frame
+		out["spun"] = out["spun"] or (machine.phase > 0.0 and machine.openness == 0.0 and not player.visible)
 		if player.input_enabled and not world.is_busy():
 			break
-	return float(Time.get_ticks_msec() - begun) / 1000.0
+	out["time"] = float(Time.get_ticks_msec() - begun) / 1000.0
+	return out
 
 
 ## Walks the player into room 5's spikes and waits for them to come back.
