@@ -12,7 +12,7 @@ Played in the browser and found good, so these are not listed line by line any m
 
 Nobody has played these yet. Use `tools/build_web.sh`, `tools/serve.sh` and `?new-game=1` for the first.
 
-- [ ] **Room s1 on a new game.** The door in the right wall is blocked and the machine stands open, a split sphere on the middle platform. Jump up to the platform: as soon as you are in front of it you hop into the middle, it closes and spins, a "Game saved" line shows, the blocks shatter, and you are popped out on the far side, in about 1.2 s. Check the hop, the spin and the pop read well, the time feels right, and the lines of shading read as a ball and not like a door's halo.
+- [ ] **Room s1 on a new game.** The door in the right wall is blocked and the machine stands open, a split sphere on the middle platform. Jump up to the platform: as soon as you are in front of it you hop into the middle, it closes and spins, a "Game saved" line shows, the blocks shatter, and you are popped out on the far side, in about 1.2 s. Check the hop, the spin and the pop read well, the time feels right, and the close horizontal lines read as a shaded ball and not like a door's halo.
 - [ ] **Entering from the other side.** Leave by the door, come back in, and enter the zone from the right end of the platform: you pop out on the left.
 - [ ] **Once per visit.** After a save, walking back and forth in front of the machine does nothing, and the sphere stays closed. Leave s1 and come back: it is open again and works once more.
 - [ ] **Dying in room 5.** With no pips you come back in s1 inside the closed sphere, which opens after a moment and pops you out to the right, with no "Game saved" and the door open. The whole route to room 5 is walked again.

@@ -38,12 +38,10 @@ const RADIUS := 12
 const OPEN_ANGLE := 0.5
 ## The pixel row of the hinge, the lowest pixel of the sphere: the one on the floor.
 const HINGE_ROW := 4
-## Lines of latitude, as rows from the sphere's middle (down is positive). They
-## crowd together towards the bottom, which shades the ball with lines rather
-## than dots, so it never looks like a door's dithered halo. Seen from a little
-## above, each bows down by up to TILT pixels at the front.
-const LATITUDES: Array[int] = [-1, 4, 7, 9]
-const TILT := 1.5
+## The sphere is shaded all over with close horizontal lines, one every
+## LINE_STEP pixel rows: shading made of lines, not dots, so it never looks like
+## a door's dithered halo.
+const LINE_STEP := 2
 
 var def: EntityDef
 ## Whether it has worked since the room was entered.
@@ -166,7 +164,7 @@ static func _shut(turn: float) -> Array[Vector2i]:
 	var disc := _disc()
 	var out := {}
 	for pixel in disc:
-		if _edge(disc, pixel) or _shade(Vector2(pixel)):
+		if _edge(disc, pixel) or _shade(pixel):
 			out[pixel] = true
 	# Four lines of longitude: the ones facing the front are drawn.
 	for y in range(-2 * RADIUS, 1):
@@ -190,10 +188,10 @@ static func _open(angle: float) -> Array[Vector2i]:
 	var right := _half(1, angle)
 	var list: Array[Vector2i] = []
 	for pixel in left:
-		if _edge(left, pixel) or _shade(Vector2(pixel).rotated(angle)):
+		if _edge(left, pixel) or _shade(pixel):
 			list.append(pixel)
 	for pixel in right:
-		if _edge(right, pixel, left) or _shade(Vector2(pixel).rotated(-angle)):
+		if _edge(right, pixel, left) or _shade(pixel):
 			list.append(pixel)
 	return list
 
@@ -209,17 +207,11 @@ static func _half(side: int, angle: float) -> Dictionary:
 	return half
 
 
-## Whether a pixel is one of the lines inside the sphere. `back` is where it
-## sits on the shut sphere: a half's pixels are swung back first, so its lines
-## move with it.
-static func _shade(back: Vector2) -> bool:
-	var from_middle := back - Vector2(0, -RADIUS)
-	for row in LATITUDES:
-		var wide := sqrt(float(RADIUS * RADIUS - row * row))
-		var across := clampf(from_middle.x / wide, -1.0, 1.0)
-		if absf(from_middle.y - (float(row) + TILT * sqrt(1.0 - across * across))) < 0.5:
-			return true
-	return false
+## Whether a pixel is one of the lines inside the sphere. The lines stay level
+## on screen, even across a half that is swung open: tilted lines this close
+## together break up into a checkerboard.
+static func _shade(pixel: Vector2i) -> bool:
+	return posmod(pixel.y, LINE_STEP) == 0
 
 
 ## Whether `pixel` is on the edge of `set`: a side of it is not in the set (nor,
