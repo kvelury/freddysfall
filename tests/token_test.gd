@@ -96,9 +96,11 @@ func _run() -> void:
 	world = await _world()
 	room = world.current
 	ok = _check(room.info.id == "s1", "starting again resumes at the save room, not where the player was (%s)" % room.info.id) and ok
+	# The resume point is inside the save machine, which lets the player out first.
+	while world.is_busy():
+		await physics_frame
 	ok = _check(state.has_flag("token:r2_token") and state.tokens == 2, "with the token flags and the two carried (%d)" % state.tokens) and ok
-	world.warp_to("2")
-	ok = _check(not world.current.locked and _count(world.current, "DoorBlock") == 0, "and room 2 comes up with its doors open") and ok
+	ok = _check(world.warp_to("2") and world.current.info.id == "2" and not world.current.locked and _count(world.current, "DoorBlock") == 0, "and room 2 comes up with its doors open") and ok
 
 	world.queue_free()
 	await process_frame

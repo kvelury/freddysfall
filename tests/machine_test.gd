@@ -87,6 +87,9 @@ func _run() -> void:
 	await process_frame
 	state.reset()
 	world = await _world()
+	# The resume point is inside the save machine, which lets the player out first.
+	while world.is_busy():
+		await physics_frame
 	ok = _check(state.abilities.imprint_unlocked and state.machines.get("r4_3tm") == 3, "starting again keeps Imprint and the machine's fill (%s)" % [state.machines]) and ok
 	world.warp_to("4")
 	machine = _machine(world.current)

@@ -2,8 +2,11 @@ extends SceneTree
 
 ## Drives the real player through room s1, to confirm the player's own movement
 ## can make the running jumps the solver says the room asks for. It lands on
-## the middle platform beside the save machine, which holds the doors shut until
-## it has been used, so reaching room 2 also shows that walking past it saves.
+## the middle platform, where the save machine takes the player in and pops them
+## out on the far side (the right, for a jump from the left). The doors stay shut
+## until it has been used, so reaching room 2 also shows that it saves. Popped
+## out at the platform's right end with no speed, the test runs back to the left
+## end for the run-up the last jump needs.
 
 func _initialize() -> void:
 	var world := (load("res://src/world/world.tscn") as PackedScene).instantiate()
@@ -31,7 +34,7 @@ class Driver extends Node:
 		frames += 1
 		player.scripted_jump_pressed = false
 		player.scripted_jump_held = phase.begins_with("hold")
-		player.scripted_x = -1.0 if phase == "to_wall" else 1.0
+		player.scripted_x = -1.0 if phase == "to_wall" or phase == "run_back" else 1.0
 		if phase == "to_wall":
 			if frames > 25 or player.position.x <= 16.0:
 				phase = "seek_left"
@@ -46,6 +49,9 @@ class Driver extends Node:
 			if _try_jump(96.0, 106.0):
 				goal = "mid"
 				phase = "hold"
+		elif phase == "run_back":
+			if player.position.x <= 146.0:
+				phase = "seek_top"
 		elif phase == "seek_top":
 			if _try_jump(176.0, 188.0):
 				goal = "top"
@@ -74,7 +80,7 @@ class Driver extends Node:
 		if goal == "left" and pos.y < 140.0 and pos.x > 60.0 and pos.x < 115.0:
 			return "seek_mid"
 		if goal == "mid" and pos.y < 100.0 and pos.x > 140.0 and pos.x < 195.0:
-			return "seek_top"
+			return "run_back"
 		if goal == "top" and pos.y < 60.0 and pos.x > 230.0:
 			return "exit"
 		_finish(false)

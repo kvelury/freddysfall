@@ -147,14 +147,14 @@ func _saved_lock() -> bool:
 	second.merge(door_right)
 	var rooms := _rooms([[first, ""], [second, legend], [third, ""]], false, ["1", "s2", "3"])
 	var things := ReachGraph.new(rooms, _cfg).geometry_of(rooms["s2"]).things
-	ok = _check(things.size() == 1 and things[0].size == Vector2(30, 30), "the solver touches a save machine over its whole 30 x 30 area, as the game does (%s)" % [things]) and ok
+	ok = _check(things.size() == 1 and things[0].size == Vector2(50, 30), "the solver touches a save machine over its whole 50 x 30 zone, as the game does (%s)" % [things]) and ok
 	var report := ReachGraph.new(rooms, _cfg).solve("1")
 	ok = _check(report.errors.is_empty() and report.reached_rooms.has("3"), "a save room whose machine is on its floor lets the player through %s" % [report.errors]) and ok
 	ok = _check(report.pickups.any(func(p: Dictionary) -> bool: return p["id"] == "s2_save" and p["type"] == "save" and p["reached"]), "and the machine is listed as reached") and ok
 	ok = _check(report.needs.get("3") == [], "taking it gives nothing, so the room behind needs nothing (%s)" % [report.needs.get("3")]) and ok
 
 	# The machine on a platform nobody can jump up to: the doors stay shut.
-	second = {Vector2i(10, 8): "S", Vector2i(9, 9): "#", Vector2i(10, 9): "#", Vector2i(11, 9): "#"}
+	second = {Vector2i(10, 8): "S", Vector2i(8, 9): "#", Vector2i(9, 9): "#", Vector2i(10, 9): "#", Vector2i(11, 9): "#", Vector2i(12, 9): "#"}
 	second.merge(door_left)
 	second.merge(door_right)
 	rooms = _rooms([[first, ""], [second, legend], [third, ""]], false, ["1", "s2", "3"])

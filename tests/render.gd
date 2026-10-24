@@ -115,8 +115,10 @@ func _room_image(info: RoomInfo, report: ReachGraph.Report) -> Image:
 		for door in info.exits:
 			_checker(image, _cells(door.rect))
 	for def in info.entities:
-		if def.type == "machine" or def.type == "save":
+		if def.type == "machine":
 			_box(image, _cells(TokenMachine.footprint(def.cell)), THING)
+		elif def.type == "save":
+			_box(image, _cells(SaveMachine.zone(def.cell)), THING)
 	if report != null:
 		for ledge in report.unreached:
 			if ledge.room_id == info.id:

@@ -68,6 +68,11 @@ func _ready() -> void:
 				id = String(saved["room"])
 				at = Vector2(WorldData.get_room(id).grid_pos) * Grid.SCREEN_SIZE + (saved["position"] as Vector2)
 	_place_in(id, at)
+	# A save puts the player back inside the machine, and it opens to let them out.
+	if at.is_finite():
+		var machine := current.save_machine_holding(player.body_rect())
+		if machine != null:
+			_emerge(machine)
 
 
 ## Puts the player in a room straight away, with no slide. For testing a room
@@ -100,7 +105,6 @@ func _place_in(id: String, world_position := Vector2.INF, respawn := false) -> v
 	current.set_exits_active(true)
 	if current.info.is_save_room():
 		GameState.save_room = id
-	current.settle_on(player.body_rect())
 	GameState.visit(id)
 
 
@@ -175,25 +179,78 @@ func _collect(thing: Node2D) -> void:
 	_autosave()
 
 
-## The player touches a save machine. They are held while it lights, then the
-## game is saved and the room's doors are checked (a save room can hold its doors
-## shut until this). Stepping off and back on saves again.
+## The player enters a save machine's zone. They hop into the middle, it closes
+## and the game is saved, it spins, and it opens and pops them out on the far
+## side. The machine works once a visit, so it is left shut after that.
 func _save_at(machine: SaveMachine) -> void:
-	if machine.noted:
+	if machine.used:
 		return
-	machine.noted = true
-	_busy = true
-	player.input_enabled = false
-	player.velocity = Vector2.ZERO
-	machine.dim()
-	await machine.light()
+	machine.used = true
+	_hold_player()
+	# They come out opposite to where they went in.
+	var side := 1 if player.global_position.x <= machine.global_position.x else -1
+	await _arc(player.global_position, machine.centre(), SaveMachine.HOP_TIME)
+	player.visible = false
+	await machine.close()
+	_commit_save(machine)
+	await machine.spin()
+	await _pop(machine, side)
+
+
+## A player put back inside a save machine, by dying with no health or by a
+## reload: it is shut round them, spins as it does for a save, and opens to pop
+## them out on the right. If it was never used it saves first, as it does when
+## walked into.
+func _emerge(machine: SaveMachine) -> void:
+	machine.used = true
+	_hold_player()
+	player.visible = false
+	machine.shut()
+	if not GameState.has_flag(SaveMachine.flag_for(machine.def)):
+		_commit_save(machine)
+	await machine.spin()
+	await _pop(machine, 1)
+
+
+## Opens the machine, pops the player out onto the floor at `side` (-1 left, 1
+## right) of it, gives them control, and shuts it behind them.
+func _pop(machine: SaveMachine, side: int) -> void:
+	player.visible = true
+	await machine.open()
+	var landing := machine.global_position + Vector2(float(side) * float(Grid.CELL) * 2.0, 0.0)
+	await _arc(machine.centre(), landing, SaveMachine.POP_TIME)
+	player.place(landing, player.solids)
+	player.input_enabled = true
+	_busy = false
+	machine.close()
+
+
+## The save itself: the machine's flag and the player's save room are set, the
+## room's doors are checked (a save room can hold its doors shut until this),
+## the game is written, and a line says so.
+func _commit_save(machine: SaveMachine) -> void:
 	GameState.flags[SaveMachine.flag_for(machine.def)] = true
 	GameState.save_room = current.info.id
 	current.recheck_exits(GameState.flags)
 	_autosave()
 	toast.show_text("Game saved")
-	player.input_enabled = true
-	_busy = false
+
+
+## Takes control from the player, and stops them where they are.
+func _hold_player() -> void:
+	_busy = true
+	player.input_enabled = false
+	player.velocity = Vector2.ZERO
+
+
+## Moves the player from `from` to `to` over `time` on an arc, with no control.
+func _arc(from: Vector2, to: Vector2, time: float) -> void:
+	var tween := create_tween()
+	tween.set_process_mode(Tween.TWEEN_PROCESS_PHYSICS)
+	tween.tween_method(func(t: float) -> void:
+		player.global_position = from.lerp(to, t) + Vector2(0.0, -SaveMachine.ARC_HEIGHT * 4.0 * t * (1.0 - t))
+	, 0.0, 1.0, time)
+	await tween.finished
 
 
 ## The player touches a 3TM. With tokens they are fed in one at a time, each
@@ -313,6 +370,10 @@ func _respawn(to_save: bool) -> void:
 	player.input_enabled = true
 	_follow = true
 	_busy = false
+	if to_save:
+		var machine := current.save_machine_holding(player.body_rect())
+		if machine != null:
+			_emerge(machine)
 
 
 ## Crossing a door keeps the player's place along the wall and their

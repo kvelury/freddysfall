@@ -638,8 +638,10 @@ func geometry_of(info: RoomInfo) -> Geometry:
 		for cell in info.hazards:
 			geo.hazards.append(Grid.cell_rect(Rect2i(cell, Vector2i.ONE)))
 		for def in _things_of(info):
-			if def.type == "machine" or def.type == "save":
+			if def.type == "machine":
 				geo.things.append(TokenMachine.touch_rect_for(def.cell))
+			elif def.type == "save":
+				geo.things.append(SaveMachine.touch_rect_for(def.cell))
 			else:
 				var centre := Grid.cell_center(def.cell)
 				geo.things.append(Rect2(centre - Vector2(Pickup.HALF, Pickup.HALF), Vector2(Pickup.HALF, Pickup.HALF) * 2.0))
