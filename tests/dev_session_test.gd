@@ -81,7 +81,7 @@ func _run() -> void:
 	await _replacement()
 	_check(_world.current.info.id == "8" and state.flags.has("pickup:baseline") and not state.flags.has("pickup:later") and state.machines["baseline_machine"] == 1, "retry restores original room, flags, and machine fills")
 	_check(state.tokens == 3 and state.health == 6 and state.abilities.imprint_duration == 5.0, "retry uses latest explicitly applied powers and replenishes resources")
-	_check(_world.current.tick <= 2 and _world.imprint.platforms.is_empty() and _world.player.velocity == Vector2.ZERO, "rebuild resets platform clock and transient player state")
+	_check(_world.current.tick == 0 and _world.imprint.platforms.is_empty() and _world.player.velocity == Vector2.ZERO, "rebuild resets platform clock and transient player state")
 	_check(not state.visited.has("3") and state.map_zoom == 1, "retry restores visited rooms and map zoom")
 	session.set_retry_on_death(_world, true)
 	_world._die()
@@ -115,7 +115,8 @@ func _run() -> void:
 	session.end(_world)
 	await _replacement()
 	_check(not save.enabled and not session.isolated(), "ending never turns on an independently disabled save")
-	_world.free()
+	# The final assertions may run inside the rebuilt scene's ready signal.
+	_world.queue_free()
 	for path in [TEMP, TEMP + ".bad"]:
 		DirAccess.remove_absolute(path)
 	print("DEV SESSION %s" % ("pass" if _ok else "fail"))
@@ -123,9 +124,14 @@ func _run() -> void:
 
 
 func _replacement() -> void:
-	await process_frame
-	await process_frame
-	_world = _current_world()
+	# Observe reset state at scene readiness, before any physics ticks. Waiting
+	# for rendered frames allows a machine-dependent number of physics steps.
+	var next: Node = await root.child_entered_tree
+	while not next.has_method("warp_to"):
+		next = await root.child_entered_tree
+	if not next.is_node_ready():
+		await next.ready
+	_world = next
 	_world.player.scripted = true
 
 
