@@ -23,6 +23,7 @@ machine_test.gd
 imprint_test.gd
 imprint_play_test.gd
 imprint_solver_test.gd
+platform_test.gd
 "
 
 for test in $TESTS; do
@@ -102,4 +103,4 @@ for suffix in (".pck", ".wasm", ".audio.worklet.js", ".audio.position.worklet.js
 print(f"web export ok ({tag})")
 PY
 
-echo "CHECK pass: 17 tests, uncached world validation, and web export"
+echo "CHECK pass: 18 tests, uncached world validation, and web export"
