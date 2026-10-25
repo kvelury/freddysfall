@@ -23,6 +23,8 @@ var hazards: Array[Vector2i] = []
 ## `entities`, in legend order, with their cells.
 var legend := {}
 var entities: Array[EntityDef] = []
+## The room's moving platforms, in legend order. Each is also in `entities`.
+var platforms: Array[PlatformPath] = []
 ## What has to be true before the room's doors work, a key of ExitRules.RULES.
 var exit_rule := "open"
 ## Whether the room is meant to be a dead end the player cannot climb out of yet

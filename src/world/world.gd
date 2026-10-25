@@ -98,6 +98,7 @@ func _place_in(id: String, world_position := Vector2.INF, respawn := false) -> v
 	if not at.is_finite():
 		at = current.position + current.info.start_position()
 	player.place(at, current.world_rects())
+	player.room = current
 	if not respawn:
 		_safe.clear()
 		_record_safe(id, at)
@@ -128,7 +129,7 @@ func _physics_process(_delta: float) -> void:
 		return
 	if not _busy:
 		var body := player.body_rect()
-		if current.touches_hazard(body) or current.is_outside(player.global_position):
+		if current.touches_hazard(body) or current.is_outside(player.global_position) or player.crushed():
 			_die()
 		else:
 			for thing in current.touched_things(body):
@@ -394,6 +395,7 @@ func _on_exit(door: Door) -> void:
 	var crossed := Door.crossing(door, _pending.info, player.global_position, _carried)
 	_carried = crossed["velocity"]
 	player.place(crossed["position"], _pending.world_rects())
+	player.room = _pending
 	GameState.visit(door.dest_id)
 	var tween := create_tween()
 	tween.set_process_mode(Tween.TWEEN_PROCESS_PHYSICS)

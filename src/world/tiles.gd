@@ -3,7 +3,8 @@ extends RefCounted
 
 ## Every glyph a room file may use, and what each one means. The loader, the
 ## room builder, and the tests ask here instead of comparing string literals.
-## Flags: solid, hazard, no_imprint, door, spawn. A missing flag is false.
+## Flags: solid, hazard, no_imprint, door, spawn, track. A missing flag is
+## false.
 
 const SOLID := "#"
 const EMPTY := "."
@@ -11,6 +12,9 @@ const EXIT := "X"
 const SPAWN := "P"
 const NO_IMPRINT := "~"
 const HAZARD := "^"
+## A moving platform's track, side to side and up and down. Open air.
+const TRACK_ACROSS := "-"
+const TRACK_UP_DOWN := "|"
 
 const TABLE := {
 	"#": {"solid": true},
@@ -19,6 +23,8 @@ const TABLE := {
 	"P": {"spawn": true},
 	"~": {"no_imprint": true},
 	"^": {"hazard": true},
+	"-": {"track": true},
+	"|": {"track": true},
 }
 
 

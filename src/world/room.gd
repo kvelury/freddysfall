@@ -14,6 +14,12 @@ var _floor_rects: Array[Rect2] = []
 var locked := false
 var _blocks: Array[DoorBlock] = []
 var _flags := {}
+## The room's clock for its moving platforms, in physics ticks since it was
+## built. Each one starts at the end it is drawn at, waiting.
+var tick := 0
+## The moving platforms as a body sees them, in world pixels.
+var movers := Movers.new()
+var _platforms: Array[MovingPlatform] = []
 
 ## Emitted when the exit rule becomes met and the doors open.
 signal exits_opened
@@ -24,6 +30,9 @@ signal exits_opened
 func build(room_info: RoomInfo, flags := {}, fills := {}) -> void:
 	info = room_info
 	_flags = flags
+	# The platforms move before the player steps, so the player is carried to
+	# where they are this tick.
+	process_priority = -1
 	locked = not ExitRules.met(info, flags)
 	# One drawable chunk per screen. Godot culls a chunk whose rect is
 	# outside the camera, so a long room costs the same as the screens in view.
@@ -49,14 +58,33 @@ func build(room_info: RoomInfo, flags := {}, fills := {}) -> void:
 			_add_block(ex)
 		else:
 			_add_halo(ex)
+	movers = Movers.new(info.platforms, position)
+	for path in info.platforms:
+		var platform := MovingPlatform.new(path)
+		add_child(platform)
+		platform.reset_physics_interpolation()
+		_platforms.append(platform)
 	for def in info.entities:
-		if not Entities.present(def, flags):
+		if def.type == "platform" or not Entities.present(def, flags):
 			continue
 		var thing := Entities.create(def, fills)
 		thing.position = Grid.cell_center(def.cell)
 		add_child(thing)
 		if thing is Pickup or thing is Token or thing is TokenMachine or thing is SaveMachine:
 			_things.append(thing)
+
+
+func _physics_process(_delta: float) -> void:
+	if _platforms.is_empty():
+		return
+	tick += 1
+	for platform in _platforms:
+		platform.move_to(tick)
+
+
+## The moving platforms where they are now, in world pixels.
+func mover_rects() -> Array[Rect2]:
+	return movers.rects(tick)
 
 
 func set_exits_active(active: bool) -> void:
@@ -127,8 +155,9 @@ func is_outside(world_point: Vector2) -> bool:
 
 
 ## Whether a body resting at `body` is somewhere to come back to after dying:
-## held up by the room's own floor (an Imprint breaks, and nothing would be
-## under the player), not beside a hazard, and not in or next to a doorway.
+## held up by the room's own floor (an Imprint breaks and a moving platform
+## moves, and nothing would be under the player), not beside a hazard, and not
+## in or next to a doorway.
 func is_safe_spot(body: Rect2) -> bool:
 	if not MovementSim.standing(body.get_center(), _floor_rects):
 		return false

@@ -7,7 +7,8 @@ extends SceneTree
 ## Colours: white solid, green door, cyan player start, purple spikes, gold a pickup, orange a door that was
 ## sealed because nothing is on the far side, grey dots a no-imprint cell,
 ## magenta a glyph the loader does not know, a checker over a door in a room
-## that holds its doors shut until a rule is met, a gold box round a 3TM's 3 x 3 cells. Red bar on a ledge nobody can
+## that holds its doors shut until a rule is met, a gold box round a 3TM's 3 x 3 cells, light blue a moving platform
+## where it starts and blue dots its track. Red bar on a ledge nobody can
 ## reach, yellow bar on a ledge you cannot get back from, grey bar on one that a
 ## room marked `trap: allowed` leaves one-way, red box on a door
 ## nobody can reach. Faint lines every 5 cells, bright lines between screens.
@@ -34,6 +35,8 @@ const LOCKED := Color(0.55, 0.9, 0.95)
 const ONE_WAY := Color(0.55, 0.55, 0.55)
 const TRAP := Color(0.95, 0.85, 0.1)
 const LABEL := Color(0.75, 0.75, 0.75)
+const PLATFORM := Color(0.55, 0.75, 1.0)
+const TRACK := Color(0.3, 0.45, 0.85)
 
 ## 3 x 5 digits, and the s of a save room's id, one row per string.
 const DIGITS := {
@@ -106,6 +109,9 @@ func _room_image(info: RoomInfo, report: ReachGraph.Report) -> Image:
 			var color := _cell_color(row[x], info)
 			if color != BG:
 				var cell := Rect2i(GUTTER + x * PX, HEADER + y * PX, PX, PX)
+				if Tiles.has_flag(row[x], "track"):
+					image.fill_rect(Rect2i(cell.get_center() - Vector2i.ONE, Vector2i(2, 2)), color)
+					continue
 				image.fill_rect(cell, color)
 				if row[x] == Tiles.NO_IMPRINT:
 					_hatch(image, cell)
@@ -137,7 +143,9 @@ func _room_image(info: RoomInfo, report: ReachGraph.Report) -> Image:
 
 func _cell_color(glyph: String, info: RoomInfo) -> Color:
 	if info.legend.has(glyph):
-		return THING
+		return PLATFORM if (info.legend[glyph] as EntityDef).type == "platform" else THING
+	if Tiles.has_flag(glyph, "track"):
+		return TRACK
 	if not Tiles.is_known(glyph):
 		return UNKNOWN
 	if Tiles.has_flag(glyph, "solid"):
@@ -204,7 +212,11 @@ func _world_image(rooms: Dictionary) -> Image:
 			for x in row.length():
 				var color := _cell_color(row[x], info)
 				if color != BG:
-					image.fill_rect(Rect2i(origin + Vector2i(x, y) * WORLD_PX, Vector2i(WORLD_PX, WORLD_PX)), color)
+					var at := origin + Vector2i(x, y) * WORLD_PX
+					if Tiles.has_flag(row[x], "track"):
+						image.fill_rect(Rect2i(at + Vector2i.ONE, Vector2i.ONE * 2), color)
+					else:
+						image.fill_rect(Rect2i(at, Vector2i(WORLD_PX, WORLD_PX)), color)
 		for rect in info.sealed:
 			image.fill_rect(Rect2i(origin + rect.position * WORLD_PX, rect.size * WORLD_PX), SEALED)
 		_box_outline(image, Rect2i(origin, info.cell_size * WORLD_PX))

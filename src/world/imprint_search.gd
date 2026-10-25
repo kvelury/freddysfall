@@ -15,7 +15,8 @@ extends RefCounted
 ##
 ## What it leaves out: placing the platform in mid-air, and using two in a row.
 ## A room that needs either is reported unreachable even though a player might
-## do it.
+## do it. It does not see moving platforms either: it puts no Imprint down
+## from one, and its jumps pass through them.
 
 ## Per path, how many ticks the platform is given to be useful. Each of the two
 ## legs, onto the platform and off it, gets half of the platform's life less a
@@ -44,7 +45,7 @@ func _init(graph: ReachGraph) -> void:
 ## "pickups": [index]}, all of it reachable from the ledge by one platform.
 func expand(ledge: ReachGraph.Ledge, targets: Array) -> Dictionary:
 	var out := {"ledges": [], "touches": [], "pickups": []}
-	if targets.is_empty():
+	if targets.is_empty() or ledge.moving:
 		return out
 	var info := _graph.room_info(ledge.room_id)
 	var geo := _graph.geometry_of(info)
