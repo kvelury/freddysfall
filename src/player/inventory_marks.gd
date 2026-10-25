@@ -8,7 +8,7 @@ extends Node2D
 ## The body is 10 x 10 pixels. Cut-outs are black, in pixel columns and rows
 ## counted from the top left. Tokens fill the top, then left, then right slot.
 ## The line is at the bottom, so more slots can go above it later. A small
-## dot near a top corner shows which way the player faces: at the top right
+## dot in a top corner shows which way the player faces: at the top right
 ## when facing right, at the top left when facing left.
 
 const SIZE := 10
@@ -16,8 +16,8 @@ const SLOTS: Array[Vector2i] = [Vector2i(4, 2), Vector2i(2, 4), Vector2i(6, 4)]
 const LINE_ROW := 8
 const LINE_FROM := 1
 const LINE_TO := 8
-const FACE_RIGHT: Array[Vector2i] = [Vector2i(8, 1)]
-const FACE_LEFT: Array[Vector2i] = [Vector2i(1, 1)]
+const FACE_RIGHT: Array[Vector2i] = [Vector2i(9, 0)]
+const FACE_LEFT: Array[Vector2i] = [Vector2i(0, 0)]
 
 ## 1 right, -1 left. Set by the player.
 var facing := 1:

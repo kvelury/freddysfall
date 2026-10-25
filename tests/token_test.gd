@@ -139,8 +139,8 @@ func _marks() -> bool:
 	for p in InventoryMarks.FACE_RIGHT + InventoryMarks.FACE_LEFT:
 		clear = clear and not crowded.has(p) and p.x >= 0 and p.y >= 0 and p.x < 10 and p.y < 10
 	ok = _check(clear and right.size() == 24 and left.size() == 24, "the facing dot adds one pixel inside the body, on none of the other marks") and ok
-	ok = _check(right.has(Vector2i(8, 1)) and not right.has(Vector2i(1, 1)), "facing right it is near the top right") and ok
-	ok = _check(left.has(Vector2i(1, 1)) and not left.has(Vector2i(8, 1)), "facing left it is near the top left") and ok
+	ok = _check(right.has(Vector2i(9, 0)) and not right.has(Vector2i(0, 0)), "facing right it is the top right corner") and ok
+	ok = _check(left.has(Vector2i(0, 0)) and not left.has(Vector2i(9, 0)), "facing left it is the top left corner") and ok
 	ok = _check(InventoryMarks.pixels(0, false, 0).is_empty(), "no facing given draws no dot") and ok
 	return ok
 
