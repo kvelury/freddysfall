@@ -3,7 +3,7 @@
 _Updated 2026-10-25. Written as a build spec: implement exactly as written, and ask before deviating._
 
 > **Status: built, not yet played by a person.** Implemented on branch
-> `claude/imprint-shrink-feature-lu7gcy` (PR #N), to this spec, with the
+> `claude/imprint-shrink-feature-lu7gcy` (PR #33), to this spec, with the
 > judgement calls listed in that pull request. `docs/design/game-design.md` now
 > describes the shrinking behaviour. The previous handoff (Imprint lockout, 1.5 s,
 > dev-only cooldown) was built and merged as PR #31.
@@ -337,7 +337,7 @@ Mutants to try (all must make at least one test fail):
 - Implementation reference, "Imprint in play" (lines 610-619): placing creates `ImprintPlatform.new(rect, duration, not classic)`; ageing calls `update_footing()`; the clock bullet (line 616) becomes "The footing and the look" with `blocks_left` (`ceil(cells * (lifetime - age) / lifetime)`), the closed-form order, `WARN_TIME` and `warn_time()`, the drawing, and a short Classic paragraph for the old dash clock.
 - Implementation reference, "The solver" `ImprintSearch` bullet (line 631): the last-block model, one-block legs, the second simulation.
 - "What the solver and the preview do not model" (line 652): add the outer blocks, and that the reach preview treats the cursor platform as full width.
-- Decision log: a new entry "Imprint shrinks one block per interval (PR #N)" with the why (the platform is the clock; the dashes no longer mean anything), width 3 so the middle is real, interval life / width, the last-block solver model and what it gives up, Classic kept as a dev comparison switch, old saves alone, the border look, the warning rule.
+- Decision log: a new entry "Imprint shrinks one block per interval (PR #33)" with the why (the platform is the clock; the dashes no longer mean anything), width 3 so the middle is real, interval life / width, the last-block solver model and what it gives up, Classic kept as a dev comparison switch, old saves alone, the border look, the warning rule.
 - Guardrails, "The Imprint rule": append "The footing the solver counts on is the last block, for the whole life. A feature that changes the shrink order, the interval or the starting width must keep that model true, or change the solver with it."
 - Not decided: whether Classic is removed once the user has played both; whether per-block shards are too busy; whether the first width upgrade should still exist when the start is 3.
 
@@ -398,4 +398,4 @@ After finishing: run `tools/check.sh`, serve `build/web` on :8060, and report wh
 ## Session log
 
 - 2026-10-25 — Replaced the PR #31 handoff (built and merged) with the shrinking-Imprint spec. Decisions: ends-to-middle order, default width 3, interval life / width, next-block blink, dotted inner border, session-only Classic switch, last-block solver model, old saves left alone.
-- 2026-10-25 — Built the spec (PR #N). Deviations and measurements are in the pull request: the Classic switch is on the Player tab as decided (the bypass and retry switches it was modelled on are on the Rooms tab), the solver's landing checks got about three times slower (a warm validate went from 11.8 s to 29.4 s in the cloud), and the preview cache key's new term is redundant while `sync_solids` resets the key.
+- 2026-10-25 — Built the spec (PR #33). Deviations and measurements are in the pull request: the Classic switch is on the Player tab as decided (the bypass and retry switches it was modelled on are on the Rooms tab), the solver's landing checks got about three times slower (a warm validate went from 11.8 s to 29.4 s in the cloud), and the preview cache key's new term is redundant while `sync_solids` resets the key.

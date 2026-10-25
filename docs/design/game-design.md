@@ -764,7 +764,7 @@ What was decided, in the order it came up, with the reason. Pull requests are na
 - **Old saves keep their stored duration,** so only new games get 1.5 s.
 - **The solver needs no lockout model.** It puts one platform down at a time and never two in a row, and none from a moving platform, so waiting is always possible. It does need its time budget changed: the jump onto a platform has to land within its life, and what the player does after leaving it no longer does.
 
-**Imprint shrinks one block per interval (PR #N)**
+**Imprint shrinks one block per interval (PR #33)**
 - **The platform is its own clock.** The dashes counted down a life that was hard to read; a platform that loses a block each interval shows the same thing by being smaller. The dashes no longer mean anything, so a placed platform has a dotted border to tell it from floor and from the cursor.
 - **Width 3, so the middle is real.** The block that lasts is `width / 2` from the left; at 3 that is the exact middle, and an outer block goes on each side. Shrink goes from the ends toward the middle, alternating, starting on the left (the user's choice).
 - **The interval is life / starting width,** not the old dash interval: a block has two dashes' worth of width, so reusing 0.375 s would end a 3-block platform in 1.1 s. At 1.5 s and width 3 a block goes every 0.5 s, and the total time never changes with the width.
