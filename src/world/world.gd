@@ -27,6 +27,13 @@ const SAFE_SPACING := 30.0
 ## the old game back. A reload without it keeps the save. `new_game` does the
 ## same for a test.
 var start_override := ""
+## Internal scene rebuilds consume no launch arguments.
+var dev_rebuild := false
+var dev_resume_normal := false
+## One modal owner prevents map/panel pause races.
+var modal_owner := ""
+var _modal_was_paused := false
+var _input_release := false
 var new_game := false
 var current: Room
 var _pending: Room
@@ -50,16 +57,25 @@ func _ready() -> void:
 	# integer-scaled tiles while a room scrolls. The player still interpolates.
 	camera.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 	camera.make_current()
-	var id := start_override if not start_override.is_empty() else _launch_arg("room")
+	var requested := start_override if not start_override.is_empty() else _launch_arg("room")
+	var id := WorldData.start_room
 	var at := Vector2.INF
-	if not id.is_empty():
-		Save.enabled = false
+	if not dev_rebuild:
+		DevSession.configure(_launch_arg("dev") == "1", not requested.is_empty())
+	if dev_rebuild and not dev_resume_normal:
+		id = DevSession.target
+	elif not dev_rebuild and DevSession.isolated():
+		# Programmatic start_override is also a test-fixture API: callers may
+		# seed progression before attaching the scene. Actual launch args and
+		# all direct dev launches always start fresh.
+		if start_override.is_empty() or DevSession.mode == DevSession.Mode.DEV_TEST:
+			GameState.reset()
+		id = requested if not requested.is_empty() else WorldData.start_room
 		if not WorldData.rooms.has(id):
-			push_error("There is no room \"%s\" to start in. Rooms: %s" % [id, ", ".join(WorldData.rooms.keys())])
+			push_error("There is no room \"%s\" to start in." % id)
 			id = WorldData.start_room
 	else:
-		id = WorldData.start_room
-		if new_game or not _launch_arg("new-game").is_empty():
+		if not dev_rebuild and (new_game or not _launch_arg("new-game").is_empty()):
 			Save.erase()
 			GameState.reset()
 		else:
@@ -68,6 +84,8 @@ func _ready() -> void:
 				id = String(saved["room"])
 				at = Vector2(WorldData.get_room(id).grid_pos) * Grid.SCREEN_SIZE + (saved["position"] as Vector2)
 	_place_in(id, at)
+	if DevSession.mode == DevSession.Mode.DEV_TEST and DevSession.baseline.is_empty():
+		DevSession.capture(id)
 	# A save puts the player back inside the machine, and it opens to let them out.
 	if at.is_finite():
 		var machine := current.save_machine_holding(player.body_rect())
@@ -148,7 +166,7 @@ func _make_room(id: String) -> Room:
 	var info := WorldData.get_room(id)
 	var room := Room.new()
 	room.position = Vector2(info.grid_pos) * Grid.SCREEN_SIZE
-	room.build(info, GameState.flags, GameState.machines)
+	room.build(info, GameState.flags, GameState.machines, DevSession.bypass and DevSession.mode == DevSession.Mode.DEV_TEST)
 	room.exits_opened.connect(_on_exits_opened)
 	rooms_root.add_child(room)
 	return room
@@ -234,7 +252,7 @@ func _commit_save(machine: SaveMachine) -> void:
 	GameState.save_room = current.info.id
 	current.recheck_exits(GameState.flags)
 	_autosave()
-	toast.show_text("Game saved")
+	toast.show_text("Test checkpoint set" if DevSession.isolated() else "Game saved")
 
 
 ## Takes control from the player, and stops them where they are.
@@ -337,8 +355,9 @@ func _record_safe(room_id: String, at: Vector2) -> void:
 func _die() -> void:
 	# With health, a pip is spent and the player comes back on the last safe
 	# floor. With none they go back to their save room.
+	var auto_retry := DevSession.mode == DevSession.Mode.DEV_TEST and DevSession.retry_on_death
 	var to_save := GameState.health <= 0
-	if not to_save:
+	if not to_save and not auto_retry:
 		GameState.health -= 1
 		# Dying again without having stood anywhere since the last respawn
 		# means that spot was no good. Go back to the floor before it.
@@ -355,7 +374,10 @@ func _die() -> void:
 	var timer := create_tween()
 	timer.set_process_mode(Tween.TWEEN_PROCESS_PHYSICS)
 	timer.tween_interval(DEATH_TIME)
-	timer.finished.connect(_respawn.bind(to_save))
+	if auto_retry:
+		timer.finished.connect(func() -> void: DevSession.retry(self, true))
+	else:
+		timer.finished.connect(_respawn.bind(to_save))
 
 
 func _respawn(to_save: bool) -> void:
@@ -424,3 +446,37 @@ func _finish_transition() -> void:
 
 func _camera_focus(room: Room, focus: Vector2) -> Vector2:
 	return Grid.camera_focus(room.position, room.info.pixel_size, focus)
+
+
+## Only the owner that paused may release the tree. Map fade-outs cannot
+## unpause an open dev panel, and an external pause is preserved.
+func acquire_modal(owner: String) -> bool:
+	if not modal_owner.is_empty() and modal_owner != owner:
+		return false
+	if modal_owner == owner:
+		return true
+	_modal_was_paused = get_tree().paused
+	modal_owner = owner
+	get_tree().paused = true
+	return true
+
+
+func release_modal(owner: String) -> void:
+	if modal_owner != owner:
+		return
+	modal_owner = ""
+	get_tree().paused = _modal_was_paused
+	_input_release = true
+
+
+## Input polling bypasses GUI event handling, so wait for held play keys and
+## buttons to be released before any gameplay input resumes.
+func gameplay_input_blocked() -> bool:
+	if not modal_owner.is_empty():
+		return true
+	if _input_release:
+		for action in ["move_left", "move_right", "move_down", "jump", "imprint", "map"]:
+			if Input.is_action_pressed(action):
+				return true
+		_input_release = false
+	return false

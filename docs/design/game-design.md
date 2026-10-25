@@ -15,7 +15,9 @@ Implementation steps for the palette pass live in `docs/plans/soft-duotone-palet
 | Tokens, carried and shown on the player, and the 3TM | Built |
 | Save rooms, the save machine, `exits: saved`, and the health count that death uses | Built |
 | Health pips: the pickup, how they show, refilling | Designed, not built |
-| Imprint upgrades beyond the numbers (longer, more at once, bounce) | Designed, not built |
+| Imprint width, duration and multiple active platforms | Built; available in dev tools, not awarded by current rooms |
+| Imprint bounce and other special behaviors | Designed, not built |
+| Isolated dev tools, named loadouts, retries and door bypass | Built |
 | The solver using Imprint, and what each room needs | Built |
 | The solver's cache between runs (a repeat validate takes about 8 s) | Built |
 | The map's three zoom levels, its legend, saved with the game | Built |
@@ -68,7 +70,8 @@ The camera snaps to whole pixels. The player stays interpolated. A camera sittin
 | Map | Hold Tab, or hold M. M exists because a browser may steal Tab for focus. While it is held, Up or W zooms in and Down or S zooms out. |
 | Palettes | P, once that is built. Cycles and remembers the choice. |
 | Frame rate | F3. Shows FPS and frame time. A development readout, not a player feature. |
-| Warp | F4, a room number (or `s1` for a save room), Enter. Debug builds only. A development tool, not a player feature. |
+| Dev tools | F2 or DEV button. Editor/debug builds, or exports opted in with `?dev=1` / `--dev`. |
+| Room picker | F4, a room ID (including `s1`), Enter. Starts an isolated test. |
 
 Letting go of jump early is a short hop. Holding it is the full leap. A running jump goes farther than a standing one, because air friction is low and the jump keeps the speed you had on the ground.
 
@@ -239,7 +242,7 @@ X.....LLLLL--------------------#
 
 The game saves to `user://save.json` when a room is entered, when a pickup is taken, and when the map is closed after its zoom changed, and loads it on start. The file holds a version number, the room and the position in it, the visited rooms, the abilities, the map's zoom level, the number of tokens carried, how full each 3TM is, the health, the save room, and the flags (one per pickup taken, `pickup:<id>`, one per token taken, `token:<id>`, and one per save machine used, `save:<id>`). The room and position are always the resume point: the machine of the save room the player last entered, or the start room's `P` before they have entered one. Everything else is written as it stands, so a reload keeps every pickup, token and 3TM fill, and puts the player back at the save. Entering an ordinary room no longer moves where a reload starts.
 
-A file that cannot be read, or that a newer version of the game wrote, is moved aside as `save.json.bad` and the game starts new, so it is never overwritten. A save for a room that no longer exists keeps the abilities and the map and starts in the start room. Headless runs and games started with `--room=` or `?room=` never read or write a save. F4 only warps inside a normal game, which keeps saving. `--new-game` (`?new-game=1`) is the only way to start over: it deletes the save and empties the game's state before anything is placed, so even a reload before the first autosave cannot bring the old game back, and the map's zoom goes back to the middle. A plain reload keeps the save. While `?new-game=1` stays in the address, every reload is a new game. A save from before tokens existed (version 1) is also set aside, because it comes from a world where Imprint was free and its flags mean something else now. A version 2 save is carried over: room 1 became `s1`, so it is renamed in the room and the visited rooms, the machine counts as used (the player had already left), and the save room is `s1`. To change the save's shape, raise `Save.VERSION` and add a step to `Save._migrate`; to give up on older files, raise `Save.OLDEST`.
+A file that cannot be read, or that a newer version of the game wrote, is moved aside as `save.json.bad` and the game starts new, so it is never overwritten. A save for a room that no longer exists keeps the abilities and the map and starts in the start room. Headless runs and games started with `--room=` or `?room=` never read or write a save. F4 enters an isolated dev session before room selection; later test activity cannot write the normal save. `--new-game` (`?new-game=1`) is the only way to start over: it deletes the save and empties the game's state before anything is placed, so even a reload before the first autosave cannot bring the old game back, and the map's zoom goes back to the middle. A plain reload keeps the save. While `?new-game=1` stays in the address, every reload is a new game. A save from before tokens existed (version 1) is also set aside, because it comes from a world where Imprint was free and its flags mean something else now. A version 2 save is carried over: room 1 became `s1`, so it is renamed in the room and the visited rooms, the machine counts as used (the player had already left), and the save room is `s1`. To change the save's shape, raise `Save.VERSION` and add a step to `Save._migrate`; to give up on older files, raise `Save.OLDEST`.
 
 ### The current slice
 
@@ -267,7 +270,57 @@ s2 7 8              7 meets s2 and 8 at their side doors, at the floor
 
 ### Starting in a room
 
-For testing, the game can begin in any room: `--room=<id>` on the command line, `?room=<id>` on the web, or F4 in a debug build while playing. The player is put on that room's `P`, or just inside its first door if it has none. An unknown id is reported and the start room is used.
+For testing, the game can begin in any room: `--room=<id>` on the command line, `?room=<id>` on the web, or F4 while dev tools are available. F4 enters an isolated session. The player is put on that room's `P`, or just inside its first door if it has none. An unknown id is reported and the start room is used.
+
+### Dev playtesting
+
+F2 or the DEV button opens a paused panel with Player, Rooms and Loadouts tabs.
+Tools are always available in editor/debug runs. The browser release uses
+`?dev=1` (for example `?dev=1&room=8`), and native exports use `--dev`. Without the
+opt-in, exported gameplay has no cheat UI. F3 remains the performance readout;
+F4 opens room search. This opt-in is convenience, not a security boundary.
+
+A direct dev launch starts fresh progression and does not access the normal save.
+Entering from normal play copies current progression and leaves the player where
+they are. The panel can set tokens (0–3), nonnegative health, Imprint unlocked,
+width, seconds, and active count in either direction. Bounce says “Not implemented.”
+Apply commits a validated draft atomically. Resume / Cancel or Escape closes and
+discards unapplied edits. Closing keeps the test active, with `DEV · not saving`.
+Imprint-setting changes clear placed Imprints; resource-only changes do not.
+
+Room search includes every loaded room, visited or not, with natural ID order.
+Start test captures current test progression and uses the selected loadout at the
+room's normal test spawn. Start fresh test first clears progression. Retry test
+restores that original room and captured flags, machine fills, visited rooms,
+map zoom and save-room selection, with the latest explicitly applied powers and
+resource counts. Later pickups and consumed tokens/health do not rewrite the
+selected loadout. A rebuilt scene resets Imprints, effects, motion and platform
+clocks, rather than trying to replay a mid-animation frame.
+
+Two optional switches start off. Retry original test on death plays the normal
+shatter, then restores the attempt, including its chosen health. Off uses normal
+health/death rules. Bypass door requirements removes physical blocks and exit
+locks, retaining ordinary transitions and destinations; it sets no flags. Turning
+it off recomputes actual requirements and is refused while the player overlaps a
+door that would close. It never opens sealed boundaries.
+
+Named loadouts store powers, tokens and health in `user://dev_loadouts.json`,
+version 1, independently of the normal save. Selecting stages a draft; Apply uses
+it. Save new, Update, Rename and Delete are explicit actions. Loadouts contain no
+room, progression flags, machine state or override settings. New fields acquire
+current defaults; removed abilities/effects are reported. Invalid or newer stores
+remain untouched and failures are shown without stopping the current test.
+
+No test reads, writes, erases or migrates `save.json`, even after a save machine or
+with `new-game` also supplied. Save machines say “Test checkpoint set.” End playtest
+destroys the test world before normal save access returns, then resumes the normal
+save or a fresh normal game if absent. Launch arguments are consumed for this
+in-app return; refreshing a URL still containing `dev=1` starts another test.
+
+The panel waits for a busy animation or map to close; a second F2 cancels pending
+opening. Map/panel pause ownership prevents one from unpausing the other. Gameplay
+input waits for held keys/buttons to be released, and panel clicks cannot place
+Imprints. The pointer is visible while editing. Panel styling stays monochrome.
 
 ### Checking rooms
 
@@ -344,7 +397,7 @@ The build steps for that pass are in `docs/plans/soft-duotone-palettes.md`.
 
 ## Imprint
 
-Status: built: finding it (three tokens at a 3TM), placing it, the reach check, the lifetime and its countdown, and the rules below. The solver knows about it, so `tools/validate.sh` proves which rooms are open or shut by it. Widening, lengthening, more at once and bounce are stored as numbers (width and duration are read when a platform is placed) and no room gives them yet.
+Status: built: finding it (three tokens at a 3TM), placing it, the reach check, the lifetime and its countdown, and the rules below. The solver knows about it, so `tools/validate.sh` proves which rooms are open or shut by it. Width, duration, and multiple active platforms work in the runtime and can be set through dev tools, though current rooms award none of them. Bounce is only a stored effect name; its behavior is not built.
 
 Imprint is the ability that makes Freddy's Fall a metroidvania. The mouse cursor is a platform. The player places it, jumps from it, and uses longer, longer-lasting, and stranger versions of it to open paths that the authored rooms withhold.
 
@@ -362,7 +415,7 @@ At the start, `width_cells` is 2: the player's width plus one spare cell. The fi
 
 Left click places the platform under the cursor. There is no keyboard or gamepad way to place one, and none planned for now. The code gets the target cell from one function, so another input can feed it later.
 
-- Only one imprint exists at a time. Placing another destroys the one that is already out, and the new one is placed at once, with no wait. A later upgrade may allow more than one.
+- The starting limit is one Imprint: placing another replaces it immediately. `imprint_max_active` already supports larger limits; placing at the limit replaces the oldest platform. No current room awards that upgrade.
 - It has to lie fully inside the current room. The room is the whole room, including every screen it spans, not the visible viewport.
 - It cannot overlap level geometry, spikes, or a door's trigger zone and the cell around it, so it cannot wall off a doorway or cover spikes.
 - It cannot overlap the player.
@@ -420,7 +473,7 @@ Width, duration, and behavior are the three things a room can demand. A later ro
 
 Bounce is the first special behavior. Others can be added the same way: a property of the placed platform, found as a pickup, and required by some later gap.
 
-Ideas for later upgrades, none of them built:
+Upgrades not awarded by current rooms; the first three work in the runtime and can be tried in dev tools:
 
 - A longer platform.
 - More than one platform at a time. Placing one then stops destroying the other, up to the count.
@@ -503,9 +556,42 @@ Touching spikes, or leaving the room's outline by 60 px, calls `_die`: the world
 
 ### Saving (`autoload/game_state.gd`, `autoload/save.gd`)
 
-`GameState` holds what a save holds: `visited` (a set of room ids), `abilities`, `flags` (`pickup:<id>`, `token:<id>`, `save:<id>`), `tokens` carried, `machines` (id → tokens inside), `map_zoom`, `save_room` (an id, or `""`) and `health` (0 or more). `to_dict` and `load_dict` are the only two places that know the shape, and `load_dict` clamps and defaults everything, so a damaged file gives a smaller state and not a crash. `Save.write(room, position)` adds `version`, `room` and `position` (room pixels) and writes `user://save.json`. `Save.load_game()` returns where to put the player, or `{}`. `VERSION` is 3 and `OLDEST` is 2 (`_migrate` carries a version 2 file over: room `1` becomes `s1`, `save:s1_save` is set, the save room is `s1`): a file older than `OLDEST`, newer than `VERSION`, or not valid JSON is renamed `save.json.bad` and the game starts new. `Save.enabled` is off in headless runs and for `--room=` starts, and `write`, `load_game` and `erase` all do nothing while it is off. A save written before a field existed loads with that field at its starting value, which is why changing a starting number (Imprint's duration) does not reach old saves.
+`GameState` holds what a save holds: `visited` (a set of room ids), `abilities`, `flags` (`pickup:<id>`, `token:<id>`, `save:<id>`), `tokens` carried, `machines` (id → tokens inside), `map_zoom`, `save_room` (an id, or `""`) and `health` (0 or more). `to_dict` and `load_dict` are the only two places that know the shape, and `load_dict` clamps and defaults everything, so a damaged file gives a smaller state and not a crash. `Save.write(room, position)` adds `version`, `room` and `position` (room pixels) and writes `user://save.json`. `Save.load_game()` returns where to put the player, or `{}`. `VERSION` is 3 and `OLDEST` is 2 (`_migrate` carries a version 2 file over: room `1` becomes `s1`, `save:s1_save` is set, the save room is `s1`): a file older than `OLDEST`, newer than `VERSION`, or not valid JSON is renamed `save.json.bad` and the game starts new. `Save.enabled` is independently off in headless runs. `DevSession.isolated()` also guards `write`, `load_game` and `erase` during room/development tests. Ending a test never changes the independent disable flag. A save written before a field existed loads with that field at its starting value, which is why changing a starting number (Imprint's duration) does not reach old saves.
 
 Writes happen on entering a room, after a pickup, token, 3TM or save machine, and when the map is closed after the zoom changed (`World.save_now`). Every write puts the resume point (`World._resume_point`) in `room` and `position`, whatever the player was doing, and the rest of the state as it stands.
+
+### Dev implementation (`dev/`, `ui/dev_panel.gd`)
+
+`DevSession` is an always-processing autoload with normal, room-test and dev-test
+modes. All cheats pass through its validated methods; the UI never mutates game
+progression directly. `apply` patches only edited fields, updating both live
+values and the separately selected retry loadout. `capture`, `start` and `retry`
+keep deep-copied dictionaries; `_replace` frees the old world before attaching
+the rebuilt one. `end` also frees it before restoring normal save access.
+
+`DevCatalog` is pure: it generates/deduplicates controls by stat from each
+upgrade's `dev` metadata, validates exact values, overlays loadouts on captured
+progression, and reconciles older loadouts into drafts. Metadata types are `bool`,
+`int`, `float`, `effects`, or `unsupported` with a reason. Numeric metadata declares
+bounds, step and units; effects declare `implemented` and `planned`. Integer edits
+are bounded to 2147483647 for representation safety. Imprint duration accepts
+0.01–1000000 seconds, a dev-input bound, not a gameplay progression limit.
+`RESOURCES` covers tokens and health, and coverage tests match the real token cap.
+`DevLoadouts` validates its version/entries and writes by temporary-file replacement.
+It publishes memory changes only after successful persistence.
+
+The world coordinates map/dev modal pause ownership and release-gated gameplay
+input. Runtime rooms receive an explicit door override; `ExitRules.met` and the
+solver continue to evaluate real progression. Both opening and closing door
+refreshes rebuild physical blocks/halos and synchronize player/Imprint collision.
+
+**Every gameplay feature includes dev support in the same PR.** Register its stat,
+serialization and dev metadata; implement exact setting/removal/reset, loadout and
+retry compatibility, and tests. New resources/actions use the common catalog or
+session controller. Unsupported mechanics require an explicit reason, and planned
+effects stay disabled. `dev_catalog_test` rejects unregistered upgrades, stats and
+ability properties. New room IDs appear in the picker automatically. This rule
+also lives in `AGENTS.md` so future agents cannot treat cheats as optional cleanup.
 
 ### The camera (`core/grid.gd`, `world/world.gd`)
 
@@ -551,7 +637,7 @@ The solver answers "can a player get here, and get back", using `MovementSim` an
 
 ### Effects and small parts
 
-`ExitHalo` is a dithered half-disc of 12 pre-painted 64 px frames, played as a pulse. `Shatter` is 14 square shards that fly out and fall for 0.5 s; nothing fades. `Toast` (layer 15) shows a line for 2.5 s. `FlyingToken` arcs 16 px high with a trail of 6 recent positions, every other one drawn. `InventoryMarks` cuts black plus-shaped 3×3 marks out of the body at (4,2), (2,4) and (6,4) for tokens one to three, and a line on row 8 from column 1 to 8 once Imprint is unlocked. `SaveMachine` draws a pixel ring (outer radius 13 px, the band from 8 px lit a segment at a time) around a hole of 4 px, on a 12 px base, with no antialiasing. `DebugOverlay` (layer 20) shows F3's readout, and in a debug build the load errors and the F4 warp (digits, and `s` for a save room such as `s1`).
+`ExitHalo` is a dithered half-disc of 12 pre-painted 64 px frames, played as a pulse. `Shatter` is 14 square shards that fly out and fall for 0.5 s; nothing fades. `Toast` (layer 15) shows a line for 2.5 s. `FlyingToken` arcs 16 px high with a trail of 6 recent positions, every other one drawn. `InventoryMarks` cuts black plus-shaped 3×3 marks out of the body at (4,2), (2,4) and (6,4) for tokens one to three, and a line on row 8 from column 1 to 8 once Imprint is unlocked. `SaveMachine` draws a pixel ring (outer radius 13 px, the band from 8 px lit a segment at a time) around a hole of 4 px, on a 12 px base, with no antialiasing. `DebugOverlay` (layer 20) shows F3's readout and debug load errors. `DevPanel` (layer 30) owns F2/F4 and the paused playtest UI.
 
 ### What the solver and the preview do not model
 
@@ -637,6 +723,14 @@ What was decided, in the order it came up, with the reason. Pull requests are na
 - **The row above wherever it goes is kept clear,** and so is a cell around every door. That keeps riding from ever scraping, crushing or killing the player, or carrying them through a door. It is also what lets the solver say that a player on a platform can wait for any moment of its trip.
 - **It is never safe floor, and pushing someone into a wall crushes them,** like a death on spikes.
 - **The player and the solver share it.** `MovementSim.step` carries and pushes, the solver tries moments spread over its trip, and `platform_test` checks the real player and `simulate_jump` end in the same place with a platform moving.
+
+**Dev tools (2026-10-24)**
+- **Testing is isolated.** The user chose returning to their normal save over permanently granting cheats. F4 now shares that protection.
+- **F2 and an explicit export opt-in.** F2/DEV opens the panel; `?dev=1` / `--dev` enables exported tools, including the release browser build.
+- **Fresh direct launches and reusable named loadouts.** Direct launches reset progression. Loadouts remember only powers and resources, usable in any room.
+- **Retry the original test, with the latest explicit tuning.** Cross-room attempts reset progression to their baseline, while duration/width/resource edits remain selected. This avoids replaying the game and avoids silently saving depleted resources as the next loadout.
+- **Door bypass and automatic death retry are optional, initially off.** They are separate from real room requirements and ordinary health behavior.
+- **Future mechanics must include their dev path.** Registration, setup/removal, retries, loadouts, tests and docs are part of completion, enforced by agent guidance and coverage tests.
 
 **Process**
 - **One record.** `AGENTS.md` for how an agent works, `README.md` for the code and its rules, this file for the game and its decisions, `docs/testing-checklist.md` for what nobody has played. `docs/plans/` is history.

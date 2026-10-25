@@ -16,10 +16,48 @@ This file is the project: how it is laid out, how the code fits together, the ru
 
 Open the project in the editor and press Play. The main scene is `res://src/world/world.tscn`.
 
-- **Start in a room:** `godot --path . -- --room=3`, or `?room=3` on the web, or F4, a room number and Enter in a debug build. A game started in a chosen room neither reads nor writes the save.
+- **Start in a room:** `godot --path . -- --room=3`, or `?room=3` on the web, or F4, a room ID and Enter when dev tools are available. F4 enters an isolated playtest. A game started in a chosen room neither reads nor writes the save.
 - **Saving:** the game saves by itself when a room is entered, when a pickup or token is taken, when a 3TM finishes, when a save machine is used, and when the map is closed after its zoom changed. Whatever the player has done is kept, but a reload always starts at the save: the machine of the save room they last entered, or the start room's `P` before that. The file is `user://save.json` (the browser's IndexedDB on the web). A plain reload keeps the game.
 - **Start over:** `--new-game`, or `?new-game=1` on the web. It deletes the save and empties the game's state before anything is placed, so even a reload before the first autosave cannot bring the old game back. While `?new-game=1` stays in the address, every reload is a new game.
-- **Keys:** `move_left`, `move_right` (A/D, arrows), `jump` (Space, W, Up), `move_down` (S, Down; reserved, does nothing), `imprint` (left mouse button), `map` (hold Tab or M), `map_zoom_in` (Up or W while the map is held), `map_zoom_out` (Down or S), `debug` (F3). F4 is handled by the debug overlay directly. The table with what each does is in the design doc.
+- **Keys:** `move_left`, `move_right` (A/D, arrows), `jump` (Space, W, Up), `move_down` (S, Down; reserved, does nothing), `imprint` (left mouse button), `map` (hold Tab or M), `map_zoom_in` (Up or W while the map is held), `map_zoom_out` (Down or S), `debug` (F3). F2 opens dev tools, and F4 opens their room picker. The table with what each does is in the design doc.
+
+## Dev playtesting
+
+Open `http://localhost:8060/?dev=1&room=8` after building and serving, or run
+`godot --path . -- --dev --room=8`. A direct launch starts fresh progression.
+Editor/debug runs always offer F2 and a clickable DEV button; exports require
+`?dev=1` or `--dev`. These switches are an opt-in, not access control.
+
+- **F2 / DEV:** pause and edit powers or resources. **Apply** commits; **Resume / Cancel**
+  closes, discarding unapplied edits. F4 focuses the room picker. Escape closes.
+- **Player:** tokens (0–3), health, Imprint on/off, width, duration, and active count.
+  Bounce is explicitly not implemented. Settings can be lowered as well as raised.
+- **Rooms:** choose any room, including unvisited ones. **Start test** uses current
+  test progression and the selected loadout. **Start fresh test** clears progression.
+  **Retry test** returns to that original room with its captured progression and the
+  latest explicitly applied powers/resources, even after travelling elsewhere.
+- **Overrides:** optional retry-on-death and door bypass, both initially off. Door
+  bypass ignores exit requirements without marking collectibles taken. Turning it
+  off is refused if a closing door would overlap the player.
+- **Loadouts:** save, update, select, rename, or delete named powers/resources in
+  `user://dev_loadouts.json`, separate from `save.json`. Selection stages a draft;
+  Apply activates it. Rooms, overrides, flags, and machine fills are not loadouts.
+- **End playtest:** discard test progress and resume the normal save at its save
+  room, or a new ordinary game if none exists. The test world is destroyed first.
+
+Entering tools during normal play copies current progression. The session never
+reads, writes, erases, or migrates the normal save. Save machines affect only the
+session and say “Test checkpoint set.” Closing the panel keeps isolation active;
+`DEV · not saving` stays visible. A fresh browser reload with `?dev=1` starts another
+test. If combined with `new-game`, room/dev isolation wins and the save is not erased.
+
+Retries rebuild the gameplay scene: clocks, Imprints, effects, velocity and movement
+buffers reset. They restore flags, machines, visited rooms, map zoom, and save-room
+selection. Resources consumed while playing are replenished to the selected loadout.
+Editing only duration does not turn the current depleted token count into the next
+attempt's starting count. With auto retry off, ordinary health/death rules apply.
+The panel waits for a busy animation or the held map to close; a second F2 cancels
+the request. Map/panel pause ownership and an input-release gate prevent stray input.
 
 ## Web
 
@@ -36,7 +74,7 @@ Room files are plain text. The preset's `include_filter` is `*.txt` so those fil
 
 ## Checking your work
 
-Run `tools/check.sh` before opening a pull request. It imports the project, runs all 18 headless tests, validates the whole world without the solver cache, builds the release web export, and checks that the room data and cache-tagged browser files are present. CI runs the same command. After it passes, serve that build and play the affected route yourself; the automated checks do not judge movement feel, room readability or visual feedback.
+Run `tools/check.sh` before opening a pull request. It imports the project, runs all 21 headless tests, validates the whole world without the solver cache, builds the release web export, and checks that the room data and cache-tagged browser files are present. CI runs the same command. After it passes, serve that build and play the affected route yourself; the automated checks do not judge movement feel, room readability or visual feedback.
 
 ```sh
 tools/check.sh                 # the complete automated gate and a fresh web build
@@ -58,7 +96,7 @@ After adding a script with a `class_name`, run `godot --headless --path . --impo
 | `tests/door_test.gd` | The player walks level through the aligned door from room 2 onto room 3's entrance ledge, and goes back. Prints `DOOR pass`. |
 | `tests/shaft_test.gd` | The player drops down the hole in room 3 into room 4 and climbs back up, keeping speed through the doors. Prints `SHAFT pass`. |
 | `tests/hazard_test.gd` | In room 5, spikes and falling out of a room shatter the player and, with health, put them back on safe floor (it gives the player health, since with none a death goes to the save room). An Imprint over spikes that breaks under the player does not leave a respawn in the air, and a bad respawn spot is stepped back from. Prints `HAZARD pass`. |
-| `tests/start_test.gd` | Starting in a chosen room, an unknown room, `warp_to`, and the F4 warp (digits, and `s` for a save room). Prints `START pass`. |
+| `tests/start_test.gd` | Starting in a chosen room, an unknown room, `warp_to`, and the protected F4 room picker (including `s1`). Prints `START pass`. |
 | `tests/entity_test.gd` | The room header: the legend, the `exits:` rule and `trap:`, tokens, 3TMs, save machines and save rooms (ids included). A valid one loads, and each way of writing one wrong is an error with its line. Prints `ENTITY pass`. |
 | `tests/save_test.gd` | `Abilities`, `GameState`, and the save file: round trip, tokens, machines, the save room, health and the map's zoom, damaged, newer, older (a version 2 file is carried over) and missing-room files, and `erase` doing nothing while saving is off. Uses its own file. Prints `SAVE pass`. |
 | `tests/map_test.gd` | The map's three zoom levels (what each shows, that Out always fits the whole map), the legend, the keys (Up/W, Down/S), that the map and the marker agree at every level, that Up on the map does not jump the player, and that the level is saved while a new game wipes the save and a reload keeps it. Prints `MAP pass`. |
@@ -68,6 +106,9 @@ After adding a script with a `class_name`, run `godot --headless --path . --impo
 | `tests/machine_test.gd` | The 3TM in room 4: how full it is, tokens flying in one at a time, the third giving Imprint, a spent machine doing nothing, and a save keeping its fill. Prints `MACHINE pass`. |
 | `tests/imprint_test.gd` | Where an Imprint platform may go (every refusal), whether the player can land on one, the blink, and the countdown lines. Prints `IMPRINT pass`. |
 | `tests/imprint_play_test.gd` | Imprint in room 5: locked until found, placed by the action, solid under the player, replaced, broken by time, cleared on leaving a room and on dying. Prints `IMPRINTPLAY pass`. |
+| `tests/dev_catalog_test.gd` | Dev-control coverage, validation, snapshot copies, and loadout persistence/failure handling. Prints `DEV CATALOG pass`. |
+| `tests/dev_session_test.gd` | Save isolation, exact editing, door collisions, cross-room retries and death, and ending a session. Prints `DEV SESSION pass`. |
+| `tests/dev_ui_test.gd` | Panel input/drafts, modal pause ownership, deferred opening, and room selection. Native runs also render panel screenshots to `build/dev-panel-*.png`. Prints `DEV UI pass`. |
 | `tests/platform_test.gd` | Moving platforms. The room format (a platform and its `-` or `\|` track, and each rule around it as an error), where a path puts it at each tick, pushing and crushing, the solver (a ledge only a ride reaches, a platform out of reach, no Imprint on a track), and room 8 in play: a rider carried exactly through a whole trip, walking on it, leaving it with only their own speed (switch off, as shipped) and with the platform's added (switch on), the real player and `simulate_jump` ending in the same place, and a death while riding coming back on real floor. Prints `PLATFORM pass`. |
 | `tests/imprint_solver_test.gd` | The solver with Imprint, on strings: a pit too wide to jump is shut without Imprint and open with it, a platform that breaks too soon is no use, `~` cells forbid it, a room reports the pickup it needs, a room that holds its doors shut waits for its token, three tokens and a 3TM give Imprint, a `trap: allowed` room is a warning and not an error, a fall four screens tall lands, and room 6's wall needs Imprint. Prints `IMPRINTSOLVER pass`. |
 | `tests/validate.gd` | Loads the whole world, then solves it: every room and door reachable from the start, nowhere to get stuck. Lists every problem and exits 1 if there is one, and says where the time went. Keeps what it works out about each room in `build/solver-cache/` (`--no-cache` skips it). Run through `tools/validate.sh`. |
@@ -82,10 +123,10 @@ Two kinds of test, and which to write:
 
 | Path | Role |
 | --- | --- |
-| `project.godot` | Application `Freddysfall` 0.1.0, autoloads (`GameState`, `Save`, `WorldData`), display (320×180, integer scale, nearest filter), input actions, 60 Hz physics with interpolation. |
+| `project.godot` | Application `Freddysfall` 0.1.0, autoloads (`DevSession`, `GameState`, `Save`, `WorldData`), display (320×180, integer scale, nearest filter), input actions, 60 Hz physics with interpolation. |
 | `data/world.json` | Start room, and each room's id and `grid_pos`. The room's file is `data/rooms/<id>.txt`. |
 | `data/rooms/` | One ASCII file per room: an optional header, then the grid. |
-| `data/upgrades.json` | The upgrades a pickup or 3TM can give: a name, the ability stat it changes, a kind (`unlock`, `max`, `add`) and an optional message. |
+| `data/upgrades.json` | The upgrades a pickup or 3TM can give: a name, the ability stat it changes, a kind (`unlock`, `max`, `add`) an optional message, and dev-control metadata. |
 | `src/core/` | `Grid` (cell and screen sizes, the camera clamp), `Abilities` (what the player can do), `Upgrades` (reads `upgrades.json`). No scene, no autoload. |
 | `src/autoload/` | `WorldData` (reads the world files, keeps the rooms and `errors`), `GameState` (current room, visited set, abilities, flags, tokens, machines, map zoom, save room, health), `Save` (reads and writes `user://save.json`). |
 | `src/world/room_parser.gd` | Pure text-to-`RoomInfo`: header, glyphs and walls, legend, merging `#` into rectangles, pairing and sealing doors. |
@@ -101,7 +142,8 @@ Two kinds of test, and which to write:
 | `src/world/solver_cache.gd` | The solver's results kept on disk between runs. |
 | `src/imprint/` | `ImprintTool` (the cursor, placing, ageing, drawing), `ImprintPlatform` (one platform and its clock), `ImprintRules` (where one may go), `ImprintReach` (whether the player can land on one from where they are). |
 | `src/player/` | `MovementConfig` (`movement.tres`), `MovementSim` (all of the movement), `Player` (a `Node2D` that advances a `MovementSim.State`), `InventoryMarks` (tokens and the Imprint line cut into the body). |
-| `src/ui/` | `MapOverlay` (the map, drawn into its own viewport) and `MapView` (its zoom and legend maths), `Toast` (a line of text), `DebugOverlay` (F3, F4, and load errors). |
+| `src/dev/` | `DevSession` (session boundary and retries), pure `DevCatalog` (generated controls, validation, coverage), `DevLoadouts` (separate named-loadout store). |
+| `src/ui/` | `MapOverlay` (the map, drawn into its own viewport) and `MapView` (its zoom and legend maths), `Toast` (a line of text), `DebugOverlay` (F3 and load errors), `DevPanel` (F2/F4 and playtest controls). |
 | `tests/` | The tests above. |
 | `tools/` | `check.sh` (the complete automated gate), `validate.sh`, `render.sh`, `snap.sh`, `build_web.sh`, `serve.sh`. |
 | `AGENTS.md`, `CLAUDE.md` | How an agent works here. |
@@ -131,7 +173,7 @@ GameState (autoload) ◄──► Save (autoload, user://save.json)
 ### Boot
 
 1. `WorldData._ready` loads `world.json`, reads each room's file, and calls `RoomParser.build`. Every problem is appended to `WorldData.errors` (never stops at the first) and pushed as an error. A debug build lists them on screen.
-2. `World._ready` picks the start: `--room=`/`?room=` (no save), else `--new-game`/`?new-game=1` (erase the save, reset the state, start room), else the save, else the start room. It then `_place_in`s the player.
+2. `DevSession` sets the normal/room-test/dev-test boundary before any save access. `World._ready` picks the start: `--room=`/`?room=` (no save), else `--new-game`/`?new-game=1` (erase the save, reset the state, start room), else the save, else the start room. It then `_place_in`s the player.
 3. `_place_in` frees the old room, builds the new `Room` from `RoomInfo` and `GameState` (flags and machine fills decide what is still in the world), puts the player on it, and calls `GameState.visit`.
 
 ### Each physics tick (`World._physics_process`)
@@ -150,7 +192,8 @@ These are the rules a change must not break. The design doc says why each exists
 6. **Nodes that move in `_process` turn physics interpolation off.** With 60 Hz physics and interpolation on, a node moved between physics steps glides from its old transform. The player is interpolated on purpose; the camera, effects, the door blocks, the map layer and the Imprint tool are not. A `Camera2D` inside the map's viewport lagged one zoom step behind for exactly this reason, so that layer is moved directly.
 7. **The save has a version.** The file's shape changes only with `Save.VERSION` and a step in `Save._migrate`; an unreadable or newer file is set aside as `save.json.bad`, never overwritten. Anything missing in a save falls back to its starting value.
 8. **Behaviour changes update the design doc in the same pull request.**
-9. **The solver's cache is only as good as its fingerprint.** Anything that can change what a jump does must be in `SolverCache.SOLVER_FILES`, and the room fingerprint must cover everything about a room the solver reads. `cache_test` checks the list's files exist and that they are listed.
+9. **Dev support is part of every feature.** Abilities, upgrades, effects, resources and progression restrictions need immediate test setup, exact reset/removal, retry/loadout compatibility, tests and docs in the same PR, or an explicit unsupported reason. `dev_catalog_test` rejects missing upgrade/stat registration.
+10. **The solver's cache is only as good as its fingerprint.** Anything that can change what a jump does must be in `SolverCache.SOLVER_FILES`, and the room fingerprint must cover everything about a room the solver reads. `cache_test` checks the list's files exist and that they are listed.
 
 ### Standards
 
@@ -171,7 +214,8 @@ What the existing code does, so new code reads the same:
 - **A new glyph.** One line in `Tiles.TABLE` with its flags; then whatever reads that flag (`RoomInfo`, `RoomParser`, `Room`, the renderer, the solver). The glyph table in `AGENTS.md` and the design doc.
 - **A new legend kind** (like `token`). A line in `Entities.TYPES` (required and optional keys), a script under `src/world/entities/`, a case in `Entities.create` and `Entities.present`, `is_collectible`/`is_touchable` if the player takes or works it, a case in `World._collect`, the solver's `_things_of` and `Geometry.things`, `render.gd`, and `entity_test`.
 - **A new exit rule.** A line in `ExitRules.RULES` and a case in `ExitRules.met` (taking flags, never `GameState`), and `problem` if some rooms cannot use it.
-- **A new upgrade.** An entry in `data/upgrades.json`; if it needs a new stat, a field in `Abilities` and its name in `Abilities.STATS`, `to_dict` and `from_dict`; then whatever uses it. If the solver cares (width, duration), it is part of `ImprintSearch`'s keys.
+- **A new upgrade.** An entry in `data/upgrades.json`; if it needs a new stat, a field in `Abilities` and its name in `Abilities.STATS`, `to_dict` and `from_dict`; then whatever uses it. If the solver cares (width, duration), it is part of `ImprintSearch`'s keys. Add `dev` metadata (`type`: `bool`, `int`, `float`, `effects`, or `unsupported`; numeric `min`, `max`, `step`, and optional `unit`; unsupported entries require `reason`). Effects list `implemented` and `planned` names. The generated panel needs no new widget for these patterns. Register new ability fields in `Abilities.STATS`, `to_dict` and `from_dict`; coverage checks both registration and actual script properties. Verify setting, removing, retrying and saving/reloading a loadout. Keep future planned effects disabled until their runtime exists.
+- **A new resource or command.** Register it through `DevCatalog.RESOURCES` or `DevSession`, keep real gameplay limits consistent, and add reset, retry, loadout and isolation coverage. New room IDs appear in the picker automatically.
 - **A change to the save.** Add the field to `GameState.to_dict`/`load_dict` with a default; bump `Save.VERSION` only if old files cannot be read as they are, and add the step to `_migrate`.
 - **A change to anything the solver reads.** The cache invalidates itself (the fingerprint covers the code), but check the validator's output is what you expect, and run `--no-cache` once to be sure.
 

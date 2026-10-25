@@ -74,9 +74,14 @@ func _physics_process(delta: float) -> void:
 		# Held still, the player is not carried, so they are not riding when let go.
 		_state.riding = -1
 		return
+	var blocked: bool = not scripted and get_parent().has_method("gameplay_input_blocked") and get_parent().gameplay_input_blocked()
 	var input_x := scripted_x if scripted else Input.get_axis("move_left", "move_right")
 	var jump_pressed := scripted_jump_pressed if scripted else Input.is_action_just_pressed("jump")
 	var jump_held := scripted_jump_held if scripted else Input.is_action_pressed("jump")
+	if blocked:
+		input_x = 0.0
+		jump_pressed = false
+		jump_held = false
 	scripted_jump_pressed = false
 	_state.position = global_position
 	_state.velocity = velocity

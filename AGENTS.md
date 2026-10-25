@@ -8,12 +8,12 @@ Run from the repo root.
 
 | Command | What it does |
 | --- | --- |
-| `tools/check.sh` | The complete automated gate before a pull request: imports once, runs all 18 headless tests, validates the world without cache, builds the release web export, and checks its room data and cache-tagged files. CI runs this command too. It leaves `build/web/` ready for `tools/serve.sh` and the user's playthrough. |
+| `tools/check.sh` | The complete automated gate before a pull request: imports once, runs all 21 headless tests, validates the world without cache, builds the release web export, and checks its room data and cache-tagged files. CI runs this command too. It leaves `build/web/` ready for `tools/serve.sh` and the user's playthrough. |
 | `tools/validate.sh` | Loads every room and solves the world, with Imprint, taking pickups and tokens as it goes. A room is not done until this exits 0. It also prints what each room, ledge and pickup needs, and where the time went. What it works out about each room is kept in `build/solver-cache/`, so a run after editing one room only redoes that room (about 8 s instead of 32 for the 9 rooms today); `--no-cache` ignores it, and deleting `build/` clears it. |
 | `tools/render.sh [ids]` | PNGs of rooms and the world map in `build/renders/`. Read them to see what you built. |
 | `tools/snap.sh <id>` | A real in-game frame of a room in `build/snaps/`. Opens a window for a second, so run it on the user's machine. |
-| `godot --headless --path . --script tests/<name>.gd` | `reach_test`, `physics_test`, `parity_test`, `door_test`, `shaft_test`, `hazard_test`, `start_test`, `entity_test`, `save_test`, `map_test`, `cache_test`, `token_test`, `save_room_test`, `machine_test`, `imprint_test`, `imprint_play_test`, `imprint_solver_test`, `platform_test`. Each prints a pass line and exits 0. |
-| `godot --path . -- --room=<id>` | Play starting in a room. In the browser, `?room=<id>`. In a debug build, F4, the number, Enter. |
+| `godot --headless --path . --script tests/<name>.gd` | `reach_test`, `physics_test`, `parity_test`, `door_test`, `shaft_test`, `hazard_test`, `start_test`, `entity_test`, `save_test`, `map_test`, `cache_test`, `token_test`, `save_room_test`, `machine_test`, `imprint_test`, `imprint_play_test`, `imprint_solver_test`, `platform_test`, `dev_catalog_test`, `dev_session_test`, `dev_ui_test`. Each prints a pass line and exits 0. |
+| `godot --path . -- --room=<id>` | Play starting in a room. In the browser, `?room=<id>`. Use `--dev --room=<id>` or `?dev=1&room=<id>` for tools; F2 opens the panel, F4 the protected room picker. |
 | `tools/build_web.sh` then `tools/serve.sh` | The browser build at http://localhost:8060. |
 
 After adding a script with a `class_name`, run `godot --headless --path . --import` once. A headless script cannot see the new class until then. `validate.sh` and `render.sh` do this for you.
@@ -98,3 +98,34 @@ The user draws rooms on graph paper, numbers each one, and shares a photo. The s
 - Work on a branch and open a pull request. Do not push to `main`.
 - Run `tools/validate.sh` and the tests before opening one.
 - When behavior changes, update `docs/design/game-design.md` in the same pull request, so it stays true.
+
+
+## Dev tools are part of every gameplay feature
+
+This requirement always applies to work on abilities, upgrades, effects, resources
+and progression restrictions. A feature is not complete until it can be set up
+immediately in isolated playtesting, removed/reset, retried, and round-tripped in a
+named loadout where applicable. Include this support, tests and documentation in
+the same PR. An intentionally unsupported feature needs an explicit reason.
+
+- Add `dev` control metadata to every upgrade in `data/upgrades.json`. Supported
+  types are `bool`, `int`, `float`, `effects`, and `unsupported` (requires `reason`).
+  Numeric controls declare bounds, step and units; effects distinguish implemented
+  names from planned names. Do not expose a planned name as a functioning power.
+- Register ability fields in `Abilities.STATS`, `to_dict`, `from_dict`, and the dev
+  catalog. `dev_catalog_test` checks registry coverage, serialization, and actual
+  ability properties; do not remove these checks to get a new feature through.
+- Add custom resources/commands through the shared dev catalog/session boundary.
+  Respect gameplay caps. Test increases, decreases/removal, invalid edits,
+  notifications, retry state, loadout compatibility and normal-save isolation.
+- Do not set test abilities by editing room files or the normal save. Use F2,
+  `?dev=1&room=<id>` or `--dev --room=<id>`. All test sessions block save reads,
+  writes and erasure at the save boundary. `new-game` must not override isolation.
+- Retries restore the original test room and captured progression, overlaid with
+  the latest explicitly applied loadout. New progression fields must join the
+  snapshot; consumed live resources must not silently overwrite selected values.
+- Door bypass is runtime-only. Keep `ExitRules` and the progression solver pure;
+  a bypass must not fabricate flags or make normal validation easier.
+- Keep `README.md`, the game design's Dev playtesting/implementation/decision
+  sections, and `docs/testing-checklist.md` current. Historical plans are not the
+  authority. `CLAUDE.md` imports these instructions.

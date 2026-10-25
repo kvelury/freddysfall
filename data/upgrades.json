@@ -1,7 +1,59 @@
 {
-  "imprint": {"name": "Imprint", "stat": "imprint_unlocked", "kind": "unlock", "message": "Imprint. Left click puts a platform under the cursor."},
-  "imprint_width": {"name": "Imprint width", "stat": "imprint_width", "kind": "max"},
-  "imprint_duration": {"name": "Imprint duration", "stat": "imprint_duration", "kind": "max"},
-  "imprint_max_active": {"name": "Imprints at once", "stat": "imprint_max_active", "kind": "max"},
-  "imprint_effect": {"name": "Imprint effect", "stat": "imprint_effects", "kind": "add"}
+  "imprint": {
+    "name": "Imprint",
+    "stat": "imprint_unlocked",
+    "kind": "unlock",
+    "message": "Imprint. Left click puts a platform under the cursor.",
+    "dev": {
+      "type": "bool"
+    }
+  },
+  "imprint_width": {
+    "name": "Imprint width",
+    "stat": "imprint_width",
+    "kind": "max",
+    "dev": {
+      "type": "int",
+      "min": 1,
+      "max": 2147483647,
+      "step": 1,
+      "unit": "cells"
+    }
+  },
+  "imprint_duration": {
+    "name": "Imprint duration",
+    "stat": "imprint_duration",
+    "kind": "max",
+    "dev": {
+      "type": "float",
+      "min": 0.01,
+      "max": 1000000,
+      "step": 0.5,
+      "unit": "seconds"
+    }
+  },
+  "imprint_max_active": {
+    "name": "Imprints at once",
+    "stat": "imprint_max_active",
+    "kind": "max",
+    "dev": {
+      "type": "int",
+      "min": 1,
+      "max": 2147483647,
+      "step": 1,
+      "unit": "platforms"
+    }
+  },
+  "imprint_effect": {
+    "name": "Imprint effect",
+    "stat": "imprint_effects",
+    "kind": "add",
+    "dev": {
+      "type": "effects",
+      "implemented": [],
+      "planned": [
+        "bounce"
+      ]
+    }
+  }
 }

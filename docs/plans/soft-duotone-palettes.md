@@ -2,6 +2,8 @@
 
 Status: planned, not built.
 
+Dev-panel layering and readability are required acceptance checks: recolor layer 30 along with the game, keep the DEV indicator and all fields readable, and preserve panel input/pause behavior. Follow the mandatory dev-support rule in [AGENTS.md](../../AGENTS.md) and [Dev playtesting](../design/game-design.md#dev-playtesting).
+
 Replace pure black/white with two softer duotone palettes so the game is easier on the eyes in the dark. A single full-screen palette pass recolors the existing 1-bit rendering, P switches between palettes in-game, and the choice persists across reloads.
 
 ## Palettes
@@ -50,7 +52,7 @@ flowchart LR
 - Rebuild with `tools/build_web.sh` and reload http://localhost:8060.
 - Sample canvas pixels to confirm walls/floor equal `#DCD3C1` and empty space equals `#1E1C1A`.
 - Press P and confirm amber values. Reload and confirm amber persists. Press P again to return to Ink.
-- Hold Tab: map, dim, and current-room fill render in palette tones. F3 text stays legible. FPS stays at 60.
+- Hold Tab: map, dim, and current-room fill render in palette tones. F3 text and the F2 dev panel (all tabs, fields, errors and the DEV indicator) stay legible. FPS stays at 60.
 - Run `tests/physics_test.gd` headless to confirm movement is unchanged.
 
 ## Tasks

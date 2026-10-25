@@ -145,7 +145,7 @@ func _overlay() -> bool:
 		state.visited[id] = true
 
 	var stub := GDScript.new()
-	stub.source_code = "extends Node\nvar saves := 0\nfunc save_now() -> void:\n\tsaves += 1\n"
+	stub.source_code = "extends Node\nvar saves := 0\nvar modal_owner := \"\"\nfunc save_now() -> void:\n\tsaves += 1\nfunc acquire_modal(owner: String) -> bool:\n\tmodal_owner = owner\n\tget_tree().paused = true\n\treturn true\nfunc release_modal(_owner: String) -> void:\n\tmodal_owner = \"\"\n\tget_tree().paused = false\n"
 	stub.reload()
 	var parent := Node.new()
 	parent.set_script(stub)

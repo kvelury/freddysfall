@@ -44,7 +44,7 @@ func _ready() -> void:
 ## Whether the cursor is a platform right now: Imprint has been found, and the
 ## player is in control in a room.
 func is_active() -> bool:
-	return GameState.abilities.imprint_unlocked and _player.input_enabled and _world.current != null and not _world.is_busy()
+	return not _world.gameplay_input_blocked() and GameState.abilities.imprint_unlocked and _player.input_enabled and _world.current != null and not _world.is_busy()
 
 
 func preview_state() -> String:
@@ -184,6 +184,8 @@ func sync_solids() -> void:
 
 func _forget() -> void:
 	_key = ""
+	# Until recomputed, no old legal preview may be drawn at a new width.
+	_state = UNAVAILABLE
 
 
 func _local(rect: Rect2, room: Room) -> Rect2:

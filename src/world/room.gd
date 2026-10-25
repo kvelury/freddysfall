@@ -13,6 +13,8 @@ var _floor_rects: Array[Rect2] = []
 ## Whether the room's exit rule is unmet, so its doors are blocked.
 var locked := false
 var _blocks: Array[DoorBlock] = []
+var _halos: Array[ExitHalo] = []
+var _door_override := false
 var _flags := {}
 ## The room's clock for its moving platforms, in physics ticks since it was
 ## built. Each one starts at the end it is drawn at, waiting.
@@ -27,13 +29,14 @@ signal exits_opened
 
 ## `flags` is what the player has already done (GameState.flags); things they
 ## have taken are left out. `fills` is how full each 3TM is, by id.
-func build(room_info: RoomInfo, flags := {}, fills := {}) -> void:
+func build(room_info: RoomInfo, flags := {}, fills := {}, door_override := false) -> void:
 	info = room_info
 	_flags = flags
 	# The platforms move before the player steps, so the player is carried to
 	# where they are this tick.
 	process_priority = -1
-	locked = not ExitRules.met(info, flags)
+	_door_override = door_override
+	locked = not door_override and not ExitRules.met(info, flags)
 	# One drawable chunk per screen. Godot culls a chunk whose rect is
 	# outside the camera, so a long room costs the same as the screens in view.
 	var screens: Vector2i = info.screens
@@ -187,19 +190,39 @@ func world_rects() -> Array[Rect2]:
 ## halos appear. Says whether it did. `flags` is what the player has done.
 func recheck_exits(flags: Dictionary) -> bool:
 	_flags = flags
-	if not locked or not ExitRules.met(info, flags):
+	if not locked or not (_door_override or ExitRules.met(info, flags)):
 		return false
-	locked = false
+	_refresh_doors(false)
+	return true
+
+
+## Runtime-only bypass; real progression requirements remain pure and unchanged.
+func set_door_override(on: bool, flags: Dictionary) -> void:
+	_door_override = on
+	_flags = flags
+	_refresh_doors(not on and not ExitRules.met(info, flags))
+
+
+func _refresh_doors(want_locked: bool) -> void:
+	if locked == want_locked:
+		return
+	locked = want_locked
 	for block in _blocks:
-		var burst := Shatter.new()
-		burst.position = block.position + block.size * 0.5
-		add_child(burst)
+		if not want_locked:
+			var burst := Shatter.new()
+			burst.position = block.position + block.size * 0.5
+			add_child(burst)
 		block.queue_free()
 	_blocks.clear()
+	for halo in _halos:
+		halo.queue_free()
+	_halos.clear()
 	for ex in info.exits:
-		_add_halo(ex)
+		if locked:
+			_add_block(ex)
+		else:
+			_add_halo(ex)
 	exits_opened.emit()
-	return true
 
 
 func _solid_rects() -> Array[Rect2]:
@@ -244,6 +267,7 @@ func _add_block(ex: Door) -> void:
 func _add_halo(ex: Door) -> void:
 	var pixel: Rect2 = Grid.cell_rect(ex.rect)
 	var halo := ExitHalo.new()
+	_halos.append(halo)
 	match ex.edge:
 		"right":
 			halo.position = Vector2(pixel.end.x, pixel.get_center().y)
