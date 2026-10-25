@@ -219,6 +219,7 @@ func _play() -> bool:
 	player.scripted = true
 	var room: Room = world.current
 	var cfg := player.config
+	var original := cfg.inherit_platform_velocity
 	ok = _check(room.info.id == "8" and room.movers.size() == 1, "room 8 has one moving platform") and ok
 	var node: MovingPlatform = null
 	for child in room.get_children():
@@ -249,10 +250,11 @@ func _play() -> bool:
 	var moved := (player.global_position.x - room.mover_rects()[0].position.x) - before
 	ok = _check(player.riding() == 0 and moved < -5.0, "walking moves them along it (%.1f px)" % moved) and ok
 
-	# Jumping off while it moves keeps only their own velocity.
+	# With the switch off, jumping off while it moves keeps only their own velocity.
+	cfg.inherit_platform_velocity = false
 	_until_moving(room, player)
 	var jumped := _jump(room, player)
-	ok = _check(jumped["left"] and absf(jumped["vx"]) < TOLERANCE and jumped["drift"] < TOLERANCE, "jumping off while it moves keeps only their own speed: none (%.2f px/s, drifted %.3f px)" % [jumped["vx"], jumped["drift"]]) and ok
+	ok = _check(jumped["left"] and absf(jumped["vx"]) < TOLERANCE and jumped["drift"] < TOLERANCE, "with inherit_platform_velocity off, jumping off while it moves keeps only their own speed: none (%.2f px/s, drifted %.3f px)" % [jumped["vx"], jumped["drift"]]) and ok
 
 	# With the switch on, the platform's velocity is added.
 	cfg.inherit_platform_velocity = true
@@ -260,10 +262,13 @@ func _play() -> bool:
 	_until_moving(room, player)
 	var platform_v := room.movers.step_of(0, room.tick) / DT
 	jumped = _jump(room, player)
-	cfg.inherit_platform_velocity = false
+	cfg.inherit_platform_velocity = original
 	ok = _check(jumped["left"] and absf(jumped["vx"] - platform_v.x) < 0.5, "with inherit_platform_velocity on, they leave at the platform's speed (%.2f px/s, platform %.2f)" % [jumped["vx"], platform_v.x]) and ok
 
-	# Parity: the real player and the solver's simulation agree.
+	ok = _check(original, "the game ships with inherit_platform_velocity on (movement.tres)") and ok
+
+	# Parity: the real player and the solver's simulation agree, with whatever
+	# the game ships with.
 	ok = _parity(room, player, cfg) and ok
 	world.queue_free()
 	await process_frame

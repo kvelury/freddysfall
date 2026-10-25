@@ -24,10 +24,10 @@ Nobody has played these yet. Use `tools/build_web.sh`, `tools/serve.sh` and `?ne
 
 Nobody has played these yet. `?room=8` starts in room 8 (with no Imprint and no tokens, which room 8 does not need).
 
-- [ ] **Getting on.** From the clear floor inside the door, jump onto the platform while it waits at the left. Check the 0.2 s wait reads as a wait, and the jump (three cells up) feels easy.
+- [ ] **Getting on.** From the clear floor inside the door, jump onto the platform while it waits at the left. The platform's top is five cells above the floor, as high as a full jump reaches, so a hop will not do. Check the 0.2 s wait reads as a wait, and whether the jump is too tight (row 13 is one cell lower and easier).
 - [ ] **Riding.** Stand still and ride it out to the wall and back. At 60 px/s each way takes about 3.3 s. Check it looks smooth (it moves on physics time, with interpolation), and that the player sits still on it and does not jitter or slide.
 - [ ] **Walking on it** while it moves, both ways.
-- [ ] **Jumping off it while it moves.** With `inherit_platform_velocity` off, a jump straight up goes straight up and the platform goes on without you. At 60 px/s a hop from its front end can come down on its back end. Does that feel natural, or should leaving it keep its speed? Flip the switch in `src/player/movement.tres` to compare.
+- [ ] **Jumping off it while it moves.** `inherit_platform_velocity` is on, so a jump or a step off the end keeps the platform's speed: a jump from it sliding right carries you 60 px/s further right. Does that feel natural, or does it throw you into the spikes? Set it to false in `src/player/movement.tres` to compare (then a jump straight up goes straight up and the platform goes on without you).
 - [ ] **Getting off.** Step off its left end onto the clear floor as it gets back. With a 0.2 s wait this needs you to be at its left end when it arrives. Too tight? Try a longer `pause=` in `data/rooms/8.txt`.
 - [ ] **Its speed.** Try other `speed=` values in `data/rooms/8.txt` (the user first asked for a 1.5 s trip, 133 px/s).
 - [ ] **Dying.** Fall off into the spikes: with no health you go back to your save room (s2 if you saved there). Coming back, the platform has started over, waiting at the left.
