@@ -132,17 +132,16 @@ func _marks() -> bool:
 	ok = _check(inside, "and all of them are inside the 10 x 10 body") and ok
 	ok = _check(line.all(func(p: Vector2i) -> bool: return p.y == 8), "the line runs along the one row") and ok
 	ok = _check(InventoryMarks.pixels(7, false).size() == 15, "more than three tokens draws no more than three") and ok
-	# The facing chevron: > at the top right, < at the top left, clear of every other mark.
+	# The facing dot: top right when facing right, top left when facing left, clear of every other mark.
 	var right := InventoryMarks.pixels(3, true, 1)
 	var left := InventoryMarks.pixels(3, true, -1)
 	var clear := true
 	for p in InventoryMarks.FACE_RIGHT + InventoryMarks.FACE_LEFT:
 		clear = clear and not crowded.has(p) and p.x >= 0 and p.y >= 0 and p.x < 10 and p.y < 10
-	ok = _check(clear and right.size() == 26 and left.size() == 26, "the chevron adds three pixels inside the body, on none of the other marks") and ok
-	ok = _check(InventoryMarks.FACE_RIGHT.all(func(p: Vector2i) -> bool: return p.x >= 8 and p.y <= 2), "> sits in the top right corner") and ok
-	ok = _check(InventoryMarks.FACE_LEFT.all(func(p: Vector2i) -> bool: return p.x <= 1 and p.y <= 2), "< sits in the top left corner") and ok
-	ok = _check(InventoryMarks.FACE_RIGHT[1].x > InventoryMarks.FACE_RIGHT[0].x and InventoryMarks.FACE_LEFT[1].x < InventoryMarks.FACE_LEFT[0].x, "and each points the way the player faces") and ok
-	ok = _check(InventoryMarks.pixels(0, false, 0).is_empty(), "no facing given draws no chevron") and ok
+	ok = _check(clear and right.size() == 24 and left.size() == 24, "the facing dot adds one pixel inside the body, on none of the other marks") and ok
+	ok = _check(right.has(Vector2i(8, 1)) and not right.has(Vector2i(1, 1)), "facing right it is near the top right") and ok
+	ok = _check(left.has(Vector2i(1, 1)) and not left.has(Vector2i(8, 1)), "facing left it is near the top left") and ok
+	ok = _check(InventoryMarks.pixels(0, false, 0).is_empty(), "no facing given draws no dot") and ok
 	return ok
 
 

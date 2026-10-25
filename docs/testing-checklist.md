@@ -28,7 +28,7 @@ Nobody has played these yet. Headless tests prove the order, the timing and the 
 - [ ] **The dotted border.** A placed platform is a white block with a black dotted inner border, and it looks different from the white dotted cursor outline.
 - [ ] **Per-block shards.** A shatter at every block going is not too busy.
 - [ ] **The order follows where you stood.** Click from the left of a platform: it shrinks toward the left. From the right: toward the right. Standing right under its middle, the block you face lasts. Moving after the click changes nothing.
-- [ ] **The facing chevron.** `>` at the top right when you last went right, `<` at the top left when you last went left; it reads at 1x and does not clash with the token marks. A respawn or warp faces right.
+- [ ] **The facing dot.** A dot near the top right when you last went right, near the top left when you last went left; it reads at 1x and does not clash with the token marks. A respawn or warp faces right.
 - [ ] **Landing on a block that goes early feels fair.** The solver only counts the last block; in play the others help. Landing on one that is about to go should not feel like a trap.
 - [ ] **Classic switches cleanly both ways.** In F2, Player tab: Classic on gives full-width platforms with dashes, off gives shrinking, and toggling clears the platforms. The indicator says "classic imprint". End playtest turns it off.
 - [ ] **Widths 1, 2 and 5 in F2.** Width 1 never shrinks; widths 2 and 5 keep the block nearest where you clicked from. The total time stays 1.5 s.
