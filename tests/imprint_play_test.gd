@@ -58,9 +58,22 @@ func _run() -> void:
 	ok = _check(tool.platforms.size() == 1, "the imprint action places a platform above the spikes") and ok
 	ok = _check(player.solids.size() == base + 1, "and the player now collides with it (%d solids)" % player.solids.size()) and ok
 
-	# A body dropped onto one in open air lands and stays.
+	# A click never replaces a platform: while one stands, another does nothing.
+	var standing: Rect2 = tool.platforms[0].rect
 	tool.scripted_cell = Vector2i(19, 13)
-	ok = _check(tool.place() and tool.platforms.size() == 1, "a second click replaces the first at once") and ok
+	ok = _check(not tool.place() and tool.platforms.size() == 1 and tool.platforms[0].rect == standing, "a second click while one stands does nothing") and ok
+	tool.refresh_preview()
+	ok = _check(tool.preview_state() == "unavailable" and tool.preview_reason() == "limit", "and the cursor is the cross, for the limit (%s)" % tool.preview_reason()) and ok
+	var age_before: float = tool.platforms[0].age
+	for i in 3:
+		Input.parse_input_event(click)
+		await physics_frame
+	ok = _check(tool.platforms.size() == 1 and tool.platforms[0].rect == standing and tool.platforms[0].age > age_before, "clicking again and again leaves the one platform ageing, not renewed") and ok
+	tool.clear(false)
+	tool.sync_solids()
+	ok = _check(tool.place() and tool.platforms.size() == 1, "once it is gone another may go") and ok
+
+	# A body dropped onto one in open air lands and stays.
 	player.global_position = room.position + Vector2(200.0, 112.0)
 	player.velocity = Vector2.ZERO
 	var landed := false
@@ -71,16 +84,20 @@ func _run() -> void:
 			break
 	ok = _check(landed, "the player lands on it and stands there (%s)" % player.global_position) and ok
 
-	# Replaced at once.
+	# Not replaced: the first stays, and the player has the one platform to collide with.
 	tool.scripted_cell = Vector2i(3, 6)
 	player.place(room.position + Grid.cell_center(Vector2i(20, 3)), room.world_rects())
-	tool.platforms.clear()
+	tool.clear(false)
+	tool.sync_solids()
 	tool.scripted_cell = Vector2i(10, 14)
 	tool.place()
 	tool.scripted_cell = Vector2i(3, 6)
-	ok = _check(tool.place() and tool.platforms.size() == 1, "placing a second destroys the first and takes its place") and ok
-	ok = _check(is_equal_approx(tool.platforms[0].rect.position.x, room.position.x + 30.0), "the one that is left is the new one") and ok
+	ok = _check(not tool.place() and tool.platforms.size() == 1 and is_equal_approx(tool.platforms[0].rect.position.x, room.position.x + 100.0), "the first one stays when a second is tried") and ok
 	ok = _check(player.solids.size() == base + 1, "and the player has one platform to collide with") and ok
+	tool.clear(false)
+	tool.sync_solids()
+	tool.place()
+	ok = _check(is_equal_approx(tool.platforms[0].rect.position.x, room.position.x + 30.0), "the next one goes where it is aimed once the first is gone") and ok
 
 	# Time breaks it, and the player on it falls.
 	tool.platforms[0].lifetime = 0.5
@@ -110,8 +127,55 @@ func _run() -> void:
 	state.abilities.imprint_duration = Abilities.new().imprint_duration
 	state.abilities.imprint_width = 2
 
-	# Leaving the room clears it.
+	# With the cooldown off, the next may go the moment one breaks.
+	tool.clear(false)
+	tool.sync_solids()
+	player.place(room.position + Grid.cell_center(Vector2i(2, 16)), room.world_rects())
+	tool.scripted_cell = Vector2i(10, 14)
+	tool.place()
+	tool.platforms[0].lifetime = 0.05
+	for i in 6:
+		await physics_frame
+	ok = _check(tool.platforms.is_empty() and is_zero_approx(tool.cooldown_left) and tool.place(), "with the cooldown off, another may go as soon as one has broken") and ok
+
+	# With a cooldown, it starts when the platform breaks and refuses until it is over.
+	state.abilities.imprint_cooldown = 0.2
+	tool.clear(false)
+	tool.sync_solids()
+	tool.place()
+	tool.platforms[0].lifetime = 0.3
+	ok = _check(tool.cooldown_left == 0.0, "a cooldown does not run while the platform stands") and ok
+	for i in 60:
+		await physics_frame
+		if tool.platforms.is_empty():
+			break
+	ok = _check(tool.platforms.is_empty() and tool.cooldown_left > 0.15 and tool.cooldown_left <= 0.2, "the cooldown starts, in full, when the platform breaks (%.3f)" % tool.cooldown_left) and ok
+	ok = _check(not tool.place() and tool.platforms.is_empty(), "and a click in it does nothing") and ok
+	tool.refresh_preview()
+	ok = _check(tool.preview_state() == "unavailable" and tool.preview_reason() == "cooldown", "the cursor is the cross, for the cooldown (%s)" % tool.preview_reason()) and ok
+	for i in 14:
+		await physics_frame
+	ok = _check(is_zero_approx(tool.cooldown_left) and tool.place(), "after about 0.2 s another may go") and ok
+	tool.refresh_preview()
+	ok = _check(tool.preview_reason() == "limit", "and the cooldown is not what refuses the next (%s)" % tool.preview_reason()) and ok
+
+	# More at once is the upgrade's limit, still without replacing.
+	state.abilities.imprint_cooldown = 0.0
+	state.abilities.imprint_max_active = 2
+	tool.clear(false)
+	tool.sync_solids()
+	tool.scripted_cell = Vector2i(10, 14)
+	var two: bool = tool.place()
+	tool.scripted_cell = Vector2i(14, 14)
+	two = tool.place() and two
+	tool.scripted_cell = Vector2i(18, 14)
+	ok = _check(two and tool.platforms.size() == 2 and not tool.place() and tool.platforms.size() == 2, "at a limit of two, two stand and a third is refused") and ok
+	state.abilities.imprint_max_active = 1
+
+	# Leaving the room clears it, and the cooldown with it.
+	tool.cooldown_left = 5.0
 	ok = _check(world.warp_to("4") and tool.platforms.is_empty() and world.get_node("Player").solids.size() == world.current.world_rects().size(), "leaving a room removes the platform and its collision") and ok
+	ok = _check(is_zero_approx(tool.cooldown_left), "and ends the cooldown") and ok
 
 	# Dying clears it.
 	world.warp_to("5")
@@ -119,10 +183,12 @@ func _run() -> void:
 	player.place(room.position + Grid.cell_center(Vector2i(2, 16)), room.world_rects())
 	tool.scripted_cell = Vector2i(5, 8)
 	tool.place()
+	tool.cooldown_left = 5.0
 	player.global_position = room.position + Vector2(160.0, 400.0)
 	for i in 30:
 		await physics_frame
 	ok = _check(tool.platforms.is_empty(), "dying removes the platform") and ok
+	ok = _check(is_zero_approx(tool.cooldown_left), "and the cooldown") and ok
 
 	world.queue_free()
 	await process_frame

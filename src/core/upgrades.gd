@@ -3,10 +3,11 @@ extends RefCounted
 
 ## The upgrades a pickup can give, from data/upgrades.json: upgrade id -> the
 ## stat it changes and how ("unlock" turns an ability on, "max" raises a number,
-## "add" gains an effect), and optionally a `message` to show when it is taken.
+## "min" lowers one, "add" gains an effect), and optionally a `message` to show
+## when it is taken.
 
 const PATH := "res://data/upgrades.json"
-const KINDS: Array[String] = ["unlock", "max", "add"]
+const KINDS: Array[String] = ["unlock", "max", "min", "add"]
 
 static var _defs := {}
 static var _loaded := false
