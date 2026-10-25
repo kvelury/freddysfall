@@ -7,13 +7,24 @@ extends Node2D
 ##
 ## The body is 10 x 10 pixels. Cut-outs are black, in pixel columns and rows
 ## counted from the top left. Tokens fill the top, then left, then right slot.
-## The line is at the bottom, so more slots can go above it later.
+## The line is at the bottom, so more slots can go above it later. A small
+## chevron in a top corner shows which way the player faces: `>` at the top
+## right, `<` at the top left.
 
 const SIZE := 10
 const SLOTS: Array[Vector2i] = [Vector2i(4, 2), Vector2i(2, 4), Vector2i(6, 4)]
 const LINE_ROW := 8
 const LINE_FROM := 1
 const LINE_TO := 8
+const FACE_RIGHT: Array[Vector2i] = [Vector2i(8, 0), Vector2i(9, 1), Vector2i(8, 2)]
+const FACE_LEFT: Array[Vector2i] = [Vector2i(1, 0), Vector2i(0, 1), Vector2i(1, 2)]
+
+## 1 right, -1 left. Set by the player.
+var facing := 1:
+	set(value):
+		if value != facing:
+			facing = value
+			queue_redraw()
 
 var _state: Node
 
@@ -29,8 +40,9 @@ func _ready() -> void:
 	queue_redraw()
 
 
-## The body pixels cut out for `tokens` carried and Imprint found or not.
-static func pixels(tokens: int, imprint: bool) -> Array[Vector2i]:
+## The body pixels cut out for `tokens` carried, Imprint found or not, and the
+## chevron for `facing` (0 draws none).
+static func pixels(tokens: int, imprint: bool, face := 0) -> Array[Vector2i]:
 	var out: Array[Vector2i] = []
 	for i in mini(tokens, SLOTS.size()):
 		var c := SLOTS[i]
@@ -40,11 +52,13 @@ static func pixels(tokens: int, imprint: bool) -> Array[Vector2i]:
 	if imprint:
 		for x in range(LINE_FROM, LINE_TO + 1):
 			out.append(Vector2i(x, LINE_ROW))
+	if face != 0:
+		out.append_array(FACE_RIGHT if face > 0 else FACE_LEFT)
 	return out
 
 
 func _draw() -> void:
 	if _state == null:
 		return
-	for p in pixels(_state.tokens, _state.abilities.imprint_unlocked):
+	for p in pixels(_state.tokens, _state.abilities.imprint_unlocked, facing):
 		draw_rect(Rect2(Vector2(p) - Vector2(SIZE, SIZE) * 0.5, Vector2.ONE), Color.BLACK)

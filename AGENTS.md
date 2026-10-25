@@ -98,7 +98,7 @@ The user draws rooms on graph paper, numbers each one, and shares a photo. The s
 - Work on a branch and open a pull request. Do not push to `main`.
 - Run `tools/validate.sh` and the tests before opening one.
 - When behavior changes, update `docs/design/game-design.md` in the same pull request, so it stays true.
-- **Imprint is never replaced or refreshed by another click.** While one stands, no other goes down until it has broken (plus `imprint_cooldown`). Any feature touching Imprint, footing, timers or waiting must keep this rule, in the runtime and the solver. See "The Imprint rule" under Guardrails in the design doc. Loosening it is the user's decision. A platform shrinks from its ends to its middle block, and the solver counts only that block as footing.
+- **Imprint is never replaced or refreshed by another click.** While one stands, no other goes down until it has broken (plus `imprint_cooldown`). Any feature touching Imprint, footing, timers or waiting must keep this rule, in the runtime and the solver. See "The Imprint rule" under Guardrails in the design doc. Loosening it is the user's decision. A platform shrinks toward where the player stood when they placed it (the block nearest them lasts, ties go to the block they face), and the solver counts only that last block as footing.
 
 
 ## Dev tools are part of every gameplay feature

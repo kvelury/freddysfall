@@ -144,8 +144,23 @@ func _run() -> void:
 	panel.close_panel()
 	Input.action_press("jump")
 	_check(world.gameplay_input_blocked(), "held gameplay input is suppressed after closing")
+	# A direction held through the panel does not turn the player either.
+	world.player.scripted = false
+	world.player.facing = 1
+	Input.action_press("move_left")
+	for i in 3:
+		await physics_frame
+	_check(world.player.facing == 1, "a held direction does not turn the player while input is suppressed")
+	Input.action_release("move_left")
 	Input.action_release("jump")
 	_check(not world.gameplay_input_blocked(), "gameplay resumes once held keys are released")
+	Input.action_press("move_left")
+	for i in 2:
+		await physics_frame
+	Input.action_release("move_left")
+	_check(world.player.facing == -1, "and a fresh press turns them")
+	world.player.facing = 1
+	world.player.scripted = true
 	_press(panel, KEY_F4)
 	_check(panel.opened and panel._tabs.current_tab == 1, "F4 focuses room selection")
 	panel._room.text = "999"

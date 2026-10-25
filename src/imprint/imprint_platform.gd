@@ -2,10 +2,12 @@ class_name ImprintPlatform
 extends RefCounted
 
 ## One placed platform: where it is, how long it has left, and how it looks. Its
-## own width is its clock: one block goes in each equal share of its life, from
-## the ends toward the middle, and the last block goes with the platform. A
-## platform that does not shrink (`shrinks` false) is the Classic dev mode: full
-## width until it breaks, with a dash clock.
+## own width is its clock: one block goes in each equal share of its life, and
+## the last block goes with the platform. The order is fixed when it is placed,
+## from where the player was: the block farthest from them goes first and the
+## one nearest them last (see `removal_order`). A platform that does not shrink
+## (`shrinks` false) is the Classic dev mode: full width until it breaks, with a
+## dash clock.
 
 ## It blinks on and off this often while its last dash, or the next block to go,
 ## is on show.
@@ -22,14 +24,51 @@ var age := 0.0
 ## How many blocks it was placed with, and whether it loses them.
 var cells := 1
 var shrinks := true
+## The block indices (0 = leftmost) in the order they go. The last one lasts the
+## whole life.
+var order: Array[int] = []
 
 
-func _init(world_rect: Rect2, seconds: float, shrinking := true) -> void:
+## `player_x` is the player's centre when it was placed, in the same space as
+## `world_rect`, and `facing` which way they faced. With no `player_x`, the
+## platform's own centre is used.
+func _init(world_rect: Rect2, seconds: float, shrinking := true, player_x := NAN, facing := 1) -> void:
 	rect = world_rect
 	full_rect = world_rect
 	lifetime = seconds
 	shrinks = shrinking
 	cells = maxi(roundi(world_rect.size.x / float(Grid.CELL)), 1)
+	var x := player_x if is_finite(player_x) else world_rect.get_center().x
+	order = removal_order(cells, world_rect.position.x, x, facing)
+
+
+## The order the blocks of a platform go in, for a player whose centre was at
+## `player_x` when it was placed. Each time, the end of what is left that is
+## farther from the player goes, so the platform stays in one piece and the
+## block nearest the player is last. When both ends are as far, the one behind
+## the player goes (the left one for a player facing right).
+static func removal_order(count: int, left_x: float, player_x: float, facing: int) -> Array[int]:
+	var out: Array[int] = []
+	var cell := float(Grid.CELL)
+	var lo := 0
+	var hi := count - 1
+	while lo < hi:
+		var to_lo := absf(left_x + (float(lo) + 0.5) * cell - player_x)
+		var to_hi := absf(left_x + (float(hi) + 0.5) * cell - player_x)
+		var left_goes := to_lo > to_hi if not is_equal_approx(to_lo, to_hi) else facing > 0
+		if left_goes:
+			out.append(lo)
+			lo += 1
+		else:
+			out.append(hi)
+			hi -= 1
+	out.append(lo)
+	return out
+
+
+## The block that lasts the whole life.
+func last_cell() -> int:
+	return order[order.size() - 1]
 
 
 func expired() -> bool:
@@ -43,24 +82,12 @@ func blocks_left() -> int:
 	return clampi(ceili(float(cells) * (lifetime - age) / lifetime), 0, cells)
 
 
-## The cells that have gone, counted from the left and from the right, for
-## `removed` blocks gone. Left first, then right, then left again, so the cell
-## that lasts is `cells / 2`.
-func _left_gone(removed: int) -> int:
-	return (removed + 1) / 2
-
-
-func _right_gone(removed: int) -> int:
-	return removed / 2
-
-
 ## The index (0 = leftmost) of the block that goes next, or -1 if none is left.
 func next_cell() -> int:
 	var left := blocks_left()
 	if left <= 0 or not shrinks:
 		return -1
-	var removed := cells - left
-	return _left_gone(removed) if removed % 2 == 0 else cells - 1 - _right_gone(removed)
+	return order[cells - left]
 
 
 ## Seconds until the next block goes.
@@ -80,10 +107,12 @@ func blinking_off() -> bool:
 	return shrinks and next_cell() >= 0 and time_to_next() <= warn_time() and int(age / BLINK_PERIOD) % 2 == 1
 
 
-## The footing for `left` blocks standing, in world pixels.
+## The footing for `left` blocks standing, in world pixels: the blocks not yet
+## in the order's first `cells - left`, which are always one run.
 func footing(left: int) -> Rect2:
-	var removed := cells - left
-	var from := _left_gone(removed)
+	var from := cells
+	for i in range(cells - left, cells):
+		from = mini(from, order[i])
 	var cell := float(Grid.CELL)
 	return Rect2(full_rect.position.x + float(from) * cell, full_rect.position.y, float(left) * cell, full_rect.size.y)
 
@@ -151,7 +180,7 @@ func drawn_rect() -> Rect2:
 	var shown := rect
 	if blinking_off():
 		var cell := float(Grid.CELL)
-		if (cells - blocks_left()) % 2 == 0:  # an even count gone: the left end goes next
+		if full_rect.position.x + float(next_cell()) * cell < shown.position.x + 0.5:  # the left end goes next
 			shown.position.x += cell
 		shown.size.x -= cell
 	return shown

@@ -23,13 +23,15 @@ Nobody has played these yet. Headless tests prove the rule, not the feel. Use `?
 
 Nobody has played these yet. Headless tests prove the order, the timing and the solver, not the feel. Use `?dev=1&room=5` with Imprint turned on in F2 (or `?room=5` after the 3TM).
 
-- [ ] **Rooms 5 and 6 with a 3-wide shrinking platform.** Room 5's pit both ways and room 6's wall can be crossed. A block goes every 0.5 s, left, then right, and the middle lasts to the end.
+- [ ] **Rooms 5 and 6 with a 3-wide shrinking platform.** Room 5's pit both ways and room 6's wall can be crossed. A block goes every 0.5 s, the one farthest from where you clicked first, and the one nearest you lasts to the end.
 - [ ] **The blink warning.** The next block blinks in its last quarter second and the footing under you does not change while it does. It reads, and it is not annoying.
 - [ ] **The dotted border.** A placed platform is a white block with a black dotted inner border, and it looks different from the white dotted cursor outline.
 - [ ] **Per-block shards.** A shatter at every block going is not too busy.
-- [ ] **Landing on an outer block feels fair.** The solver only counts the middle block; in play the outer ones help. Landing on one that is about to go should not feel like a trap.
+- [ ] **The order follows where you stood.** Click from the left of a platform: it shrinks toward the left. From the right: toward the right. Standing right under its middle, the block you face lasts. Moving after the click changes nothing.
+- [ ] **The facing chevron.** `>` at the top right when you last went right, `<` at the top left when you last went left; it reads at 1x and does not clash with the token marks. A respawn or warp faces right.
+- [ ] **Landing on a block that goes early feels fair.** The solver only counts the last block; in play the others help. Landing on one that is about to go should not feel like a trap.
 - [ ] **Classic switches cleanly both ways.** In F2, Player tab: Classic on gives full-width platforms with dashes, off gives shrinking, and toggling clears the platforms. The indicator says "classic imprint". End playtest turns it off.
-- [ ] **Widths 1, 2 and 5 in F2.** Width 1 never shrinks; width 2 loses the left block and keeps the right; width 5 loses 0, 4, 1, 3 and keeps 2. The total time stays 1.5 s.
+- [ ] **Widths 1, 2 and 5 in F2.** Width 1 never shrinks; widths 2 and 5 keep the block nearest where you clicked from. The total time stays 1.5 s.
 
 ## Save rooms
 

@@ -16,11 +16,21 @@ var scripted := false
 var scripted_x := 0.0
 var scripted_jump_pressed := false
 var scripted_jump_held := false
+## Which way the player last chose to go: 1 right, -1 left. It turns with left
+## or right input and is not part of the movement. A placed Imprint uses it to
+## break a tie (the block behind the player goes first), and the body shows it.
+## The world turns it right again on spawn, respawn and warp.
+var facing := 1:
+	set(value):
+		facing = value
+		if _marks != null:
+			_marks.facing = value
 
 var _state := MovementSim.State.new()
 var _was_on_floor := true
 var _squash := 0.0
 var _visual: Polygon2D
+var _marks: InventoryMarks
 
 
 func _ready() -> void:
@@ -30,7 +40,9 @@ func _ready() -> void:
 		config = load("res://src/player/movement.tres")
 	_state.coyote = config.coyote_time
 	_visual = $Visual
-	_visual.add_child(InventoryMarks.new())
+	_marks = InventoryMarks.new()
+	_marks.facing = facing
+	_visual.add_child(_marks)
 
 
 ## Puts the body at rest in a room: at `world_position`, among `rects`.
@@ -82,6 +94,8 @@ func _physics_process(delta: float) -> void:
 		input_x = 0.0
 		jump_pressed = false
 		jump_held = false
+	if input_x != 0.0 and signf(input_x) != float(facing):
+		facing = int(signf(input_x))
 	scripted_jump_pressed = false
 	_state.position = global_position
 	_state.velocity = velocity

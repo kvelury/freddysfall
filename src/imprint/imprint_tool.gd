@@ -84,7 +84,7 @@ func place() -> bool:
 		return false
 	var rect := Grid.cell_rect(Rect2i(cell, Vector2i(width, 1)))
 	rect.position += room.position
-	platforms.append(ImprintPlatform.new(rect, GameState.abilities.imprint_duration, not DevSession.classic_imprint_active()))
+	platforms.append(ImprintPlatform.new(rect, GameState.abilities.imprint_duration, not DevSession.classic_imprint_active(), _player.global_position.x, _player.facing))
 	sync_solids()
 	return true
 

@@ -117,6 +117,7 @@ func _place_in(id: String, world_position := Vector2.INF, respawn := false) -> v
 		at = current.position + current.info.start_position()
 	player.place(at, current.world_rects())
 	player.room = current
+	player.facing = 1
 	if not respawn:
 		_safe.clear()
 		_record_safe(id, at)

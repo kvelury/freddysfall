@@ -20,7 +20,7 @@ func _initialize() -> void:
 	ok = _one_way() and ok
 	ok = _tall_fall() and ok
 	ok = _barrier() and ok
-	ok = _outer_block() and ok
+	ok = _not_last_block() and ok
 	ok = _second_simulation() and ok
 	ok = _room_six() and ok
 	print("IMPRINTSOLVER %s" % ("pass" if ok else "fail"))
@@ -305,90 +305,119 @@ func _barrier() -> bool:
 	return ok
 
 
-## The solver counts only the last block of a platform as footing, since it
-## stands for the whole life. The wall of `_barrier` has one place a platform
-## may go (`~` everywhere else): three cells at row 13. With a stone over the
-## middle of them the player can only land on the right block, an outer one,
-## so a width of three is no use. A width of one has no outer blocks.
-func _outer_block() -> bool:
+## The solver counts only the block that lasts as footing, and which block that
+## is depends on where the player stood to place it: the jump's start. A jump
+## that comes down on any other block is not counted, even though the block is
+## there when it lands, because it goes first. A platform of one, whose only
+## block is the last, counts the same landing. Found by looking, on a plain floor.
+func _not_last_block() -> bool:
 	var ok := true
-	var abilities := Abilities.new()
-	abilities.imprint_unlocked = true
-	var ceiling := {}
-	for x in range(2, 10):
-		ceiling[Vector2i(x, 0)] = "X"
+	var fixture := _floor_fixture(3)
+	var search: ImprintSearch = fixture["search"]
+	var narrow: Dictionary = _floor_fixture(1)
+	var limit := 80
+	var found: ImprintSearch.Candidate = null
+	var block := Vector2i.ZERO
+	for row in range(16, 11, -1):
+		for column in range(2, 28):
+			var cell := Vector2i(column, row)
+			var full: Array[Rect2] = fixture["near"].duplicate()
+			full.append(Grid.cell_rect(Rect2i(cell, Vector2i(3, 1))))
+			for arc: ImprintSearch.Arc in search._arcs_of(fixture["ledge"], fixture["info"], fixture["geo"]):
+				var lasts: Array[Vector2i] = search._last_cells(cell, 3, arc.start.x)
+				if lasts.size() != 1:
+					continue
+				var last := Grid.cell_rect(Rect2i(lasts[0], Vector2i(1, 1)))
+				var on_last: Vector2 = search._landing(fixture["geo"], arc, full, last, limit)
+				if on_last.x == on_last.x:
+					continue
+				for k in 3:
+					var other := Vector2i(column + k, row)
+					if other == lasts[0]:
+						continue
+					var rect := Grid.cell_rect(Rect2i(other, Vector2i(1, 1)))
+					var on_full: Vector2 = search._landing(fixture["geo"], arc, full, rect, limit)
+					var alone: Array[Rect2] = fixture["near"].duplicate()
+					alone.append(rect)
+					var on_alone: Vector2 = search._landing(fixture["geo"], arc, alone, rect, limit)
+					if on_full.x == on_full.x and on_alone.x == on_alone.x and on_full.distance_to(on_alone) < 0.5:
+						found = ImprintSearch.Candidate.new()
+						found.cell = cell
+						found.arcs.append(arc)
+						block = other
+						break
+				if found != null:
+					break
+			if found != null:
+				break
+		if found != null:
+			break
+	ok = _check(found != null, "a jump that lands only on a block that goes before the last one exists") and ok
+	ok = _check(found != null and not search._lands_on(fixture["info"], fixture["geo"], fixture["ledge"], found, limit), "and with a platform of three it is not counted") and ok
+	if found != null:
+		var one := ImprintSearch.Candidate.new()
+		one.cell = block
+		one.arcs = found.arcs
+		var narrow_search: ImprintSearch = narrow["search"]
+		ok = _check(narrow_search._lands_on(narrow["info"], narrow["geo"], narrow["ledge"], one, limit) and one.last == block, "while a platform of one on that block counts it") and ok
 
-	var open := _pocket(false)
-	var rooms := _rooms([[open, ""], [ceiling, "trap: allowed\n---\n"]], true)
-	var report := ReachGraph.new(rooms, _cfg, abilities).analyze("1")
-	ok = _check(report.errors.is_empty(), "with the one place free over the middle, a platform of three crosses the wall %s" % [report.errors]) and ok
-
-	var capped := _pocket(true)
-	rooms = _rooms([[capped, ""], [ceiling, "trap: allowed\n---\n"]], true)
-	report = ReachGraph.new(rooms, _cfg, abilities).analyze("1")
-	ok = _check(_has(report.errors, "Room 2 cannot be reached"), "with a stone over the middle, the only landing is on an outer block, which does not count %s" % [report.errors]) and ok
-
-	var narrow := abilities.copy()
-	narrow.imprint_width = 1
-	report = ReachGraph.new(rooms, _cfg, narrow).analyze("1")
-	ok = _check(report.errors.is_empty(), "and a platform of one, whose only block is the last, crosses it %s" % [report.errors]) and ok
+	# Which block lasts, from where the player stands: the nearest, or either of two on a tie.
+	ok = _check(search._last_cells(Vector2i(10, 12), 3, 50.0) == [Vector2i(10, 12)], "a player to the left: the left block lasts") and ok
+	ok = _check(search._last_cells(Vector2i(10, 12), 3, 300.0) == [Vector2i(12, 12)], "a player to the right: the right block lasts") and ok
+	ok = _check(search._last_cells(Vector2i(10, 12), 3, 115.0) == [Vector2i(11, 12)], "a player under the middle: the middle lasts") and ok
+	ok = _check(search._last_cells(Vector2i(10, 12), 2, 110.0) == [Vector2i(11, 12), Vector2i(10, 12)], "on a tie either block may last, as the player may face either way (%s)" % [search._last_cells(Vector2i(10, 12), 2, 110.0)]) and ok
 	return ok
 
 
-## `_barrier`'s wall, with every cell where a platform could help forbidden
-## except three at row 13, and a stone two cells tall over their middle if `capped`.
-func _pocket(capped: bool) -> Dictionary:
-	var marks := {Vector2i(28, 16): "P"}
-	for x in range(6, 11):
-		marks[Vector2i(x, 11)] = "#"
-	for y in range(12, 17):
-		marks[Vector2i(10, y)] = "#"
-	for x in range(2, 10):
-		marks[Vector2i(x, 17)] = "X"
-	for y in range(11, 17):
-		for x in range(11, 28):
-			marks[Vector2i(x, y)] = "~"
-	for x in range(13, 16):
-		marks[Vector2i(x, 13)] = "."
-	if capped:
-		marks[Vector2i(14, 11)] = "#"
-		marks[Vector2i(14, 12)] = "#"
-	return marks
-
-
-## A jump that lands on the last block only because the platform's outer blocks
-## are there (it brushes one, and is carried onto the middle) is no use once they
-## have gone. `_lands_on` runs the jump again with the last block alone and
-## drops it. Found by looking: on a plain floor, a platform of three, the jumps
-## from the start ledge that land on the middle block with the whole platform
-## there, and where they land with the middle block alone.
-func _second_simulation() -> bool:
-	var ok := true
+## A plain floor with the start on the left, and the solver parts for a platform
+## of `width`: the graph, the search, the room, its geometry, the start ledge and
+## the solids near it.
+func _floor_fixture(width: int) -> Dictionary:
 	var abilities := Abilities.new()
 	abilities.imprint_unlocked = true
+	abilities.imprint_width = width
 	var rooms := _rooms([[{Vector2i(3, 16): "P"}, ""]])
 	var graph := ReachGraph.new(rooms, _cfg, abilities)
 	var info := graph.room_info("1")
 	var geo := graph.geometry_of(info)
 	var ledge: ReachGraph.Ledge = graph.ledges_in("1")[0]
-	var search := ImprintSearch.new(graph)
+	return {"graph": graph, "search": ImprintSearch.new(graph), "info": info, "geo": geo, "ledge": ledge, "near": graph.near_solids(geo.rects, ledge)}
+
+
+## A jump that lands on the last block only because the platform's other blocks
+## are there (it brushes one, and is carried onto the last) is no use once they
+## have gone. `_lands_on` runs the jump again with the last block alone and
+## drops it. Found by looking: on a plain floor, a platform of three, the jumps
+## from the start ledge that land on the last block with the whole platform
+## there, and where they land with the last block alone.
+func _second_simulation() -> bool:
+	var ok := true
+	var fixture := _floor_fixture(3)
+	var search: ImprintSearch = fixture["search"]
+	var info: RoomInfo = fixture["info"]
+	var geo: ReachGraph.Geometry = fixture["geo"]
+	var ledge: ReachGraph.Ledge = fixture["ledge"]
+	var near: Array[Rect2] = fixture["near"]
 	var limit := 80
-	var near := graph.near_solids(geo.rects, ledge)
-	var width := abilities.imprint_width
 	var carried: ImprintSearch.Candidate = null
 	var steady: ImprintSearch.Candidate = null
 	for row in range(16, 11, -1):
 		for column in range(2, 28):
 			var cell := Vector2i(column, row)
-			var last: Rect2 = search._last_block(cell, width)
 			var full: Array[Rect2] = near.duplicate()
-			full.append(Grid.cell_rect(Rect2i(cell, Vector2i(width, 1))))
-			var alone: Array[Rect2] = near.duplicate()
-			alone.append(last)
+			full.append(Grid.cell_rect(Rect2i(cell, Vector2i(3, 1))))
 			for arc: ImprintSearch.Arc in search._arcs_of(ledge, info, geo):
-				var with_all: Vector2 = search._landing(geo, arc, full, last, limit)
-				if with_all.x != with_all.x or (carried != null and steady != null):
+				if carried != null and steady != null:
+					break
+				var lasts: Array[Vector2i] = search._last_cells(cell, 3, arc.start.x)
+				if lasts.size() != 1:
 					continue
+				var last := Grid.cell_rect(Rect2i(lasts[0], Vector2i(1, 1)))
+				var with_all: Vector2 = search._landing(geo, arc, full, last, limit)
+				if with_all.x != with_all.x:
+					continue
+				var alone: Array[Rect2] = near.duplicate()
+				alone.append(last)
 				var by_itself: Vector2 = search._landing(geo, arc, alone, last, limit)
 				var made := ImprintSearch.Candidate.new()
 				made.cell = cell
@@ -401,9 +430,9 @@ func _second_simulation() -> bool:
 				break
 		if carried != null and steady != null:
 			break
-	ok = _check(carried != null, "a jump that lands on the middle block only because of the outer ones exists") and ok
+	ok = _check(carried != null, "a jump that lands on the last block only because of the others exists") and ok
 	ok = _check(carried != null and not search._lands_on(info, geo, ledge, carried, limit), "and it is not counted") and ok
-	ok = _check(steady != null and search._lands_on(info, geo, ledge, steady, limit), "while a jump that lands the same with the middle block alone is") and ok
+	ok = _check(steady != null and search._lands_on(info, geo, ledge, steady, limit), "while a jump that lands the same with the last block alone is") and ok
 	return ok
 
 

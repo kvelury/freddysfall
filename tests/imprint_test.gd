@@ -14,6 +14,7 @@ func _initialize() -> void:
 	ok = _platform() and ok
 	ok = _countdown() and ok
 	ok = _shrink() and ok
+	ok = _order() and ok
 	ok = _lockout() and ok
 	print("IMPRINT %s" % ("pass" if ok else "fail"))
 	quit(0 if ok else 1)
@@ -224,6 +225,52 @@ func _shrink() -> bool:
 		blink = blink or classic.blinking_off()
 	ok = _check(same and not classic.shrinks, "a Classic platform keeps its width for its whole life") and ok
 	ok = _check(not blink and classic.next_cell() == -1 and classic.blocks_left() == 3, "and no block blinks") and ok
+	return ok
+
+
+## The order is fixed at the click, from the player's centre: the block farthest
+## from them goes first and the nearest one lasts. On a tie the block behind
+## them goes first.
+func _order() -> bool:
+	var ok := true
+	ok = _check(ImprintPlatform.removal_order(3, 100.0, 50.0, 1) == [2, 1, 0], "a player to the left: right, middle, left") and ok
+	ok = _check(ImprintPlatform.removal_order(3, 100.0, 200.0, 1) == [0, 1, 2], "a player to the right: left, middle, right") and ok
+	ok = _check(ImprintPlatform.removal_order(3, 100.0, 200.0, -1) == [0, 1, 2], "facing does not matter without a tie") and ok
+	ok = _check(ImprintPlatform.removal_order(3, 100.0, 105.0, 1) == [2, 1, 0], "a player over the left block keeps it to the end") and ok
+	ok = _check(ImprintPlatform.removal_order(3, 100.0, 105.0, -1) == [2, 1, 0], "whichever way they face") and ok
+	ok = _check(ImprintPlatform.removal_order(3, 100.0, 118.0, 1) == [0, 2, 1], "over the middle, a little right of centre: left, right, middle") and ok
+	# Ties: centred under a 3-wide platform, and on the line between the two blocks of a 2-wide one.
+	ok = _check(ImprintPlatform.removal_order(3, 0.0, 15.0, 1) == [0, 2, 1], "centred, facing right: the left block goes first (%s)" % [ImprintPlatform.removal_order(3, 0.0, 15.0, 1)]) and ok
+	ok = _check(ImprintPlatform.removal_order(3, 0.0, 15.0, -1) == [2, 0, 1], "centred, facing left: the right block goes first (%s)" % [ImprintPlatform.removal_order(3, 0.0, 15.0, -1)]) and ok
+	ok = _check(ImprintPlatform.removal_order(2, 0.0, 10.0, 1) == [0, 1] and ImprintPlatform.removal_order(2, 0.0, 10.0, -1) == [1, 0], "width 2 on the line: the block in front lasts") and ok
+	ok = _check(ImprintPlatform.removal_order(1, 0.0, 500.0, 1) == [0], "width 1 is its own last block") and ok
+	# The block nearest the player is always last, for widths 1 to 5 and the player anywhere.
+	var nearest_last := true
+	for width in [1, 2, 3, 4, 5]:
+		for px in range(-40, 100, 3):
+			var order := ImprintPlatform.removal_order(width, 0.0, float(px) + 0.25, 1)
+			var best := 0
+			for k in width:
+				if absf((float(k) + 0.5) * 10.0 - float(px) - 0.25) < absf((float(best) + 0.5) * 10.0 - float(px) - 0.25):
+					best = k
+			var seen := {}
+			for k in order:
+				seen[k] = true
+			nearest_last = nearest_last and order.size() == width and seen.size() == width and order[order.size() - 1] == best
+	ok = _check(nearest_last, "for widths 1 to 5, every block goes once and the nearest is last") and ok
+
+	# The platform follows its order, footing and blink included.
+	var p := ImprintPlatform.new(Rect2(100, 50, 30, 10), 1.5, true, 50.0, 1)
+	ok = _check(p.order == [2, 1, 0] and p.last_cell() == 0, "a platform placed from the left keeps its left block") and ok
+	_age_to(p, 0.75)
+	ok = _check(p.rect == Rect2(100, 50, 20, 10), "at 0.75 s the right block has gone (%s)" % [p.rect]) and ok
+	_age_to(p, 1.25)
+	ok = _check(p.rect == Rect2(100, 50, 10, 10), "at 1.25 s the left block stands alone (%s)" % [p.rect]) and ok
+	var q := ImprintPlatform.new(Rect2(100, 50, 30, 10), 1.5, true, 50.0, 1)
+	q.age = 0.35
+	ok = _check(q.next_cell() == 2 and q.blinking_off() and q.drawn_rect() == Rect2(100, 50, 20, 10), "the right block is the one that blinks, and is left out of the drawing (%s)" % [q.drawn_rect()]) and ok
+	var r := ImprintPlatform.new(Rect2(100, 50, 30, 10), 1.5)
+	ok = _check(r.order == [0, 2, 1], "with no player given, it is the old order: left, right, middle") and ok
 	return ok
 
 
