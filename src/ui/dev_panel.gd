@@ -232,7 +232,10 @@ func _field(body: VBoxContainer, key: String, control: Dictionary) -> void:
 		var check := CheckButton.new()
 		check.text = "On"
 		row.add_child(check)
-		check.toggled.connect(func(_on: bool) -> void: _dirty[key] = true)
+		check.toggled.connect(func(on: bool) -> void:
+			check.text = "On" if on else "Off"
+			_dirty[key] = true
+		)
 		_fields[key] = check
 	elif control["type"] == "effects":
 		var effects := {}
@@ -277,6 +280,7 @@ func _build_rooms(body: VBoxContainer) -> void:
 	_room.text_submitted.connect(func(_text: String) -> void: _start(false))
 	body.add_child(_room)
 	_rooms = ItemList.new()
+	_rooms.auto_height = true
 	_rooms.custom_minimum_size.y = 36
 	_rooms.item_selected.connect(func(index: int) -> void: _room.text = _rooms.get_item_text(index))
 	_rooms.item_activated.connect(func(index: int) -> void:
@@ -336,6 +340,7 @@ func _set_fields(loadout: Dictionary) -> void:
 			field.text = str(flat[key])
 		elif field is CheckButton:
 			field.set_pressed_no_signal(bool(flat[key]))
+			field.text = "On" if field.button_pressed else "Off"
 		elif field is Dictionary:
 			for effect in field:
 				field[effect].set_pressed_no_signal(flat[key].has(effect))
@@ -394,6 +399,7 @@ func _apply() -> bool:
 
 func _build_loadouts(body: VBoxContainer) -> void:
 	_names = ItemList.new()
+	_names.auto_height = true
 	_names.custom_minimum_size.y = 42
 	_names.item_selected.connect(_select_loadout)
 	body.add_child(_names)

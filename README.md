@@ -34,7 +34,8 @@ Editor/debug runs always offer F2 and a clickable DEV button; exports require
   Bounce is explicitly not implemented. Settings can be lowered as well as raised.
 - **Rooms:** the picker initially lists every implemented room, including unvisited
   rooms and save rooms, with the current room selected. Click a room or type to
-  filter. **Start test** uses current test progression and the selected loadout. **Start fresh test** clears progression.
+  filter. Lists grow with their contents and use only the tab’s outer scrollbar.
+  **Start test** uses current test progression and the selected loadout. **Start fresh test** clears progression.
   **Retry test** returns to that original room with its captured progression and the
   latest explicitly applied powers/resources, even after travelling elsewhere.
 - **Overrides:** optional retry-on-death and door bypass, both initially off. Door

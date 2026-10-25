@@ -290,7 +290,9 @@ Imprint-setting changes clear placed Imprints; resource-only changes do not.
 
 The room picker opens with every loaded room listed, visited or not, in natural ID
 order, and the current room selected. Click a listed room to choose it, or type to
-filter the list.
+filter the list. Room and loadout lists grow to their full height inside the tab’s
+single scrolling page; neither adds an inner scrollbar. Imprint’s switch text says
+On or Off to match its current staged value, including when reopening the panel.
 Start test captures current test progression and uses the selected loadout at the
 room's normal test spawn. Start fresh test first clears progression. Retry test
 restores that original room and captured flags, machine fills, visited rooms,

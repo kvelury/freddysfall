@@ -25,6 +25,12 @@ func _run() -> void:
 	world.player.scripted = true
 	_press(panel, KEY_F2)
 	_check(panel.opened and paused and world.modal_owner == "dev", "F2 opens a paused panel")
+	var imprint_switch: CheckButton = panel._fields["imprint_unlocked"]
+	_check(not imprint_switch.button_pressed and imprint_switch.text == "Off", "locked Imprint displays Off when the panel opens")
+	imprint_switch.button_pressed = true
+	_check(imprint_switch.text == "On", "enabling Imprint updates the label to On")
+	imprint_switch.button_pressed = false
+	_check(imprint_switch.text == "Off", "disabling Imprint updates the label to Off")
 	_check(panel._rooms.item_count == root.get_node("WorldData").rooms.size(), "room picker initially lists every implemented room")
 	var selected: PackedInt32Array = panel._rooms.get_selected_items()
 	_check(selected.size() == 1 and panel._rooms.get_item_text(selected[0]) == "8", "current room is selected without filtering out other rooms")
@@ -39,6 +45,25 @@ func _run() -> void:
 	var save_rooms: Array = root.get_node("WorldData").rooms.keys().filter(func(id: String) -> bool: return id.contains("s"))
 	_check(panel._rooms.item_count == save_rooms.size(), "typing still filters save rooms")
 	panel._filter_rooms("")
+	panel._tabs.current_tab = 1
+	for index in 100:
+		panel._rooms.add_item("test_room_%d" % index)
+	for frame in 4:
+		await process_frame
+	var last_room: Rect2 = panel._rooms.get_item_rect(panel._rooms.item_count - 1)
+	_check(last_room.end.y <= panel._rooms.size.y and not panel._rooms.get_v_scroll_bar().visible, "long room list grows to fit every row without an inner scrollbar")
+	var page: ScrollContainer = panel._tabs.get_child(1)
+	_check(page.get_v_scroll_bar().visible, "Rooms uses its single outer scrollbar for the long page")
+	panel._tabs.current_tab = 2
+	for index in 100:
+		panel._names.add_item("test_loadout_%d" % index)
+	for frame in 4:
+		await process_frame
+	var last_loadout: Rect2 = panel._names.get_item_rect(panel._names.item_count - 1)
+	_check(last_loadout.end.y <= panel._names.size.y and not panel._names.get_v_scroll_bar().visible, "long loadout list also has no inner scrollbar")
+	panel._refresh_names()
+	panel._filter_rooms("")
+	panel._tabs.current_tab = 0
 	var tick: int = world.current.tick
 	await create_timer(0.05).timeout
 	_check(world.current.tick == tick, "moving platform clock stops while editing")
