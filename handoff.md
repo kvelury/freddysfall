@@ -1,488 +1,401 @@
-# Handoff: Imprint lockout, 1.5 s duration, dev-only cooldown
+# Handoff: shrinking Imprint, dotted border, default width 3, Classic dev switch
 
-> **Status: built on `game-tweaks`.** This is the spec it was built from; the
-> design doc, README and code are now the record. Two things differ from the
-> text below: the dev panel's `_nudge` needed **no** rounding change (Godot's
-> `str()` already prints `0.30000000000000004` as `0.3`), and `SPARE_TICKS` stayed
-> at 40 because the validator passed every room at 1.5 s.
+_Updated 2026-10-25. Written as a build spec: implement exactly as written, and ask before deviating._
 
-Branch: `game-tweaks`, cut from `main` at `ac82369` (PR #30). One pull request.
-This replaces the previous handoff (the `check.sh` and solver-loop plan), which
-is finished and merged.
+> **Status: designed, not built.** Nothing in this file is implemented yet. The
+> previous handoff (Imprint lockout, 1.5 s, dev-only cooldown) was built and merged
+> as PR #31; this file replaces it. `docs/design/game-design.md` still describes
+> the *current* behaviour (full-width platform, dash clock), because the design
+> doc is updated in the implementing PR, not before it. Until that PR lands, this
+> file is the authority for the new behaviour.
 
-## Purpose
+## Goal
 
-Imprint today lets a player click again and again: each click **replaces** the
-oldest platform, so they can keep a platform alive for ever and walk around any
-puzzle meant to fit in a platform's life. Change three things:
+The user's words: "instead of a timer that is present on the platform, the platform
+itself gets smaller each interval, one block at a time. so the last interval of the
+countdown the imprint size is just 1 block." The timing is unchanged: an Imprint
+lasts `imprint_duration` (1.5 s by default), and one block disappears each interval
+of that countdown. The `imprint_width` setting becomes the **starting** size.
 
-1. The starting Imprint duration is **1.5 s** (it is 2.5 s now).
-2. **No replacing.** While a platform stands, no other can be placed. The next
-   one is allowed only after the live one has **broken**.
-3. A **cooldown** that starts when a platform breaks on time, adjustable in the
-   F2 dev panel. **Its default is 0** (off in real play). The user will try 0.2 s
-   through dev tools and may decide against a cooldown, so it must be easy to
-   tune and easy to leave at 0.
+Because the countdown dashes no longer mean anything, a placed platform is drawn
+with a **dotted border** so the player can tell what they placed. The current
+behaviour (full width for the whole life, the dash clock, the last-dash blink) is
+kept behind a **dev checkbox** so the user can compare both at any time. The new
+behaviour is the default.
 
-The rule must stay true for every later feature. It is already written into
-`docs/design/game-design.md` and `AGENTS.md` (see "State of the docs" below).
+## Branch
+
+Cut `imprint-shrink` from the latest `origin/main` (`git fetch origin && git switch -c imprint-shrink origin/main`). One pull request. Merge with the `merge-pr-admin` skill when the user asks.
+
+Uncommitted: nothing. This file arrives on `main` by its own small PR.
 
 ## Decisions the user made (do not re-litigate)
 
-- The cooldown starts when a platform **breaks on time**. Leaving the room,
-  dying, warping and a dev-panel Apply clear both the platforms and the cooldown.
-- The cooldown **defaults to 0**. It is an ability stat, so it is saved, goes
-  into dev loadouts and gets a stepper in the generated panel.
-- `imprint_max_active` stays (default 1, still upgradeable, no room awards it).
-  At the limit a click is **refused**, never a replacement.
-- The cooldown also gets a `data/upgrades.json` entry of a new **`min`** kind
-  (lower is better), so a pickup could shorten it later. No room awards it.
-- **Old saves are left alone.** A save that stores 2.5 keeps 2.5. Only new
-  games and new loadouts get 1.5. No `Save.VERSION` bump.
-- Reuse the existing look for "you cannot place here": the small **×** cursor.
-  No new visuals. Report this as a judgement in the PR.
+| Question | Decision |
+| --- | --- |
+| Shrink order | From the ends toward the middle, alternating, **starting on the left**. The **default width becomes 3**, so the exact middle block is the last one. In general the last block is index `width / 2` (integer division): width 2 -> the right block, width 4 -> the third, width 5 -> the middle. |
+| Interval | **Life / starting width.** At width 3 and 1.5 s, one block goes every 0.5 s: 3 blocks until 0.5 s, 2 until 1.0 s, 1 until 1.5 s. The total time never changes with width. |
+| Warning | Only the **next block to go blinks**, for the last 0.25 s before it goes (capped, see `warn_time`). Its collision stays until it goes. |
+| Look | A white block with a **1 px black dotted border drawn 1 px inside its edge**, which follows the platform as it shrinks. No dashes. |
+| Dev switch | A **session switch** on the F2 Player tab, "Classic Imprint (no shrinking)", off by default. It works like door bypass: it survives retries, is **not** saved, **not** in loadouts, and End playtest or a fresh boot resets it. Normal play always shrinks. |
+| Solver | Counts **only the last block** as footing. That block stands for the whole life, so a route the solver accepts does not depend on an outer block still being there. |
+| Old saves | **Left alone.** A save that stores width 2 keeps 2. Only new games start at 3. (Same rule as the duration in PR #31.) |
+| Cooldown | Unchanged from PR #31 (default 0, starts when the platform finally breaks). |
 
-## Read first
+### Discrepancies found while planning (all settled above, listed so nobody reopens them)
 
-1. `AGENTS.md` (commands, dev-tools requirement), `README.md` ("What the code
-   keeps true", Standards, Recipes).
-2. `docs/design/game-design.md`: the **Imprint** section, **Implementation
-   reference → Imprint in play** and **The solver**, **Decision log**, and the
-   Guardrails. The "decided, not built" text for this work is already in there.
-3. Code: `src/imprint/imprint_tool.gd`, `imprint_rules.gd`,
-   `imprint_platform.gd`, `src/core/abilities.gd`, `src/core/upgrades.gd`,
-   `data/upgrades.json`, `src/world/imprint_search.gd`, `src/dev/dev_catalog.gd`,
-   `src/dev/dev_session.gd`, `src/ui/dev_panel.gd`.
+- "One block per interval" cannot reuse today's 0.375 s interval: that is per **dash**, and a block has two dashes, so a 3-block platform would be gone in 1.1 s. The interval is life / starting width instead.
+- Under the last-block solver model, a wider starting width never makes a room easier **on paper** (the validator ignores outer blocks). It does help in play. Accepted.
+- `imprint_width value=3` pickups in tests now give nothing at the new default. They still parse and are still reached, so those tests are unaffected; confirm each when you run them.
+- When `imprint_max_active` is 2 or more, the cells of a shrinking platform are free for a second platform as soon as they go. That is fine: nothing is replaced or refreshed.
 
-Work rules: branch `game-tweaks` (it exists and tracks `origin/main`), do not
-push to `main`, run `tools/check.sh` before the PR, one PR, called by its number.
-Do not playtest in a cloud agent. Never build a commit message with a heredoc:
-write it to `.git/COMMIT_MSG_DRAFT` and use `git commit -F` (user's global rule).
-Commit trailers: use the attribution lines the session gives you.
+## The rule this must not break
 
-## State of the docs on the branch when you start
+PR #31 added a permanent guardrail ("The Imprint rule every Imprint-related feature must keep", design doc, Guardrails; and the Imprint bullet in `AGENTS.md`): **an Imprint is never replaced, refreshed or extended by another click.** Shrinking never extends a life; it only removes footing earlier than before. Keep it that way, in the runtime and in the solver.
 
-Uncommitted edits (commit them with your work) already exist in:
+## What changes, file by file
 
-- `docs/design/game-design.md`: a status-table row, the "Decided, not built
-  yet" bullet and "Why" bullet under Imprint → Placing, the changed "What it is
-  for" bullet, a Decision-log block "Imprint lockout (decided on `game-tweaks`,
-  not yet built)", and a paragraph "The Imprint rule every Imprint-related
-  feature must keep" at the end of Guardrails.
-- `AGENTS.md`: a bullet under "Working on the repo" pointing at that rule.
+Line numbers are from `main` at `f13f8fc`.
 
-When the work is built, **you must rewrite those passages as built fact**:
-change the status row to Built, delete "Decided, not built yet" and the
-"Until it is built, the next bullet..." sentence, delete the old replace
-description, and retitle the Decision-log block (drop "not yet built"). Keep the
-guardrail paragraph and the AGENTS.md bullet unchanged: they are permanent.
+### 1. `src/core/abilities.gd`
 
-## Part 1: abilities and upgrades
+`imprint_width := 3` (it is 2 now). Nothing else: `STATS`, `to_dict`, `from_dict`, `apply` and `describe` need no change, and there is **no `Save.VERSION` bump** (README rule 7: a missing field falls back to its default; a stored 2 stays 2). `data/upgrades.json` is unchanged (`imprint_width`: kind `max`, dev int, min 1).
 
-### `src/core/abilities.gd`
+### 2. `src/imprint/imprint_platform.gd` (the heart of the change)
 
-- `STATS` gets `"imprint_cooldown"`:
-  `["imprint_unlocked", "imprint_width", "imprint_duration", "imprint_max_active", "imprint_cooldown", "imprint_effects"]`
-- `var imprint_duration := 1.5`
-- New field, after `imprint_max_active`:
-  ```gdscript
-  ## Seconds after a platform breaks before another may be placed. 0 is off.
-  var imprint_cooldown := 0.0
-  ```
-  Keep the `0.0` float literal: `Upgrades.check` and `parse_value` read the stat's
-  type from the default value.
-- `to_dict`: `"imprint_cooldown": imprint_cooldown,`
-- `from_dict`: `out.imprint_cooldown = float(data.get("imprint_cooldown", out.imprint_cooldown))`
-- `apply()`: add a branch for the new `"min"` kind, before the final `max`
-  logic:
-  ```gdscript
-  if upgrade["kind"] == "min":
-  	var current: Variant = get(stat)
-  	if value >= current:
-  		return false
-  	set(stat, value)
-  	return true
-  ```
-  Update the doc comment above `apply` to say `"min"` keeps the smaller value.
-- `describe()`: append `", %.1f s cooldown"` only when `imprint_cooldown > 0.0`.
+Today (70 lines): `rect`, `lifetime`, `age`, `expired()`, `blinked_off()`, `blink_time()`, `lines_left()`, `line_rects()`, `draw()`, `_line_xs()`. **Keep all of the dash code** for the Classic mode; it is used only when `shrinks` is false.
 
-### `src/core/upgrades.gd`
-
-- `KINDS` becomes `["unlock", "max", "min", "add"]`; update the header comment
-  (`"min" lowers a number`). `check` and `parse_value` already treat any kind
-  other than `unlock` and `add` as numeric, so nothing else changes.
-
-### `data/upgrades.json`
-
-Add after `imprint_max_active`:
-
-```json
-  "imprint_cooldown": {
-    "name": "Imprint cooldown",
-    "stat": "imprint_cooldown",
-    "kind": "min",
-    "dev": {
-      "type": "float",
-      "min": 0,
-      "max": 1000000,
-      "step": 0.1,
-      "unit": "seconds"
-    }
-  },
-```
-
-`DevCatalog.controls` generates the panel row, validation (`check_value`
-enforces `min`/`max`) and loadout coverage from this metadata. No widget code is
-needed, except the rounding fix below.
-
-### `src/ui/dev_panel.gd` (`_nudge`, around line 273)
-
-Float steps of 0.1 accumulate error (`0.1 * 3` prints `0.30000000000000004`).
-Change the last line of `_nudge` to:
+Add constants and fields:
 
 ```gdscript
-edit.text = str(int(value)) if control["type"] == "int" else str(snappedf(value, 0.001))
+## The block that goes next blinks for this long before it goes.
+const WARN_TIME := 0.25
+
+## In world pixels. `rect` is the footing right now: the whole platform when new,
+## then the blocks that still stand. `full_rect` is what was placed.
+var rect := Rect2()
+var full_rect := Rect2()
+var lifetime := 4.0
+var age := 0.0
+## How many blocks it was placed with, and whether it loses them. A platform that
+## does not shrink is the Classic dev mode: full width until it breaks, with a
+## dash clock.
+var cells := 1
+var shrinks := true
+
+
+func _init(world_rect: Rect2, seconds: float, shrinking := true) -> void:
+	rect = world_rect
+	full_rect = world_rect
+	lifetime = seconds
+	shrinks = shrinking
+	cells = maxi(roundi(world_rect.size.x / float(Grid.CELL)), 1)
 ```
 
-This leaves the existing 0.5 duration step unchanged.
+Every existing reader keeps using `.rect` (`ImprintTool.sync_solids`, `_local_all`, the preview's `rects`, tests), so **`rect` must always be the current footing**.
 
-### Saves and loadouts
-
-- No `Save.VERSION` bump: `from_dict` falls back to the default for the missing
-  field (README rule 7). Old saves keep their stored `imprint_duration`.
-- `DevCatalog.reconcile` already fills missing abilities from
-  `Abilities.new().to_dict()`, so an old named loadout picks up cooldown 0 and
-  keeps its own stored duration. `validate` requires every control's stat, so
-  confirm `reconcile` of an old loadout (without `imprint_cooldown`) validates:
-  `draft = defaults()` supplies it.
-
-## Part 2: the runtime rule
-
-### `src/imprint/imprint_rules.gd`
-
-Add a pure static function (no autoload, no nodes):
+Pure helpers (all derived from `age` and `lifetime`, so they are unit-testable with no scene):
 
 ```gdscript
-## Why no platform may be placed right now, or an empty string if one may.
-## `active` platforms stand, `max_active` is the limit, and `cooldown_left` is
-## the seconds still to wait after the last one broke. Reasons: limit, cooldown.
-static func blocked(active: int, max_active: int, cooldown_left: float) -> String:
-	if active >= maxi(max_active, 1):
-		return "limit"
-	if cooldown_left > 0.0:
-		return "cooldown"
+## How many blocks still stand: one is lost in each equal share of the life.
+func blocks_left() -> int:
+	if not shrinks:
+		return cells
+	return clampi(ceili(float(cells) * (lifetime - age) / lifetime), 0, cells)
+
+
+## The cells that have gone, counted from the left and from the right, for
+## `removed` blocks gone. Left first, then right, then left again, so the cell
+## that lasts is `cells / 2`.
+func _left_gone(removed: int) -> int:
+	return (removed + 1) / 2
+
+
+func _right_gone(removed: int) -> int:
+	return removed / 2
+
+
+## The index (0 = leftmost) of the block that goes next, or -1 if none is left.
+func next_cell() -> int:
+	var left := blocks_left()
+	if left <= 0 or not shrinks:
+		return -1
+	var removed := cells - left
+	return _left_gone(removed) if removed % 2 == 0 else cells - 1 - _right_gone(removed)
+
+
+## Seconds until the next block goes.
+func time_to_next() -> float:
+	var removed := cells - blocks_left()
+	return lifetime * float(removed + 1) / float(cells) - age
+
+
+## How long the next block blinks: WARN_TIME, but never more than half a share,
+## so a platform with a very short share is not blinking all the time.
+func warn_time() -> float:
+	return minf(WARN_TIME, lifetime / float(cells) * 0.5)
+
+
+## Whether the block that goes next is blinked off at this moment.
+func blinking_off() -> bool:
+	return shrinks and next_cell() >= 0 and time_to_next() <= warn_time() and int(age / BLINK_PERIOD) % 2 == 1
+
+
+## The footing for `left` blocks standing, in world pixels.
+func footing(left: int) -> Rect2:
+	var removed := cells - left
+	var from := _left_gone(removed)
+	var cell := float(Grid.CELL)
+	return Rect2(full_rect.position.x + float(from) * cell, full_rect.position.y, float(left) * cell, full_rect.size.y)
+```
+
+Check the closed forms against the order left, right, left, right, ...: for `removed` blocks gone the left count is `ceil(removed / 2)` and the right count is `floor(removed / 2)`. Width 3: removed 1 -> cells 1..2, removed 2 -> cell 1. Width 4: removed 3 -> cell 2. Width 5: removed 4 -> cell 2. Width 2: removed 1 -> cell 1. Width 1: never shrinks until expiry. (Verified by hand, not yet by a test; the test in section 7 pins it.)
+
+The tool calls this each physics tick, after ageing:
+
+```gdscript
+## Brings `rect` in line with `age`. Returns the rects of the blocks that just
+## went (empty most ticks), so the caller can shatter them.
+func update_footing() -> Array[Rect2]:
+	var gone: Array[Rect2] = []
+	var left := blocks_left()
+	# left == 0 is expiry, which ImprintTool handles with _break (below).
+	if not shrinks or left <= 0:
+		return gone
+	var before := rect
+	var after := footing(left)
+	if after.size.x >= before.size.x - 0.5:
+		return gone
+	var cell := float(Grid.CELL)
+	var x := before.position.x
+	while x < after.position.x - 0.5:
+		gone.append(Rect2(x, before.position.y, cell, before.size.y))
+		x += cell
+	x = after.end.x
+	while x < before.end.x - 0.5:
+		gone.append(Rect2(x, before.position.y, cell, before.size.y))
+		x += cell
+	rect = after
+	return gone
+```
+
+It never returns the last block: its removal is the platform's expiry, which `ImprintTool` already handles with `_break(platform)` at `platform.rect.get_center()` (the last block, because `rect` is the last block by then).
+
+Drawing (`draw(canvas)`): branch on `shrinks`.
+
+- `not shrinks`: today's body, unchanged (`blinked_off()`, white rect, black dashes).
+- `shrinks`: the block that blinks off is always an **end** of the footing (the next to go is the leftmost or rightmost standing block), so the drawn area stays one contiguous rect:
+
+```gdscript
+func drawn_rect() -> Rect2:
+	var shown := rect
+	if blinking_off():
+		var cell := float(Grid.CELL)
+		if (cells - blocks_left()) % 2 == 0:  # an even count gone: the left end goes next
+			shown.position.x += cell
+		shown.size.x -= cell
+	return shown
+```
+
+Then draw `shown` white, and a black dotted border one pixel inside it: for every pixel on the perimeter of `shown.grow(-1.0)`, draw it black when `(px - full_rect.position.x + py) % 2 == 0` (parity measured from the placed platform's origin so the dots do not shimmer when it shrinks). `draw_rect(Rect2(x, y, 1, 1), Color.BLACK)` per pixel is fine (the cursor's `_dotted` does the same; see `imprint_tool.gd:236`). If `shown.size.x <= 0` (the last block blinked off) draw nothing. Pixel-aligned: the rect edges are whole multiples of 10 px, so no rounding issue.
+
+Update the class doc comment to say the platform's own width is its clock, and that `shrinks == false` is the Classic dev mode.
+
+### 3. `src/imprint/imprint_tool.gd`
+
+- `place()` (line 87): `platforms.append(ImprintPlatform.new(rect, GameState.abilities.imprint_duration, not DevSession.classic_imprint_active()))`.
+- `_physics_process` (lines 110-127). After `platform.age += delta`, in the `else` of the expiry branch:
+
+```gdscript
+		var gone := platform.update_footing()
+		for block in gone:
+			_shatter_at(block.get_center())
+			broke = true
+```
+
+  Add `_shatter_at(position)` (the body of the existing `_break` taking a position; have `_break(platform)` call it with `platform.rect.get_center()`). Keep the cooldown logic exactly as it is: the cooldown starts when the platform finally expires (`cooldown_left = GameState.abilities.imprint_cooldown`), **not** when a block goes.
+- `_update_preview` (line 150) caches on `platforms.size()`; a shrinking platform changes `rect` but not the count. The preview refuses placements that overlap a standing platform via `_local_all(platforms, room)`; with shrinking it will see the shrunk rect, which is correct. Add the **blocks standing** to the cache key so the refusal is recomputed when a block goes: `"%s|...|%d|%d|%s" % [..., platforms.size(), _blocks_standing(), cooldown_left > 0.0]` where `_blocks_standing()` sums `blocks_left()` over `platforms`. (Without it the cursor can show a stale refusal for up to one cell move; mutate this to check the test catches it, or note that no test can.)
+- The reach preview (`ImprintReach.can_land_on`, line 168) still treats the platform under the cursor as full width. That is correct for a platform not yet placed; the look does not separate reachable from unreachable today (see `_draw_preview`). No change; mention it in the design doc.
+
+### 4. Dev switch: `src/dev/dev_session.gd`, `src/ui/dev_panel.gd`
+
+`DevSession`:
+
+```gdscript
+var classic_imprint := false
+
+## Whether a platform placed now keeps its width. Only in a dev test, so normal
+## play can never see the switch.
+func classic_imprint_active() -> bool:
+	return mode == Mode.DEV_TEST and classic_imprint
+
+
+func set_classic_imprint(world: Node, on: bool) -> String:
+	if mode != Mode.DEV_TEST or replacing or world.is_busy():
+		return "Dev tools are not ready."
+	classic_imprint = on
+	# Platforms of the other kind must not stand beside the new ones.
+	world.imprint.clear(false)
+	world.imprint.sync_solids()
 	return ""
 ```
 
-Also append `limit, cooldown` context to the doc comment of `check` pointing at
-`blocked` (check stays purely about *where*).
+Reset `classic_imprint = false` in `configure()` (next to `bypass = false`) and in `_replace()` when `normal` is true (next to `bypass = false`). A retry (`_replace(..., normal=false)`) leaves it as it is, like `bypass`.
 
-### `src/imprint/imprint_tool.gd`
+`DevPanel`:
 
-- Add `var cooldown_left := 0.0` beside `platforms`, with a `##` comment.
-- `place()`:
-  ```gdscript
-  if not is_active():
-  	return false
-  if not ImprintRules.blocked(platforms.size(), GameState.abilities.imprint_max_active, cooldown_left).is_empty():
-  	return false
-  ... existing room/cell/width ...
-  var reason := ImprintRules.check(room.info, cell, width, _local(_player.body_rect(), room), _local_all(platforms, room))
-  if not reason.is_empty():
-  	return false
-  ```
-  **Delete** `var survivors := _survivors()`, the `while platforms.size() > survivors.size()` replace loop, and
-  the whole `_survivors()` function. Every live platform now counts for overlap
-  (`others`), because none is ever removed by a click.
-- `_break(platform, _replaced)`: remove the unused second parameter and update
-  its two callers (`clear`, `_physics_process`).
-- `_physics_process(delta)` (still skipped while the world is busy, so the
-  cooldown pauses with ageing; leave that early return):
-  ```gdscript
-  cooldown_left = maxf(cooldown_left - delta, 0.0)
-  var broke := false
-  for platform in platforms.duplicate():
-  	platform.age += delta
-  	if platform.expired():
-  		_break(platform)
-  		platforms.erase(platform)
-  		broke = true
-  		cooldown_left = GameState.abilities.imprint_cooldown
-  ```
-  The decrement comes first so the tick a platform breaks does not shave the new
-  cooldown. A second platform breaking later restarts it (only possible with
-  `imprint_max_active` above 1).
-- `clear(effects)`: also set `cooldown_left = 0.0`. This is the single path for
-  leaving a room, dying, warping (`World` calls it) and a dev Apply
-  (`DevSession.apply` calls `world.imprint.clear(false)`). Retries rebuild the
-  whole world, so a new `ImprintTool` starts at 0.
-- `_update_preview`:
-  - Compute `var blocked := ImprintRules.blocked(platforms.size(), GameState.abilities.imprint_max_active, cooldown_left)`.
-  - Add `cooldown_left > 0.0` to the cache `key` string, so the × lifts when the
-    cooldown ends (the key already contains `platforms.size()`).
-  - If `blocked` is not empty: `_reason = blocked; _state = UNAVAILABLE; return`.
-    This is checked before the `ImprintRules.check` call, so the cursor shows
-    the × anywhere while locked out.
-  - Replace both `_survivors()` uses with `platforms`.
-- `_draw_preview` needs no change: `UNAVAILABLE` already draws the ×.
-- The doc comment at the top of the file and `place()` should say a click is
-  refused while a platform stands or the cooldown runs.
+- `var _classic: CheckButton` next to `_bypass` and `_retry` (lines 19-20).
+- Build it in `_build_player` after the existing buttons, mirroring `_bypass` (lines 296-302): text "Classic Imprint (no shrinking)", `toggled` calls `_report(DevSession.set_classic_imprint(_world, on))` then `_classic.set_pressed_no_signal(DevSession.classic_imprint)`.
+- `open_panel` (lines 90-91): add `_classic.set_pressed_no_signal(DevSession.classic_imprint)`.
+- `_process` (line 41-45): add `if DevSession.classic_imprint: suffix += " · classic imprint"`.
+- It is **not** part of `_draft()`, `_apply()`, `_set_fields()` or named loadouts. Do not add it to `DevCatalog`, `Abilities.STATS` or `data/upgrades.json`: it is a comparison switch, not progression, so `dev_catalog_test` is unaffected. Write down why in the README and the design doc.
+- The panel window is 312 x 160 and the dev UI test asserts it fits; the Player tab scrolls (`_page`), so one more row is fine.
 
-Not changed: `ImprintPlatform` (the clock, dashes and blink scale with
-`lifetime`; at 1.5 s the width-2 platform has 4 dashes, one every 0.375 s, and
-the blink lasts the last dash's share, 0.375 s). `World` (busy states already
-stop `_physics_process`).
+### 5. Solver: `src/world/imprint_search.gd`
 
-## Part 3: the solver (required, or validation fails at 1.5 s)
+Principle: placement legality is about the whole platform, but the footing the solver counts on is the **last block**, which stands for the whole life.
 
-### Why it is needed
+- Add a helper:
 
-`ImprintSearch._leg_limit()` gives each of two jumps
-`clampi((life_ticks - SPARE_TICKS) / 2, MIN_LEG, 180)`. At 1.5 s that is
-`(90 - 40) / 2 = 25`, clamped up to `MIN_LEG` 30, the **same** as the 1.0 s case
-(`(60 - 40) / 2 = 10 → 30`). The existing assertion in
-`imprint_solver_test._gate` ("a platform that lasts one second is not enough")
-would then be hit by the new default, and rooms 5 and 6 may stop validating.
+```gdscript
+## The block that stays longest: the middle one (`width / 2` from the left).
+func _last_block(cell: Vector2i, width: int) -> Rect2:
+	return Grid.cell_rect(Rect2i(Vector2i(cell.x + width / 2, cell.y), Vector2i(1, 1)))
+```
 
-### What to model
+- `_collect`, `_near_a_target`, and the `ImprintRules.check` call stay as they are (full width).
+- `_lands_on` (lines 149-161): simulate as today with the full platform in `rects`, but the landing must be on the **last block** (replace the `platform.position.x` / `platform.end.x` overlap test with the last block's `position.x` / `end.x`; the `y` test is unchanged). To be sound regardless of when outer blocks go, **also** re-run the same arc with only the last block in `rects` instead of the full platform and require the same landing (`at.distance_to(at_full) < 0.5`). An arc that touches an outer block differs between the two runs and is dropped. The second simulation runs only after the first succeeded, so the extra cost is small; measure it (see Verify).
+- Legs (line 87): `var leg := _leg_of(info, geo, Vector2i(candidate.cell.x + width / 2, candidate.cell.y), 1, _graph.frame_limit)`. The pseudo-ledge and its near solids are the one block. `_leg_key` keeps its format, but the stored width is now always 1, so legs are shared across widths.
+- `_land_limit()` is unchanged (`life - SPARE_TICKS`): the last block stands for the whole life.
+- Rewrite the class doc comment (lines 4-20) and the "What it leaves out" list: add "landing on an outer block while it stands, and walking off onto outer blocks while they stand. Classic mode is not modelled either; it has strictly more footing, so validation is conservative for it."
+- `imprint_search.gd` is in `SolverCache.SOLVER_FILES`, so the cache invalidates itself. `cache_test` should confirm.
 
-The platform has to exist while the player **lands on it** and is still on it
-until they push off. After they leave it, they no longer need it. So:
+**Stop point.** If `tools/validate.sh --no-cache` fails any room at width 3 with this model, or `imprint_solver_test` `_gate`, `_barrier` or `_room_six` fail (they stand in for rooms 5 and 6), **stop and report to the user**: the room, the failing line, and the `needs` lines before and after. Do not move platforms, retune `SPARE_TICKS` or `WARN_TIME`, or edit rooms without asking. Last time (PR #31) every room passed at 1.5 s with identical `needs` lines to `main`.
 
-- The jump **onto** the platform gets the platform's life less the time to
-  stand and push off.
-- The jump **off** it is not limited by the platform's life (an ordinary
-  ledge's 180-tick limit).
+### 6. Tests that assume the old defaults (fix these first)
 
-### `src/world/imprint_search.gd`
+Run `godot --headless --path . --import`, then each test, and fix what breaks. Known cases, found by reading the code:
 
-- Replace `_leg_limit()` with:
-  ```gdscript
-  ## How many ticks the jump onto a platform may run: the platform's life, less
-  ## SPARE_TICKS to stand on it and push off. Zero means it is gone first.
-  func _land_limit() -> int:
-  	var life := int(_graph.abilities.imprint_duration * 60.0)
-  	return clampi(life - SPARE_TICKS, 0, 180)
-  ```
-- In `expand`: `var limit := _land_limit()`; if `limit <= 0` return `out`
-  (before any simulation). Use `limit` for the arc scan
-  (`range(1, mini(arc.path.size(), limit + 1))`) and for `_lands_on(...)`, as now.
-- For the leg off the platform use the ordinary frame limit: add
-  `const LEG_TICKS := 180` (matches `ReachGraph.frame_limit`; check that name in
-  `reach_graph.gd` and use its constant if one exists) and call
-  `_leg_of(info, geo, candidate.cell, width, LEG_TICKS)`. Keep `_leg_key`
-  unchanged (it still includes the limit argument).
-- Delete `MIN_LEG`. Update the header and constant comments: `SPARE_TICKS` is
-  now "ticks to stand on the platform and push off".
-- `imprint_search.gd` is in `SolverCache.SOLVER_FILES`, so the cache
-  fingerprint changes by itself. Do not add a manual invalidation.
+- `tests/save_test.gd:31` and `:88`: width 2 -> 3. Keep `Abilities.from_dict({"imprint_width": 2}).imprint_width == 2` as a new check (old save keeps its width).
+- `tests/dev_session_test.gd:41`: "fresh state" expects width 2 -> 3. Lines 48 and 53 build `ImprintPlatform.new(Rect2(10, 10, 20, 10), ...)` with the default `shrinking := true`; they only check that Apply clears platforms, so they still pass.
+- `tests/imprint_play_test.gd`:
+  - The "Time breaks it" block (lines 102-118) puts the player at `Vector2(35, 20)` on a platform at cell (3, 6). At width 3 that platform is x 30..60 and the player stands on its **left block, which now goes at lifetime/3 = 0.167 s**, so "the player stands on it before it breaks" fails. Move the player onto the middle block (x = 45) and keep the rest.
+  - Line 126: `rect.size.x == 30.0` was written for `imprint_width = 3` and still holds. Line 128 resets width with a literal `2`; change it to `Abilities.new().imprint_width`.
+  - Other rect checks (line 95: `rect.position.x == room.position.x + 100.0`) test the left end, which does not move at placement; fine.
+- `tests/imprint_test.gd`: `_platform` (line 88) and `_countdown` (line 134) build platforms with the default `shrinking := true`; pass `false` as the third argument so they keep testing the Classic dash clock. The `_countdown` header comment and docstring ("The dashes are a clock") should say Classic.
+- `tests/hazard_test.gd:84-93`: places at cell (14, 15), now 3 wide, over spikes in row 16, with `lifetime = 0.05`. Expected to pass unchanged; run it.
+- `tests/cache_test.gd:147`: "the file keeps the legs of both widths apart" asserts widths 2 and 3 in the stored leg keys. Legs are now one block wide, so replace it with "every stored leg is one block wide" (`String(key).get_slice("|", 2) == "1"`). `_run(rooms, cache, 2)` and `3` stay: they set the width explicitly.
+- `tests/imprint_solver_test.gd:43-50`: the 1.0 s and 0.5 s negative cases should still hold; if 1.0 s now crosses, say so and lower it to a duration that truly cannot, as a reported judgement.
 
-### Fallback ladder (decide by running, report every step)
+### 7. New tests (mutation-check each, per project rule)
 
-1. Run `tools/validate.sh --no-cache`. It must exit 0 and print the **same
-   `needs` lines** as `main`: record `main`'s output first
-   (`git stash; tools/validate.sh --no-cache`, or read it from a fresh worktree
-   of `ac82369`).
-2. If a pit room fails (rooms 5 and 6 are the likely ones; flight across room
-   5's 16-cell pit takes about 50 ticks), lower `SPARE_TICKS` from 40 to 30
-   (land limit 60) and rerun. Report this as a judgement.
-3. If it still fails, **stop and ask the user** whether to change the room or
-   the duration. Do not edit rooms, do not lower `SPARE_TICKS` below 30.
+`tests/imprint_test.gd`, new `_shrink()`:
 
-### No lockout model in the solver
+- Width 3, 1.5 s, new platform at `Rect2(100, 50, 30, 10)`: `rect` is the whole 30 px at age 0.25; after `update_footing()` at age 0.75, `rect.position.x == 110` and `size.x == 20`; at 1.25 the middle block only (`position.x == 110`, `size.x == 10`); `expired()` at 1.5. Step through ages in order, as the tool does.
+- The removal order for widths 1, 2, 3, 4, 5: the last block is `width / 2` (assert the final `rect` of each).
+- Width 1 never changes `rect` before expiry.
+- `blocks_left()` at 0.25 / 0.75 / 1.25 for width 3 is `[3, 2, 1]`.
+- Blink: for width 3, nothing blinks at ages 0.1 to 0.2 (a block is not near its time), `blinking_off()` is true somewhere in 0.25..0.5 on a 0.1 s phase and `next_cell() == 0`; collision `rect` is unchanged while it blinks. For the last block (age 1.3 to 1.5) `next_cell() == 1`.
+- `warn_time()` is capped: `ImprintPlatform.new(Rect2(0, 0, 30, 10), 0.3).warn_time()` is 0.05 (half a 0.1 share).
+- A platform made with `shrinking = false` keeps `rect == full_rect` for its whole life and `blinking_off()` is false.
 
-The solver puts down one platform per path, never two in a row, and none from a
-moving platform, then continues from ledges that exist afterwards. Waiting for a
-platform to break and a cooldown to pass is always possible on a real ledge, so
-the lockout and the cooldown change nothing it computes. Say exactly this in the
-design doc (see Part 5), because it is the reason the guardrail exists: a
-feature that makes waiting costly breaks that argument.
+`tests/imprint_play_test.gd`:
 
-## Part 4: tests
+- The default platform is 30 px wide.
+- When a block goes, `player.solids.size()` is unchanged but the player's solids include the smaller rect; a player standing only on the left block falls when it goes; one on the middle block stands until expiry.
+- The cooldown still starts at the final break, not when a block goes (reuse the PR #31 cooldown block with a shrinking platform: `cooldown_left == 0.0` after the first block goes, > 0 after expiry).
+- With `DevSession.mode = DevSession.Mode.DEV_TEST` and `classic_imprint = true`, a placed platform has `shrinks == false` and keeps its width; **reset both afterwards**. With `classic_imprint = true` but `mode == NORMAL`, it shrinks anyway.
 
-Mutation-check every new or changed check (README Standards): break the thing
-on purpose, see the test fail, put it back, and list the mutants in the PR.
+`tests/dev_session_test.gd`: `set_classic_imprint` is refused outside a dev test; turning it on clears platforms and the cooldown; `classic_imprint_active()` is false in NORMAL even with the flag set; it survives `retry`; `end` resets it.
 
-Existing assertions that depend on the old numbers or behaviour (found with
-`grep -rn -E "2\.5|imprint_duration|_survivors|max_active|lifetime" tests src`):
+`tests/dev_ui_test.gd`: `panel._classic` exists; toggling it reaches `DevSession.classic_imprint`; the indicator text contains "classic imprint" (read `panel._indicator.text` after a `_process`); Escape/Apply do not change it; it is not a key of `panel._draft()`.
 
-- `tests/save_test.gd:31`: "the starting abilities are width 2, 2.5 s, ..." →
-  1.5 s, plus `imprint_cooldown == 0.0`, and fix the label.
-- `tests/imprint_test.gd:139-179`: the clock tests use ages 0.5/1.5/2.5/3.5 and
-  a "starting platform lasts 2.5 seconds" block, with `start.age = 2.5` at line
-  178. Rework them for 1.5 s: lines gone per 0.375 s, blink for the last 0.375 s,
-  expired at 1.5. Read the whole block (lines 130-190) before editing, keep
-  every property being tested, and recompute the expected line counts.
-- `tests/dev_catalog_test.gd:49`: `== 2.5` → `== Abilities.new().imprint_duration`.
-  The loop at lines 21-35 round-trips every `Abilities` property automatically,
-  so it covers `imprint_cooldown` once registered; confirm it ran for it.
-- `tests/imprint_play_test.gd`: see below.
-- `tests/imprint_solver_test.gd:43`: keep "one second is not enough" if it still
-  fails to cross (land limit 20 ticks, it should). If it does not, lower the
-  duration to the largest value that still cannot cross and say so.
-- `tests/hazard_test.gd`, `tests/dev_session_test.gd`, `tests/dev_ui_test.gd`,
-  `tests/reach_test.gd`: they set durations explicitly, so they probably need no
-  change, but read each platform-placing step: any test that places twice in a
-  row relied on replacing and must clear first (`tool.clear(false)` followed by
-  `tool.sync_solids()`).
+`tests/imprint_solver_test.gd`: a world where the only landing is on an **outer** block is not counted. Build it like `_barrier`: a wall whose top only the outer block of the platform reaches, and assert room 2 is unreachable at width 3 but reachable at width 1 (where the outer block is the last block). Mutant: make `_lands_on` accept any block of the platform -> this check must fail. Second mutant: drop the last-block-only re-simulation -> a check with an arc that brushes an outer block must fail, or say plainly that none exists and remove the second simulation.
 
-### New and rewritten tests
+Mutants to try (all must make at least one test fail):
 
-`tests/imprint_test.gd` (pure):
-- `ImprintRules.blocked(0, 1, 0.0) == ""`, `(1, 1, 0.0) == "limit"`,
-  `(0, 1, 0.2) == "cooldown"`, `(1, 1, 0.2) == "limit"` (limit wins),
-  `(1, 2, 0.0) == ""`, `(2, 2, 0.0) == "limit"`, and `max_active` of 0 behaves as 1.
+- shrink from the left only (drop the alternation);
+- `blocks_left` with `floori` instead of `ceili`;
+- skip `sync_solids` when a block goes;
+- `classic_imprint_active` ignoring the mode;
+- drop the `classic_imprint = false` in `_replace(normal)`;
+- solver legs using the full width;
+- start the cooldown when a block goes;
+- the preview cache key without the blocks standing (if no test can catch it, say so in the PR).
 
-`tests/imprint_play_test.gd` (scene, room 5; currently lines 62-83 test
-replacement and lines 77-78 clear `platforms` directly):
-- The "a second click replaces the first at once" check becomes: a second
-  `place()` while one stands returns false, `platforms.size() == 1`, the first
-  platform's rect is unchanged, and the preview reason is `"limit"` with state
-  `unavailable`.
-- Clicking five times in a row with the action (`Input.parse_input_event`) still
-  leaves one platform, whose `age` has not been reset.
-- After the platform breaks on time (set `lifetime = 0.5` as the existing test
-  does), with cooldown 0, `place()` works on the very next call.
-- Set `state.abilities.imprint_cooldown = 0.2`. After a break `place()` is refused,
-  the preview reason is `"cooldown"`, `tool.cooldown_left` is about 0.2, and
-  after about 12-14 physics frames `place()` works. Also check the cooldown does
-  not run while the world is busy if that is easy to arrange; otherwise note it
-  as unchecked.
-- `state.abilities.imprint_max_active = 2`: two platforms stand, a third is
-  refused with `"limit"`. Restore afterwards.
-- `warp_to` and a death both leave `cooldown_left == 0.0` and no platforms (set
-  a cooldown first so a mutant that skips the reset fails).
-- Replace the "Replaced at once" block (lines 74-83) with the above; where the
-  old code cleared `tool.platforms` directly, use `tool.clear(false)` then
-  `tool.sync_solids()` so `player.solids` stays in step.
-- Restore `imprint_cooldown`, `imprint_max_active`, `imprint_duration` and width
-  to `Abilities.new()` values at the end.
+### 8. Docs (same PR; a change that makes a doc untrue updates it)
 
-`tests/save_test.gd`: round trip of `imprint_cooldown`; `apply` of the `min`
-kind (a lower value is taken, a higher or equal one is not; `true` / `false`
-return values); a save dict without `imprint_cooldown` loads as 0; a save dict
-with `imprint_duration: 2.5` still loads as 2.5 (the old-save decision).
+`docs/design/game-design.md` (line numbers from `main`):
 
-`tests/dev_catalog_test.gd`: `imprint_cooldown` validates at 0, 0.2 and 5; is
-rejected at -0.1, NAN, INF, "0.2" and `true`; an old loadout without it
-reconciles and validates.
+- Status table (line ~18): add a row "Shrinking Imprint, default width 3 and the Classic dev switch | Built".
+- Imprint -> Placing (line 424 bullet and 426): the cell under the cursor is the left end; starting width 3.
+- The duration paragraph (line 435) is rewritten: the platform is its own clock; one block goes each equal share of the life (life / starting width), from the ends toward the middle, left first; the next block blinks for its last 0.25 s; each block that goes shatters; the last block shatters at the end; nothing fades. Say the dotted border means "you placed this".
+- "What it is for" (line 451+): a wider platform buys landing time and room, and the last block is the one the puzzle can count on.
+- Upgrades table (line 474): width "Starts at" **3 cells**, "Grows to" **5** (it said "3, then 5"; the 3 is now the start). List the question of whether a width-3 pickup still means anything under Not decided.
+- Starting values (line 492): width 3.
+- Look list (lines 498-502): replace the dashes bullet with the dotted border and the blinking next block; mention the dashes exist only in Classic.
+- Dev playtesting (line ~296-312): add the Classic switch to the optional switches paragraph ("three optional switches"), saying it is a session switch, not saved, not in loadouts, and why.
+- Implementation reference, "Imprint in play" (lines 610-619): placing creates `ImprintPlatform.new(rect, duration, not classic)`; ageing calls `update_footing()`; the clock bullet (line 616) becomes "The footing and the look" with `blocks_left` (`ceil(cells * (lifetime - age) / lifetime)`), the closed-form order, `WARN_TIME` and `warn_time()`, the drawing, and a short Classic paragraph for the old dash clock.
+- Implementation reference, "The solver" `ImprintSearch` bullet (line 631): the last-block model, one-block legs, the second simulation.
+- "What the solver and the preview do not model" (line 652): add the outer blocks, and that the reach preview treats the cursor platform as full width.
+- Decision log: a new entry "Imprint shrinks one block per interval (PR #N)" with the why (the platform is the clock; the dashes no longer mean anything), width 3 so the middle is real, interval life / width, the last-block solver model and what it gives up, Classic kept as a dev comparison switch, old saves alone, the border look, the warning rule.
+- Guardrails, "The Imprint rule": append "The footing the solver counts on is the last block, for the whole life. A feature that changes the shrink order, the interval or the starting width must keep that model true, or change the solver with it."
+- Not decided: whether Classic is removed once the user has played both; whether per-block shards are too busy; whether the first width upgrade should still exist when the start is 3.
 
-`tests/dev_session_test.gd`: applying `{"abilities": {"imprint_cooldown": 0.2}}`
-clears live platforms and `cooldown_left`; retry keeps the latest cooldown in
-`state.abilities` (mirror the existing duration assertions around lines
-51 and 83).
+`README.md`: the Dev playtesting "Player" description (the Classic switch is on the Player tab, a session switch); test-table rows for `imprint_test`, `imprint_play_test`, `dev_session_test`, `dev_ui_test` (line ~110); the `src/imprint/` row at line 146 ("`ImprintPlatform` (one platform, its shrinking footing and its look)"); the test count in README and `AGENTS.md` stays 21 (no new test files).
 
-`tests/dev_ui_test.gd`: the generated panel has an `imprint_cooldown` field;
-typing `0.2` and Apply sets the ability; the `+` button from 0 gives `0.1`,
-three presses give `0.3` (not `0.30000000000000004`), and `-` stops at 0.
+`AGENTS.md`: extend the Imprint bullet under "Working on the repo" by one clause: it shrinks from the ends to its middle block, and the solver counts only that block.
 
-`tests/imprint_solver_test.gd`: the default `Abilities` (1.5 s) crosses the
-12-cell pit; 1.0 s does not; a duration of 0.5 s makes `expand` return nothing
-(land limit 0) without error.
+`docs/testing-checklist.md`, a new "Imprint shrinking" section of **unplayed** items: rooms 5 and 6 with a 3-wide shrinking platform; the blink warning reads and is not annoying; the dotted border reads and differs from the dotted cursor; per-block shards are not too busy; landing on an outer block feels fair; Classic switches cleanly both ways in F2; widths 1, 2 and 5 in F2. Mark the existing "The clock at 1.5 s" item as Classic-only.
 
-`tests/entity_test.gd`/`reach_test.gd`: add a pickup line with
-`upgrade=imprint_cooldown value=0.5` and check it parses (`kind=min` is numeric);
-`value=long` is the same error as for duration.
+## Must not change
 
-Mutants to try (minimum): drop the `blocked` check from `place`; restore the
-replace loop; let `clear` skip the `cooldown_left` reset; start the cooldown on
-placement instead of on the break; `>=` → `>` in `min` apply; make `blocked`
-ignore `max_active`; revert `_land_limit` to halving; take `min` out of `KINDS`.
+- **The no-replacing rule and the cooldown behaviour** from PR #31. Shrinking must not start the cooldown, refresh age, or let a click through while a platform stands.
+- **`imprint_duration` and the total life.** Only the footing changes over time.
+- **`Save.VERSION`, the save format, and old saves.** A stored width stays what it was.
+- **The Classic code path** (`blinked_off`, `lines_left`, `line_rects`, `_line_xs`, `blink_time`): the dev switch uses it, and the current tests describe it.
+- **`DevCatalog`, `Abilities.STATS`, `data/upgrades.json` entries.** The switch is not an ability.
+- **Rooms.** Do not edit `data/rooms/*.txt` to make validation pass; report instead.
 
-## Part 5: docs (same PR)
+## Dead ends and cautions
 
-`docs/design/game-design.md`:
-- Status table: the new row goes to **Built**; the "Imprint width, duration and
-  multiple active platforms" row stays.
-- Imprint intro status paragraph, the **Placing** bullets and the **What it is
-  for** bullet: rewrite as built fact (see "State of the docs").
-- "A legal placement lasts `duration` seconds, 2.5 at the start. ... four ...
-  so at 2.5 seconds one goes every 0.625 seconds": → 1.5 and 0.375.
-- **Upgrades** table: duration starts at 1.5 seconds; add a row "Cooldown | 0
-  seconds (off) | a pickup could lower it; none exists, and it is tried in dev
-  tools".
-- "The starting values are the defaults in `Abilities`": width 2, duration 1.5
-  seconds, one at a time, cooldown 0, no behaviour, locked.
-- **Checking rooms → Imprint in the solver**: replace the bullet "A platform
-  lives `imprint_duration` seconds, so each of the two jumps is cut to half..."
-  with the new model (jump onto it within life less `SPARE_TICKS`; the jump off
-  is an ordinary ledge's), and add the "no lockout model needed" paragraph from
-  Part 3, including that a feature making waiting costly breaks the argument.
-- **Implementation reference → Imprint in play**: `place` refuses on
-  `ImprintRules.blocked` (limit, cooldown) then `ImprintRules.check`; no
-  replacing; `cooldown_left`, when it starts, what clears it, that it pauses
-  while busy; the preview key now includes the cooldown; the reasons list gains
-  `limit` and `cooldown`.
-- **Implementation reference → solver**, the `ImprintSearch` bullet: "A leg's
-  tick limit is `clamp((duration × 60 − SPARE_TICKS) / 2, ...)` (55 ticks at
-  2.5 s)" → the new `_land_limit` (50 ticks at 1.5 s) and `LEG_TICKS`.
-- **Dev playtesting** section and the **Dev implementation** note: the panel now
-  edits the cooldown too.
-- **Decision log**: the block is already written; make it say "Built" and add
-  anything you decided (such as a lowered `SPARE_TICKS`, and the numbers).
-  Update the 2.5 s line under "Imprint's look and timing" with "then 1.5 s".
-- **Not decided**: the "save from before a change to a starting number" bullet
-  now cites 2.5 → 1.5 as well; add "whether the cooldown should stay at 0, and
-  what value, to be decided after playtesting".
+- Using today's 0.375 s dash interval for blocks: wrong, see the discrepancy above.
+- Counting any block as footing in the solver: unsafe, because an accepted route could rely on a block that has already gone. The user chose the conservative last-block model.
+- Putting the Classic switch into the saved loadout or `Abilities`: rejected by the user; it must not appear in normal saves.
+- Not verified yet (assumed): that Godot's `Shatter` at a 10 px block centre reads well; that `ImprintReach` and `hazard_test` need no change; that rooms 5 and 6 pass the last-block model at width 3. Run the validator before building more on it.
 
-`README.md`: Dev playtesting → Player bullet adds cooldown; the
-`imprint_play_test` table row lists refused-while-standing and the cooldown;
-Recipes → "A new upgrade" mentions the `min` kind; "What the code keeps true" gets
-a rule 11, "Imprint is never replaced or refreshed by another click" (one
-sentence, pointing at the design doc's guardrail); the code-layout row for
-`src/core/` is unchanged.
+## Open questions for the user
 
-`AGENTS.md`: keep the added bullet; add `imprint_cooldown` to the list of
-`upgrade` keys in the Room files section.
+None blocking. Two judgement calls to **report in the PR**, not ask: the `warn_time` cap at half a share, and the border being drawn around the remaining blocks while the end block blinks.
 
-`docs/testing-checklist.md` (new unplayed items, in a new "Imprint lockout"
-section): spamming clicks leaves one platform and its clock does not restart;
-the × shows while one stands; 1.5 s is enough for room 5's pit both ways and for
-room 6's wall; with the cooldown at 0.2 in F2 the × returns briefly after each
-break and feels fair or not; the Imprint dashes and blink still read at 1.5 s.
-Also edit line 9 ("the 2.5 second Imprint of PR #21") only by adding that the
-duration is now 1.5 s: do not tick anything as played.
+## Verify
 
-## Verification
+```
+godot --headless --path . --import
+for t in imprint_test imprint_play_test imprint_solver_test hazard_test cache_test dev_session_test dev_ui_test save_test; do godot --headless --path . --script tests/$t.gd; done
+tools/validate.sh --no-cache      # exits 0; compare each room's "needs" lines with main
+tools/validate.sh                 # with the cache; must agree
+tools/check.sh                    # the full gate; leaves build/web/
+tools/serve.sh                    # then the user plays on :8060
+```
 
-Order:
+| Check | What to look for |
+| --- | --- |
+| Validator | exit 0; `needs` lines identical to `main` (they were identical in PR #31); note the `lands` time before and after the second simulation |
+| Room 5 pit both ways, room 6 wall (`?room=5`, `?room=6`, with Imprint from F2) | crossing works with the 3-wide platform shrinking 0.5 s per block |
+| Blink | the next block blinks in its last 0.25 s; the footing under the player does not change while it blinks |
+| Border | white block with a black dotted inner border, different from the white dotted cursor outline |
+| `?dev=1&room=5`, F2, Player tab, Classic on | full-width platform with dashes again; off -> shrinking; toggling clears platforms |
+| Normal play (no `dev`) | always shrinks; no switch exists |
 
-1. `godot --headless --path . --import`
-2. Focused: `tests/imprint_test.gd`, `imprint_play_test.gd`, `imprint_solver_test.gd`,
-   `save_test.gd`, `dev_catalog_test.gd`, `dev_session_test.gd`, `dev_ui_test.gd`,
-   `entity_test.gd`, `reach_test.gd`, `cache_test.gd`, `hazard_test.gd`
-3. `tools/validate.sh --no-cache`: exit 0, the same `needs` lines as `main`.
-   Then `tools/validate.sh` (cached) agrees.
-4. `tools/check.sh`: the complete gate; it leaves `build/web/`.
-5. `tools/serve.sh` for the user's playthrough at http://localhost:8060. The
-   owner expects the web build to be rebuilt and served after each piece of work.
+After finishing: run `tools/check.sh`, serve `build/web` on :8060, and report what was and was not played (nothing here has been played by a person).
 
-The user plays: room 5's pit both ways and room 6's wall at 1.5 s; spam-clicking
-no longer extends a platform; `?dev=1&room=5`, F2, set the cooldown to 0.2,
-Apply, and the × returns briefly after each break.
+## Process
 
-## Acceptance criteria
+- Work on `imprint-shrink`; one PR; never push to `main`.
+- Commit messages and PR bodies go through files (`git commit -F .git/COMMIT_MSG_DRAFT`, `gh pr create --body-file`), never heredocs. Refer to work by PR number.
+- Do not playtest in a cloud agent. The PR lists the mutants tried and what was not played.
 
-- A click while a platform stands (or the cooldown runs) places nothing, with a
-  `limit` or `cooldown` reason and the × cursor.
-- Default duration is 1.5 s; default cooldown is 0; old saves keep their value.
-- The dev panel edits the cooldown (steps of 0.1, no float noise), the value
-  survives retry and named loadouts, and applying it clears live platforms.
-- `tools/validate.sh` passes with unchanged `needs` lines; any `SPARE_TICKS`
-  change is reported.
-- `tools/check.sh` ends in its pass line.
-- Docs updated as listed; the design-doc "not built" language is gone.
-- No new rooms, no room edits, no save-version change, no new test files (the
-  README's "21 tests" stays true), no solver cache edits by hand.
+## Session log
 
-## Suggested commits
-
-1. `Imprint: no replacing, 1.5 s duration, and a solver leg model for it`
-   (tool, rules, abilities duration, solver, tests, docs)
-2. `Imprint: add a cooldown stat that is off by default, with dev controls`
-   (`imprint_cooldown`, `min` kind, panel rounding, tests, docs)
-
-The PR describes: why replacing was removed; the default duration and cooldown;
-the solver's new time budget and any `SPARE_TICKS` judgement; the mutants tried;
-the full `tools/check.sh` result; and what was **not** played (all of the
-checklist's new section).
+- 2026-10-25 — Replaced the PR #31 handoff (built and merged) with the shrinking-Imprint spec. Decisions: ends-to-middle order, default width 3, interval life / width, next-block blink, dotted inner border, session-only Classic switch, last-block solver model, old saves left alone.
