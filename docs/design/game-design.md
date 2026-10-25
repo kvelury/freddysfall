@@ -17,8 +17,9 @@ Implementation steps for the palette pass live in `docs/plans/soft-duotone-palet
 | Health pips: the pickup, how they show, refilling | Designed, not built |
 | Imprint upgrades beyond the numbers (longer, more at once, bounce) | Designed, not built |
 | The solver using Imprint, and what each room needs | Built |
-| The solver's cache between runs (a repeat validate takes about 2 s) | Built |
+| The solver's cache between runs (a repeat validate takes about 8 s) | Built |
 | The map's three zoom levels, its legend, saved with the game | Built |
+| Moving platforms: drawn with their track, ridden, and checked by the solver | Built |
 | Softer two-color palettes | Designed, not built |
 
 ## What it is
@@ -107,6 +108,8 @@ A room is an ASCII file, `data/rooms/<id>.txt`. Its id is a number (`2`, `3`, �
 | `P` | Where the player starts, the first time, in the start room. Also a standable mark used when entering, and where the player is put when a room is started in directly. |
 | `~` | A cell that refuses an Imprint. Open air otherwise, and not drawn. |
 | `^` | Spikes. Not solid: the player can walk into them, and dies. |
+| `-` | A moving platform's track, side to side. Open air. See Moving platforms. |
+| `\|` | A moving platform's track, up and down. Open air. |
 | a letter or digit | A thing named in the room's legend. See below. Open air. |
 
 Every glyph lives in one table, `src/world/tiles.gd`. A character that is not in it is a load error, not an empty cell. Every cell on a room's outer border has to be `#` or `X`, so the player cannot walk out of the world. Load collects every problem it finds (`WorldData.errors`) instead of stopping at the first. `tools/validate.sh` prints them and exits non-zero, and a debug build lists them on screen.
@@ -123,7 +126,7 @@ An **up** door lifts a slow player: they leave it rising at 180 px/s at least, s
 
 **Blocked doors.** A room can hold its doors shut until a condition is met (see Exit rules below). While it does, each doorway is filled with a **block**: a solid frame around a checker of pixels, drawn where the halo would be. The block is solid and does not change rooms. There is no halo. When the condition is met the blocks shatter and the halos appear at once, and the player can leave.
 
-**Dying.** Touching spikes, or leaving the room's outline by more than 60 px, shatters the player into a burst of pixels for about 0.6 s, and then, if they have health, spends one pip and puts them back on the last safe floor. With none left they go to their save room instead (see Health and save rooms). A floor is safe if the player stood on it, it is the room's own floor, and it is not within a cell of spikes or within two cells of a doorway. An Imprint is never safe floor, because it breaks: standing on one over spikes and dying brings the player back on the real floor they stood on before, not in the air where the platform was. The safe floor can be in the room before: dying right after a door puts the player back through it. Spawning in a room also counts as a safe floor.
+**Dying.** Touching spikes, or leaving the room's outline by more than 60 px, shatters the player into a burst of pixels for about 0.6 s, and then, if they have health, spends one pip and puts them back on the last safe floor. With none left they go to their save room instead (see Health and save rooms). A moving platform that pushes the player into a wall crushes them, which is a death like spikes. A floor is safe if the player stood on it, it is the room's own floor, and it is not within a cell of spikes or within two cells of a doorway. A moving platform is never safe floor, because it will have moved. An Imprint is never safe floor either, because it breaks: standing on one over spikes and dying brings the player back on the real floor they stood on before, not in the air where the platform was. The safe floor can be in the room before: dying right after a door puts the player back through it. Spawning in a room also counts as a safe floor.
 
 The last eight stretches of floor are remembered, for a death that has health to spend. If the player dies again before standing anywhere after a respawn, that respawn spot was no good and they go back one stretch, so a bad spot can cost one extra death and never a loop.
 
@@ -170,7 +173,7 @@ legend:
 
 ### Things in rooms
 
-A room file may start with a **legend**: the line `legend:`, lines of `G = kind key=value ...`, and a line of `---`, before the grid. Each legend line gives a glyph one thing to stand for, and the glyph is drawn once in the grid.
+A room file may start with a **legend**: the line `legend:`, lines of `G = kind key=value ...`, and a line of `---`, before the grid. Each legend line gives a glyph one thing to stand for, and the glyph is drawn once in the grid. A moving platform is the one exception: its glyph is drawn as a row, as wide as the platform.
 
 ```
 legend:
@@ -180,7 +183,7 @@ legend:
 
 The glyph must be a letter or digit that `Tiles` does not use. Every legend problem is a load error with the room and the line: an unknown kind, a missing or misspelled setting, an upgrade or value that does not exist, a glyph drawn zero or two times, a glyph in the outer wall, a legend with no `---`. `id` is required on every thing. It is written in the file, never derived from position, so a room can be redrawn without losing what the save remembers. Ids are unique across the world.
 
-The kinds are listed in `src/world/entities.gd`, with the settings each needs. There are four: `pickup`, `token`, `machine` and `save`. Adding a kind is a line there, a script in `src/world/entities/`, and a case in `Entities.create`. `Room.build` makes the things in a room and leaves out any that the player has already taken.
+The kinds are listed in `src/world/entities.gd`, with the settings each needs. There are five: `pickup`, `token`, `machine`, `save` and `platform`. Adding a kind is a line there, a script in `src/world/entities/`, and a case in `Entities.create` (a platform is built by the room from its path instead). `Room.build` makes the things in a room and leaves out any that the player has already taken.
 
 A **pickup** is a small diamond. Touching it gives its upgrade, shows one line at the top of the screen, and saves. It is gone from then on. What it gives is looked up in `data/upgrades.json`: each upgrade is a name, the ability it changes (`stat`), and a `kind`. A `max` upgrade raises a number and never lowers it, so finding a smaller one late does nothing. An `add` upgrade gains a named effect, once.
 
@@ -212,6 +215,26 @@ The player's body is the inventory. Each token carried cuts a small black diamon
 ##########     ##########     ##########
 ```
 
+### Moving platforms
+
+A moving platform slides back and forth along a straight track, side to side or up and down, at a set speed, and waits a moment at each end. Otherwise it is a platform like any other: white, solid on every side, stood on, bumped from below, walked into.
+
+It is drawn in the room as a row of its legend glyph where it starts, as wide as it is, with its track drawn on from one side of it to where it turns: `-` from one end of the row for side to side, or rows of `|` across its columns above or below it for up and down. The legend line gives its `id`, its `speed` in pixels a second, and its `pause` at each end in seconds (0.2 if left out):
+
+```
+legend:
+  L = platform id=r8_lift speed=60 pause=0.2
+---
+X.....LLLLL--------------------#
+```
+
+- **When it moves.** Its clock starts when its room is built, waiting at the end it is drawn at. So every time the player comes in, respawns or reloads, it starts in the same place. Nothing about it is saved. It is worked out from whole physics ticks (`PlatformPath.rect_at`), so the game and the solver put it in exactly the same place.
+- **Riding.** A player standing on it is carried by it, and can walk on it as on any floor. Leaving it, by a jump or by walking off the end, keeps only the player's own velocity: a jump straight up goes straight up, and the platform goes on without them. `MovementConfig.inherit_platform_velocity` (in `movement.tres`, off) adds the platform's velocity on leaving instead: a jump from a platform sliding right at 75 px/s then leaves at 75 px/s more to the right, and steering in the air bleeds it off like any other speed. The switch is there to compare in playtesting.
+- **Pushing.** A platform that moves into the player pushes them out of its way. One that pushes them into a wall crushes them.
+- **What it needs around it.** Every track cell has to belong to a platform. The row above everywhere it goes has to be open air (`.`, `~` or `P`): no wall, spikes, door, thing or other track, so riding it never scrapes the player off, crushes them, kills them or carries them through a door. Nothing may stand in its way, and it has to keep a cell clear of every doorway. A save room cannot have one, because its platforms stand still.
+- **Imprint** cannot go on a track or in the row above it, so an Imprint never overlaps a moving platform.
+- It is not drawn with its track. The player learns the path by watching it. The checker's renders draw it light blue where it starts, with its track as blue dots.
+
 ### Saving
 
 The game saves to `user://save.json` when a room is entered, when a pickup is taken, and when the map is closed after its zoom changed, and loads it on start. The file holds a version number, the room and the position in it, the visited rooms, the abilities, the map's zoom level, the number of tokens carried, how full each 3TM is, the health, the save room, and the flags (one per pickup taken, `pickup:<id>`, one per token taken, `token:<id>`, and one per save machine used, `save:<id>`). The room and position are always the resume point: the machine of the save room the player last entered, or the start room's `P` before they have entered one. Everything else is written as it stands, so a reload keeps every pickup, token and 3TM fill, and puts the player back at the save. Entering an ordinary room no longer moves where a reload starts.
@@ -240,7 +263,7 @@ s2 7 8              7 meets s2 and 8 at their side doors, at the floor
 - **6**, one screen at `(0, 1)`, through the door in the right wall of room 5. A hole in the floor is covered on the player's side by a roof and a wall six cells tall, taller than a jump, so a platform put down by the wall is the only way up onto the roof, and from there the player walks off the end into the hole.
 - **7**, one screen wide and four tall at `(0, 2)`, under room 6's hole. It is empty: a long fall onto a floor, with a door at the floor at each end of its bottom screen (rows 68 to 70): the left wall to s2, the right wall to room 8. It is marked `trap: allowed`, because nothing in it leads back up yet. A 3TM and a title card that fades in during the fall and out before the landing are planned.
 - **s2**, a save room, one screen at `(-1, 5)`, left of room 7's bottom screen. It is empty but for its save machine, which stands on the floor in the middle (row 16, col 16), and a door at the floor in the right wall (rows 14 to 16) back to room 7. Its exits are open, so saving is a choice. It is marked `trap: allowed` like room 7, because its only door leads there; both lose the mark when room 7's way out is built.
-- **8**, one screen at `(1, 5)`, right of room 7's bottom screen, the mirror of s2: a door at the floor in the left wall (rows 14 to 16) and nothing else but spikes. The first 5 cells inside the door (cols 1 to 5) are clear floor, and spikes cover the rest of it (row 16, cols 6 to 30), so a player who keeps running right dies. It is marked `trap: allowed`, like 7 and s2.
+- **8**, one screen at `(1, 5)`, right of room 7's bottom screen, the mirror of s2: a door at the floor in the left wall (rows 14 to 16). The first 5 cells inside the door (cols 1 to 5) are clear floor, and spikes cover the rest of it (row 16, cols 6 to 30), so a player who keeps running right dies. Over the spikes is the first moving platform, `r8_lift`: 5 cells wide on row 13, starting at cols 6 to 10 and sliding right 20 cells to the wall and back at 75 px/s, about 2.7 s each way, with a 0.2 s wait at each end. Its top is four cells above the clear floor, a comfortable full jump. It was on row 12 first, five cells up, which is as high as a full jump reaches (row 11 cannot be reached from the floor, and a hop reaches neither row 12 nor row 13). The way back is to step off its left end onto the clear floor as it gets back. It is marked `trap: allowed`, like 7 and s2.
 
 ### Starting in a room
 
@@ -260,7 +283,9 @@ A **ledge** is a run of cells with air above and floor below. From each ledge th
 - **Warning:** a ledge in a room that says `trap: allowed` with no way home, and the door that nobody inside such a room can touch. A room can say it in its header when it is meant to be a one-way drop (room 7 and the rooms s2 and 8 beside it, until room 7's way out is built). It still has to be reachable from the start, and nothing else about it is relaxed.
 - **Warning:** a ledge nobody reached. The solver tries a fixed set of inputs, so a ledge it misses might still be reachable by a path it did not think of. Look at the render and decide.
 
-`tools/render.sh` draws each room and the world map to `build/renders/`. Red bars mark unreachable ledges, yellow bars mark traps, and orange marks a door that was sealed.
+`tools/render.sh` draws each room and the world map to `build/renders/`. Red bars mark unreachable ledges, yellow bars mark traps, and orange marks a door that was sealed. A moving platform is light blue where it starts, with its track as blue dots.
+
+**Moving platforms in the solver.** Each moving platform is a ledge of its own in the graph, named "the moving platform <id>", so the ledge counts include them. The jumps from a ledge near a track are tried with the platform moving, starting at moments spread over its whole trip: every 12 ticks, or every tick it takes to move a cell if that is sooner (`ReachGraph.phases`, 43 moments for room 8). A jump that lands on the platform at any of them is an edge to it. Once on it, the player can ride it to any moment, because nothing is allowed in the row a rider stands in, so the jumps and the walks off either end are tried from every spot on it at all of those moments. Riding sweeps that row, so a pickup standing in it is taken. A moving platform nobody reaches is a warning, like a ledge. Room 8's moments add about 3 s to a cold run, kept by the cache after that. Left out: the Imprint search does not see moving platforms (it puts no Imprint down from one, and its jumps pass through them), and a body falling into a room through a door does not land on one.
 
 **Imprint in the solver.** The solver takes the player's `Abilities`. With Imprint unlocked, a ledge gets extra edges: a player standing there can put a platform down, jump onto it, and jump from it.
 - It does not try every platform. From each ledge the usual jumps are simulated once, and a platform is a candidate only where one of those jumps comes down through the top of a cell row, and only if it is a legal place (the same `ImprintRules` the cursor uses) within a jump of something still out of reach. Each candidate is then checked by simulating the jump again with the platform in place. A platform that passes is searched from like a ledge of its own.
@@ -270,7 +295,7 @@ A **ledge** is a run of cells with air above and floor below. From each ledge th
 
 **What a room needs.** `tools/validate.sh` solves with the starting abilities, takes every pickup that solve could reach, solves again with what they gave, and repeats to a fixpoint, when nothing new turns up or the newly reached things do not change the abilities. The number of things in the world makes this finite; if the search ever fails to settle within that bound, validation fails instead of accepting a partial answer. A room, a ledge, or a pickup that only opens in a later round lists the pickups it needs, cut down by dropping them one at a time to a set it still opens with. Example, from the current world: `Room 5: the ledge on row 16, cells 0-4 needs r2_token, r3_token, r4_3tm, r5_token`. Errors come from the last solve, so a room that stays shut even with every pickup is an error. Tokens and 3TMs are part of this. A save machine reached sets the flag that opens `exits: saved`, and gives nothing, so it never changes what a room needs. A token reached is taken. A 3TM reached gives its upgrade if three tokens are taken for it, and several machines are paid in the order of their ids. A room with an exit rule keeps its doors shut in the search until what the rule asks for has been reached, so a room is only open if the player can first do what it asks. The search does not model the carry limit of three (a player who cannot take a fourth token before spending three is not caught), and it does not treat a blocked doorway as a wall for a body falling through a chain of doors. A trap is judged where the player could first be in it, with the fewest abilities, because a player who has not found Imprint yet is also stuck in a place that needs it to leave.
 
-**Speed, and the cache.** A cold run is about 16 s for 7 rooms, and nearly all of it is the Imprint search: each ledge's jumps (about 1 s) and, for every platform Imprint could put down, a "leg" of about 40 simulated jumps from it (about 12 s). What the solver works out about a room depends on nothing but the room and the solver, so it is kept between runs in `build/solver-cache/<room>.json`: the jumps from each ledge, and each platform's leg by cell, width and length. A room's file is used only if two fingerprints match: the room's (its grid with the openings that lead nowhere sealed, its doors and where they lead, its things, where it sits, so a neighbour that appears or moves counts) and the solver's (a hash of the code and numbers that decide a jump: `reach_graph.gd`, `imprint_search.gd`, `movement_sim.gd`, `movement.tres`, and the others listed in `SolverCache.SOLVER_FILES`). Change either and that room, or every room, is worked out again. What is not kept is cheap and depends on more than one room: where a door leads, and the search that spreads out from the start. A warm run takes about 2 s however many rooms are unchanged, and a run after editing one room redoes that room's share. A file that cannot be read is ignored. The tests never read the cache. `tools/validate.sh --no-cache` ignores it too, and prints the same answers.
+**Speed, and the cache.** A cold run is about 32 s for 9 rooms, and most of it is the Imprint search: each ledge's jumps (about 5 s, 3 of them room 8's moving platform) and, for every platform Imprint could put down, a check that the jump lands on it (about 6 s) and a "leg" of about 40 simulated jumps from it (about 19 s). What the solver works out about a room depends on nothing but the room and the solver, so it is kept between runs in `build/solver-cache/<room>.json`: the jumps from each ledge, and each platform's leg by cell, width and length. A room's file is used only if two fingerprints match: the room's (its grid with the openings that lead nowhere sealed, its doors and where they lead, its things, where it sits, so a neighbour that appears or moves counts) and the solver's (a hash of the code and numbers that decide a jump: `reach_graph.gd`, `imprint_search.gd`, `movement_sim.gd`, `movement.tres`, and the others listed in `SolverCache.SOLVER_FILES`). Change either and that room, or every room, is worked out again. What is not kept is cheap and depends on more than one room: where a door leads, and the search that spreads out from the start. A warm run takes about 8 s, nearly all of it the landing checks, which are not kept. A run after editing one room redoes that room's share. A file that cannot be read is ignored. The tests never read the cache. `tools/validate.sh --no-cache` ignores it too, and prints the same answers.
 
 Threads were tried first and are not used: GDScript's simulation only runs about 1.5 times faster on two or four threads, and slower on eight, so an Imprint search on all cores saved about 15%.
 
@@ -435,13 +460,14 @@ Errors are sentences naming the room (and the line, for the header). A bad drawi
 
 ### The movement (`player/movement_sim.gd`, `player/movement_config.gd`)
 
-`MovementSim.State` holds a body's position, velocity, `grounded`, `coyote`, `buffer`, `launched`, `cut`, and, after a step, `jumped` and the `floor_rect` it stands on. `step(cfg, state, rects, input_x, jump_pressed, jump_held, delta)` does one tick, in this order:
+`MovementSim.State` holds a body's position, velocity, `grounded`, `coyote`, `buffer`, `launched`, `cut`, `riding` (the moving platform it stands on, or -1), and, after a step, `jumped`, `crushed` and the `floor_rect` it stands on. `step(cfg, state, rects, input_x, jump_pressed, jump_held, delta, movers, tick)` does one tick, in this order:
 
+0. With moving platforms (`movers`, which go from where they are at `tick` to where they are at `tick + 1` during the step), `move_with`: the one the body is riding carries it by its move, and any other that moves into the body pushes it out of its leading side, both stopped by walls. A body still inside a platform after that is `crushed`. The platforms are then solid, where they are at `tick + 1`, for the rest of the step.
 1. `integrate`: horizontal speed moves toward `input × run_speed` at the ground or air acceleration (or friction when there is no input); the coyote timer is set while grounded and counts down; the jump buffer is set on a press and counts down; if both are above zero a jump starts (`vy = -jump_speed`); otherwise a released jump that is still rising is cut (`vy × jump_cut`, once), and gravity is applied, scaled by `apex_gravity_scale` while `|vy| < apex_threshold` and by `fall_gravity_scale` while falling, capped at `max_fall_speed`.
 2. `corner_correct`: a body moving sideways into a block and not rising is lifted up to `corner_correction` px if that clears it; a rising body that clips a ceiling corner is pushed sideways by up to the same. Both look ahead with a blocked test and never move through a block.
-3. `resolve`: move on x, push out of any block it overlaps; move on y, push out, and `grounded` is set when it came down on a block.
+3. `resolve`: move on x, push out of any block it overlaps; move on y, push out, and `grounded` is set when it came down on a block. `riding` is the moving platform whose rect is the floor, or -1. A body that was riding and is now in the air gets the platform's velocity added only if `inherit_platform_velocity` is on.
 
-The body is `HALF` = 5 px either side (a 10×10 box). `standing(position, rects)` is a probe one pixel down. `simulate_jump(...)` repeats `step` at a fixed 1/60 s from a start position and velocity until the body lands (grounded after leaving the ground, past tick 2), touches a trigger rect (a door), touches a hazard rect (it died), leaves `bounds`, or runs `limit` ticks (180 by default). It returns the final position and velocity, `landed`, the floor rect, `trigger` (the index touched or -1), `hazard`, the `collected` indices among rects passed as `collect`, the tick count, and, with `record`, the whole path. `later_input` and `switch_frame` change the steering part way through. Everything that needs to ask "what would the player do" calls this. The player's own node calls `step` with the real input and `delta`.
+The body is `HALF` = 5 px either side (a 10×10 box). `standing(position, rects)` is a probe one pixel down. `simulate_jump(...)` repeats `step` at a fixed 1/60 s from a start position and velocity until the body lands (grounded after leaving the ground, past tick 2), touches a trigger rect (a door), touches a hazard rect (it died), leaves `bounds`, or runs `limit` ticks (180 by default). It returns the final position and velocity, `landed`, the floor rect, `trigger` (the index touched or -1), `hazard`, the `collected` indices among rects passed as `collect`, the tick count, and, with `record`, the whole path. `later_input` and `switch_frame` change the steering part way through. `movers`, `start_tick` and `start_riding` run it with moving platforms: a crushed body counts as a hazard, and the result's `riding` is the platform it landed on. Everything that needs to ask "what would the player do" calls this. The player's own node calls `step` with the real input and `delta`.
 
 ### Doors in play (`world/door.gd`, `world/room.gd`, `world/world.gd`)
 
@@ -464,6 +490,12 @@ A door's **trigger** (`Door.trigger_rect`) is its opening plus 4 px of the room 
 - a **save machine** runs `World._save_at`, a coroutine, when the player enters its zone (`SaveMachine.rect`, 5 x 3 cells) and `used` is not set: the world goes busy and the player is held (`_hold_player`); `_arc` moves them on a parabola to `SaveMachine.centre` over `HOP_TIME` (0.2 s) and they are hidden; `SaveMachine.close` shuts the halves (0.1 s); `_commit_save` sets `save:<id>` and `GameState.save_room`, runs `recheck_exits` (so `exits: saved` opens), autosaves and toasts "Game saved"; `spin` turns it (0.6 s); then `_pop` opens it (0.1 s), arcs the player to the floor two cells to the side opposite the one they entered from (0.2 s), places them there with the room's current solids, returns control, and starts the machine closing without waiting. `used` is on the node, and the room is built again on every entry, so a new visit finds the machine open. A body in the machine's 3 x 3 when it is built by a reload (`World._ready`) or a death with no health (`_respawn`) is found by `Room.save_machine_holding`, and `_emerge` shuts the machine round it, saves first if the flag is not set, spins it, and runs `_pop` to the right. `SaveMachine.pixels` is the one-bit drawing (two half discs swung about the hinge, or a ball with lines of longitude; both are filled with level lines every `LINE_STEP` (2) rows by `_shade`), and `touch_rect_for` is the zone, which the solver uses too.
 
 After any take, `recheck_exits` runs and the game autosaves.
+
+### Moving platforms (`world/platform_path.gd`, `world/movers.gd`, `world/entities/moving_platform.gd`)
+
+The parser turns a `platform` legend glyph into a `PlatformPath` in `RoomInfo.platforms` (`_place_platform`, `_track_length`), and checks the rules around it (`_check_platforms`, and `_check_platform_doors` once the doors are known). A path holds the drawn cells, the direction, how many cells it travels, `travel_ticks` (its distance over its speed, at `TICKS_PER_SECOND` = 60) and `pause_ticks` (`DEFAULT_PAUSE` = 0.2 s). `period()` is a trip there and back with both waits. `rect_at(tick)` waits, slides linearly, waits and slides back. `swept_cells()` is every cell it covers, `band_cells()` the row above that, and `keep_out()` both, in pixels. `Movers` is a room's paths shifted to where the room is.
+
+`Room.build` makes a `MovingPlatform` node for each path and a `Movers` at the room's position. The room runs at `process_priority` -1, so each physics tick it advances its `tick` and moves its platforms before the player steps. The player keeps the `room` the world placed it in, and steps with `room.movers` and `room.tick - 1`, so it is carried from where the platforms were to where they are now. A held player (a door slide, a save machine, a 3TM, a death) is not stepped, and stops riding. `World._physics_process` treats `Player.crushed()` like spikes. `Room.mover_rects()` gives the platforms where they are now, which the Imprint preview adds to what it checks a jump against.
 
 ### Dying and safe floor (`world/world.gd`, `world/room.gd`)
 
@@ -527,6 +559,7 @@ The solver answers "can a player get here, and get back", using `MovementSim` an
 - The carry limit of three tokens, and a blocked doorway as a wall for a body falling through a chain of doors.
 - Paths other than the fixed plans (the inputs and holds above), so "unreachable" can mean "a plan it did not try". That is why an unreached ledge is a warning and an unreached room, door or pickup is an error.
 - A ledge's `MAX_CANDIDATES` cap, and `REACH_*` windows: a platform beyond them is not tried.
+- Moving platforms in the Imprint search, and a body coming through a door landing on one. A moving platform is only tried at the moments `ReachGraph.phases` picks, so a jump that works only between two of them is not found.
 
 ## Decision log
 
@@ -595,6 +628,16 @@ What was decided, in the order it came up, with the reason. Pull requests are na
 - **Threads were tried and dropped.** GDScript's simulation only runs about 1.5 times faster on two or four threads and slower on eight; the whole validator went from 15.6 s to 13.2 s. Not worth the risk. A collision step with no dictionary was worth about 7% and was not kept.
 - **The tests never read the cache,** so they always check the solver itself.
 
+**Moving platforms (PR #29)**
+- **A moving platform is drawn with its track,** as a row of its legend glyph and `-` or `|` out to where it turns (the user's choice over writing the path as numbers in the legend), so the file shows its path the way the rest of the room shows its shape.
+- **It moves at a set speed,** `speed=` in pixels a second, and waits at each end, `pause=` (0.2 s, "a split second"). The user first asked for 1.5 s from end to end, then for 60 px/s and then 75 px/s, to try in playtesting. Room 8's is 5 cells wide, the user's choice over 2 or 3.
+- **Leaving it keeps only the player's own velocity.** That was the user's choice for the first version. Without carry-over, a jump from a moving platform never lands back on it if the platform is faster than the player can run (90 px/s). The user had carry-over switched on to playtest it, then off again, so `inherit_platform_velocity` is off in `movement.tres` and the switch stays for trying it again.
+- **It is not drawn with a track in the game,** at the user's choice. The renders draw the track.
+- **Its clock starts when its room is built,** at the drawn end, waiting, and nothing about it is saved, so it is always in the same place on entering.
+- **The row above wherever it goes is kept clear,** and so is a cell around every door. That keeps riding from ever scraping, crushing or killing the player, or carrying them through a door. It is also what lets the solver say that a player on a platform can wait for any moment of its trip.
+- **It is never safe floor, and pushing someone into a wall crushes them,** like a death on spikes.
+- **The player and the solver share it.** `MovementSim.step` carries and pushes, the solver tries moments spread over its trip, and `platform_test` checks the real player and `simulate_jump` end in the same place with a platform moving.
+
 **Process**
 - **One record.** `AGENTS.md` for how an agent works, `README.md` for the code and its rules, this file for the game and its decisions, `docs/testing-checklist.md` for what nobody has played. `docs/plans/` is history.
 - **Every new test is mutation-checked,** and the pull request says which mutants were tried.
@@ -618,3 +661,4 @@ Do not: copy a movement formula; reference an autoload from a pure class; derive
 - A way to start over from inside the game. `--new-game` does it from the command line and the web address.
 - How a health pip is found, how it shows on the body or the screen, how many a player can hold, and whether a save room refills them.
 - Whether a death with health should cost anything besides the pip.
+- Whether leaving a moving platform should keep its speed (`inherit_platform_velocity`, off now; tried on and turned off again), and room 8's platform's speed (75 px/s), pause and height (row 13, four cells up). All are to be tried in playtesting.

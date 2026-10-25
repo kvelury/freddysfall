@@ -20,6 +20,18 @@ Nobody has played these yet. Use `tools/build_web.sh`, `tools/serve.sh` and `?ne
 - [ ] **An old save.** If you have a save from before this change, a plain reload carries it over: you start in s1 with the door open.
 - [ ] **F4, `s`, `1`, Enter** warps to s1 in a debug build, and `?room=s1` starts there with the door blocked.
 
+## Moving platforms
+
+Nobody has played these yet. `?room=8` starts in room 8 (with no Imprint and no tokens, which room 8 does not need).
+
+- [ ] **Getting on.** From the clear floor inside the door, jump onto the platform while it waits at the left. The platform's top is four cells above the floor, a full jump. Check the 0.2 s wait reads as a wait, and whether the jump is too easy or too hard (row 12, one cell higher, is as high as a full jump reaches).
+- [ ] **Riding.** Stand still and ride it out to the wall and back. At 75 px/s each way takes about 2.7 s. Check it looks smooth (it moves on physics time, with interpolation), and that the player sits still on it and does not jitter or slide.
+- [ ] **Walking on it** while it moves, both ways.
+- [ ] **Jumping off it while it moves.** `inherit_platform_velocity` is off, so a jump or a step off the end keeps only your own speed: a jump straight up goes straight up and the platform goes on without you. Is it easy to land back on it, and to hop between the strip and the platform? Set it to true in `src/player/movement.tres` to compare (it was tried on and turned off).
+- [ ] **Getting off.** Step off its left end onto the clear floor as it gets back. With a 0.2 s wait this needs you to be at its left end when it arrives. Too tight? Try a longer `pause=` in `data/rooms/8.txt`.
+- [ ] **Its speed.** Try other `speed=` values in `data/rooms/8.txt` (it is 75 px/s now; the user first asked for a 1.5 s trip, 133 px/s).
+- [ ] **Dying.** Fall off into the spikes: with no health you go back to your save room (s2 if you saved there). Coming back, the platform has started over, waiting at the left.
+
 ## Respawn
 
 The safe-floor respawns below only happen when the player has health, and no pip exists yet, so every death goes to s1 and these cannot be played. They are held by `hazard_test`, which gives the player health. Play them once the first pip can be found.
@@ -47,7 +59,7 @@ The safe-floor respawns below only happen when the player has health, and no pip
 - [ ] **A room that the validator calls shut but that a person can open.** The search leaves out placing a platform in mid-air and using two in a row. If you find a way across with either, we know which one to add. Room 5's pit is the best place to try: it might be crossable from the floor with two platforms in a row.
 - [ ] **A room that the validator opens but a person cannot.** The search ignores the limit of three tokens, and does not treat a blocked doorway as a wall for a body falling through a chain of doors.
 - [ ] **A `~` cell in a real room.** None of the rooms use one. Try it on the pit in room 5 or the wall in room 6 to see the solver shut the room again and the cross appear in the game.
-- [ ] **Validator time.** On 2026-10-22, `tools/validate.sh --no-cache` took 13.5 seconds for 7 rooms and a warm cached run took 1.5 seconds. It keeps what it works out about each room in `build/solver-cache/`. Check the numbers again as the world grows. Edit one room and run it again: only that room should be redone (the `cache:` line says how many). If an answer ever looks stale, `tools/validate.sh --no-cache` or deleting `build/solver-cache` gives the answer from scratch.
+- [ ] **Validator time.** On 2026-10-22, `tools/validate.sh --no-cache` took 13.5 seconds for 7 rooms and a warm cached run took 1.5 seconds. With 9 rooms and room 8's moving platform it takes about 32 seconds cold and 8 warm (main was already at 28 and 8 before the platform). It keeps what it works out about each room in `build/solver-cache/`. Check the numbers again as the world grows. Edit one room and run it again: only that room should be redone (the `cache:` line says how many). If an answer ever looks stale, `tools/validate.sh --no-cache` or deleting `build/solver-cache` gives the answer from scratch.
 
 ## Movement and doors
 

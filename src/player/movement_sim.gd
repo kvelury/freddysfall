@@ -5,6 +5,11 @@ extends RefCounted
 ## a State with step(), so a jump the solver finds is a jump the player makes.
 ## Imprint reachability should call simulate_jump() against a room's
 ## rectangles instead of copying these formulas.
+##
+## Moving platforms come in as `movers` and the tick they are at. A body
+## standing on one is carried by it, one that it runs into is pushed, and one
+## pushed into a wall is crushed. Leaving a platform keeps only the body's own
+## velocity, unless the config says to add the platform's.
 
 const HALF := Vector2(Grid.CELL * 0.5, Grid.CELL * 0.5)
 
@@ -22,10 +27,16 @@ class State extends RefCounted:
 	## standing on, if any.
 	var jumped := false
 	var floor_rect := Rect2()
+	## The moving platform the body is standing on, or -1.
+	var riding := -1
+	## Set by step(): a moving platform pushed the body into something solid.
+	var crushed := false
 	var scratch := {}
 
 
 ## One physics tick: read input, apply forces, round corners, collide.
+## `movers` are the room's moving platforms, which go from where they are at
+## `tick` to where they are at `tick + 1` during this step.
 static func step(
 	cfg: MovementConfig,
 	s: State,
@@ -33,8 +44,17 @@ static func step(
 	input_x: float,
 	jump_pressed: bool,
 	jump_held: bool,
-	delta: float
+	delta: float,
+	movers: Movers = null,
+	tick := 0
 ) -> void:
+	var was_riding := s.riding
+	var solid := rects
+	s.crushed = false
+	if movers != null and not movers.is_empty():
+		move_with(s, rects, movers, tick)
+		solid = rects.duplicate()
+		solid.append_array(movers.rects(tick + 1))
 	integrate(
 		cfg, s.velocity, s.grounded, s.coyote, s.buffer, s.launched, s.cut,
 		input_x, jump_pressed, jump_held, delta, s.scratch
@@ -45,15 +65,68 @@ static func step(
 	s.launched = s.scratch["launched"]
 	s.cut = s.scratch["cut"]
 	s.jumped = s.scratch["jumped"]
-	s.position = corner_correct(cfg, s.position, s.velocity, s.grounded, rects, delta)
-	var resolved := resolve(s.position, s.velocity, rects, delta, HALF)
+	s.position = corner_correct(cfg, s.position, s.velocity, s.grounded, solid, delta)
+	var resolved := resolve(s.position, s.velocity, solid, delta, HALF)
 	s.position = resolved["position"]
 	s.velocity = resolved["velocity"]
 	s.grounded = resolved["grounded"]
 	s.floor_rect = resolved["floor"]
+	s.riding = -1
 	if s.grounded:
 		s.launched = false
 		s.cut = false
+		if movers != null:
+			for i in movers.size():
+				if s.floor_rect == movers.rect(i, tick + 1):
+					s.riding = i
+					break
+	# Off a platform and into the air: the body keeps only its own velocity,
+	# unless the platform's is to be added.
+	if was_riding >= 0 and not s.grounded and cfg.inherit_platform_velocity:
+		s.velocity += movers.step_of(was_riding, tick) / delta
+
+
+## The moving platforms' share of a tick, before the body's own: the one it
+## stands on carries it, and any other that moves into it pushes it out the
+## way that platform is going. Walls stop both. A body still inside a platform
+## or a wall afterwards is crushed.
+static func move_with(s: State, rects: Array, movers: Movers, tick: int) -> void:
+	var start := s.position
+	if s.riding >= 0 and s.riding < movers.size():
+		s.position = _shift(s.position, movers.step_of(s.riding, tick), rects)
+	for i in movers.size():
+		if i == s.riding:
+			continue
+		var after := movers.rect(i, tick + 1)
+		if not _overlaps(s.position, HALF, after):
+			continue
+		var push := _push_out(s.position, after, movers.step_of(i, tick))
+		s.position = _shift(s.position, push, rects)
+		if _overlaps(s.position, HALF, after):
+			s.crushed = true
+	if s.position != start and _blocked(s.position, HALF, rects, Vector2.ZERO):
+		s.crushed = true
+
+
+## Moves a body by `motion`, stopping it at walls.
+static func _shift(position: Vector2, motion: Vector2, rects: Array) -> Vector2:
+	if motion == Vector2.ZERO:
+		return position
+	return resolve(position, motion, rects, 1.0, HALF)["position"]
+
+
+## How far a body at `position` has to move to leave `block`, which is moving
+## by `motion`: out of its leading side.
+static func _push_out(position: Vector2, block: Rect2, motion: Vector2) -> Vector2:
+	if absf(motion.x) >= absf(motion.y):
+		if motion.x > 0.0:
+			return Vector2(block.end.x + HALF.x - position.x, 0.0)
+		if motion.x < 0.0:
+			return Vector2(block.position.x - HALF.x - position.x, 0.0)
+		return Vector2.ZERO
+	if motion.y > 0.0:
+		return Vector2(0.0, block.end.y + HALF.y - position.y)
+	return Vector2(0.0, block.position.y - HALF.y - position.y)
 
 
 ## Whether a body at `position` is resting on something: a probe one pixel down.
@@ -204,7 +277,10 @@ static func resolve(position: Vector2, velocity: Vector2, rects: Array, delta: f
 ## `triggers` are pixel rects; the result's "trigger" is the index of the first
 ## one touched, or -1. A path that touches a `hazards` rect ends there and
 ## reports "hazard": true, since the body would have died. An empty `bounds`
-## means no limit.
+## means no limit. `movers` are the room's moving platforms, at `start_tick` on
+## the first frame. `start_riding` is the one the body starts standing on, or
+## -1. The result's "riding" is the one it landed on, or -1, and a body that
+## is crushed counts as a hazard.
 static func simulate_jump(
 	cfg: MovementConfig,
 	rects: Array,
@@ -221,12 +297,16 @@ static func simulate_jump(
 	later_input: float = NAN,
 	switch_frame: int = 0,
 	limit: int = 180,
-	record: bool = false
+	record: bool = false,
+	movers: Movers = null,
+	start_tick := 0,
+	start_riding := -1
 ) -> Dictionary:
 	var s := State.new()
 	s.position = start_position
 	s.velocity = start_velocity
 	s.grounded = grounded_start
+	s.riding = start_riding
 	s.coyote = cfg.coyote_time if grounded_start else 0.0
 	var delta := 1.0 / 60.0
 	var min_feet := s.position.y + HALF.y
@@ -243,13 +323,13 @@ static func simulate_jump(
 	for frame in limit:
 		frames = frame + 1
 		var input := input_x if is_nan(later_input) or frame < switch_frame else later_input
-		step(cfg, s, rects, input, jump and frame == 0, frame < hold_frames, delta)
+		step(cfg, s, rects, input, jump and frame == 0, frame < hold_frames, delta, movers, start_tick + frame)
 		if record:
 			path.append(s.position)
 		min_feet = minf(min_feet, s.position.y + HALF.y)
 		if not s.grounded:
 			airborne = true
-		if _touching(s.position, HALF, hazards) >= 0:
+		if s.crushed or _touching(s.position, HALF, hazards) >= 0:
 			hazard = true
 			break
 		for i in collect.size():
@@ -275,6 +355,8 @@ static func simulate_jump(
 		"collected": collected,
 		"frames": frames,
 		"path": path,
+		"riding": s.riding if landed else -1,
+		"tick": start_tick + frames,
 	}
 
 

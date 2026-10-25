@@ -46,6 +46,7 @@ static func build(entries: Array, start_room: String, errors: Array[String]) -> 
 				entity_rooms[def.id] = info.id
 	for info in order:
 		info.exits = _parse_exits(info, by_pos, errors)
+		_check_platform_doors(info, errors)
 	_link_exits(order, rooms, errors)
 	for info in order:
 		_seal_dead_ends(info)
@@ -152,6 +153,7 @@ static func _scan_cells(info: RoomInfo, errors: Array[String]) -> void:
 			if on_edge and not Tiles.is_wall_glyph(glyph):
 				open_edge.append("Room %s edge cell %d,%d is '%s'; the outer wall must be %s or %s" % [info.id, x, y, glyph, Tiles.SOLID, Tiles.EXIT])
 	_place_entities(info, placements, errors)
+	_check_platforms(info, errors)
 	_append_capped(errors, unknown)
 	_append_capped(errors, open_edge)
 
@@ -164,8 +166,14 @@ static func _place_entities(info: RoomInfo, placements: Dictionary, errors: Arra
 		var cells: Array = placements.get(glyph, [])
 		if cells.is_empty():
 			errors.append("Room %s: legend glyph '%s' (%s %s) is never drawn in the room" % [info.id, glyph, def.type, def.id])
-		elif cells.size() > 1:
+		elif cells.size() > 1 and def.type != "platform":
 			errors.append("Room %s: legend glyph '%s' (%s %s) is drawn %d times, at %s and elsewhere; each one needs its own glyph and id" % [info.id, glyph, def.type, def.id, cells.size(), cells[0]])
+		elif def.type == "platform":
+			var path := _place_platform(info, def, cells, errors)
+			if path != null:
+				def.cell = path.start_cells.position
+				info.entities.append(def)
+				info.platforms.append(path)
 		else:
 			def.cell = cells[0]
 			if def.type == "machine" or def.type == "save":
@@ -177,6 +185,118 @@ static func _place_entities(info: RoomInfo, placements: Dictionary, errors: Arra
 			info.entities.append(def)
 
 
+## A moving platform is drawn as a row of its glyph where it starts, with its
+## track running straight on from one side of it to where it turns: `-` from
+## an end of the row (side to side), or `|` across its columns above or below
+## it (up and down). Returns its path, or null with the problem in `errors`.
+static func _place_platform(info: RoomInfo, def: EntityDef, cells: Array, errors: Array[String]) -> PlatformPath:
+	# A bad legend line has been reported already.
+	if not Entities.problems(def).is_empty():
+		return null
+	var where := "Room %s: moving platform %s" % [info.id, def.id]
+	var first: Vector2i = cells[0]
+	var x0 := first.x
+	var x1 := first.x
+	for cell: Vector2i in cells:
+		if cell.y != first.y:
+			errors.append("%s is drawn on more than one row; draw it as one unbroken row of '%s'" % [where, def.glyph])
+			return null
+		x0 = mini(x0, cell.x)
+		x1 = maxi(x1, cell.x)
+	if x1 - x0 + 1 != cells.size():
+		errors.append("%s has a gap in it; draw it as one unbroken row of '%s'" % [where, def.glyph])
+		return null
+	var drawn := Rect2i(x0, first.y, x1 - x0 + 1, 1)
+	var ways: Array[Vector2i] = []
+	var lengths: Array[int] = []
+	for way in [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]:
+		var length := _track_length(info, drawn, way)
+		if length > 0:
+			ways.append(way)
+			lengths.append(length)
+	if ways.is_empty():
+		errors.append("%s has no track; draw %s on from one end of it to where it turns (side to side), or %s above or below it (up and down)" % [where, Tiles.TRACK_ACROSS, Tiles.TRACK_UP_DOWN])
+		return null
+	if ways.size() > 1:
+		errors.append("%s has track on more than one side; it runs one way from where it is drawn and back" % where)
+		return null
+	var pause := float(String(def.props.get("pause", str(PlatformPath.DEFAULT_PAUSE))))
+	return PlatformPath.new(def.id, drawn, ways[0], lengths[0], float(String(def.props["speed"])), pause)
+
+
+## How many cells of track run on from `drawn` going `way`: `-` in its row to
+## the side, or whole rows of `|` across its columns above or below.
+static func _track_length(info: RoomInfo, drawn: Rect2i, way: Vector2i) -> int:
+	var length := 0
+	if way.y == 0:
+		var x := drawn.position.x - 1 if way.x < 0 else drawn.end.x
+		while _glyph(info, x, drawn.position.y) == Tiles.TRACK_ACROSS:
+			length += 1
+			x += way.x
+		return length
+	var y := drawn.position.y + way.y
+	while true:
+		for x in range(drawn.position.x, drawn.end.x):
+			if _glyph(info, x, y) != Tiles.TRACK_UP_DOWN:
+				return length
+		length += 1
+		y += way.y
+	return length
+
+
+static func _glyph(info: RoomInfo, x: int, y: int) -> String:
+	if y < 0 or y >= info.rows.size() or x < 0 or x >= info.rows[y].length():
+		return ""
+	return info.rows[y][x]
+
+
+## What the moving platforms need around them. Every track cell belongs to a
+## platform. The row above everywhere a platform goes is open air, so riding
+## it never scrapes, crushes or kills the player, and no other platform or
+## track sits there. No thing stands in a platform's way.
+static func _check_platforms(info: RoomInfo, errors: Array[String]) -> void:
+	var found: Array[String] = []
+	var claimed := {}
+	for path in info.platforms:
+		var swept := path.swept_cells()
+		for y in range(swept.position.y, swept.end.y):
+			for x in range(swept.position.x, swept.end.x):
+				claimed[Vector2i(x, y)] = true
+	for y in info.rows.size():
+		for x in info.rows[y].length():
+			if Tiles.has_flag(info.rows[y][x], "track") and not claimed.has(Vector2i(x, y)):
+				found.append("Room %s cell %d,%d is track ('%s') that belongs to no moving platform; a track runs straight on from a platform's row (%s) or its columns (%s)" % [info.id, x, y, info.rows[y][x], Tiles.TRACK_ACROSS, Tiles.TRACK_UP_DOWN])
+	for path in info.platforms:
+		var band := path.band_cells()
+		for x in range(band.position.x, band.end.x):
+			var glyph := _glyph(info, x, band.position.y)
+			if glyph != Tiles.EMPTY and glyph != Tiles.NO_IMPRINT and glyph != Tiles.SPAWN:
+				found.append("Room %s: moving platform %s needs open air in the row above everywhere it goes (row %d, cells %d-%d), for a rider to stand in, but cell %d,%d is '%s'" % [info.id, path.id, band.position.y, band.position.x, band.end.x - 1, x, band.position.y, glyph if not glyph.is_empty() else "outside the room"])
+				break
+		var keep := path.keep_out()
+		for def in info.entities:
+			if def.type == "platform":
+				continue
+			var space := Rect2i(def.cell, Vector2i.ONE)
+			if def.type == "machine":
+				space = TokenMachine.footprint(def.cell)
+			elif def.type == "save":
+				space = SaveMachine.zone(def.cell)
+			if Grid.cell_rect(space).intersects(keep):
+				found.append("Room %s: %s %s is in the way of moving platform %s; keep things out of its track and the row above it" % [info.id, def.type, def.id, path.id])
+	_append_capped(errors, found)
+
+
+## A moving platform keeps a cell away from every doorway, so nobody is
+## carried through a door and a platform never blocks one.
+static func _check_platform_doors(info: RoomInfo, errors: Array[String]) -> void:
+	for path in info.platforms:
+		for door in info.exits:
+			if door.trigger_rect().grow(ImprintRules.DOOR_MARGIN).intersects(path.keep_out()):
+				errors.append("Room %s: moving platform %s comes within a cell of the %s door at %s; keep its track and the row above it clear of doorways" % [info.id, path.id, door.edge, door.rect])
+				break
+
+
 ## A save room has exactly one save machine and nothing else (no pickup, token,
 ## 3TM or spikes, though platforms are fine), and no other room has a machine.
 static func _check_save_things(info: RoomInfo, errors: Array[String]) -> void:
@@ -186,9 +306,11 @@ static func _check_save_things(info: RoomInfo, errors: Array[String]) -> void:
 	elif not info.is_save_room() and saves > 0:
 		errors.append("Room %s has a save machine, but only a room whose id is s and a number (like s1) can be a save room" % info.id)
 	if info.is_save_room() and saves == 1:
-		var others := info.entities.size() - saves
+		var others := info.entities.size() - saves - info.platforms.size()
 		if others > 0:
 			errors.append("Room %s is a save room, and a save room holds nothing but its save machine and platforms, but its legend has %d other thing(s)" % [info.id, others])
+		if not info.platforms.is_empty():
+			errors.append("Room %s is a save room, and a save room's platforms stand still, but it has a moving platform (%s)" % [info.id, info.platforms[0].id])
 		if not info.hazards.is_empty():
 			errors.append("Room %s is a save room, and a save room holds nothing but its save machine and platforms, but it has spikes" % info.id)
 

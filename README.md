@@ -36,7 +36,7 @@ Room files are plain text. The preset's `include_filter` is `*.txt` so those fil
 
 ## Checking your work
 
-Run `tools/check.sh` before opening a pull request. It imports the project, runs all 17 headless tests, validates the whole world without the solver cache, builds the release web export, and checks that the room data and cache-tagged browser files are present. CI runs the same command. After it passes, serve that build and play the affected route yourself; the automated checks do not judge movement feel, room readability or visual feedback.
+Run `tools/check.sh` before opening a pull request. It imports the project, runs all 18 headless tests, validates the whole world without the solver cache, builds the release web export, and checks that the room data and cache-tagged browser files are present. CI runs the same command. After it passes, serve that build and play the affected route yourself; the automated checks do not judge movement feel, room readability or visual feedback.
 
 ```sh
 tools/check.sh                 # the complete automated gate and a fresh web build
@@ -68,9 +68,10 @@ After adding a script with a `class_name`, run `godot --headless --path . --impo
 | `tests/machine_test.gd` | The 3TM in room 4: how full it is, tokens flying in one at a time, the third giving Imprint, a spent machine doing nothing, and a save keeping its fill. Prints `MACHINE pass`. |
 | `tests/imprint_test.gd` | Where an Imprint platform may go (every refusal), whether the player can land on one, the blink, and the countdown lines. Prints `IMPRINT pass`. |
 | `tests/imprint_play_test.gd` | Imprint in room 5: locked until found, placed by the action, solid under the player, replaced, broken by time, cleared on leaving a room and on dying. Prints `IMPRINTPLAY pass`. |
+| `tests/platform_test.gd` | Moving platforms. The room format (a platform and its `-` or `\|` track, and each rule around it as an error), where a path puts it at each tick, pushing and crushing, the solver (a ledge only a ride reaches, a platform out of reach, no Imprint on a track), and room 8 in play: a rider carried exactly through a whole trip, walking on it, leaving it with only their own speed (switch off, as shipped) and with the platform's added (switch on), the real player and `simulate_jump` ending in the same place, and a death while riding coming back on real floor. Prints `PLATFORM pass`. |
 | `tests/imprint_solver_test.gd` | The solver with Imprint, on strings: a pit too wide to jump is shut without Imprint and open with it, a platform that breaks too soon is no use, `~` cells forbid it, a room reports the pickup it needs, a room that holds its doors shut waits for its token, three tokens and a 3TM give Imprint, a `trap: allowed` room is a warning and not an error, a fall four screens tall lands, and room 6's wall needs Imprint. Prints `IMPRINTSOLVER pass`. |
 | `tests/validate.gd` | Loads the whole world, then solves it: every room and door reachable from the start, nowhere to get stuck. Lists every problem and exits 1 if there is one, and says where the time went. Keeps what it works out about each room in `build/solver-cache/` (`--no-cache` skips it). Run through `tools/validate.sh`. |
-| `tests/render.gd` | Draws each room and the world map as PNGs in `build/renders/`, marking unreachable ledges, traps, one-way ledges, sealed doors, blocked doors, and 3TMs. Run through `tools/render.sh`. |
+| `tests/render.gd` | Draws each room and the world map as PNGs in `build/renders/`, marking unreachable ledges, traps, one-way ledges, sealed doors, blocked doors, 3TMs, and moving platforms with their tracks. Run through `tools/render.sh`. |
 
 Two kinds of test, and which to write:
 
@@ -89,10 +90,11 @@ Two kinds of test, and which to write:
 | `src/autoload/` | `WorldData` (reads the world files, keeps the rooms and `errors`), `GameState` (current room, visited set, abilities, flags, tokens, machines, map zoom, save room, health), `Save` (reads and writes `user://save.json`). |
 | `src/world/room_parser.gd` | Pure text-to-`RoomInfo`: header, glyphs and walls, legend, merging `#` into rectangles, pairing and sealing doors. |
 | `src/world/room_info.gd`, `door.gd`, `entity_def.gd`, `tiles.gd` | A loaded room, one opening in its wall (and `Door.crossing`, where a body appears on the far side), one legend entry, and the glyph table. |
-| `src/world/entities.gd`, `entities/` | The kinds of thing a legend can place (`pickup`, `token`, `machine`, `save`): the registry and one script each. |
+| `src/world/entities.gd`, `entities/` | The kinds of thing a legend can place (`pickup`, `token`, `machine`, `save`, `platform`): the registry and one script each. |
+| `src/world/platform_path.gd`, `movers.gd` | A moving platform's path, where it is at each tick, and a room's platforms as a body sees them. Shared by the game and the solver. |
 | `src/world/exit_rules.gd` | The conditions a room can put on leaving it. |
 | `src/world/world.gd`, `world.tscn` | The scene root: places the player, builds rooms, door slides, death and respawn, collecting, the 3TM feed, autosave. |
-| `src/world/room.gd` | One room as a node: solids drawn in a chunk per screen, hazards, doors (halos or blocks), the things in it. |
+| `src/world/room.gd` | One room as a node: solids drawn in a chunk per screen, hazards, doors (halos or blocks), the things in it, and the clock its moving platforms run on. |
 | `src/world/exit_halo.gd`, `shatter.gd`, `flying_token.gd` | Effects: the glow in a doorway, a burst of shards, a token flying into a 3TM. |
 | `src/world/reach_graph.gd` | The solver: ledges, the jumps and drops between them, doors, exit rules, what each room needs, traps. Used by `validate.sh` and the tests, never by the running game. |
 | `src/world/imprint_search.gd` | The part of the solver that puts Imprint platforms down. |

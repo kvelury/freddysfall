@@ -4,7 +4,8 @@ extends RefCounted
 ## The kinds of thing a room legend can place. The parser asks here whether a
 ## legend line is valid, and the room asks here to build the thing. Adding a
 ## kind means a line in TYPES, a script under src/world/entities/, and a case
-## in create.
+## in create. A moving platform is the one kind drawn as more than one cell:
+## the room parser turns it into a PlatformPath, and the room builds it.
 ##
 ## "required" and "optional" are the keys a legend line may carry besides
 ## id (always required) and the type itself.
@@ -14,6 +15,7 @@ const TYPES := {
 	"token": {"required": [], "optional": []},
 	"machine": {"required": ["upgrade"], "optional": ["value"]},
 	"save": {"required": [], "optional": []},
+	"platform": {"required": ["speed"], "optional": ["pause"]},
 }
 
 
@@ -67,6 +69,13 @@ static func problems(def: EntityDef) -> Array[String]:
 		var message := Upgrades.check(String(def.props["upgrade"]), String(def.props.get("value", "")))
 		if not message.is_empty():
 			out.append("%s %s: %s" % [def.type, def.id, message])
+	if out.is_empty() and def.type == "platform":
+		var speed := String(def.props["speed"])
+		if not speed.is_valid_float() or speed.to_float() <= 0.0:
+			out.append("platform %s: speed= is pixels a second and has to be a number above 0, not \"%s\"" % [def.id, speed])
+		var pause := String(def.props.get("pause", "0"))
+		if not pause.is_valid_float() or pause.to_float() < 0.0:
+			out.append("platform %s: pause= is seconds at each end and has to be a number, 0 or more, not \"%s\"" % [def.id, pause])
 	return out
 
 
@@ -93,4 +102,5 @@ static func create(def: EntityDef, fills := {}) -> Node2D:
 			return TokenMachine.new(def, int(fills.get(def.id, 0)))
 		"save":
 			return SaveMachine.new(def)
+	# A platform is built by the room from its path, not from its def.
 	return null

@@ -8,6 +8,12 @@ extends RefCounted
 ## puts it, with the velocity it had, and what that body lands on is where the
 ## door leads.
 ##
+## A moving platform is a ledge of its own. The jumps from ledges near its
+## track are tried with it moving, starting at moments spread over its trip, so
+## a jump that lands on it at one of them is an edge to it. Once on it the
+## player can ride it to any moment, since nothing is let near the row a rider
+## stands in, so the jumps and walks off it are tried at all of those moments.
+##
 ## The search tries a fixed set of input plans, so "reachable" means a
 ## concrete jump exists. "Unreachable" can still be a plan it did not try, so
 ## unreachable ledges are warnings, and a door or room nobody can reach is an
@@ -31,6 +37,9 @@ const MAX_CHAIN := 3
 const MAX_LINES := 6
 ## What a 3TM costs, in tokens.
 const MACHINE_COST := TokenMachine.COST
+## The most ticks between the moments a moving platform is tried at. A slower
+## platform is tried at the moments it has moved a cell, if that is sooner.
+const MAX_PHASE_STEP := 12
 
 var abilities: Abilities
 ## Kept between runs when set: what each room's ledges and platforms can reach,
@@ -540,6 +549,22 @@ func _find_ledges(info: RoomInfo) -> Array[Ledge]:
 			ledge.lo = float(ledge.x0) * cell + (cell * 0.5 if wall_left else -cell * 0.5 + 0.01)
 			ledge.hi = float(ledge.x1 + 1) * cell + (-cell * 0.5 if wall_right else cell * 0.5 - 0.01)
 			out.append(ledge)
+	for i in info.platforms.size():
+		var path := info.platforms[i]
+		var start := path.rect_at(0)
+		var ledge := Ledge.new()
+		ledge.room_id = info.id
+		ledge.index = out.size()
+		ledge.moving = true
+		ledge.path = i
+		ledge.platform_id = path.id
+		ledge.row = path.start_cells.position.y - 1
+		ledge.x0 = path.start_cells.position.x
+		ledge.x1 = path.start_cells.end.x - 1
+		ledge.top = start.position.y
+		ledge.lo = start.position.x - float(Grid.CELL) * 0.5 + 0.01
+		ledge.hi = start.end.x + float(Grid.CELL) * 0.5 - 0.01
+		out.append(ledge)
 	return out
 
 
@@ -551,7 +576,7 @@ func _standable(info: RoomInfo, x: int, y: int) -> bool:
 
 func _ledge_at_cell(info: RoomInfo, cell: Vector2i) -> Ledge:
 	for ledge: Ledge in _ledges[info.id]:
-		if ledge.row == cell.y and cell.x >= ledge.x0 and cell.x <= ledge.x1:
+		if not ledge.moving and ledge.row == cell.y and cell.x >= ledge.x0 and cell.x <= ledge.x1:
 			return ledge
 	return null
 
@@ -645,6 +670,9 @@ func geometry_of(info: RoomInfo) -> Geometry:
 			else:
 				var centre := Grid.cell_center(def.cell)
 				geo.things.append(Rect2(centre - Vector2(Pickup.HALF, Pickup.HALF), Vector2(Pickup.HALF, Pickup.HALF) * 2.0))
+		geo.movers = Movers.new(info.platforms)
+		for path in info.platforms:
+			geo.keep_outs.append(path.keep_out())
 		geo.bounds = Rect2(Vector2(-40.0, -120.0), info.pixel_size + Vector2(80.0, 160.0))
 		_geometry[info.id] = geo
 	return _geometry[info.id]
@@ -662,15 +690,23 @@ func _ensure_edges(info: RoomInfo) -> void:
 		return
 	var geo := geometry_of(info)
 	for ledge: Ledge in _ledges[info.id]:
+		if ledge.moving:
+			_ride(info, geo, ledge)
+			continue
 		_walk_to_doors(ledge, geo.triggers)
 		_stand_at_things(ledge, geo.things)
 		var near := near_solids(geo.rects, ledge)
-		for x in start_xs(ledge):
-			for input in [-1.0, 0.0, 1.0]:
-				var speed := run_speed(ledge, x, input)
-				for hold in HOLDS:
-					try_plan(info, geo, ledge, near, x, speed, input, hold, true)
-		walk_off(info, geo, ledge, near)
+		# Near a moving platform every jump is tried at every moment of its trip.
+		var ticks: Array[int] = [-1]
+		if _near_a_track(geo, ledge):
+			ticks = phases(info)
+		for tick in ticks:
+			for x in start_xs(ledge):
+				for input in [-1.0, 0.0, 1.0]:
+					var speed := run_speed(ledge, x, input)
+					for hold in HOLDS:
+						try_plan(info, geo, ledge, near, x, speed, input, hold, true, -1, tick)
+			walk_off(info, geo, ledge, near, -1, tick)
 	if entry != null:
 		entry.store_edges(_ledges[info.id])
 		cache.stats["edge_rooms_solved"] += 1
@@ -763,23 +799,27 @@ func run_speed(ledge: Ledge, x: float, input: float) -> float:
 	return 0.0
 
 
-func walk_off(info: RoomInfo, geo: Geometry, ledge: Ledge, near: Array[Rect2], limit := -1) -> void:
+func walk_off(info: RoomInfo, geo: Geometry, ledge: Ledge, near: Array[Rect2], limit := -1, tick := -1) -> void:
 	var cell := float(Grid.CELL)
 	if not info.is_solid(ledge.x1 + 1, ledge.row) and not info.is_hazard(ledge.x1 + 1, ledge.row):
 		var edge := float(ledge.x1 + 1) * cell - 1.0
-		try_plan(info, geo, ledge, near, edge, _cfg.run_speed, 1.0, 0, false, limit)
-		try_plan(info, geo, ledge, near, edge, _cfg.run_speed, 0.0, 0, false, limit)
+		try_plan(info, geo, ledge, near, edge, _cfg.run_speed, 1.0, 0, false, limit, tick)
+		try_plan(info, geo, ledge, near, edge, _cfg.run_speed, 0.0, 0, false, limit, tick)
 	if not info.is_solid(ledge.x0 - 1, ledge.row) and not info.is_hazard(ledge.x0 - 1, ledge.row):
 		var edge := float(ledge.x0) * cell + 1.0
-		try_plan(info, geo, ledge, near, edge, -_cfg.run_speed, -1.0, 0, false, limit)
-		try_plan(info, geo, ledge, near, edge, -_cfg.run_speed, 0.0, 0, false, limit)
+		try_plan(info, geo, ledge, near, edge, -_cfg.run_speed, -1.0, 0, false, limit, tick)
+		try_plan(info, geo, ledge, near, edge, -_cfg.run_speed, 0.0, 0, false, limit, tick)
 
 
 ## `limit` is how many ticks the path may run, `frame_limit` if left out. It is
 ## an argument so several paths can be worked out at once without sharing it.
-func try_plan(info: RoomInfo, geo: Geometry, ledge: Ledge, near: Array[Rect2], x: float, speed: float, input: float, hold: int, jump: bool, limit := -1) -> void:
-	var start := Vector2(x, ledge.top - float(Grid.CELL) * 0.5)
-	var result := MovementSim.simulate_jump(_cfg, near, start, Vector2(speed, 0.0), input, hold, true, jump, geo.triggers, geo.bounds, geo.hazards, geo.things, NAN, 0, frame_limit if limit < 0 else limit)
+## With a `tick` of 0 or more the room's moving platforms are there, at that
+## tick when the path starts, and `top` and `riding` say where the body starts:
+## the height of what it stands on, and the platform it is on, or -1.
+func try_plan(info: RoomInfo, geo: Geometry, ledge: Ledge, near: Array[Rect2], x: float, speed: float, input: float, hold: int, jump: bool, limit := -1, tick := -1, top := NAN, riding := -1) -> void:
+	var start := Vector2(x, (ledge.top if is_nan(top) else top) - float(Grid.CELL) * 0.5)
+	var movers: Movers = geo.movers if tick >= 0 else null
+	var result := MovementSim.simulate_jump(_cfg, near, start, Vector2(speed, 0.0), input, hold, true, jump, geo.triggers, geo.bounds, geo.hazards, geo.things, NAN, 0, frame_limit if limit < 0 else limit, false, movers, maxi(tick, 0), riding)
 	# A pickup is taken even on a path that then dies on spikes.
 	for index in result["collected"]:
 		ledge.add_pickup(index)
@@ -789,9 +829,79 @@ func try_plan(info: RoomInfo, geo: Geometry, ledge: Ledge, near: Array[Rect2], x
 	if door >= 0:
 		ledge.add_touch(door, result["position"], result["velocity"])
 	elif result["landed"]:
-		var target := ledge_at_position(info, result["position"])
+		var target: Ledge = null
+		if int(result["riding"]) >= 0:
+			target = mover_ledge(info, int(result["riding"]))
+		else:
+			target = ledge_at_position(info, result["position"])
 		if target != null and target != ledge:
 			ledge.add_ledge(target.index)
+
+
+## The moments a room's moving platforms are tried at, in ticks from when the
+## room is built: through one whole trip of the slowest, a step at a time.
+func phases(info: RoomInfo) -> Array[int]:
+	var period := 1
+	var step := MAX_PHASE_STEP
+	for path in info.platforms:
+		period = maxi(period, path.period())
+		step = mini(step, maxi(1, floori(float(Grid.CELL) * float(PlatformPath.TICKS_PER_SECOND) / path.speed)))
+	var out: Array[int] = []
+	for tick in range(0, period, step):
+		out.append(tick)
+	return out
+
+
+## The ledge that stands for moving platform `index` in `info`.
+func mover_ledge(info: RoomInfo, index: int) -> Ledge:
+	for ledge: Ledge in _ledges[info.id]:
+		if ledge.moving and ledge.path == index:
+			return ledge
+	return null
+
+
+## Whether a jump from `ledge` could meet a moving platform.
+func _near_a_track(geo: Geometry, ledge: Ledge) -> bool:
+	var span := Rect2(ledge.lo - REACH_X, ledge.top - REACH_UP, ledge.hi - ledge.lo + REACH_X * 2.0, REACH_UP + REACH_DOWN)
+	for keep in geo.keep_outs:
+		if keep.intersects(span):
+			return true
+	return false
+
+
+## What a rider on a moving platform can get to. They can wait on it for any
+## moment of its trip and stand anywhere on it, so from every moment and every
+## spot it tries the jumps and the walks off either end. Riding sweeps the row
+## above the track, so it takes whatever pickups stand there.
+func _ride(info: RoomInfo, geo: Geometry, ledge: Ledge) -> void:
+	var path := info.platforms[ledge.path]
+	var cell := float(Grid.CELL)
+	var band := Grid.cell_rect(path.band_cells())
+	for i in geo.things.size():
+		if band.intersects(geo.things[i]):
+			ledge.add_pickup(i)
+	var near := _within(geo.rects, path.keep_out().grow_individual(REACH_X, REACH_UP, REACH_X, REACH_DOWN))
+	for tick in phases(info):
+		var rect := path.rect_at(tick)
+		var lo := rect.position.x - cell * 0.5 + 0.01
+		var hi := rect.end.x + cell * 0.5 - 0.01
+		var xs: Array[float] = [lo]
+		for x in range(path.start_cells.size.x):
+			xs.append(rect.position.x + (float(x) + 0.5) * cell)
+		xs.append(hi)
+		for x in xs:
+			for input in [-1.0, 0.0, 1.0]:
+				var speed := 0.0
+				if input > 0.0 and x - lo >= RUN_UP:
+					speed = _cfg.run_speed
+				elif input < 0.0 and hi - x >= RUN_UP:
+					speed = -_cfg.run_speed
+				for hold in HOLDS:
+					try_plan(info, geo, ledge, near, x, speed, input, hold, true, -1, tick, rect.position.y, ledge.path)
+		for side in [-1.0, 1.0]:
+			var edge := rect.end.x - 1.0 if side > 0.0 else rect.position.x + 1.0
+			try_plan(info, geo, ledge, near, edge, side * _cfg.run_speed, side, 0, false, -1, tick, rect.position.y, ledge.path)
+			try_plan(info, geo, ledge, near, edge, side * _cfg.run_speed, 0.0, 0, false, -1, tick, rect.position.y, ledge.path)
 
 
 ## The state of one solve: what has been reached and how.
@@ -818,6 +928,9 @@ class Geometry extends RefCounted:
 	## The rects that touch a pickup, token or 3TM.
 	var things: Array[Rect2] = []
 	var bounds := Rect2()
+	## The room's moving platforms, in room pixels, and where each keeps clear.
+	var movers := Movers.new()
+	var keep_outs: Array[Rect2] = []
 
 
 ## A body touching a door: which door, and where and how fast, in room pixels.
@@ -847,6 +960,11 @@ class Ledge extends RefCounted:
 	## Room-local x range a body's centre can have while standing here.
 	var lo := 0.0
 	var hi := 0.0
+	## A moving platform, not a run of floor: which of the room's platforms it
+	## is. Its cells and surface are where the platform starts.
+	var moving := false
+	var path := -1
+	var platform_id := ""
 	var to_ledges: Array[int] = []
 	var touches: Array[Touch] = []
 	## Indices of the room's pickups that some path from here touches.
@@ -868,6 +986,8 @@ class Ledge extends RefCounted:
 			touches.append(touch)
 
 	func describe() -> String:
+		if moving:
+			return "Room %s: the moving platform %s" % [room_id, platform_id]
 		return "Room %s: the ledge on row %d, cells %d-%d" % [room_id, row, x0, x1]
 
 

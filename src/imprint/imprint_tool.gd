@@ -150,6 +150,7 @@ func _update_preview() -> void:
 	var rect := Grid.cell_rect(Rect2i(cell, Vector2i(width, 1)))
 	rect.position += room.position
 	var rects := room.world_rects()
+	rects.append_array(room.mover_rects())
 	for platform in _survivors():
 		rects.append(platform.rect)
 	var reachable := ImprintReach.can_land_on(_player.config, rects, rect, _player.global_position, _player.velocity, _player.is_on_floor(), room.hazard_world_rects(), room.door_world_rects())

@@ -8,6 +8,9 @@ var input_enabled := true
 ## Pixel rects the body collides with, in world space. `place` sets them when
 ## the player is put into a room.
 var solids: Array[Rect2] = []
+## The room the player is in, for its moving platforms and its clock. The
+## world sets it whenever it places the player. Without one, nothing moves.
+var room: Room = null
 ## Used by the headless tests. Gameplay leaves this off.
 var scripted := false
 var scripted_x := 0.0
@@ -40,12 +43,24 @@ func place(world_position: Vector2, rects: Array[Rect2]) -> void:
 	_state.buffer = 0.0
 	_state.launched = false
 	_state.cut = false
+	_state.riding = -1
+	_state.crushed = false
 	_was_on_floor = _state.grounded
 	reset_physics_interpolation()
 
 
 func is_on_floor() -> bool:
 	return _state.grounded
+
+
+## The moving platform the player is standing on, or -1.
+func riding() -> int:
+	return _state.riding
+
+
+## Whether a moving platform pushed the player into a wall this tick.
+func crushed() -> bool:
+	return _state.crushed
 
 
 ## The body's box in world pixels.
@@ -56,6 +71,8 @@ func body_rect() -> Rect2:
 func _physics_process(delta: float) -> void:
 	if not input_enabled:
 		velocity = Vector2.ZERO
+		# Held still, the player is not carried, so they are not riding when let go.
+		_state.riding = -1
 		return
 	var input_x := scripted_x if scripted else Input.get_axis("move_left", "move_right")
 	var jump_pressed := scripted_jump_pressed if scripted else Input.is_action_just_pressed("jump")
@@ -63,7 +80,13 @@ func _physics_process(delta: float) -> void:
 	scripted_jump_pressed = false
 	_state.position = global_position
 	_state.velocity = velocity
-	MovementSim.step(config, _state, solids, input_x, jump_pressed, jump_held, delta)
+	var movers: Movers = null
+	var tick := 0
+	if room != null and is_instance_valid(room) and not room.movers.is_empty():
+		movers = room.movers
+		# The room has already moved its platforms to this tick.
+		tick = room.tick - 1
+	MovementSim.step(config, _state, solids, input_x, jump_pressed, jump_held, delta, movers, tick)
 	global_position = _state.position
 	velocity = _state.velocity
 	if _state.jumped:
