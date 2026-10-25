@@ -279,10 +279,27 @@ func _play() -> bool:
 func _parity(room: Room, player: Player, cfg: MovementConfig) -> bool:
 	var ok := true
 	var rects: Array[Rect2] = room.world_rects()
-	# From the floor onto the platform while it waits at its drawn end.
-	while posmod(room.tick, room.info.platforms[0].period()) != 0:
+	# From the floor onto the platform: find a standing start on the strip, at
+	# some moment of its trip, whose full jump lands on it, then replay that
+	# jump through the real player.
+	var period := room.info.platforms[0].period()
+	var offset := -1
+	var from_x := 0.0
+	for t in period:
+		for x in [25.0, 35.0, 45.0, 55.0]:
+			var found := MovementSim.simulate_jump(cfg, rects, room.position + Vector2(x, 165), Vector2.ZERO, 1.0, 90, true, true, [], Rect2(), [], [], NAN, 0, 120, false, room.movers, t, -1)
+			if found["landed"] and int(found["riding"]) == 0:
+				offset = t
+				from_x = x
+				break
+		if offset >= 0:
+			break
+	ok = _check(offset >= 0, "some full jump from the strip lands on it (tick %d of its trip, from x %.0f)" % [offset, from_x]) and ok
+	if offset < 0:
+		return false
+	while posmod(room.tick, period) != offset:
 		_tick(room, player)
-	var start := room.position + Vector2(35, 165)
+	var start := room.position + Vector2(from_x, 165)
 	player.place(start, rects)
 	var expected := MovementSim.simulate_jump(cfg, rects, start, Vector2.ZERO, 1.0, 90, true, true, [], Rect2(), [], [], NAN, 0, 120, false, room.movers, room.tick, -1)
 	for frame in int(expected["frames"]):
