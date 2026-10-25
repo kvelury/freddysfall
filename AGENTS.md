@@ -9,7 +9,7 @@ Run from the repo root.
 | Command | What it does |
 | --- | --- |
 | `tools/check.sh` | The complete automated gate before a pull request: imports once, runs all 21 headless tests, validates the world without cache, builds the release web export, and checks its room data and cache-tagged files. CI runs this command too. It leaves `build/web/` ready for `tools/serve.sh` and the user's playthrough. |
-| `tools/validate.sh` | Loads every room and solves the world, with Imprint, taking pickups and tokens as it goes. A room is not done until this exits 0. It also prints what each room, ledge and pickup needs, and where the time went. What it works out about each room is kept in `build/solver-cache/`, so a run after editing one room only redoes that room (about 8 s instead of 32 for the 9 rooms today); `--no-cache` ignores it, and deleting `build/` clears it. |
+| `tools/validate.sh` | Loads every room and solves the world, with Imprint, taking pickups and tokens as it goes. A room is not done until this exits 0. It also prints what each room, ledge and pickup needs, and where the time went. What it works out about each room is kept in `build/solver-cache/`, so a run after editing one room only redoes that room (about 29 s instead of 55 s for the 9 rooms today, measured in the cloud after the last-block model; the landing checks are not cached); `--no-cache` ignores it, and deleting `build/` clears it. |
 | `tools/render.sh [ids]` | PNGs of rooms and the world map in `build/renders/`. Read them to see what you built. |
 | `tools/snap.sh <id>` | A real in-game frame of a room in `build/snaps/`. Opens a window for a second, so run it on the user's machine. |
 | `godot --headless --path . --script tests/<name>.gd` | `reach_test`, `physics_test`, `parity_test`, `door_test`, `shaft_test`, `hazard_test`, `start_test`, `entity_test`, `save_test`, `map_test`, `cache_test`, `token_test`, `save_room_test`, `machine_test`, `imprint_test`, `imprint_play_test`, `imprint_solver_test`, `platform_test`, `dev_catalog_test`, `dev_session_test`, `dev_ui_test`. Each prints a pass line and exits 0. |
@@ -98,7 +98,7 @@ The user draws rooms on graph paper, numbers each one, and shares a photo. The s
 - Work on a branch and open a pull request. Do not push to `main`.
 - Run `tools/validate.sh` and the tests before opening one.
 - When behavior changes, update `docs/design/game-design.md` in the same pull request, so it stays true.
-- **Imprint is never replaced or refreshed by another click.** While one stands, no other goes down until it has broken (plus `imprint_cooldown`). Any feature touching Imprint, footing, timers or waiting must keep this rule, in the runtime and the solver. See "The Imprint rule" under Guardrails in the design doc. Loosening it is the user's decision.
+- **Imprint is never replaced or refreshed by another click.** While one stands, no other goes down until it has broken (plus `imprint_cooldown`). Any feature touching Imprint, footing, timers or waiting must keep this rule, in the runtime and the solver. See "The Imprint rule" under Guardrails in the design doc. Loosening it is the user's decision. A platform shrinks from its ends to its middle block, and the solver counts only that block as footing.
 
 
 ## Dev tools are part of every gameplay feature

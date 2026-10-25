@@ -144,7 +144,7 @@ func _upgrade() -> bool:
 	var saved = JSON.parse_string(FileAccess.get_file_as_string(DIR + "/1.json"))
 	for key in saved["legs"]:
 		widths[String(key).get_slice("|", 2)] = true
-	ok = _check(widths.has("2") and widths.has("3"), "and the file keeps the legs of both widths apart (%s)" % [widths.keys()]) and ok
+	ok = _check(not widths.is_empty() and widths.keys() == ["1"], "every stored leg is one block wide (%s)" % [widths.keys()]) and ok
 	return ok
 
 

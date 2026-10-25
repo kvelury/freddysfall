@@ -30,9 +30,14 @@ Editor/debug runs always offer F2 and a clickable DEV button; exports require
 
 - **F2 / DEV:** pause and edit powers or resources. **Apply** commits; **Resume / Cancel**
   closes, discarding unapplied edits. F4 focuses the room picker. Escape closes.
-- **Player:** tokens (0–3), health, Imprint on/off, width, duration, active count, and
-  cooldown (0 is off, which is the default).
-  Bounce is explicitly not implemented. Settings can be lowered as well as raised.
+- **Player:** tokens (0–3), health, Imprint on/off, width (the size a platform
+  *starts* at; it shrinks, and 3 is the default), duration, active count, and
+  cooldown (0 is off, which is the default). Bounce is explicitly not implemented.
+  Settings can be lowered as well as raised. Below the fields, **Classic Imprint (no
+  shrinking)** keeps platforms full width with the old dash clock, to compare. It is
+  a session switch like door bypass: it survives retries, is not saved, is not in
+  loadouts, is not an ability, and End playtest or a fresh boot turns it off. Turning
+  it on or off clears placed Imprints. Normal play always shrinks.
 - **Rooms:** the picker initially lists every implemented room, including unvisited
   rooms and save rooms, with the current room selected. Click a room or type to
   filter. Lists grow with their contents and use only the tab’s outer scrollbar.
@@ -107,8 +112,8 @@ After adding a script with a `class_name`, run `godot --headless --path . --impo
 | `tests/token_test.gd` | Room 2's doors are blocked until its token is taken, the blocks stop the player and then open, tokens show on the body, a full pocket leaves the next token, and a game resumed from the save has the token spent. Prints `TOKEN pass`. |
 | `tests/save_room_test.gd` | Room s1: its door is blocked until the player enters the save machine's zone, they hop in, it closes and spins and pops them out on the far side in about 1.2 s, a line says "Game saved", the door opens and the save file resumes at the machine. It works once per visit and a new visit finds it open. A reload or a death with no health puts the player inside the shut machine, and it spins as it does for a save, then opens and pops them out (about 0.9 s) without saving again. Dying with a pip stays on safe floor, and dying before any save room was entered goes to the start. Prints `SAVEROOM pass`. |
 | `tests/machine_test.gd` | The 3TM in room 4: how full it is, tokens flying in one at a time, the third giving Imprint, a spent machine doing nothing, and a save keeping its fill. Prints `MACHINE pass`. |
-| `tests/imprint_test.gd` | Where an Imprint platform may go (every refusal), when none may (the limit and the cooldown), whether the player can land on one, the blink, and the countdown lines. Prints `IMPRINT pass`. |
-| `tests/imprint_play_test.gd` | Imprint in room 5: locked until found, placed by the action, solid under the player, never replaced by another click while one stands (the cross shows), broken by time, the cooldown starting then and refusing until it ends, the limit of two, and the platforms and cooldown cleared on leaving a room and on dying. Prints `IMPRINTPLAY pass`. |
+| `tests/imprint_test.gd` | Where an Imprint platform may go (every refusal), when none may (the limit and the cooldown), whether the player can land on one, how a platform shrinks (the blocks left, the order for widths 1 to 5, the blink of the next block, the warning cap), and, for Classic, the blink and the countdown lines. Prints `IMPRINT pass`. |
+| `tests/imprint_play_test.gd` | Imprint in room 5: locked until found, placed by the action, solid under the player, never replaced by another click while one stands (the cross shows), broken by time, shrinking one block at a time (a player on the left block falls, one on the middle stands, the cooldown starting at the final break and not when a block goes, the cursor's refusal following the footing), Classic only in a dev test, the cooldown starting then and refusing until it ends, the limit of two, and the platforms and cooldown cleared on leaving a room and on dying. Prints `IMPRINTPLAY pass`. |
 | `tests/dev_catalog_test.gd` | Dev-control coverage, validation, snapshot copies, and loadout persistence/failure handling. Prints `DEV CATALOG pass`. |
 | `tests/dev_session_test.gd` | Save isolation, exact editing, door collisions, cross-room retries and death, and ending a session. Prints `DEV SESSION pass`. |
 | `tests/dev_ui_test.gd` | Panel input/drafts, modal pause ownership, deferred opening, and room selection. Native runs also render panel screenshots to `build/dev-panel-*.png`. Prints `DEV UI pass`. |
@@ -143,7 +148,7 @@ Two kinds of test, and which to write:
 | `src/world/reach_graph.gd` | The solver: ledges, the jumps and drops between them, doors, exit rules, what each room needs, traps. Used by `validate.sh` and the tests, never by the running game. |
 | `src/world/imprint_search.gd` | The part of the solver that puts Imprint platforms down. |
 | `src/world/solver_cache.gd` | The solver's results kept on disk between runs. |
-| `src/imprint/` | `ImprintTool` (the cursor, placing, ageing, drawing), `ImprintPlatform` (one platform and its clock), `ImprintRules` (where one may go), `ImprintReach` (whether the player can land on one from where they are). |
+| `src/imprint/` | `ImprintTool` (the cursor, placing, ageing, drawing), `ImprintPlatform` (one platform, its shrinking footing and its look), `ImprintRules` (where one may go), `ImprintReach` (whether the player can land on one from where they are). |
 | `src/player/` | `MovementConfig` (`movement.tres`), `MovementSim` (all of the movement), `Player` (a `Node2D` that advances a `MovementSim.State`), `InventoryMarks` (tokens and the Imprint line cut into the body). |
 | `src/dev/` | `DevSession` (session boundary and retries), pure `DevCatalog` (generated controls, validation, coverage), `DevLoadouts` (separate named-loadout store). |
 | `src/ui/` | `MapOverlay` (the map, drawn into its own viewport) and `MapView` (its zoom and legend maths), `Toast` (a line of text), `DebugOverlay` (F3 and load errors), `DevPanel` (F2/F4 and playtest controls). |

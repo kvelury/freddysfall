@@ -101,7 +101,7 @@ func _run() -> void:
 
 	# Time breaks it, and the player on it falls.
 	tool.platforms[0].lifetime = 0.5
-	player.global_position = room.position + Vector2(35.0, 20.0)
+	player.global_position = room.position + Vector2(45.0, 20.0)
 	player.velocity = Vector2.ZERO
 	for i in 20:
 		await physics_frame
@@ -125,7 +125,7 @@ func _run() -> void:
 	tool.place()
 	ok = _check(is_equal_approx(tool.platforms[0].lifetime, 6.0) and is_equal_approx(tool.platforms[0].rect.size.x, 30.0), "width and duration come from the abilities") and ok
 	state.abilities.imprint_duration = Abilities.new().imprint_duration
-	state.abilities.imprint_width = 2
+	state.abilities.imprint_width = Abilities.new().imprint_width
 
 	# With the cooldown off, the next may go the moment one breaks.
 	tool.clear(false)
@@ -171,6 +171,96 @@ func _run() -> void:
 	tool.scripted_cell = Vector2i(18, 14)
 	ok = _check(two and tool.platforms.size() == 2 and not tool.place() and tool.platforms.size() == 2, "at a limit of two, two stand and a third is refused") and ok
 	state.abilities.imprint_max_active = 1
+
+	# It shrinks: the default platform is three blocks, and a block goes every third of its life.
+	state.abilities.imprint_cooldown = 0.2
+	tool.clear(false)
+	tool.sync_solids()
+	player.place(room.position + Grid.cell_center(Vector2i(2, 16)), room.world_rects())
+	tool.scripted_cell = Vector2i(3, 6)
+	ok = _check(tool.place() and tool.platforms[0].shrinks and is_equal_approx(tool.platforms[0].rect.size.x, 30.0), "the default platform is 30 px wide and shrinks") and ok
+	player.global_position = room.position + Vector2(35.0, 20.0)
+	player.velocity = Vector2.ZERO
+	for i in 20:
+		await physics_frame
+	ok = _check(player.is_on_floor() and player.global_position.y < room.position.y + 60.0, "a player on the left block stands on it at first (%s)" % player.global_position) and ok
+	var blocks: ImprintPlatform = tool.platforms[0]
+	var solids := player.solids.size()
+	for i in 60:
+		await physics_frame
+		if blocks.rect.size.x < 29.0:
+			break
+	ok = _check(is_equal_approx(blocks.rect.size.x, 20.0) and is_equal_approx(blocks.rect.position.x, room.position.x + 40.0), "the left block goes first (%s)" % [blocks.rect]) and ok
+	ok = _check(player.solids.size() == solids and player.solids.has(blocks.rect), "the player's solids are the same count, and hold the smaller rect") and ok
+	ok = _check(is_zero_approx(tool.cooldown_left) and tool.platforms.size() == 1, "a block going does not start the cooldown, and the platform stays") and ok
+	var dropped := false
+	for i in 40:
+		await physics_frame
+		if player.global_position.y > room.position.y + 80.0:
+			dropped = true
+			break
+	ok = _check(dropped, "a player standing only on the left block falls when it goes") and ok
+	for i in 90:
+		await physics_frame
+		if tool.platforms.is_empty():
+			break
+	ok = _check(tool.platforms.is_empty() and tool.cooldown_left > 0.1, "the cooldown starts when the platform finally breaks (%.3f)" % tool.cooldown_left) and ok
+
+	# The middle block stands the whole life.
+	tool.clear(false)
+	tool.sync_solids()
+	player.place(room.position + Grid.cell_center(Vector2i(2, 16)), room.world_rects())
+	ok = _check(tool.place(), "(another one goes)") and ok
+	player.global_position = room.position + Vector2(45.0, 20.0)
+	player.velocity = Vector2.ZERO
+	for i in 20:
+		await physics_frame
+	blocks = tool.platforms[0]
+	var stood := true
+	for i in 70:
+		await physics_frame
+		if blocks.age > 1.3:
+			break
+		stood = stood and player.is_on_floor()
+	ok = _check(stood and is_equal_approx(blocks.rect.size.x, 10.0), "a player on the middle block stands until the last moment (%s)" % [blocks.rect]) and ok
+	tool.clear(false)
+	tool.sync_solids()
+	state.abilities.imprint_cooldown = 0.0
+
+	# The cursor's refusal follows the footing: where a block has gone, a platform may go.
+	state.abilities.imprint_max_active = 2
+	player.place(room.position + Grid.cell_center(Vector2i(2, 16)), room.world_rects())
+	tool.scripted_cell = Vector2i(3, 6)
+	tool.place()
+	tool.scripted_cell = Vector2i(1, 6)
+	tool.refresh_preview()
+	ok = _check(tool.preview_reason() == "imprint", "a cursor over a standing platform is refused (%s)" % tool.preview_reason()) and ok
+	for i in 60:
+		await physics_frame
+		if tool.platforms[0].rect.size.x < 29.0:
+			break
+	ok = _check(tool.preview_reason() == "" and tool.preview_state() != "unavailable", "and once its left block goes the same cursor is allowed, with no new click or move (%s)" % tool.preview_reason()) and ok
+	state.abilities.imprint_max_active = 1
+	tool.clear(false)
+	tool.sync_solids()
+
+	# Classic keeps its width, but only in a dev test.
+	var session: Node = root.get_node("DevSession")
+	player.place(room.position + Grid.cell_center(Vector2i(2, 16)), room.world_rects())
+	session.classic_imprint = true
+	tool.scripted_cell = Vector2i(3, 6)
+	ok = _check(tool.place() and tool.platforms[0].shrinks, "with the switch on outside a dev test, it shrinks anyway") and ok
+	tool.clear(false)
+	tool.sync_solids()
+	session.mode = session.Mode.DEV_TEST
+	ok = _check(tool.place() and not tool.platforms[0].shrinks and is_equal_approx(tool.platforms[0].rect.size.x, 30.0), "in a dev test with the switch on, it keeps its width") and ok
+	tool.platforms[0].age = 1.0
+	await physics_frame
+	ok = _check(is_equal_approx(tool.platforms[0].rect.size.x, 30.0), "and keeps it late in its life") and ok
+	session.mode = session.Mode.NORMAL
+	session.classic_imprint = false
+	tool.clear(false)
+	tool.sync_solids()
 
 	# Leaving the room clears it, and the cooldown with it.
 	tool.cooldown_left = 5.0

@@ -2,12 +2,11 @@
 
 _Updated 2026-10-25. Written as a build spec: implement exactly as written, and ask before deviating._
 
-> **Status: designed, not built.** Nothing in this file is implemented yet. The
-> previous handoff (Imprint lockout, 1.5 s, dev-only cooldown) was built and merged
-> as PR #31; this file replaces it. `docs/design/game-design.md` still describes
-> the *current* behaviour (full-width platform, dash clock), because the design
-> doc is updated in the implementing PR, not before it. Until that PR lands, this
-> file is the authority for the new behaviour.
+> **Status: built, not yet played by a person.** Implemented on branch
+> `claude/imprint-shrink-feature-lu7gcy` (PR #N), to this spec, with the
+> judgement calls listed in that pull request. `docs/design/game-design.md` now
+> describes the shrinking behaviour. The previous handoff (Imprint lockout, 1.5 s,
+> dev-only cooldown) was built and merged as PR #31.
 
 ## Goal
 
@@ -399,3 +398,4 @@ After finishing: run `tools/check.sh`, serve `build/web` on :8060, and report wh
 ## Session log
 
 - 2026-10-25 — Replaced the PR #31 handoff (built and merged) with the shrinking-Imprint spec. Decisions: ends-to-middle order, default width 3, interval life / width, next-block blink, dotted inner border, session-only Classic switch, last-block solver model, old saves left alone.
+- 2026-10-25 — Built the spec (PR #N). Deviations and measurements are in the pull request: the Classic switch is on the Player tab as decided (the bypass and retry switches it was modelled on are on the Rooms tab), the solver's landing checks got about three times slower (a warm validate went from 11.8 s to 29.4 s in the cloud), and the preview cache key's new term is redundant while `sync_solids` resets the key.

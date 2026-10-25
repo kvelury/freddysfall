@@ -1,45 +1,141 @@
 class_name ImprintPlatform
 extends RefCounted
 
-## One placed platform: where it is, how long it has left, and how it looks.
+## One placed platform: where it is, how long it has left, and how it looks. Its
+## own width is its clock: one block goes in each equal share of its life, from
+## the ends toward the middle, and the last block goes with the platform. A
+## platform that does not shrink (`shrinks` false) is the Classic dev mode: full
+## width until it breaks, with a dash clock.
 
-## It blinks on and off this often while its last dash is the only one left.
+## It blinks on and off this often while its last dash, or the next block to go,
+## is on show.
 const BLINK_PERIOD := 0.1
+## The block that goes next blinks for this long before it goes.
+const WARN_TIME := 0.25
 
-## In world pixels.
+## In world pixels. `rect` is the footing right now: the whole platform when new,
+## then the blocks that still stand. `full_rect` is what was placed.
 var rect := Rect2()
+var full_rect := Rect2()
 var lifetime := 4.0
 var age := 0.0
+## How many blocks it was placed with, and whether it loses them.
+var cells := 1
+var shrinks := true
 
 
-func _init(world_rect: Rect2, seconds: float) -> void:
+func _init(world_rect: Rect2, seconds: float, shrinking := true) -> void:
 	rect = world_rect
+	full_rect = world_rect
 	lifetime = seconds
+	shrinks = shrinking
+	cells = maxi(roundi(world_rect.size.x / float(Grid.CELL)), 1)
 
 
 func expired() -> bool:
 	return age >= lifetime
 
 
-## Off for every other tenth of a second once only the last dash is left.
+## How many blocks still stand: one is lost in each equal share of the life.
+func blocks_left() -> int:
+	if not shrinks:
+		return cells
+	return clampi(ceili(float(cells) * (lifetime - age) / lifetime), 0, cells)
+
+
+## The cells that have gone, counted from the left and from the right, for
+## `removed` blocks gone. Left first, then right, then left again, so the cell
+## that lasts is `cells / 2`.
+func _left_gone(removed: int) -> int:
+	return (removed + 1) / 2
+
+
+func _right_gone(removed: int) -> int:
+	return removed / 2
+
+
+## The index (0 = leftmost) of the block that goes next, or -1 if none is left.
+func next_cell() -> int:
+	var left := blocks_left()
+	if left <= 0 or not shrinks:
+		return -1
+	var removed := cells - left
+	return _left_gone(removed) if removed % 2 == 0 else cells - 1 - _right_gone(removed)
+
+
+## Seconds until the next block goes.
+func time_to_next() -> float:
+	var removed := cells - blocks_left()
+	return lifetime * float(removed + 1) / float(cells) - age
+
+
+## How long the next block blinks: WARN_TIME, but never more than half a share,
+## so a platform with a very short share is not blinking all the time.
+func warn_time() -> float:
+	return minf(WARN_TIME, lifetime / float(cells) * 0.5)
+
+
+## Whether the block that goes next is blinked off at this moment.
+func blinking_off() -> bool:
+	return shrinks and next_cell() >= 0 and time_to_next() <= warn_time() and int(age / BLINK_PERIOD) % 2 == 1
+
+
+## The footing for `left` blocks standing, in world pixels.
+func footing(left: int) -> Rect2:
+	var removed := cells - left
+	var from := _left_gone(removed)
+	var cell := float(Grid.CELL)
+	return Rect2(full_rect.position.x + float(from) * cell, full_rect.position.y, float(left) * cell, full_rect.size.y)
+
+
+## Brings `rect` in line with `age`. Returns the rects of the blocks that just
+## went (empty most ticks), so the caller can shatter them. It never returns the
+## last block: its removal is the platform's expiry.
+func update_footing() -> Array[Rect2]:
+	var gone: Array[Rect2] = []
+	var left := blocks_left()
+	if not shrinks or left <= 0:
+		return gone
+	var before := rect
+	var after := footing(left)
+	if after.size.x >= before.size.x - 0.5:
+		return gone
+	var cell := float(Grid.CELL)
+	var x := before.position.x
+	while x < after.position.x - 0.5:
+		gone.append(Rect2(x, before.position.y, cell, before.size.y))
+		x += cell
+	x = after.end.x
+	while x < before.end.x - 0.5:
+		gone.append(Rect2(x, before.position.y, cell, before.size.y))
+		x += cell
+	rect = after
+	return gone
+
+
+## Classic only. Off for every other tenth of a second once only the last dash
+## is left.
 func blinked_off() -> bool:
 	return age > lifetime - blink_time() and int(age / BLINK_PERIOD) % 2 == 1
 
 
-## How long the blink lasts at the end: the last dash's share of the life.
+## Classic only. How long the blink lasts at the end: the last dash's share of
+## the life.
 func blink_time() -> float:
 	return lifetime / float(maxi(_line_xs().size(), 1))
 
 
-## How many of the dashes are still showing. They are the platform's clock:
-## one goes in each equal share of its life, the leftmost first.
+## Classic only. How many of the dashes are still showing. They are the
+## platform's clock: one goes in each equal share of its life, the leftmost
+## first.
 func lines_left() -> int:
 	var total := _line_xs().size()
 	var left := ceili(float(total) * (lifetime - age) / lifetime)
 	return clampi(left, 0, total)
 
 
-## The dashes still showing, in world pixels. They are the rightmost ones.
+## Classic only. The dashes still showing, in world pixels. They are the
+## rightmost ones.
 func line_rects() -> Array[Rect2]:
 	var xs := _line_xs()
 	var y := rect.position.y + rect.size.y * 0.5 - 0.5
@@ -49,22 +145,61 @@ func line_rects() -> Array[Rect2]:
 	return out
 
 
-## Drawn in the tool's space, which is world space. White, like the floor, with
-## a dashed line through it so a platform that will break does not read as
-## floor that will not.
+## What is showing right now. The block that blinks off is always an end of the
+## footing, so the drawn area stays one rect.
+func drawn_rect() -> Rect2:
+	var shown := rect
+	if blinking_off():
+		var cell := float(Grid.CELL)
+		if (cells - blocks_left()) % 2 == 0:  # an even count gone: the left end goes next
+			shown.position.x += cell
+		shown.size.x -= cell
+	return shown
+
+
+## Drawn in the tool's space, which is world space. White, like the floor.
+## A platform that shrinks has a dotted black border one pixel inside its edge,
+## so it reads as one that was placed; a Classic one has a dashed line through
+## it instead.
 func draw(canvas: CanvasItem) -> void:
-	if blinked_off():
+	if not shrinks:
+		if blinked_off():
+			return
+		canvas.draw_rect(rect, Color.WHITE)
+		for line in line_rects():
+			canvas.draw_rect(line, Color.BLACK)
 		return
-	canvas.draw_rect(rect, Color.WHITE)
-	for line in line_rects():
-		canvas.draw_rect(line, Color.BLACK)
+	var shown := drawn_rect()
+	if shown.size.x <= 0.0:
+		return
+	canvas.draw_rect(shown, Color.WHITE)
+	var inner := shown.grow(-1.0)
+	var x0 := int(inner.position.x)
+	var y0 := int(inner.position.y)
+	var x1 := int(inner.end.x) - 1
+	var y1 := int(inner.end.y) - 1
+	var origin := full_rect.position
+	for x in range(x0, x1 + 1):
+		_dot(canvas, x, y0, origin)
+		_dot(canvas, x, y1, origin)
+	for y in range(y0 + 1, y1):
+		_dot(canvas, x0, y, origin)
+		_dot(canvas, x1, y, origin)
 
 
-## Where every dash starts, left to right, when the platform is new.
+## One pixel of the border, on every other pixel. The parity is measured from
+## the placed platform's corner so the dots do not shimmer as it shrinks.
+func _dot(canvas: CanvasItem, x: int, y: int, origin: Vector2) -> void:
+	if (x - int(origin.x) + y - int(origin.y)) % 2 == 0:
+		canvas.draw_rect(Rect2(x, y, 1, 1), Color.BLACK)
+
+
+## Classic only. Where every dash starts, left to right, when the platform is
+## new.
 func _line_xs() -> Array[float]:
 	var out: Array[float] = []
-	var x := rect.position.x + 2.0
-	while x + 2.0 <= rect.end.x - 2.0:
+	var x := full_rect.position.x + 2.0
+	while x + 2.0 <= full_rect.end.x - 2.0:
 		out.append(x)
 		x += 4.0
 	return out

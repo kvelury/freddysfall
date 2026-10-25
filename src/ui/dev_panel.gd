@@ -18,6 +18,7 @@ var _room: LineEdit
 var _rooms: ItemList
 var _bypass: CheckButton
 var _retry: CheckButton
+var _classic: CheckButton
 var _names: ItemList
 var _name: LineEdit
 var _store := DevLoadouts.new()
@@ -42,6 +43,8 @@ func _process(_delta: float) -> void:
 		suffix += " · doors open"
 	if DevSession.retry_on_death:
 		suffix += " · auto retry"
+	if DevSession.classic_imprint:
+		suffix += " · classic imprint"
 	_indicator.text = "DEV · not saving" + suffix
 	if _pending >= 0 and not _world.is_busy() and _world.modal_owner.is_empty():
 		var tab := _pending
@@ -89,6 +92,7 @@ func open_panel(tab := 0) -> void:
 		_filter_rooms("")
 		_bypass.set_pressed_no_signal(DevSession.bypass)
 		_retry.set_pressed_no_signal(DevSession.retry_on_death)
+		_classic.set_pressed_no_signal(DevSession.classic_imprint)
 		_status.text = _store.error
 	_tabs.current_tab = tab
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
@@ -219,6 +223,13 @@ func _build_player(body: VBoxContainer) -> void:
 		_full_draft = true
 		_status.text = "Defaults staged. Apply to use them."
 	)
+	_classic = CheckButton.new()
+	_classic.text = "Classic Imprint (no shrinking)"
+	_classic.toggled.connect(func(on: bool) -> void:
+		_report(DevSession.set_classic_imprint(_world, on))
+		_classic.set_pressed_no_signal(DevSession.classic_imprint)
+	)
+	body.add_child(_classic)
 
 
 func _field(body: VBoxContainer, key: String, control: Dictionary) -> void:

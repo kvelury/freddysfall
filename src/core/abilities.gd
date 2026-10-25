@@ -9,7 +9,7 @@ const STATS: Array[String] = ["imprint_unlocked", "imprint_width", "imprint_dura
 ## Whether the player has found Imprint. Until they do, the cursor is just a cursor.
 var imprint_unlocked := false
 ## Imprint platform width in cells.
-var imprint_width := 2
+var imprint_width := 3
 ## Seconds an Imprint lasts.
 var imprint_duration := 1.5
 var imprint_max_active := 1

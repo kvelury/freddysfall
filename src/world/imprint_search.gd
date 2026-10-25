@@ -14,10 +14,20 @@ extends RefCounted
 ## the same tries as any ledge. The platform has to last until the player has
 ## landed on it and pushed off (see SPARE_TICKS); after that it is not needed.
 ##
+## A placed platform shrinks from its ends to its middle block, so the footing
+## the solver counts on is the last block, which stands for the whole life. The
+## whole platform is still what has to be legal to place, but the jump must land
+## on the last block, and must land there just the same with the outer blocks
+## gone. Legs, the places a body standing on the platform can get to, start from
+## the last block alone.
+##
 ## What it leaves out: placing the platform in mid-air, and using two in a row.
 ## A room that needs either is reported unreachable even though a player might
 ## do it. It does not see moving platforms either: it puts no Imprint down
-## from one, and its jumps pass through them.
+## from one, and its jumps pass through them. It leaves out landing on an outer
+## block while it stands, and walking off onto outer blocks while they stand.
+## Classic mode is not modelled either; it has strictly more footing, so
+## validation is conservative for it.
 
 ## The jump onto a platform has to land within the platform's life less this
 ## many ticks, to stand on it and push off. The jump off it is an ordinary
@@ -84,7 +94,7 @@ func expand(ledge: ReachGraph.Ledge, targets: Array) -> Dictionary:
 	stats["lands"] += Time.get_ticks_usec() - started
 	stats["candidates"] += found
 	for candidate in landed:
-		var leg := _leg_of(info, geo, candidate.cell, width, _graph.frame_limit)
+		var leg := _leg_of(info, geo, Vector2i(candidate.cell.x + width / 2, candidate.cell.y), 1, _graph.frame_limit)
 		for index in leg.to_ledges:
 			var target: ReachGraph.Ledge = _graph.ledges_in(ledge.room_id)[index]
 			if not out["ledges"].has(target):
@@ -144,21 +154,46 @@ func _near_a_target(platform: Rect2, targets: Array) -> bool:
 	return false
 
 
+## The block that stays longest: the middle one (`width / 2` from the left).
+func _last_block(cell: Vector2i, width: int) -> Rect2:
+	return Grid.cell_rect(Rect2i(Vector2i(cell.x + width / 2, cell.y), Vector2i(1, 1)))
+
+
 ## Whether one of the jumps that made `candidate` a candidate still lands on
-## the platform once it is there to land on.
+## the platform's last block once the platform is there to land on. The jump is
+## then run again with only the last block there, and has to land in the same
+## place: an arc that touches an outer block differs between the two, and is
+## dropped, because the outer block may be gone by then.
 func _lands_on(info: RoomInfo, geo: ReachGraph.Geometry, ledge: ReachGraph.Ledge, candidate: Candidate, limit: int) -> bool:
 	var width := _graph.abilities.imprint_width
 	var platform := Grid.cell_rect(Rect2i(candidate.cell, Vector2i(width, 1)))
-	var rects := _graph.near_solids(geo.rects, ledge)
+	var last := _last_block(candidate.cell, width)
+	var near := _graph.near_solids(geo.rects, ledge)
+	var rects := near.duplicate()
 	rects.append(platform)
 	for arc: Arc in candidate.arcs:
-		var result := MovementSim.simulate_jump(_graph.movement(), rects, arc.start, Vector2(arc.speed, 0.0), arc.input, arc.hold, true, arc.jump, geo.triggers, geo.bounds, geo.hazards, [], NAN, 0, limit)
-		if result["hazard"] or int(result["trigger"]) >= 0 or not result["landed"]:
+		var at := _landing(geo, arc, rects, last, limit)
+		if at.x != at.x:
 			continue
-		var at: Vector2 = result["position"]
-		if absf(at.y + MovementSim.HALF.y - platform.position.y) < 0.6 and at.x + MovementSim.HALF.x > platform.position.x + 0.5 and at.x - MovementSim.HALF.x < platform.end.x - 0.5:
+		if width == 1:
+			return true
+		var alone := near.duplicate()
+		alone.append(last)
+		var again := _landing(geo, arc, alone, last, limit)
+		if again.x == again.x and at.distance_to(again) < 0.5:
 			return true
 	return false
+
+
+## Where `arc`, run among `rects`, comes down on `last`, or NaN if it does not.
+func _landing(geo: ReachGraph.Geometry, arc: Arc, rects: Array[Rect2], last: Rect2, limit: int) -> Vector2:
+	var result := MovementSim.simulate_jump(_graph.movement(), rects, arc.start, Vector2(arc.speed, 0.0), arc.input, arc.hold, true, arc.jump, geo.triggers, geo.bounds, geo.hazards, [], NAN, 0, limit)
+	if result["hazard"] or int(result["trigger"]) >= 0 or not result["landed"]:
+		return Vector2(NAN, NAN)
+	var at: Vector2 = result["position"]
+	if absf(at.y + MovementSim.HALF.y - last.position.y) < 0.6 and at.x + MovementSim.HALF.x > last.position.x + 0.5 and at.x - MovementSim.HALF.x < last.end.x - 0.5:
+		return at
+	return Vector2(NAN, NAN)
 
 
 func _leg_key(cell: Vector2i, width: int, limit: int) -> String:

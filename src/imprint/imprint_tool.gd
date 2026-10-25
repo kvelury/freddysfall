@@ -84,7 +84,7 @@ func place() -> bool:
 		return false
 	var rect := Grid.cell_rect(Rect2i(cell, Vector2i(width, 1)))
 	rect.position += room.position
-	platforms.append(ImprintPlatform.new(rect, GameState.abilities.imprint_duration))
+	platforms.append(ImprintPlatform.new(rect, GameState.abilities.imprint_duration, not DevSession.classic_imprint_active()))
 	sync_solids()
 	return true
 
@@ -121,6 +121,12 @@ func _physics_process(delta: float) -> void:
 			platforms.erase(platform)
 			broke = true
 			cooldown_left = GameState.abilities.imprint_cooldown
+		else:
+			# A block that goes is a break of its own, but the cooldown waits
+			# for the platform to be gone.
+			for block in platform.update_footing():
+				_shatter_at(block.get_center())
+				broke = true
 	if broke:
 		sync_solids()
 	if is_active():
@@ -147,7 +153,7 @@ func _update_preview() -> void:
 	var cell := cursor_cell()
 	var width := GameState.abilities.imprint_width
 	var player_cell := Vector2i((_player.global_position - room.position) / float(Grid.CELL))
-	var key := "%s|%s|%s|%d|%d|%s" % [cell, player_cell, _player.is_on_floor(), width, platforms.size(), cooldown_left > 0.0]
+	var key := "%s|%s|%s|%d|%d|%d|%s" % [cell, player_cell, _player.is_on_floor(), width, platforms.size(), _blocks_standing(), cooldown_left > 0.0]
 	if key == _key:
 		return
 	_key = key
@@ -170,9 +176,22 @@ func _update_preview() -> void:
 
 
 func _break(platform: ImprintPlatform) -> void:
+	_shatter_at(platform.rect.get_center())
+
+
+func _shatter_at(position: Vector2) -> void:
 	var burst := Shatter.new()
-	burst.position = platform.rect.get_center()
+	burst.position = position
 	add_child(burst)
+
+
+## How many blocks stand across every platform. The preview's refusal depends on
+## it, because a shrinking platform frees cells without the count changing.
+func _blocks_standing() -> int:
+	var total := 0
+	for platform in platforms:
+		total += platform.blocks_left()
+	return total
 
 
 ## Rebuilds the player's collision list from the room and the platforms.

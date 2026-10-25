@@ -8,6 +8,9 @@ enum Mode { NORMAL, ROOM_TEST, DEV_TEST }
 var mode := Mode.NORMAL
 var available := false
 var bypass := false
+## Imprint platforms keep their width and show the dash clock. A comparison
+## switch for a dev test: not saved, not in a loadout.
+var classic_imprint := false
 var retry_on_death := false
 var target := ""
 var baseline := {}
@@ -28,6 +31,7 @@ func configure(dev: bool, room_test: bool) -> void:
 	available = OS.is_debug_build() or dev
 	mode = Mode.DEV_TEST if dev else (Mode.ROOM_TEST if room_test else Mode.NORMAL)
 	bypass = false
+	classic_imprint = false
 	retry_on_death = false
 	baseline = {}
 	loadout = {}
@@ -122,6 +126,22 @@ func set_bypass(world: Node, on: bool) -> String:
 	return ""
 
 
+## Whether a platform placed now keeps its width. Only in a dev test, so normal
+## play can never see the switch.
+func classic_imprint_active() -> bool:
+	return mode == Mode.DEV_TEST and classic_imprint
+
+
+func set_classic_imprint(world: Node, on: bool) -> String:
+	if mode != Mode.DEV_TEST or replacing or world.is_busy():
+		return "Dev tools are not ready."
+	classic_imprint = on
+	# Platforms of the other kind must not stand beside the new ones.
+	world.imprint.clear(false)
+	world.imprint.sync_solids()
+	return ""
+
+
 func set_retry_on_death(world: Node, on: bool) -> String:
 	if mode != Mode.DEV_TEST or replacing or world.is_busy():
 		return "Dev tools are not ready."
@@ -151,6 +171,7 @@ func _replace(world: Node, state: Dictionary, normal: bool) -> void:
 	if normal:
 		mode = Mode.NORMAL
 		bypass = false
+		classic_imprint = false
 		retry_on_death = false
 		baseline = {}
 		loadout = {}
