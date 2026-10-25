@@ -6,7 +6,18 @@ Everything here passed its headless tests or was reported as unverified in a pul
 
 ## Tried and working
 
-Played in the browser and found good, so these are not listed line by line any more: Imprint in the browser (placing, the preview, the cross, the blink), saving and resuming, the solver and the "needs" lines, movement and doors, the whole world map of PR #17 (rooms 1 to 7, the exit rules, the tokens on the body, the 3TM and its feeding, and the spent machine), and the Imprint look of PR #18 (the dotted cursor, placed platforms drawn over it, the countdown lines, and the blink), and the map zoom of PR #20 (the three levels, the legend, the level kept across reloads, a new game starting fresh, and the marker staying in its room), and the 2.5 second Imprint of PR #21 (the time, the four lines, and the blink on the last line). On 2026-10-22 the release export was also smoke-tested in Chrome: it loaded without console errors, sustained keyboard movement and running jumps worked, and the map opened while held and closed on release. The cloud test executor could not reliably observe and steer a whole platforming route, so that smoke did not replace the earlier full progression playthroughs. A new problem in any of them goes back on this list.
+Played in the browser and found good, so these are not listed line by line any more: Imprint in the browser (placing, the preview, the cross, the blink), saving and resuming, the solver and the "needs" lines, movement and doors, the whole world map of PR #17 (rooms 1 to 7, the exit rules, the tokens on the body, the 3TM and its feeding, and the spent machine), and the Imprint look of PR #18 (the dotted cursor, placed platforms drawn over it, the countdown lines, and the blink), and the map zoom of PR #20 (the three levels, the legend, the level kept across reloads, a new game starting fresh, and the marker staying in its room), and the 2.5 second Imprint of PR #21 (the time, the four lines, and the blink on the last line; the duration is now 1.5 s, see "Imprint lockout" below). On 2026-10-22 the release export was also smoke-tested in Chrome: it loaded without console errors, sustained keyboard movement and running jumps worked, and the map opened while held and closed on release. The cloud test executor could not reliably observe and steer a whole platforming route, so that smoke did not replace the earlier full progression playthroughs. A new problem in any of them goes back on this list.
+
+## Imprint lockout
+
+Nobody has played these yet. Headless tests prove the rule, not the feel. Use `?room=5` after the 3TM, or `?dev=1&room=5` with Imprint turned on in F2.
+
+- [ ] **Clicking again and again.** While a platform stands, more clicks do nothing: it is not renewed and its clock does not restart.
+- [ ] **The cross while locked out.** The cursor is the small × anywhere while a platform stands, and the dotted outline comes back once it has broken.
+- [ ] **1.5 s is enough.** Room 5's pit both ways, and room 6's wall. The validator passes, but check the jump onto a platform and off it is not too tight in real play.
+- [ ] **The clock at 1.5 s.** The four dashes (one every 0.375 s) and the last-dash blink still read.
+- [ ] **The cooldown at 0.2 s.** In F2 set the cooldown to 0.2 and Apply: after each break the × stays for about a fifth of a second. Does it feel fair, or should it stay at 0 (the default)? Also try 0.5.
+- [ ] **Leaving a room or dying** with a cooldown running: the next room starts with no cooldown.
 
 ## Save rooms
 
@@ -85,4 +96,4 @@ panel render is a layout check, not a completed human browser playthrough.
 
 ## Things that were never built, so there is nothing to test yet
 
-Room 7's title card and its 3TM, gamepad and keyboard aiming, touch input, sound, the softer palettes, L-shaped rooms, the map panning, a second kind of token or a bigger pocket, and authored pickups/machines for Imprint numeric upgrades, plus bouncing. Width, duration and multiple active platforms already work and can be set through dev tools. Width and duration are read when a platform is placed, but no room gives either upgrade now (the width pickup went with the old room 5), so Imprint is the only upgrade you can get today.
+Room 7's title card and its 3TM, gamepad and keyboard aiming, touch input, sound, the softer palettes, L-shaped rooms, the map panning, a second kind of token or a bigger pocket, and authored pickups/machines for Imprint numeric upgrades, plus bouncing. Width, duration, the cooldown and multiple active platforms already work and can be set through dev tools. Width and duration are read when a platform is placed, but no room gives either upgrade now (the width pickup went with the old room 5), so Imprint is the only upgrade you can get today.

@@ -22,6 +22,9 @@ var scripted_cell := Vector2i.ZERO
 
 ## The platforms that exist, oldest first.
 var platforms: Array[ImprintPlatform] = []
+## Seconds still to wait before another may be placed. It is set when a platform
+## breaks on time, to `imprint_cooldown`, and is 0 when that is off.
+var cooldown_left := 0.0
 
 var _world: Node
 var _player: Player
@@ -66,19 +69,19 @@ func cursor_cell() -> Vector2i:
 
 
 ## Puts a platform under the cursor if one may go there. Returns whether it did.
+## A click never replaces a platform: while the limit's worth stand, or the
+## cooldown runs, it does nothing.
 func place() -> bool:
 	if not is_active():
+		return false
+	if not ImprintRules.blocked(platforms.size(), GameState.abilities.imprint_max_active, cooldown_left).is_empty():
 		return false
 	var room: Room = _world.current
 	var cell := cursor_cell()
 	var width := GameState.abilities.imprint_width
-	var survivors := _survivors()
-	var reason := ImprintRules.check(room.info, cell, width, _local(_player.body_rect(), room), _local_all(survivors, room))
+	var reason := ImprintRules.check(room.info, cell, width, _local(_player.body_rect(), room), _local_all(platforms, room))
 	if not reason.is_empty():
 		return false
-	while platforms.size() > survivors.size():
-		_break(platforms[0], true)
-		platforms.remove_at(0)
 	var rect := Grid.cell_rect(Rect2i(cell, Vector2i(width, 1)))
 	rect.position += room.position
 	platforms.append(ImprintPlatform.new(rect, GameState.abilities.imprint_duration))
@@ -86,13 +89,15 @@ func place() -> bool:
 	return true
 
 
-## Removes every platform. With `effects` each one shatters. It leaves the
-## player's collision list alone: whoever is changing rooms is about to set it.
+## Removes every platform and ends any cooldown. With `effects` each one
+## shatters. It leaves the player's collision list alone: whoever is changing
+## rooms is about to set it.
 func clear(effects: bool) -> void:
 	for platform in platforms:
 		if effects:
-			_break(platform, false)
+			_break(platform)
 	platforms.clear()
+	cooldown_left = 0.0
 	_forget()
 
 
@@ -105,13 +110,17 @@ func refresh_preview() -> void:
 func _physics_process(delta: float) -> void:
 	if _world.current == null or _world.is_busy():
 		return
+	# Counted down before the breaks below, so the tick a platform breaks does
+	# not shave the cooldown it starts.
+	cooldown_left = maxf(cooldown_left - delta, 0.0)
 	var broke := false
 	for platform in platforms.duplicate():
 		platform.age += delta
 		if platform.expired():
-			_break(platform, false)
+			_break(platform)
 			platforms.erase(platform)
 			broke = true
+			cooldown_left = GameState.abilities.imprint_cooldown
 	if broke:
 		sync_solids()
 	if is_active():
@@ -138,12 +147,15 @@ func _update_preview() -> void:
 	var cell := cursor_cell()
 	var width := GameState.abilities.imprint_width
 	var player_cell := Vector2i((_player.global_position - room.position) / float(Grid.CELL))
-	var key := "%s|%s|%s|%d|%d" % [cell, player_cell, _player.is_on_floor(), width, platforms.size()]
+	var key := "%s|%s|%s|%d|%d|%s" % [cell, player_cell, _player.is_on_floor(), width, platforms.size(), cooldown_left > 0.0]
 	if key == _key:
 		return
 	_key = key
 	_preview_cell = cell
-	_reason = ImprintRules.check(room.info, cell, width, _local(_player.body_rect(), room), _local_all(_survivors(), room))
+	# Locked out: the cursor is the cross wherever it is.
+	_reason = ImprintRules.blocked(platforms.size(), GameState.abilities.imprint_max_active, cooldown_left)
+	if _reason.is_empty():
+		_reason = ImprintRules.check(room.info, cell, width, _local(_player.body_rect(), room), _local_all(platforms, room))
 	if not _reason.is_empty():
 		_state = UNAVAILABLE
 		return
@@ -151,22 +163,13 @@ func _update_preview() -> void:
 	rect.position += room.position
 	var rects := room.world_rects()
 	rects.append_array(room.mover_rects())
-	for platform in _survivors():
+	for platform in platforms:
 		rects.append(platform.rect)
 	var reachable := ImprintReach.can_land_on(_player.config, rects, rect, _player.global_position, _player.velocity, _player.is_on_floor(), room.hazard_world_rects(), room.door_world_rects())
 	_state = REACHABLE if reachable else UNREACHABLE
 
 
-## The platforms that will still exist after placing another one.
-func _survivors() -> Array[ImprintPlatform]:
-	var keep := maxi(GameState.abilities.imprint_max_active - 1, 0)
-	var out: Array[ImprintPlatform] = []
-	for i in range(maxi(platforms.size() - keep, 0), platforms.size()):
-		out.append(platforms[i])
-	return out
-
-
-func _break(platform: ImprintPlatform, _replaced: bool) -> void:
+func _break(platform: ImprintPlatform) -> void:
 	var burst := Shatter.new()
 	burst.position = platform.rect.get_center()
 	add_child(burst)

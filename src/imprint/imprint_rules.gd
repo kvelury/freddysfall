@@ -9,10 +9,22 @@ extends RefCounted
 const DOOR_MARGIN := float(Grid.CELL)
 
 
+## Why no platform may be placed right now, or an empty string if one may.
+## `active` platforms stand, `max_active` is the limit, and `cooldown_left` is
+## the seconds still to wait after the last one broke. A platform is never
+## replaced by a click. Reasons: limit, cooldown.
+static func blocked(active: int, max_active: int, cooldown_left: float) -> String:
+	if active >= maxi(max_active, 1):
+		return "limit"
+	if cooldown_left > 0.0:
+		return "cooldown"
+	return ""
+
+
 ## Why a platform `width` cells wide, with its left end at `cell` (room cells),
 ## may not go there, or an empty string if it may. `player_body` is the
-## player's box in room pixels. `others` are platforms that will still exist,
-## in room pixels. Reasons: outside, solid, spikes, door, no_imprint, platform
+## player's box in room pixels. `others` are the platforms that stand, in room
+## pixels (whether one may be placed at all is `blocked`). Reasons: outside, solid, spikes, door, no_imprint, platform
 ## (a moving platform's track or the row above it), player, imprint.
 static func check(info: RoomInfo, cell: Vector2i, width: int, player_body: Rect2, others: Array[Rect2] = []) -> String:
 	# Check before constructing a rectangle: arbitrary dev values must not

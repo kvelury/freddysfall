@@ -28,7 +28,7 @@ func _abilities() -> bool:
 	ok = _check(not a.apply(unlock, true) and a.imprint_unlocked, "and does nothing the second time") and ok
 	ok = _check(Abilities.from_dict(a.to_dict()).imprint_unlocked, "the unlock survives to_dict and from_dict") and ok
 	a = Abilities.new()
-	ok = _check(a.imprint_width == 2 and is_equal_approx(a.imprint_duration, 2.5) and a.imprint_max_active == 1 and a.imprint_effects.is_empty(), "the starting abilities are width 2, 2.5 s, one at a time, no effects") and ok
+	ok = _check(a.imprint_width == 2 and is_equal_approx(a.imprint_duration, 1.5) and a.imprint_max_active == 1 and is_zero_approx(a.imprint_cooldown) and a.imprint_effects.is_empty(), "the starting abilities are width 2, 1.5 s, one at a time, no cooldown, no effects") and ok
 	ok = _check(a.apply(width, 3) and a.imprint_width == 3, "a wider upgrade widens") and ok
 	ok = _check(not a.apply(width, 2) and a.imprint_width == 3, "a narrower one later takes nothing away") and ok
 	ok = _check(not a.apply(width, 3), "the same one again changes nothing") and ok
@@ -42,6 +42,23 @@ func _abilities() -> bool:
 	ok = _check(c.imprint_width == 3 and c.imprint_effects == ["bounce"] and is_equal_approx(c.imprint_duration, 6.5), "to_dict and from_dict round-trip") and ok
 	var d := Abilities.from_dict({"imprint_width": 5, "unheard_of": 1})
 	ok = _check(d.imprint_width == 5 and d.imprint_max_active == 1, "from_dict keeps what it knows and ignores the rest") and ok
+
+	# The cooldown is a "min" upgrade: lower is better, and nothing is taken away.
+	var cooldown := Upgrades.get_def("imprint_cooldown")
+	var e := Abilities.new()
+	e.imprint_cooldown = 0.5
+	ok = _check(e.apply(cooldown, 0.2) and is_equal_approx(e.imprint_cooldown, 0.2), "a shorter cooldown is taken") and ok
+	ok = _check(not e.apply(cooldown, 0.4) and is_equal_approx(e.imprint_cooldown, 0.2), "a longer one later takes nothing away") and ok
+	ok = _check(not e.apply(cooldown, 0.2) and is_equal_approx(e.imprint_cooldown, 0.2), "the same one again changes nothing") and ok
+	ok = _check(is_equal_approx(Abilities.from_dict(e.to_dict()).imprint_cooldown, 0.2), "the cooldown survives to_dict and from_dict") and ok
+	ok = _check(is_zero_approx(Abilities.from_dict({"imprint_width": 3}).imprint_cooldown), "a save without a cooldown loads with it off") and ok
+	ok = _check(is_equal_approx(Abilities.from_dict({"imprint_duration": 2.5}).imprint_duration, 2.5), "and an old save keeps the duration it stored") and ok
+	ok = _check(Upgrades.check("imprint_cooldown", "0.5").is_empty() and not Upgrades.check("imprint_cooldown", "long").is_empty(), "a cooldown pickup takes a number") and ok
+	ok = _check(Abilities.new().describe() == "imprint locked" and e.describe() == "imprint locked", "describe is unchanged while Imprint is locked") and ok
+	e.imprint_unlocked = true
+	var plain := Abilities.new()
+	plain.imprint_unlocked = true
+	ok = _check(e.describe().contains("0.2 s cooldown") and not plain.describe().contains("cooldown"), "describe names a cooldown only when there is one") and ok
 	return ok
 
 

@@ -43,6 +43,14 @@ func _gate() -> bool:
 	abilities.imprint_duration = 1.0
 	var brief := ReachGraph.new(rooms, _cfg, abilities).analyze("1")
 	ok = _check(_has(brief.errors, "Room 2 cannot be reached"), "a platform that lasts one second is not enough to cross %s" % [brief.errors]) and ok
+
+	# So short that it is gone before a jump can land on it: nothing to search.
+	abilities.imprint_duration = 0.5
+	var gone := ReachGraph.new(rooms, _cfg, abilities).analyze("1")
+	ok = _check(_has(gone.errors, "Room 2 cannot be reached"), "a platform gone before a jump lands on it crosses nothing %s" % [gone.errors]) and ok
+
+	# The starting duration is the one that has to be enough.
+	ok = _check(is_equal_approx(Abilities.new().imprint_duration, 1.5), "the starting duration is 1.5 seconds, which crossed the pit above") and ok
 	return ok
 
 

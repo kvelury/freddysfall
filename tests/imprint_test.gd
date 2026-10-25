@@ -13,6 +13,7 @@ func _initialize() -> void:
 	ok = _reach() and ok
 	ok = _platform() and ok
 	ok = _countdown() and ok
+	ok = _lockout() and ok
 	print("IMPRINT %s" % ("pass" if ok else "fail"))
 	quit(0 if ok else 1)
 
@@ -156,25 +157,39 @@ func _countdown() -> bool:
 		shown.append(wide.lines_left())
 	ok = _check(shown == [7, 5, 1], "a wider platform with a longer life counts down evenly (%s)" % [shown]) and ok
 
-	# The starting platform: 2.5 seconds and four lines, so one goes every
-	# 0.625 s, and it blinks while the last one is alone (from 1.875 s).
+	# The starting platform: 1.5 seconds and four lines, so one goes every
+	# 0.375 s, and it blinks while the last one is alone (from 1.125 s).
 	var start := ImprintPlatform.new(Rect2(0, 0, 20, 10), Abilities.new().imprint_duration)
-	ok = _check(is_equal_approx(start.lifetime, 2.5), "a starting platform lasts 2.5 seconds") and ok
+	ok = _check(is_equal_approx(start.lifetime, 1.5), "a starting platform lasts 1.5 seconds") and ok
 	var quarters := []
-	for age in [0.3, 0.7, 1.5, 2.0]:
+	for age in [0.2, 0.5, 0.9, 1.2]:
 		start.age = age
 		quarters.append(start.lines_left())
-	ok = _check(quarters == [4, 3, 2, 1], "its four lines go one every 0.625 s: 4, 3, 2, 1 (%s)" % [quarters]) and ok
-	ok = _check(is_equal_approx(start.blink_time(), 0.625), "it blinks for the last line's share, 0.625 s (%.3f)" % start.blink_time()) and ok
+	ok = _check(quarters == [4, 3, 2, 1], "its four lines go one every 0.375 s: 4, 3, 2, 1 (%s)" % [quarters]) and ok
+	ok = _check(is_equal_approx(start.blink_time(), 0.375), "it blinks for the last line's share, 0.375 s (%.3f)" % start.blink_time()) and ok
 	var early := false
-	for i in 18:
+	for i in 11:
 		start.age = 0.1 * float(i) + 0.05
 		early = early or start.blinked_off()
 	ok = _check(not early, "it does not blink while two or more lines are left") and ok
-	start.age = 1.95
+	start.age = 1.15
 	ok = _check(start.lines_left() == 1 and start.blinked_off() and not start.expired(), "it blinks once only the last line is left") and ok
-	start.age = 2.05
+	start.age = 1.25
 	ok = _check(not start.blinked_off(), "and comes back on between blinks") and ok
-	start.age = 2.5
-	ok = _check(start.expired() and start.lines_left() == 0, "and is gone at 2.5 seconds") and ok
+	start.age = 1.5
+	ok = _check(start.expired() and start.lines_left() == 0, "and is gone at 1.5 seconds") and ok
+	return ok
+
+
+## A click never replaces a platform: it is refused while the limit's worth
+## stand, and while the cooldown after one breaks is running.
+func _lockout() -> bool:
+	var ok := true
+	ok = _check(ImprintRules.blocked(0, 1, 0.0).is_empty(), "with none standing and no cooldown, a platform may go") and ok
+	ok = _check(ImprintRules.blocked(1, 1, 0.0) == "limit", "one standing at a limit of one: refused as limit") and ok
+	ok = _check(ImprintRules.blocked(0, 1, 0.2) == "cooldown", "none standing but a cooldown running: refused as cooldown") and ok
+	ok = _check(ImprintRules.blocked(1, 1, 0.2) == "limit", "the limit is reported before the cooldown") and ok
+	ok = _check(ImprintRules.blocked(1, 2, 0.0).is_empty(), "one standing at a limit of two: a second may go") and ok
+	ok = _check(ImprintRules.blocked(2, 2, 0.0) == "limit", "two standing at a limit of two: refused as limit") and ok
+	ok = _check(ImprintRules.blocked(1, 0, 0.0) == "limit" and ImprintRules.blocked(0, 0, 0.0).is_empty(), "a limit of zero is treated as one") and ok
 	return ok

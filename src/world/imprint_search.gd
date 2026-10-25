@@ -11,18 +11,18 @@ extends RefCounted
 ## the top of a cell row. Each candidate is checked by simulating the jump
 ## again with the platform in place, and then kept only if it brings one of
 ## the places still out of reach within a jump. The jumps from the platform use
-## the same tries as any ledge.
+## the same tries as any ledge. The platform has to last until the player has
+## landed on it and pushed off (see SPARE_TICKS); after that it is not needed.
 ##
 ## What it leaves out: placing the platform in mid-air, and using two in a row.
 ## A room that needs either is reported unreachable even though a player might
 ## do it. It does not see moving platforms either: it puts no Imprint down
 ## from one, and its jumps pass through them.
 
-## Per path, how many ticks the platform is given to be useful. Each of the two
-## legs, onto the platform and off it, gets half of the platform's life less a
-## little time to walk about on it.
+## The jump onto a platform has to land within the platform's life less this
+## many ticks, to stand on it and push off. The jump off it is an ordinary
+## ledge's: once the player has left it, they no longer need it.
 const SPARE_TICKS := 40
-const MIN_LEG := 30
 ## At most this many platforms are tried from one ledge.
 const MAX_CANDIDATES := 600
 ## Verifications that land on a platform from one ledge, per platform.
@@ -50,7 +50,9 @@ func expand(ledge: ReachGraph.Ledge, targets: Array) -> Dictionary:
 	var info := _graph.room_info(ledge.room_id)
 	var geo := _graph.geometry_of(info)
 	var width := _graph.abilities.imprint_width
-	var limit := _leg_limit()
+	var limit := _land_limit()
+	if limit <= 0:
+		return out
 	var cell := float(Grid.CELL)
 	var started := Time.get_ticks_usec()
 	var arcs := _arcs_of(ledge, info, geo)
@@ -82,7 +84,7 @@ func expand(ledge: ReachGraph.Ledge, targets: Array) -> Dictionary:
 	stats["lands"] += Time.get_ticks_usec() - started
 	stats["candidates"] += found
 	for candidate in landed:
-		var leg := _leg_of(info, geo, candidate.cell, width, limit)
+		var leg := _leg_of(info, geo, candidate.cell, width, _graph.frame_limit)
 		for index in leg.to_ledges:
 			var target: ReachGraph.Ledge = _graph.ledges_in(ledge.room_id)[index]
 			if not out["ledges"].has(target):
@@ -95,10 +97,11 @@ func expand(ledge: ReachGraph.Ledge, targets: Array) -> Dictionary:
 	return out
 
 
-## How many ticks each leg of a path may run.
-func _leg_limit() -> int:
+## How many ticks the jump onto a platform may run: the platform's life, less
+## SPARE_TICKS to stand on it and push off. Zero means it is gone first.
+func _land_limit() -> int:
 	var life := int(_graph.abilities.imprint_duration * 60.0)
-	return clampi((life - SPARE_TICKS) / 2, MIN_LEG, 180)
+	return clampi(life - SPARE_TICKS, 0, _graph.frame_limit)
 
 
 ## Adds the platforms of `width` cells whose top is on `row` and that a body at

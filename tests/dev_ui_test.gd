@@ -88,6 +88,19 @@ func _run() -> void:
 	_check(world.imprint.preview_reason() == "outside", "extreme width is refused without overflow or per-cell work")
 	panel._fields["imprint_width"].text = "5"
 	panel._apply()
+	_check(panel._fields.has("imprint_cooldown"), "the panel has a cooldown field")
+	panel._fields["imprint_cooldown"].text = "0.2"
+	_check(panel._apply() and is_equal_approx(state.abilities.imprint_cooldown, 0.2), "panel applies a cooldown")
+	var cooldown_control: Dictionary = DevCatalog.controls()["imprint_cooldown"]
+	panel._fields["imprint_cooldown"].text = "0"
+	for i in 3:
+		panel._nudge("imprint_cooldown", 1, cooldown_control)
+	_check(panel._fields["imprint_cooldown"].text == "0.3", "three presses of + give 0.3, not float noise (%s)" % panel._fields["imprint_cooldown"].text)
+	for i in 5:
+		panel._nudge("imprint_cooldown", -1, cooldown_control)
+	_check(float(panel._fields["imprint_cooldown"].text) == 0.0, "and − stops at 0 (%s)" % panel._fields["imprint_cooldown"].text)
+	panel._apply()
+	_check(is_zero_approx(state.abilities.imprint_cooldown), "and the cooldown can be turned off again")
 	panel._fields["health"].text = "bad"
 	panel._fields["tokens"].text = "2"
 	_check(not panel._apply() and state.tokens == 1, "invalid panel draft is atomic")

@@ -46,7 +46,16 @@ func _initialize() -> void:
 	sample["abilities"]["imprint_effects"] = ["bounce"]
 	_check(not DevCatalog.validate(sample).is_empty(), "stored effect names cannot pretend bounce is implemented")
 	var restored := DevCatalog.reconcile({"abilities": {"old_power": 1, "imprint_effects": ["bounce"], "imprint_width": 5}})
-	_check(restored["error"].is_empty() and restored["warnings"].size() == 2 and restored["loadout"]["abilities"]["imprint_duration"] == 2.5, "old loadouts get defaults and visible removed-feature warnings")
+	_check(restored["error"].is_empty() and restored["warnings"].size() == 2 and restored["loadout"]["abilities"]["imprint_duration"] == Abilities.new().imprint_duration and restored["loadout"]["abilities"]["imprint_cooldown"] == 0.0, "old loadouts get defaults and visible removed-feature warnings")
+	sample = DevCatalog.defaults()
+	for good in [0, 0.2, 5, 5.0]:
+		sample["abilities"]["imprint_cooldown"] = good
+		_check(DevCatalog.validate(sample).is_empty() and Abilities.from_dict(sample["abilities"]).imprint_cooldown == float(good), "accept cooldown %s" % str(good))
+	for invalid in [-0.1, -1, INF, NAN, "0.2", true]:
+		sample["abilities"]["imprint_cooldown"] = invalid
+		_check(not DevCatalog.validate(sample).is_empty(), "reject invalid cooldown %s" % str(invalid))
+	var old_loadout := DevCatalog.reconcile({"abilities": {"imprint_width": 3, "imprint_duration": 2.5}})
+	_check(old_loadout["error"].is_empty() and old_loadout["loadout"]["abilities"]["imprint_cooldown"] == 0.0 and old_loadout["loadout"]["abilities"]["imprint_duration"] == 2.5, "an old loadout without a cooldown gets it off and keeps its own duration")
 	var progression := {"flags": ["pickup:keep"], "machines": {"m": 2}}
 	var merged := DevCatalog.with_loadout(progression, restored["loadout"])
 	merged["machines"]["m"] = 3

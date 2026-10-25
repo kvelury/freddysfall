@@ -4,22 +4,25 @@ extends RefCounted
 ## What the player can do. The values here are the starting ones; upgrades
 ## raise them. Each name in STATS is a stat that data/upgrades.json may name.
 
-const STATS: Array[String] = ["imprint_unlocked", "imprint_width", "imprint_duration", "imprint_max_active", "imprint_effects"]
+const STATS: Array[String] = ["imprint_unlocked", "imprint_width", "imprint_duration", "imprint_max_active", "imprint_cooldown", "imprint_effects"]
 
 ## Whether the player has found Imprint. Until they do, the cursor is just a cursor.
 var imprint_unlocked := false
 ## Imprint platform width in cells.
 var imprint_width := 2
 ## Seconds an Imprint lasts.
-var imprint_duration := 2.5
+var imprint_duration := 1.5
 var imprint_max_active := 1
+## Seconds after a platform breaks before another may be placed. 0 is off.
+var imprint_cooldown := 0.0
 ## Special behaviors an Imprint has, such as "bounce".
 var imprint_effects: Array[String] = []
 
 
 ## Applies one upgrade (see Upgrades) and says whether anything changed.
 ## "unlock" turns a yes-or-no ability on. "max" keeps the larger of the old and new value, so finding a lesser
-## upgrade later never takes anything away. "add" gains an effect once.
+## upgrade later never takes anything away. "min" keeps the smaller, for a number where lower is better.
+## "add" gains an effect once.
 func apply(upgrade: Dictionary, value: Variant) -> bool:
 	var stat := String(upgrade["stat"])
 	if upgrade["kind"] == "unlock":
@@ -32,6 +35,12 @@ func apply(upgrade: Dictionary, value: Variant) -> bool:
 		if effects.has(String(value)):
 			return false
 		effects.append(String(value))
+		return true
+	if upgrade["kind"] == "min":
+		var current: Variant = get(stat)
+		if value >= current:
+			return false
+		set(stat, value)
 		return true
 	var old: Variant = get(stat)
 	if value <= old:
@@ -50,6 +59,7 @@ func to_dict() -> Dictionary:
 		"imprint_width": imprint_width,
 		"imprint_duration": imprint_duration,
 		"imprint_max_active": imprint_max_active,
+		"imprint_cooldown": imprint_cooldown,
 		"imprint_effects": imprint_effects.duplicate(),
 	}
 
@@ -62,6 +72,7 @@ static func from_dict(data: Dictionary) -> Abilities:
 	out.imprint_width = int(data.get("imprint_width", out.imprint_width))
 	out.imprint_duration = float(data.get("imprint_duration", out.imprint_duration))
 	out.imprint_max_active = int(data.get("imprint_max_active", out.imprint_max_active))
+	out.imprint_cooldown = float(data.get("imprint_cooldown", out.imprint_cooldown))
 	var effects = data.get("imprint_effects", [])
 	if effects is Array:
 		for effect in effects:
@@ -73,6 +84,8 @@ func describe() -> String:
 	if not imprint_unlocked:
 		return "imprint locked"
 	var text := "imprint %d wide, %.1f s, %d at once" % [imprint_width, imprint_duration, imprint_max_active]
+	if imprint_cooldown > 0.0:
+		text += ", %.1f s cooldown" % imprint_cooldown
 	if not imprint_effects.is_empty():
 		text += ", " + ", ".join(imprint_effects)
 	return text
