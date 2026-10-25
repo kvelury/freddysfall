@@ -25,6 +25,20 @@ func _run() -> void:
 	world.player.scripted = true
 	_press(panel, KEY_F2)
 	_check(panel.opened and paused and world.modal_owner == "dev", "F2 opens a paused panel")
+	_check(panel._rooms.item_count == root.get_node("WorldData").rooms.size(), "room picker initially lists every implemented room")
+	var selected: PackedInt32Array = panel._rooms.get_selected_items()
+	_check(selected.size() == 1 and panel._rooms.get_item_text(selected[0]) == "8", "current room is selected without filtering out other rooms")
+	var save_index := -1
+	for index in panel._rooms.item_count:
+		if panel._rooms.get_item_text(index) == "s1":
+			save_index = index
+	if save_index >= 0:
+		panel._rooms.item_selected.emit(save_index)
+	_check(panel._room.text == "s1" and panel._rooms.item_count == root.get_node("WorldData").rooms.size(), "selecting a listed room chooses it without hiding the list")
+	panel._filter_rooms("s")
+	var save_rooms: Array = root.get_node("WorldData").rooms.keys().filter(func(id: String) -> bool: return id.contains("s"))
+	_check(panel._rooms.item_count == save_rooms.size(), "typing still filters save rooms")
+	panel._filter_rooms("")
 	var tick: int = world.current.tick
 	await create_timer(0.05).timeout
 	_check(world.current.tick == tick, "moving platform clock stops while editing")

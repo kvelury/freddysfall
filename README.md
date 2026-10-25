@@ -32,8 +32,9 @@ Editor/debug runs always offer F2 and a clickable DEV button; exports require
   closes, discarding unapplied edits. F4 focuses the room picker. Escape closes.
 - **Player:** tokens (0–3), health, Imprint on/off, width, duration, and active count.
   Bounce is explicitly not implemented. Settings can be lowered as well as raised.
-- **Rooms:** choose any room, including unvisited ones. **Start test** uses current
-  test progression and the selected loadout. **Start fresh test** clears progression.
+- **Rooms:** the picker initially lists every implemented room, including unvisited
+  rooms and save rooms, with the current room selected. Click a room or type to
+  filter. **Start test** uses current test progression and the selected loadout. **Start fresh test** clears progression.
   **Retry test** returns to that original room with its captured progression and the
   latest explicitly applied powers/resources, even after travelling elsewhere.
 - **Overrides:** optional retry-on-death and door bypass, both initially off. Door

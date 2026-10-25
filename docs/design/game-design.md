@@ -288,7 +288,9 @@ Apply commits a validated draft atomically. Resume / Cancel or Escape closes and
 discards unapplied edits. Closing keeps the test active, with `DEV · not saving`.
 Imprint-setting changes clear placed Imprints; resource-only changes do not.
 
-Room search includes every loaded room, visited or not, with natural ID order.
+The room picker opens with every loaded room listed, visited or not, in natural ID
+order, and the current room selected. Click a listed room to choose it, or type to
+filter the list.
 Start test captures current test progression and uses the selected loadout at the
 room's normal test spawn. Start fresh test first clears progression. Retry test
 restores that original room and captured flags, machine fills, visited rooms,

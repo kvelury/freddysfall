@@ -86,7 +86,7 @@ func open_panel(tab := 0) -> void:
 		_window.show()
 		_set_fields(DevCatalog.capture(GameState.to_dict()))
 		_room.text = _world.current.info.id
-		_filter_rooms(_room.text)
+		_filter_rooms("")
 		_bypass.set_pressed_no_signal(DevSession.bypass)
 		_retry.set_pressed_no_signal(DevSession.retry_on_death)
 		_status.text = _store.error
@@ -307,11 +307,14 @@ func _build_rooms(body: VBoxContainer) -> void:
 
 func _filter_rooms(query: String) -> void:
 	_rooms.clear()
+	var search := query.strip_edges().to_lower()
 	var ids: Array = WorldData.rooms.keys()
 	ids.sort_custom(func(a: String, b: String) -> bool: return a.naturalnocasecmp_to(b) < 0)
 	for id in ids:
-		if String(id).contains(query.strip_edges().to_lower()):
+		if search.is_empty() or String(id).contains(search):
 			_rooms.add_item(id)
+			if String(id) == _room.text.strip_edges().to_lower():
+				_rooms.select(_rooms.item_count - 1)
 
 
 func _start(fresh: bool) -> void:
