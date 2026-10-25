@@ -265,7 +265,7 @@ func _play() -> bool:
 	cfg.inherit_platform_velocity = original
 	ok = _check(jumped["left"] and absf(jumped["vx"] - platform_v.x) < 0.5, "with inherit_platform_velocity on, they leave at the platform's speed (%.2f px/s, platform %.2f)" % [jumped["vx"], platform_v.x]) and ok
 
-	ok = _check(original, "the game ships with inherit_platform_velocity on (movement.tres)") and ok
+	ok = _check(not original, "the game ships with inherit_platform_velocity off (movement.tres)") and ok
 
 	# Parity: the real player and the solver's simulation agree, with whatever
 	# the game ships with.
