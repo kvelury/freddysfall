@@ -1,0 +1,166 @@
+extends Node
+
+## Session boundary for all cheats. Normal saves are guarded here and in Save,
+## and snapshots contain copied values, never nodes from a previous attempt.
+
+enum Mode { NORMAL, ROOM_TEST, DEV_TEST }
+
+var mode := Mode.NORMAL
+var available := false
+var bypass := false
+var retry_on_death := false
+var target := ""
+var baseline := {}
+var loadout := {}
+var replacing := false
+
+
+func _ready() -> void:
+	process_mode = Node.PROCESS_MODE_ALWAYS
+
+
+func isolated() -> bool:
+	return mode != Mode.NORMAL or replacing
+
+
+## Called only for an initial boot, never by a retry or End playtest rebuild.
+func configure(dev: bool, room_test: bool) -> void:
+	available = OS.is_debug_build() or dev
+	mode = Mode.DEV_TEST if dev else (Mode.ROOM_TEST if room_test else Mode.NORMAL)
+	bypass = false
+	retry_on_death = false
+	baseline = {}
+	loadout = {}
+	target = ""
+	replacing = false
+
+
+func enter(world: Node) -> String:
+	if not available or replacing or world.is_busy():
+		return "Wait for the current animation to finish."
+	if mode != Mode.DEV_TEST:
+		mode = Mode.DEV_TEST
+		capture(world.current.info.id)
+	return ""
+
+
+func capture(room_id: String) -> void:
+	target = room_id
+	baseline = GameState.to_dict().duplicate(true)
+	loadout = DevCatalog.capture(baseline)
+
+
+## Patch contains only fields the user edited. Resource consumption and pickup
+## rewards in other fields do not accidentally become the retry loadout.
+func apply(world: Node, patch: Dictionary) -> String:
+	if mode != Mode.DEV_TEST or replacing or world.is_busy():
+		return "Dev tools are not ready."
+	var selected := loadout.duplicate(true)
+	var live := DevCatalog.capture(GameState.to_dict())
+	var changed_imprint := false
+	for key in patch:
+		if key == "abilities":
+			if not patch[key] is Dictionary:
+				return "Invalid abilities."
+			for stat in patch[key]:
+				var control: Dictionary = DevCatalog.controls().get(stat, {})
+				if control.get("type") == "unsupported":
+					return String(control["reason"])
+				if live["abilities"].get(stat) != patch[key][stat]:
+					changed_imprint = true
+				live["abilities"][stat] = patch[key][stat]
+				selected["abilities"][stat] = patch[key][stat]
+		elif DevCatalog.RESOURCES.has(key):
+			live[key] = patch[key]
+			selected[key] = patch[key]
+		else:
+			return "Unknown loadout field: %s" % key
+	var error := DevCatalog.validate(live)
+	if error.is_empty():
+		error = DevCatalog.validate(selected)
+	if not error.is_empty():
+		return error
+	GameState.set_loadout(live)
+	loadout = selected
+	if changed_imprint:
+		world.imprint.clear(false)
+		world.imprint.sync_solids()
+	return ""
+
+
+func start(world: Node, room_id: String, fresh := false) -> String:
+	if not available or mode != Mode.DEV_TEST or replacing or world.is_busy():
+		return "Dev tools are not ready."
+	if not WorldData.rooms.has(room_id):
+		return "No such room: %s" % room_id
+	target = room_id
+	baseline = {} if fresh else GameState.to_dict().duplicate(true)
+	_replace_later(world, DevCatalog.with_loadout(baseline, loadout))
+	return ""
+
+
+func retry(world: Node, after_death := false) -> String:
+	if mode != Mode.DEV_TEST or replacing or (world.is_busy() and not after_death) or not WorldData.rooms.has(target):
+		return "No test is ready to retry."
+	_replace_later(world, DevCatalog.with_loadout(baseline, loadout))
+	return ""
+
+
+func set_bypass(world: Node, on: bool) -> String:
+	if mode != Mode.DEV_TEST or replacing or world.is_busy():
+		return "Dev tools are not ready."
+	var room: Room = world.current
+	if not on and not ExitRules.met(room.info, GameState.flags):
+		for door in room.info.exits:
+			var rect := Grid.cell_rect(door.rect)
+			rect.position += room.position
+			if rect.intersects(world.player.body_rect()):
+				return "Move clear of the doorway first."
+	bypass = on
+	room.set_door_override(on, GameState.flags)
+	world.imprint.sync_solids()
+	return ""
+
+
+func set_retry_on_death(world: Node, on: bool) -> String:
+	if mode != Mode.DEV_TEST or replacing or world.is_busy():
+		return "Dev tools are not ready."
+	retry_on_death = on
+	return ""
+
+
+func end(world: Node) -> String:
+	if mode != Mode.DEV_TEST or replacing or world.is_busy():
+		return "Dev tools are not ready."
+	replacing = true
+	_replace.call_deferred(world, {}, true)
+	return ""
+
+
+func _replace_later(world: Node, state: Dictionary) -> void:
+	replacing = true
+	_replace.call_deferred(world, state, false)
+
+
+func _replace(world: Node, state: Dictionary, normal: bool) -> void:
+	var parent := world.get_parent()
+	var was_main := get_tree().current_scene == world
+	# Free the world (including its timers/tweens) before restoring normal access.
+	world.free()
+	get_tree().paused = false
+	if normal:
+		mode = Mode.NORMAL
+		bypass = false
+		retry_on_death = false
+		baseline = {}
+		loadout = {}
+		GameState.reset()
+	else:
+		GameState.load_dict(state)
+	replacing = false
+	var next: Node = load("res://src/world/world.tscn").instantiate()
+	next.dev_rebuild = true
+	next.dev_resume_normal = normal
+	parent.add_child(next)
+	if was_main:
+		get_tree().current_scene = next

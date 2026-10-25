@@ -2,10 +2,7 @@ extends CanvasLayer
 
 var _label: Label
 var _errors: Label
-var _warp: Label
 var _shown := false
-var _typing := false
-var _typed := ""
 
 
 func _ready() -> void:
@@ -18,12 +15,6 @@ func _ready() -> void:
 	_label.visible = false
 	add_child(_label)
 	_show_load_errors()
-	_warp = Label.new()
-	_warp.position = Vector2(12, 160)
-	_warp.add_theme_font_size_override("font_size", 8)
-	_warp.add_theme_color_override("font_color", Color.WHITE)
-	_warp.visible = false
-	add_child(_warp)
 
 
 func _process(_delta: float) -> void:
@@ -54,41 +45,3 @@ func _show_load_errors() -> void:
 		lines.append(WorldData.errors[i])
 	_errors.text = "\n".join(lines)
 	add_child(_errors)
-
-
-## F4, then a room number and Enter, jumps straight to that room. Debug builds
-## only. Escape or F4 again cancels.
-func _unhandled_input(event: InputEvent) -> void:
-	if not OS.is_debug_build() or not event is InputEventKey:
-		return
-	var key := event as InputEventKey
-	if not key.pressed or key.echo:
-		return
-	if key.keycode == KEY_F4:
-		_set_typing(not _typing)
-	elif not _typing:
-		return
-	elif key.keycode == KEY_ESCAPE:
-		_set_typing(false)
-	elif key.keycode == KEY_BACKSPACE:
-		_typed = _typed.substr(0, _typed.length() - 1)
-	elif key.keycode == KEY_ENTER or key.keycode == KEY_KP_ENTER:
-		var world := get_parent()
-		if world.has_method("warp_to") and not world.warp_to(_typed):
-			_typed = ""
-			_warp.text = "no such room"
-			return
-		_set_typing(false)
-	elif (key.unicode >= 48 and key.unicode <= 57) or key.unicode == 115 or key.unicode == 83:
-		_typed += char(key.unicode).to_lower()
-	else:
-		return
-	_warp.text = "warp to room: %s_" % _typed
-	get_viewport().set_input_as_handled()
-
-
-func _set_typing(on: bool) -> void:
-	_typing = on
-	_typed = ""
-	_warp.visible = on
-	_warp.text = "warp to room: _"

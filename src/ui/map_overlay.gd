@@ -31,7 +31,9 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
-	var want := Input.is_action_pressed("map")
+	var world := get_parent()
+	var allowed: bool = world.modal_owner.is_empty() or world.modal_owner == "map"
+	var want := allowed and Input.is_action_pressed("map")
 	if want != _open:
 		_set_open(want)
 	if _open:
@@ -50,15 +52,14 @@ func _process(delta: float) -> void:
 	if showing:
 		_marker.queue_redraw()
 	if not _open and _fade == 0.0 and _we_paused:
-		get_tree().paused = false
+		get_parent().release_modal("map")
 		_we_paused = false
 
 
 func _set_open(open_map: bool) -> void:
 	_open = open_map
 	if _open:
-		get_tree().paused = true
-		_we_paused = true
+		_we_paused = get_parent().acquire_modal("map")
 		refresh()
 	elif _zoom_changed:
 		# The level is part of the game, so keep it even if the player quits

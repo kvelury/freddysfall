@@ -125,3 +125,12 @@ func load_dict(data: Dictionary) -> void:
 
 func reset() -> void:
 	load_dict({})
+
+
+## Exact dev editing changes powers/resources without replacing progression.
+func set_loadout(loadout: Dictionary) -> void:
+	abilities = Abilities.from_dict(loadout["abilities"])
+	tokens = int(loadout["tokens"])
+	health = int(loadout["health"])
+	abilities_changed.emit()
+	tokens_changed.emit()

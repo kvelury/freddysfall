@@ -18,7 +18,7 @@ Nobody has played these yet. Use `tools/build_web.sh`, `tools/serve.sh` and `?ne
 - [ ] **Dying in room 5.** With no pips you come back in s1 inside the closed sphere, which spins as it does for a save, then opens and pops you out to the right, with no "Game saved" and the door open. The whole route to room 5 is walked again.
 - [ ] **Reload** (a plain reload, not `?new-game=1`) after getting as far as room 5 or past the 3TM: you start inside the machine in s1 (it opens and pops you out to the right) with Imprint and the tokens you had, and rooms you took things in still have them gone.
 - [ ] **An old save.** If you have a save from before this change, a plain reload carries it over: you start in s1 with the door open.
-- [ ] **F4, `s`, `1`, Enter** warps to s1 in a debug build, and `?room=s1` starts there with the door blocked.
+- [ ] **F4, `s`, `1`, Enter** warps to s1 when dev tools are available, and `?room=s1` starts there with the door blocked.
 
 ## Moving platforms
 
@@ -34,7 +34,7 @@ Nobody has played these yet. `?room=8` starts in room 8 (with no Imprint and no 
 
 ## Respawn
 
-The safe-floor respawns below only happen when the player has health, and no pip exists yet, so every death goes to s1 and these cannot be played. They are held by `hazard_test`, which gives the player health. Play them once the first pip can be found.
+The safe-floor respawns below happen when the player has health. Use `?dev=1`, grant health in F2, and leave retry-on-death off to try these now, before a health pickup exists. `hazard_test` also covers them.
 
 - [ ] **Dying right after a door.** The respawn spot may be in the previous room. Check that it feels right, and that you do not die twice.
 - [ ] **A respawn that is not safe.** Make one by standing on an Imprint over spikes and then dying; you were shown this fixed. Also try standing half on a ledge and half on an Imprint.
@@ -42,9 +42,23 @@ The safe-floor respawns below only happen when the player has health, and no pip
 - [ ] **The step-back.** If you can make two deaths in a row, check that you end up on real floor and not in a loop.
 - [ ] **Dying in a locked room** (room 2, before the token). You come back inside room 2, not in room 1.
 
+## Dev playtesting
+
+Automated catalog/session/UI tests pass only after the full check gate. A native
+panel render is a layout check, not a completed human browser playthrough.
+
+- [ ] **Activation.** `?dev=1&room=8` in the release browser build and `--dev --room=8` natively; F2 and DEV open/close, Escape cancels, F4 finds ordinary and save rooms. Without `dev=1`, release tools stay unavailable.
+- [ ] **Save isolation.** Start with a known normal save, cheat, collect, feed a 3TM, use a save machine, warp, die and retry. End playtest/reload normally: the original save remains. Test `dev=1&new-game=1` without losing it.
+- [ ] **Powers.** Tokens add/fill/empty; health grants; Imprint on/off, width, duration and active count up/down. Invalid fields do not partly apply. Bounce is explicitly unavailable.
+- [ ] **Input and pause.** Edit while a platform moves or an Imprint ages: both stop. Close while holding movement/jump or clicking: no unintended input. Map and panel do not unpause each other. F2 during a save/3TM/door animation waits, and a second F2 cancels.
+- [ ] **Retries.** Start in one room, collect/spend things and walk elsewhere, then retry: original room/progression return, tuned powers persist, health/tokens refill, moving platforms restart. Try with retry-on-death both on and off.
+- [ ] **Door bypass.** Locked rooms 2 and s1 open without taking/saving. Switch off away from the doorway: requirements return. Switch off in the doorway: it refuses. No opening appears through a sealed wall.
+- [ ] **Loadouts.** Create/update/select/rename/delete. Select stages values until Apply. Reload the browser: saved names persist separately from progression. Reuse one loadout in different rooms.
+- [ ] **End playtest.** Normal save resumes at its usual save room; no-save case starts normally. Refreshing a URL still containing `dev=1` starts another fresh test.
+
 ## Debug tools
 
-- [ ] **F4, a room number, Enter** in a debug build, in a real window. Digits, Escape, a room that does not exist.
+- [ ] **F4, a room number, Enter** in the protected room picker, in a real window. Digits, Escape, a room that does not exist.
 - [ ] **A load-error overlay.** In a debug build, break a room file on purpose (a bad `exits:` line is a good one) and see the errors appear on screen. Never seen outside of tests.
 - [ ] **`godot --path . -- --room=3`** on the desktop build. A room started this way uses no save, so tokens and the 3TM start empty.
 
@@ -71,4 +85,4 @@ The safe-floor respawns below only happen when the player has health, and no pip
 
 ## Things that were never built, so there is nothing to test yet
 
-Room 7's title card and its 3TM, gamepad and keyboard aiming, touch input, sound, the softer palettes, L-shaped rooms, the map panning, a second kind of token or a bigger pocket, and the Imprint upgrades beyond the numbers (a longer platform, more than one at a time, a longer life, bouncing). Width and duration are read when a platform is placed, but no room gives either upgrade now (the width pickup went with the old room 5), so Imprint is the only upgrade you can get today.
+Room 7's title card and its 3TM, gamepad and keyboard aiming, touch input, sound, the softer palettes, L-shaped rooms, the map panning, a second kind of token or a bigger pocket, and authored pickups/machines for Imprint numeric upgrades, plus bouncing. Width, duration and multiple active platforms already work and can be set through dev tools. Width and duration are read when a platform is placed, but no room gives either upgrade now (the width pickup went with the old room 5), so Imprint is the only upgrade you can get today.

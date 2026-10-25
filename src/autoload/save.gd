@@ -16,15 +16,15 @@ const VERSION := 3
 const OLDEST := 2
 
 var path := "user://save.json"
-## Off in headless runs, so tests never touch a real save. World turns it off
-## for a session started in a chosen room, which is a debugging start.
+## Off in headless runs, so tests never touch a real save. DevSession adds
+## an independent isolation guard for room starts and dev playtests.
 var enabled := DisplayServer.get_name() != "headless"
 
 
 ## Writes the game as it stands, with the player in `room_id` at `position`
 ## (room pixels). Returns whether it was written.
 func write(room_id: String, position: Vector2) -> bool:
-	if not enabled:
+	if not enabled or DevSession.isolated():
 		return false
 	var data := GameState.to_dict()
 	data["version"] = VERSION
@@ -43,7 +43,7 @@ func write(room_id: String, position: Vector2) -> bool:
 ## A save for a room that no longer exists still restores abilities, flags and
 ## the map, but gives no room.
 func load_game() -> Dictionary:
-	if not enabled or not FileAccess.file_exists(path):
+	if not enabled or DevSession.isolated() or not FileAccess.file_exists(path):
 		return {}
 	var json := JSON.new()
 	var parsed := json.parse(FileAccess.get_file_as_string(path))
@@ -70,7 +70,7 @@ func load_game() -> Dictionary:
 ## Deletes the save. Like writing and reading, it does nothing when saving is
 ## off, so a test or a debugging start never touches a real file.
 func erase() -> void:
-	if enabled and FileAccess.file_exists(path):
+	if enabled and not DevSession.isolated() and FileAccess.file_exists(path):
 		DirAccess.remove_absolute(path)
 
 

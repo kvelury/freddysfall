@@ -24,24 +24,15 @@ func _run() -> void:
 	ok = _check(world.warp_to("2") and _in(world, "2"), "warp_to moves the player to room 2") and ok
 	ok = _check(not world.warp_to("99") and _in(world, "2"), "warp_to refuses an unknown room and stays put") and ok
 	ok = _check(world.warp_to("3") and _stands(world), "after a warp the player is standing on floor") and ok
-	var overlay := world.get_node("DebugOverlay")
-	_press(overlay, KEY_F4)
-	_press(overlay, KEY_3, 51)
-	_press(overlay, KEY_ENTER)
-	ok = _check(_in(world, "3"), "F4, 3, Enter warps to room 3") and ok
-	_press(overlay, KEY_F4)
-	_press(overlay, KEY_9, 57)
-	_press(overlay, KEY_ENTER)
-	ok = _check(_in(world, "3"), "F4, 9, Enter stays put when there is no room 9") and ok
-	_press(overlay, KEY_ESCAPE)
-	_press(overlay, KEY_2, 50)
-	_press(overlay, KEY_ENTER)
-	ok = _check(_in(world, "3"), "keys typed after Escape do nothing") and ok
-	_press(overlay, KEY_F4)
-	_press(overlay, KEY_S, 115)
-	_press(overlay, KEY_1, 49)
-	_press(overlay, KEY_ENTER)
-	ok = _check(_in(world, "s1"), "F4, s, 1, Enter warps to save room s1") and ok
+	var panel := world.get_node("DevPanel")
+	_press(panel, KEY_F4)
+	ok = _check(panel.opened and panel._tabs.current_tab == 1 and root.get_node("DevSession").isolated(), "F4 opens the isolated room picker") and ok
+	panel._room.text = "99"
+	panel._start(false)
+	ok = _check(_in(world, "3") and "No such room" in panel._status.text, "unknown room stays put with an error") and ok
+	_press(panel, KEY_ESCAPE)
+	ok = _check(not panel.opened and not paused, "Escape cancels room selection and releases pause") and ok
+	world.free()
 	print("START %s" % ("pass" if ok else "fail"))
 	quit(0 if ok else 1)
 
@@ -81,7 +72,7 @@ func _press(overlay: Node, keycode: Key, unicode := 0) -> void:
 	event.keycode = keycode
 	event.unicode = unicode
 	event.pressed = true
-	overlay._unhandled_input(event)
+	overlay._input(event)
 
 
 func _room_id() -> String:
