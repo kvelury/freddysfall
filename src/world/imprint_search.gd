@@ -46,10 +46,18 @@ const SPARE_TICKS := 40
 const MAX_CANDIDATES := 600
 ## Verifications that land on a platform from one ledge, per platform.
 const MAX_ARCS_PER_CANDIDATE := 6
+## At most this many moments of a moving platform's trip are tried for a rider
+## putting a platform down.
+const RIDING_MOMENTS := 12
 
 var _graph: ReachGraph
 var _arcs := {}
 var _legs := {}
+## Whether a candidate is landed on, and on which block, by ledge, cell, width
+## and time limit: it does not depend on what is still out of reach, so the
+## rounds of a solve, and the re-solves that work out what each thing needs,
+## share it.
+var _landed := {}
 ## Where the time goes, in microseconds, and how many platforms were looked at:
 ## "arcs", "lands" and "legs", "candidates", and "legs_made".
 var stats := {"arcs": 0, "lands": 0, "legs": 0, "candidates": 0, "legs_made": 0}
@@ -98,7 +106,11 @@ func expand(ledge: ReachGraph.Ledge, targets: Array) -> Dictionary:
 			break
 		found += 1
 		var candidate: Candidate = candidates[key]
-		if _lands_on(info, geo, ledge, candidate, limit):
+		var memo := "%s#%d|%s|%d|%d" % [ledge.room_id, ledge.index, key, width, limit]
+		if not _landed.has(memo):
+			_landed[memo] = candidate.last if _lands_on(info, geo, ledge, candidate, limit) else null
+		if _landed[memo] != null:
+			candidate.last = _landed[memo]
 			landed.append(candidate)
 	stats["lands"] += Time.get_ticks_usec() - started
 	stats["candidates"] += found
@@ -312,22 +324,24 @@ func _near_of(ledge: ReachGraph.Ledge, info: RoomInfo, geo: ReachGraph.Geometry)
 	return _graph._within(geo.rects, path.keep_out().grow_individual(ReachGraph.REACH_X, ReachGraph.REACH_UP, ReachGraph.REACH_X, ReachGraph.REACH_DOWN))
 
 
-## The jumps a rider can make from moving platform `ledge`: the same tries as
-## ReachGraph._ride, from every spot on it at every moment it picks, with the
-## platforms moving.
+## The jumps a rider can make from moving platform `ledge`: the tries of
+## ReachGraph._ride, but thinner, because each one is a candidate for many
+## platforms and checking them is most of the cost: from the two ends and the
+## middle of it, at no more than RIDING_MOMENTS of the moments it picks, spread
+## over the trip, with the platforms moving.
 func _riding_arcs(ledge: ReachGraph.Ledge, info: RoomInfo, geo: ReachGraph.Geometry, near: Array[Rect2]) -> Array[Arc]:
 	var out: Array[Arc] = []
 	var path := info.platforms[ledge.path]
 	var cell := float(Grid.CELL)
 	var run := _graph.movement().run_speed
-	for tick in _graph.phases(info):
+	var moments := _graph.phases(info)
+	var stride := maxi(1, ceili(float(moments.size()) / float(RIDING_MOMENTS)))
+	for m in range(0, moments.size(), stride):
+		var tick := moments[m]
 		var rect := path.rect_at(tick)
 		var lo := rect.position.x - cell * 0.5 + 0.01
 		var hi := rect.end.x + cell * 0.5 - 0.01
-		var xs: Array[float] = [lo]
-		for x in range(path.start_cells.size.x):
-			xs.append(rect.position.x + (float(x) + 0.5) * cell)
-		xs.append(hi)
+		var xs: Array[float] = [lo, rect.get_center().x, hi]
 		for x in xs:
 			for input in [-1.0, 0.0, 1.0]:
 				var speed := 0.0
