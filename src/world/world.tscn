@@ -20,6 +20,7 @@ script = ExtResource("6_imprint")
 [node name="Player" parent="." instance=ExtResource("2_player")]
 
 [node name="Camera2D" type="Camera2D" parent="."]
+physics_interpolation_mode = 2
 position = Vector2(160, 90)
 
 [node name="MapOverlay" parent="." instance=ExtResource("3_map")]

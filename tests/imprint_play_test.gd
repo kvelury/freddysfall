@@ -1,7 +1,7 @@
 extends SceneTree
 
 ## Imprint in the real game: locked until it is found, placed with a click,
-## solid under the player, replaced by the next one, broken by time, and gone
+## solid under the player, never replaced while it stands, broken by time, and gone
 ## when the room is left or the player dies. Uses room 5, which has spikes.
 
 
@@ -32,6 +32,8 @@ func _run() -> void:
 	tool.scripted_cell = Vector2i(3, 8)
 	ok = _check(not tool.place() and tool.platforms.is_empty(), "before Imprint is found, a click does nothing") and ok
 	state.abilities.imprint_unlocked = true
+
+	ok = _lazy_preview(world) and ok
 
 	# Preview looks. The player is on the floor at the left.
 	player.place(room.position + Grid.cell_center(Vector2i(2, 16)), room.world_rects())
@@ -318,6 +320,45 @@ func _run() -> void:
 	state.reset()
 	print("IMPRINTPLAY %s" % ("pass" if ok else "fail"))
 	quit(0 if ok else 1)
+
+
+## Automatic preview updates must never spend a frame searching jumps whose
+## answer is invisible. The exact diagnostic and all placement rules remain.
+func _lazy_preview(world: Node) -> bool:
+	var ok := true
+	# Compile after autoload startup, like the world does: ImprintTool reads
+	# GameState and DevSession, which a headless entry script cannot name yet.
+	var counter := GDScript.new()
+	counter.source_code = "extends ImprintTool\nvar searches := 0\nfunc _update_reachability() -> void:\n\tsearches += 1\n\tsuper._update_reachability()\n"
+	if counter.reload() != OK:
+		return _check(false, "reachability counter compiles after autoload startup")
+	var spy: Node = counter.new()
+	world.add_child(spy)
+	spy.scripted = true
+	world.player.place(world.current.position + Grid.cell_center(Vector2i(2, 16)), world.current.world_rects())
+	spy.scripted_cell = Vector2i(6, 13)
+	for i in 12:
+		spy.refresh_preview()
+		spy._physics_process(1.0 / 60.0)
+	ok = _check(spy.searches == 0 and spy.preview_reason().is_empty(), "legal cursor updates run no hidden reachability searches") and ok
+	ok = _check(spy.preview_state() == "reachable" and spy.searches == 1, "an explicit diagnostic still computes the exact reachable state") and ok
+	ok = _check(spy.preview_state() == "reachable" and spy.searches == 1, "a repeated diagnostic reuses its answer") and ok
+	spy.scripted_cell = Vector2i(10, 3)
+	spy.refresh_preview()
+	ok = _check(spy.searches == 1 and spy.preview_state() == "unreachable" and spy.searches == 2, "a new legal cursor defers and then computes its unreachable state") and ok
+	spy.scripted_cell = Vector2i(10, 16)
+	spy.refresh_preview()
+	ok = _check(spy.preview_state() == "unavailable" and spy.preview_reason() == "spikes" and spy.searches == 2 and not spy.place(), "spikes refuse immediately without a search") and ok
+	spy.scripted_cell = Vector2i(10, 14)
+	spy.refresh_preview()
+	ok = _check(spy.place() and spy.searches == 2, "a legal click places without a reachability search") and ok
+	spy.refresh_preview()
+	ok = _check(spy.preview_state() == "unavailable" and spy.preview_reason() == "limit" and not spy.place() and spy.searches == 2, "a standing Imprint still refuses another click without a search") and ok
+	spy.clear(false)
+	spy.sync_solids()
+	ok = _check(spy.preview_state() == "unavailable" and spy.searches == 2, "reset discards pending diagnostics") and ok
+	spy.free()
+	return ok
 
 
 func _check(cond: bool, label: String) -> bool:

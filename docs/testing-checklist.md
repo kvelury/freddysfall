@@ -8,6 +8,14 @@ Everything here passed its headless tests or was reported as unverified in a pul
 
 Played in the browser and found good, so these are not listed line by line any more: Imprint in the browser (placing, the preview, the cross, the blink), saving and resuming, the solver and the "needs" lines, movement and doors, the whole world map of PR #17 (rooms 1 to 7, the exit rules, the tokens on the body, the 3TM and its feeding, and the spent machine), and the Imprint look of PR #18 (the dotted cursor, placed platforms drawn over it, the countdown lines, and the blink), and the map zoom of PR #20 (the three levels, the legend, the level kept across reloads, a new game starting fresh, and the marker staying in its room), and the 2.5 second Imprint of PR #21 (the time, the four lines, and the blink on the last line; the duration is now 1.5 s, see "Imprint lockout" below). On 2026-10-22 the release export was also smoke-tested in Chrome: it loaded without console errors, sustained keyboard movement and running jumps worked, and the map opened while held and closed on release. The cloud test executor could not reliably observe and steer a whole platforming route, so that smoke did not replace the earlier full progression playthroughs. A new problem in any of them goes back on this list.
 
+## Fall presentation
+
+The user confirmed the merged room 7 layout works on 2026-10-25 and reported choppy falling. The presentation fixes below still need their browser comparison.
+
+- [ ] **The long fall with Imprint on and off.** Start `?dev=1&room=6`, enable Imprint to cross the wall, and release movement in the drop. The body stays steady while the room scrolls; moving the mouse does not hitch the fall. Compare on a high-refresh display if available.
+- [ ] **Pause, retry and room changes.** Open/close F2 or the map during the fall, retry, die and respawn, and cross into s2. No camera sweep from an old position or drift during pause.
+- [ ] **Cursor and placement.** Legal positions still show the dotted outline, blocked positions the cross; clicking while an Imprint stands does not replace it or restart its life. Try cooldown and shrinking in F2.
+
 ## Imprint lockout
 
 Nobody has played these yet. Headless tests prove the rule, not the feel. Use `?room=5` after the 3TM, or `?dev=1&room=5` with Imprint turned on in F2.

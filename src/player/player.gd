@@ -26,6 +26,8 @@ var facing := 1:
 		if _marks != null:
 			_marks.facing = value
 
+## Previous physics pose, shared with the frame-rate camera.
+var _previous_position := Vector2.ZERO
 var _state := MovementSim.State.new()
 var _was_on_floor := true
 var _squash := 0.0
@@ -34,6 +36,7 @@ var _marks: InventoryMarks
 
 
 func _ready() -> void:
+	_previous_position = global_position
 	add_to_group("player")
 	physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_ON
 	if config == null:
@@ -48,6 +51,7 @@ func _ready() -> void:
 ## Puts the body at rest in a room: at `world_position`, among `rects`.
 func place(world_position: Vector2, rects: Array[Rect2]) -> void:
 	global_position = world_position
+	_previous_position = world_position
 	velocity = Vector2.ZERO
 	solids = rects
 	_state.grounded = MovementSim.standing(world_position, rects)
@@ -59,6 +63,14 @@ func place(world_position: Vector2, rects: Array[Rect2]) -> void:
 	_state.crushed = false
 	_was_on_floor = _state.grounded
 	reset_physics_interpolation()
+
+
+## The displayed position between physics ticks. Only the camera reads it;
+## collisions, interaction checks and the solver keep using the physics pose.
+func render_position(fraction: float) -> Vector2:
+	if not is_physics_interpolated_and_enabled():
+		return global_position
+	return _previous_position.lerp(global_position, fraction)
 
 
 func is_on_floor() -> bool:
@@ -81,6 +93,8 @@ func body_rect() -> Rect2:
 
 
 func _physics_process(delta: float) -> void:
+	# Held players can still move on a save-machine tween later in this tick.
+	_previous_position = global_position
 	if not input_enabled:
 		velocity = Vector2.ZERO
 		# Held still, the player is not carried, so they are not riding when let go.
