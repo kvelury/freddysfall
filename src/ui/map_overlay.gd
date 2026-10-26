@@ -128,7 +128,7 @@ func marker_position() -> Vector2:
 func _visited_bounds() -> Rect2:
 	var bounds := Rect2()
 	var first := true
-	for room_id in GameState.visited.keys():
+	for room_id in MapLayer.shown_rooms():
 		var info: RoomInfo = WorldData.rooms.get(room_id)
 		if info == null:
 			continue
@@ -211,6 +211,10 @@ class MapLayer extends Node2D:
 	const ROOM_PX := Vector2(32, 18)
 	const STRIDE := Vector2(40, 26)
 
+	## The rooms drawn: the visited ones, or in dev mode every room.
+	static func shown_rooms() -> Array:
+		return WorldData.rooms.keys() if DevSession.available else GameState.visited.keys()
+
 	static func map_size(info: RoomInfo) -> Vector2:
 		# A multi-screen room is one continuous rectangle. The stride gap
 		# stays outside the room, between it and its neighbors.
@@ -232,7 +236,7 @@ class MapLayer extends Node2D:
 	var zoom := 1.0
 
 	func _draw() -> void:
-		for room_id in GameState.visited.keys():
+		for room_id in MapLayer.shown_rooms():
 			var info: RoomInfo = WorldData.rooms.get(room_id)
 			if info == null:
 				continue
@@ -258,7 +262,7 @@ class MapLayer extends Node2D:
 		for ex in info.exits:
 			var edge := ex.edge
 			var dest := ex.dest_id
-			if dest.is_empty() or not GameState.visited.has(dest):
+			if dest.is_empty() or not shown_rooms().has(dest):
 				continue
 			var span := _edge_span(ex.rect, edge)
 			var gap := STRIDE - ROOM_PX

@@ -381,7 +381,7 @@ The camera shows one screen, and it stays inside the room.
 
 Hold Tab or M. The game pauses. A dim covers the playfield over about 0.1 s, and a panel scales from 0.92 to 1. Releasing the key dismisses it.
 
-Visited rooms are outlined rectangles. The current room is filled. The player is a blinking pixel. Exit gaps break the outline where the doors are, and a connector joins a door to the door it leads to. The connector is drawn once the room on the other side has been visited.
+Visited rooms are outlined rectangles. In dev mode (dev tools available: editor and debug runs, or `?dev=1` / `--dev`) the map always shows every room in the world, visited or not, and a door connects to every room it leads to. Normal play shows only the visited ones. The current room is filled. The player is a blinking pixel. Exit gaps break the outline where the doors are, and a connector joins a door to the door it leads to. The connector is drawn once the room on the other side has been visited.
 
 A room that spans screens is one rectangle, not a row of separate rooms. The gap that normally separates neighboring rooms is filled in across the screens that room owns, so the shape on the map matches the continuous space. Door gaps and the player marker are placed per screen, so a door on the second screen sits on the outer edge of that wide rectangle, in line with a one-screen neighbor.
 
@@ -771,6 +771,9 @@ What was decided, in the order it came up, with the reason. Pull requests are na
 
 **Wall spikes (rooms 7–11)**
 - **Spikes point away from what they sit on.** Room 8 has spikes along its right wall, and upward teeth there read as a stack of floors. Only the drawing turns; the hitbox is still the cell, and the renders still colour the cell.
+
+**Dev map (every room)**
+- **Dev mode shows the whole map.** To pick a room to test, the Tab map in dev mode (`DevSession.available`) draws every room, with connectors to all of them, instead of only the visited ones. A clickable map inside the dev panel was tried and dropped: the panel's window left the map too small. Normal play is unchanged.
 
 **Dev tools (2026-10-24)**
 - **Testing is isolated.** The user chose returning to their normal save over permanently granting cheats. F4 now shares that protection.
