@@ -97,12 +97,17 @@ func _run() -> void:
 	state.machines["baseline_machine"] = 3
 	state.tokens = 0
 	state.health = 0
+	var pip := EntityDef.new()
+	pip.type = "health"
+	pip.id = "later_pip"
+	state.take_health(pip)
+	_check(state.health == 1 and state.flags.has("health:later_pip"), "taking a health pip in a test adds one and sets its flag")
 	state.map_zoom = 2
 	_check(session.set_classic_imprint(_world, true).is_empty(), "turn Classic Imprint on before a retry")
 	_check(session.retry(_world).is_empty(), "retry after travelling across rooms")
 	await _replacement()
 	_check(session.classic_imprint and session.classic_imprint_active(), "Classic Imprint survives a retry")
-	_check(_world.current.info.id == "7" and state.flags.has("pickup:baseline") and not state.flags.has("pickup:later") and state.machines["baseline_machine"] == 1, "retry restores original room, flags, and machine fills")
+	_check(_world.current.info.id == "7" and state.flags.has("pickup:baseline") and not state.flags.has("pickup:later") and state.machines["baseline_machine"] == 1 and not state.flags.has("health:later_pip"), "retry restores original room, flags (the pip is back), and machine fills")
 	_check(state.tokens == 3 and state.health == 6 and state.abilities.imprint_duration == 5.0, "retry uses latest explicitly applied powers and replenishes resources")
 	_check(is_equal_approx(state.abilities.imprint_cooldown, 0.2) and is_zero_approx(_world.imprint.cooldown_left), "retry keeps the applied cooldown setting, with no cooldown running")
 	_check(_world.current.tick == 0 and _world.imprint.platforms.is_empty() and _world.player.velocity == Vector2.ZERO, "rebuild resets platform clock and transient player state")

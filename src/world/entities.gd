@@ -13,6 +13,7 @@ extends RefCounted
 const TYPES := {
 	"pickup": {"required": ["upgrade"], "optional": ["value"]},
 	"token": {"required": [], "optional": []},
+	"health": {"required": [], "optional": []},
 	"machine": {"required": ["upgrade"], "optional": ["value"]},
 	"save": {"required": [], "optional": []},
 	"platform": {"required": ["speed"], "optional": ["pause"]},
@@ -20,7 +21,7 @@ const TYPES := {
 
 
 ## The kinds the player takes by touching them, and that a room can wait on.
-const COLLECTIBLE: Array[String] = ["pickup", "token"]
+const COLLECTIBLE: Array[String] = ["pickup", "token", "health"]
 
 
 static func is_known(type: String) -> bool:
@@ -44,6 +45,8 @@ static func flag_for(def: EntityDef) -> String:
 	match def.type:
 		"token":
 			return Token.flag_for(def)
+		"health":
+			return HealthPip.flag_for(def)
 		"save":
 			return SaveMachine.flag_for(def)
 	return Pickup.flag_for(def)
@@ -88,6 +91,8 @@ static func present(def: EntityDef, flags: Dictionary) -> bool:
 			return not flags.has(Pickup.flag_for(def))
 		"token":
 			return not flags.has(Token.flag_for(def))
+		"health":
+			return not flags.has(HealthPip.flag_for(def))
 	return true
 
 
@@ -98,6 +103,8 @@ static func create(def: EntityDef, fills := {}) -> Node2D:
 			return Pickup.new(def)
 		"token":
 			return Token.new(def)
+		"health":
+			return HealthPip.new(def)
 		"machine":
 			return TokenMachine.new(def, int(fills.get(def.id, 0)))
 		"save":

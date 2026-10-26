@@ -14,7 +14,7 @@ Implementation steps for the palette pass live in `docs/plans/soft-duotone-palet
 | Exit rules: a room's doors blocked until a condition is met | Built |
 | Tokens, carried and shown on the player, and the 3TM | Built |
 | Save rooms, the save machine, `exits: saved`, and the health count that death uses | Built |
-| Health pips: the pickup, how they show, refilling | Designed, not built |
+| Health pips: the pickup (one in room 7) | Built; how they show, a cap and refilling are not decided |
 | Imprint width, duration and multiple active platforms | Built; available in dev tools, not awarded by current rooms |
 | Imprint lockout (no replacing), 1.5 s duration, and a cooldown that is off by default | Built; the cooldown is tried through dev tools, no room awards it |
 | Shrinking Imprint, default width 2 (3 from room 9's 3TM) and the Classic dev switch | Built; not yet played by a person |
@@ -141,7 +141,7 @@ Solids are drawn in one chunk per screen, clipped to that screen, so a room seve
 
 ### Health and save rooms
 
-**Health** is a count of pips. The player starts with none. A pip is a pickup, and none exists yet: the pickup, how many a player can hold, how they show, and whether a save room refills them are not decided (see Not decided). What is built is the count and what dying does with it:
+**Health** is a count of pips. The player starts with none. A pip is found as a **health pip** (kind `health`, no settings besides its `id`): a small plus sign that bobs. Touching it adds one pip, sets the flag `health:<id>`, shows "Health pip" with the new count, and saves; it is gone from then on, even once the pip is spent. There is no cap and nothing refills a pip. How many a player can hold, how pips show (nothing shows them yet, beyond that line), and whether a save room refills them are not decided (see Not decided). Dying uses the count:
 
 - With one or more pips, dying spends one and puts the player on the last safe floor, as above.
 - With none, dying sends them to their **save room**: onto that room's machine, a plain placement with the old safe floors forgotten, because they may be in rooms the player will not reach again. Nothing is undone. Pickups, tokens and 3TM fills taken since stay taken, and only the player's place changes.
@@ -188,7 +188,7 @@ legend:
 
 The glyph must be a letter or digit that `Tiles` does not use. Every legend problem is a load error with the room and the line: an unknown kind, a missing or misspelled setting, an upgrade or value that does not exist, a glyph drawn zero or two times, a glyph in the outer wall, a legend with no `---`. `id` is required on every thing. It is written in the file, never derived from position, so a room can be redrawn without losing what the save remembers. Ids are unique across the world.
 
-The kinds are listed in `src/world/entities.gd`, with the settings each needs. There are five: `pickup`, `token`, `machine`, `save` and `platform`. Adding a kind is a line there, a script in `src/world/entities/`, and a case in `Entities.create` (a platform is built by the room from its path instead). `Room.build` makes the things in a room and leaves out any that the player has already taken.
+The kinds are listed in `src/world/entities.gd`, with the settings each needs. There are six: `pickup`, `token`, `health`, `machine`, `save` and `platform`. Adding a kind is a line there, a script in `src/world/entities/`, and a case in `Entities.create` (a platform is built by the room from its path instead). `Room.build` makes the things in a room and leaves out any that the player has already taken.
 
 A **pickup** is a small diamond. Touching it gives its upgrade, shows one line at the top of the screen, and saves. It is gone from then on. What it gives is looked up in `data/upgrades.json`: each upgrade is a name, the ability it changes (`stat`), and a `kind`. A `max` upgrade raises a number and never lowers it, so finding a smaller one late does nothing. An `add` upgrade gains a named effect, once.
 
@@ -559,6 +559,7 @@ A door's **trigger** (`Door.trigger_rect`) is its opening plus 4 px of the room 
 `Entities.TYPES` lists each kind's required and optional legend keys; `Entities.problems` turns a bad legend line into sentences. `Room.build` skips anything `Entities.present(def, flags)` says is already taken and builds the rest with `Entities.create`. The player touches things by box overlap each tick (`Room.touched_things`), and `World._collect` decides what that means:
 
 - a **pickup** calls `GameState.collect` (set `pickup:<id>`, apply the upgrade), toasts the message, and the thing leaves;
+- a **health pip** calls `GameState.take_health` (set `health:<id>`, add one to `health`), toasts the count, and the thing leaves;
 - a **token** is taken if the pocket has room (`GameState.TOKEN_CAP` = 3), sets `token:<id>`, and leaves; with a full pocket it stays and says so once per visit (`noted`, cleared when the player steps off it);
 - a **3TM** runs `World._feed`, a coroutine: the world goes busy; for each carried token (until the machine is full) a `FlyingToken` arcs from the body to the next slot over `FEED_TIME` (0.45 s), the slot fills and `GameState.machines[id]` is updated, then a pause of `FEED_PAUSE` (0.2 s); when the third slot fills the machine dispenses (about 0.8 s of shaking and flashing), a spark flies to the player over `SPARK_TIME` (0.3 s), and `GameState.grant` applies the upgrade; then control returns and the game autosaves. A machine is spent when `filled >= TokenMachine.COST`.
 
@@ -695,7 +696,7 @@ What was decided, in the order it came up, with the reason. Pull requests are na
 - **The body is the inventory.** Tokens and the Imprint line are cut into the player's square, so no HUD is needed. So is the facing: a 2 x 2 block in the top right when facing right, the top left when facing left, one row down from the edge.
 
 **Save rooms and health (PR #26)**
-- **Dying with no health goes to the save room.** Health is a count of pips, none at the start. With a pip, a death spends it and keeps the old safe-floor respawn. A pip is a pickup that is designed and not built, so today every death goes to the save room.
+- **Dying with no health goes to the save room.** Health is a count of pips, none at the start. With a pip, a death spends it and keeps the old safe-floor respawn. (The pip pickup came later, in room 7; see Health pips below.)
 - **A save room is named `s<n>`, and has exactly one save machine.** The id says what the room is, so a numbered room can never be one and a save room cannot be without its machine.
 - **Entering a save room makes it the save room.** Before the first, a death goes to the start room's `P`. Only the latest counts.
 - **A reload resumes at the save, and nothing is undone.** The file keeps every pickup, token and 3TM fill, and only the place is the save. The user chose this over rolling the world back to the moment of saving.
@@ -753,6 +754,9 @@ What was decided, in the order it came up, with the reason. Pull requests are na
 **Imprint from a moving platform (rooms 7–11)**
 - **The solver puts an Imprint down from a moving platform.** The rooms drawn for 7 to 10 place one while riding; before this the solver reported them out of reach. A rider's jumps are tried at the moments `ReachGraph.phases` picks, with the platforms moving, and checked with them moving. Legs stay static: every drawn route ends on a fixed ledge.
 - **It keeps the Imprint rule.** Waiting for a platform to break, and for the cooldown, is as possible on a moving platform as on a ledge, because a rider is never scraped, crushed or carried through a door.
+
+**Health pips (rooms 7–11)**
+- **A pip adds one to the health count, and a death spends it.** The user's choice for room 7's pip: no cap, no refill, and nothing shows the count yet besides the line when one is taken. A pip is its own legend kind, `health`, because it changes no ability; it counts for `exits: pickups` like a token, and the solver must reach it like any pickup. Dev tools already set and clear health; a retry puts a taken pip back with the room's flags.
 
 **Dev tools (2026-10-24)**
 - **Testing is isolated.** The user chose returning to their normal save over permanently granting cheats. F4 now shares that protection.
@@ -829,6 +833,6 @@ Do not: copy a movement formula; reference an autoload from a pure class; derive
 - Whether a save from before a change to a starting number (Imprint's duration went from 4 to 2.5 s, and then to 1.5 s) should be brought up to date. Today it keeps the old number, because the save stores the abilities.
 - Whether the Imprint cooldown should stay at 0, and if not what value (0.2 s is the one to try in dev tools). To be decided after playtesting.
 - A way to start over from inside the game. `--new-game` does it from the command line and the web address.
-- How a health pip is found, how it shows on the body or the screen, how many a player can hold, and whether a save room refills them.
+- How health pips show on the body or the screen, how many a player can hold, and whether a save room refills them.
 - Whether a death with health should cost anything besides the pip.
 - Whether leaving a moving platform should keep its speed (`inherit_platform_velocity`, off now; tried on and turned off again), and room 7's platform's speed (75 px/s), pause and height (row 67, four cells up). All are to be tried in playtesting.

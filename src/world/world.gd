@@ -203,6 +203,9 @@ func _collect(thing: Node2D) -> void:
 				toast.show_text("You can carry %d tokens" % GameState.TOKEN_CAP)
 			return
 		thing.collect()
+	elif thing is HealthPip:
+		toast.show_text(GameState.take_health(thing.def))
+		thing.collect()
 	else:
 		toast.show_text(GameState.collect(thing.def))
 		thing.collect()
