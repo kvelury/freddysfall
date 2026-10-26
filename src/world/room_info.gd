@@ -99,6 +99,22 @@ func is_no_imprint(x: int, y: int) -> bool:
 	return Tiles.has_flag(row[x], "no_imprint")
 
 
+## Which way the teeth of the spikes at `cell` point: away from the solid
+## they sit against. A floor under them wins, then a wall to the right, a wall
+## to the left, and a ceiling; spikes in open air point up. Only the drawing
+## turns; the whole cell is still deadly.
+func spike_facing(cell: Vector2i) -> Vector2i:
+	if is_solid(cell.x, cell.y + 1):
+		return Vector2i.UP
+	if is_solid(cell.x + 1, cell.y):
+		return Vector2i.LEFT
+	if is_solid(cell.x - 1, cell.y):
+		return Vector2i.RIGHT
+	if is_solid(cell.x, cell.y - 1):
+		return Vector2i.DOWN
+	return Vector2i.UP
+
+
 func is_hazard(x: int, y: int) -> bool:
 	if y < 0 or y >= rows.size():
 		return false

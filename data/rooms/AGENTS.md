@@ -15,7 +15,7 @@ A screen is **32 columns by 18 rows**, one cell being 10 px. A room is a whole n
 | `X` | A door: an opening in the room's outer wall. |
 | `P` | Where the player starts. Required in the start room. In any other room it is where `--room=<id>` puts the player. |
 | `~` | A cell that refuses an Imprint. Open air otherwise, and not drawn. |
-| `^` | Spikes. Not solid. The player dies on touching one. With health they come back on the last safe floor, and with none at their save room. |
+| `^` | Spikes. Not solid. Drawn pointing away from the solid beside them (a floor first), so a column of `^` against a wall reads as wall spikes. The player dies on touching one. With health they come back on the last safe floor, and with none at their save room. |
 | `-` | A moving platform's track, side to side. Open air. See the legend below. |
 | `\|` | A moving platform's track, up and down. Open air. |
 
