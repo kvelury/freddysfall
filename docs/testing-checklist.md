@@ -10,7 +10,7 @@ Played in the browser and found good, so these are not listed line by line any m
 
 ## Fall presentation
 
-The user confirmed the merged room 7 layout works on 2026-10-25 and reported choppy falling. The presentation fixes below still need their browser comparison.
+The user confirmed the merged room 7 layout and the subsequent falling-performance fixes work in their browser playtest on 2026-10-25. The broader comparisons and edge cases below have not been individually confirmed.
 
 - [ ] **The long fall with Imprint on and off.** Start `?dev=1&room=6`, enable Imprint to cross the wall, and release movement in the drop. The body stays steady while the room scrolls; moving the mouse does not hitch the fall. Compare on a high-refresh display if available.
 - [ ] **Pause, retry and room changes.** Open/close F2 or the map during the fall, retry, die and respawn, and cross into s2. No camera sweep from an old position or drift during pause.
@@ -36,7 +36,7 @@ Nobody has played these yet. Headless tests prove the order, the timing and the 
 - [ ] **The dotted border.** A placed platform is a white block with a black dotted inner border, and it looks different from the white dotted cursor outline.
 - [ ] **Per-block shards.** A shatter at every block going is not too busy.
 - [ ] **The order follows where you stood.** Click from the left of a platform: it shrinks toward the left. From the right: toward the right. Standing right under its middle, the block you face lasts. Moving after the click changes nothing.
-- [ ] **The facing block and the token lines.** A 2 x 2 block in the top right when you last went right, the top left when you last went left, and tokens as 2 x 1 lines in a centred triangle (top, left, right); all read at 1x and none clash. Check with 0 to 3 tokens and with Imprint found (the line). A respawn or warp faces right.
+- [ ] **The facing block and the token lines.** A 2 x 2 block in the top right when you last went right, the top left when you last went left, and tokens as 2 x 1 lines stacked bottom to top opposite facing, one pixel inside the edge and one clear row apart; all read at 1x and none clash. Check with 0 to 3 tokens and with Imprint found (the line). A respawn or warp faces right. Use F2 to set 0–3 tokens and remove them; turn both ways, retry, and round-trip the count through a named loadout.
 - [ ] **Landing on a block that goes early feels fair.** The solver only counts the last block; in play the others help. Landing on one that is about to go should not feel like a trap.
 - [ ] **Classic switches cleanly both ways.** In F2, Player tab: Classic on gives full-width platforms with dashes, off gives shrinking, and toggling clears the platforms. The indicator says "classic imprint". End playtest turns it off.
 - [ ] **Widths 1, 2 and 5 in F2.** Width 1 never shrinks; widths 2 and 5 keep the block nearest where you clicked from. The total time stays 1.5 s.

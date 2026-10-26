@@ -132,21 +132,33 @@ func _marks() -> bool:
 	ok = _check(inside, "and all of them are inside the 10 x 10 body") and ok
 	ok = _check(line.all(func(p: Vector2i) -> bool: return p.y == 8), "the line runs along the one row") and ok
 	ok = _check(InventoryMarks.pixels(7, false).size() == 6, "more than three tokens draws no more than three") and ok
-	# Centred: the dots mirror each other about the body's middle, between columns 4 and 5.
-	var one := InventoryMarks.pixels(1, false)
-	var mirrored := one.map(func(p: Vector2i) -> Vector2i: return Vector2i(9 - p.x, p.y))
-	var sideways := InventoryMarks.pixels(3, false).filter(func(p: Vector2i) -> bool: return p.y >= 6)
-	var side_mirror := sideways.map(func(p: Vector2i) -> Vector2i: return Vector2i(9 - p.x, p.y))
-	ok = _check(one.all(func(p: Vector2i) -> bool: return mirrored.has(p)), "the first token sits exactly on the middle of the body") and ok
-	ok = _check(sideways.size() == 4 and sideways.all(func(p: Vector2i) -> bool: return side_mirror.has(p)), "and the second and third mirror each other about it") and ok
-	# The rows: the top token on row 4, the other two on row 6, one row above the Imprint line's gap.
-	ok = _check(one.all(func(p: Vector2i) -> bool: return p.y == 4) and sideways.all(func(p: Vector2i) -> bool: return p.y == 6), "the top token's line is on row 4 and the other two on row 6") and ok
+	# Exact approved stack: one pixel inside the rear edge, bottom first,
+	# with one clear row between marks. Test every count with and without Imprint.
+	var slots := [Vector2i(1, 6), Vector2i(1, 4), Vector2i(1, 2)]
+	for face in [0, 1, -1]:
+		for tokens in 4:
+			for imprint in [false, true]:
+				var expected: Array[Vector2i] = []
+				for i in tokens:
+					for dx in 2:
+						var p: Vector2i = slots[i] + Vector2i(dx, 0)
+						expected.append(Vector2i(9 - p.x, p.y) if face < 0 else p)
+				if imprint:
+					for x in range(1, 9):
+						expected.append(Vector2i(x, 8))
+				if face != 0:
+					expected.append_array(InventoryMarks.FACE_RIGHT if face > 0 else InventoryMarks.FACE_LEFT)
+				var actual := InventoryMarks.pixels(tokens, imprint, face)
+				ok = _check(actual.size() == expected.size() and expected.all(func(p: Vector2i) -> bool: return actual.count(p) == 1), "rear stack fills bottom to top with padding: face %d, tokens %d, Imprint %s" % [face, tokens, imprint]) and ok
 	# The facing block: 2 x 2, one row down in the top right when facing right, the top left when facing left.
 	var right := InventoryMarks.pixels(3, true, 1)
 	var left := InventoryMarks.pixels(3, true, -1)
 	var clear := true
 	for p in InventoryMarks.FACE_RIGHT + InventoryMarks.FACE_LEFT:
-		clear = clear and not crowded.has(p) and p.x >= 0 and p.y >= 0 and p.x < 10 and p.y < 10
+		clear = clear and p.x >= 0 and p.y >= 0 and p.x < 10 and p.y < 10
+	for marks in [right, left]:
+		for p in marks:
+			clear = clear and marks.count(p) == 1
 	ok = _check(clear and right.size() == 18 and left.size() == 18, "the facing block adds four pixels inside the body, on none of the other marks") and ok
 	ok = _check(InventoryMarks.FACE_RIGHT.all(func(p: Vector2i) -> bool: return p.x >= 8 and p.y in [1, 2]) and InventoryMarks.FACE_RIGHT.size() == 4, "facing right it is the 2 x 2 block in the top right") and ok
 	ok = _check(InventoryMarks.FACE_LEFT.all(func(p: Vector2i) -> bool: return p.x <= 1 and p.y in [1, 2]) and InventoryMarks.FACE_LEFT.size() == 4, "facing left it is the 2 x 2 block in the top left") and ok
