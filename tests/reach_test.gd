@@ -59,6 +59,14 @@ func _room_shapes(data) -> bool:
 			chunks += 1
 	ok = _check(chunks == 4, "room 7, one screen by four, builds one chunk per screen (%d)" % chunks) and ok
 	room.free()
+	var six: RoomInfo = data.get_room("6")
+	ok = _check(six.exit_on("down").rect == Rect2i(5, 17, 8, 1) and wide.exit_on("up").rect == Rect2i(5, 0, 8, 1), "shifted floor and ceiling doors align at columns 5–12") and ok
+	ok = _check(_has_rect(six, Rect2i(9, 11, 5, 1)) and _has_rect(six, Rect2i(13, 12, 1, 5)), "the entire 7-shaped obstacle moved three cells right") and ok
+	ok = _check(wide.start_position() == Vector2(75, 705) and wide.exit_on("left").dest_id == "s2" and wide.exit_on("right") == null and not data.rooms.has("8"), "room 7 starts on its landing, keeps s2, and replaces room 8") and ok
+	ok = _check(wide.platforms.size() == 1 and wide.platforms[0].id == "r8_lift" and wide.platforms[0].start_cells == Rect2i(15, 67, 5, 1) and wide.platforms[0].cells == 11, "the stable platform moves above the spike floor in room 7") and ok
+	var path := wide.platforms[0]
+	ok = _check(is_equal_approx(path.speed, 75.0) and path.travel_ticks == 88 and path.pause_ticks == 12, "platform keeps 75 px/s and 0.2-second pauses on its shorter track") and ok
+	ok = _check(wide.hazards.size() == 16 and wide.hazards.all(func(cell: Vector2i) -> bool: return cell.y == 70 and cell.x >= 15 and cell.x <= 30), "spikes leave the landing clear") and ok
 	return ok
 
 
@@ -72,7 +80,7 @@ func _links(data) -> bool:
 	var tall: RoomInfo = data.get_room("7")
 	ok = _check(c.screens == Vector2i(1, 1) and tall.screens == Vector2i(1, 4), "room 3 is one screen and room 7 is one by four") and ok
 	ok = _check(tall.bounds_cells == Rect2i(0, 0, 32, 72), "room 7 bounds cover the whole room") and ok
-	ok = _check(data.id_at(Vector2i(0, 2)) == "7" and data.id_at(Vector2i(0, 5)) == "7" and data.id_at(Vector2i(1, 5)) == "8" and data.id_at(Vector2i(1, 4)) == "" and data.id_at(Vector2i(3, 0)) == "", "room 7 occupies its four stacked screens, room 8 sits right of its bottom one, and the screen above 8 is empty") and ok
+	ok = _check(data.id_at(Vector2i(0, 2)) == "7" and data.id_at(Vector2i(0, 5)) == "7" and data.id_at(Vector2i(1, 5)) == "" and data.id_at(Vector2i(1, 4)) == "" and data.id_at(Vector2i(3, 0)) == "", "room 7 occupies its four stacked screens and the former room 8 screen is empty") and ok
 	var side := b.exit_on("right")
 	var side_rect := side.rect
 	ok = _check(b.exit_on("down").dest_id == "5", "room 2 floor exit leads down to 5") and ok

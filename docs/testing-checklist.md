@@ -47,14 +47,14 @@ Nobody has played these yet. Use `tools/build_web.sh`, `tools/serve.sh` and `?ne
 
 ## Moving platforms
 
-Nobody has played these yet. `?room=8` starts in room 8 (with no Imprint and no tokens, which room 8 does not need).
+Nobody has played these yet. `?room=7` starts on room 7’s safe landing beside the platform (with no Imprint and no tokens; neither is needed here).
 
-- [ ] **Getting on.** From the clear floor inside the door, jump onto the platform while it waits at the left. The platform's top is four cells above the floor, a full jump. Check the 0.2 s wait reads as a wait, and whether the jump is too easy or too hard (row 12, one cell higher, is as high as a full jump reaches).
-- [ ] **Riding.** Stand still and ride it out to the wall and back. At 75 px/s each way takes about 2.7 s. Check it looks smooth (it moves on physics time, with interpolation), and that the player sits still on it and does not jitter or slide.
+- [ ] **Getting on.** From the clear floor inside the door, jump onto the platform while it waits at the left. The platform's top is four cells above the floor, a full jump. Check the 0.2 s wait reads as a wait, and whether the jump is too easy or too hard (row 66, one cell higher, is as high as a full jump reaches).
+- [ ] **Riding.** Stand still and ride it out to the wall and back. At 75 px/s each way takes about 1.47 s. Check it looks smooth (it moves on physics time, with interpolation), and that the player sits still on it and does not jitter or slide.
 - [ ] **Walking on it** while it moves, both ways.
 - [ ] **Jumping off it while it moves.** `inherit_platform_velocity` is off, so a jump or a step off the end keeps only your own speed: a jump straight up goes straight up and the platform goes on without you. Is it easy to land back on it, and to hop between the strip and the platform? Set it to true in `src/player/movement.tres` to compare (it was tried on and turned off).
-- [ ] **Getting off.** Step off its left end onto the clear floor as it gets back. With a 0.2 s wait this needs you to be at its left end when it arrives. Too tight? Try a longer `pause=` in `data/rooms/8.txt`.
-- [ ] **Its speed.** Try other `speed=` values in `data/rooms/8.txt` (it is 75 px/s now; the user first asked for a 1.5 s trip, 133 px/s).
+- [ ] **Getting off.** Step off its left end onto the clear floor as it gets back. With a 0.2 s wait this needs you to be at its left end when it arrives. Too tight? Try a longer `pause=` in `data/rooms/7.txt`.
+- [ ] **Its speed.** Try other `speed=` values in `data/rooms/7.txt` (it is 75 px/s now; the user first asked for a 1.5 s trip, 133 px/s).
 - [ ] **Dying.** Fall off into the spikes: with no health you go back to your save room (s2 if you saved there). Coming back, the platform has started over, waiting at the left.
 
 ## Respawn
@@ -72,7 +72,7 @@ The safe-floor respawns below happen when the player has health. Use `?dev=1`, g
 Automated catalog/session/UI tests pass only after the full check gate. A native
 panel render is a layout check, not a completed human browser playthrough.
 
-- [ ] **Activation.** `?dev=1&room=8` in the release browser build and `--dev --room=8` natively; F2 and DEV open/close, Escape cancels, F4 finds ordinary and save rooms. Without `dev=1`, release tools stay unavailable.
+- [ ] **Activation.** `?dev=1&room=7` in the release browser build and `--dev --room=7` natively; F2 and DEV open/close, Escape cancels, F4 finds ordinary and save rooms. Without `dev=1`, release tools stay unavailable.
 - [ ] **Save isolation.** Start with a known normal save, cheat, collect, feed a 3TM, use a save machine, warp, die and retry. End playtest/reload normally: the original save remains. Test `dev=1&new-game=1` without losing it.
 - [ ] **Powers.** Tokens add/fill/empty; health grants; Imprint on/off, width, duration and active count up/down. Invalid fields do not partly apply. Bounce is explicitly unavailable.
 - [ ] **Input and pause.** Edit while a platform moves or an Imprint ages: both stop. Close while holding movement/jump or clicking: no unintended input. Map and panel do not unpause each other. F2 during a save/3TM/door animation waits, and a second F2 cancels.
@@ -98,12 +98,12 @@ panel render is a layout check, not a completed human browser playthrough.
 - [ ] **A room that the validator calls shut but that a person can open.** The search leaves out placing a platform in mid-air and using two in a row. If you find a way across with either, we know which one to add. Room 5's pit is the best place to try: it might be crossable from the floor with two platforms in a row.
 - [ ] **A room that the validator opens but a person cannot.** The search ignores the limit of three tokens, and does not treat a blocked doorway as a wall for a body falling through a chain of doors.
 - [ ] **A `~` cell in a real room.** None of the rooms use one. Try it on the pit in room 5 or the wall in room 6 to see the solver shut the room again and the cross appear in the game.
-- [ ] **Validator time.** On 2026-10-22, `tools/validate.sh --no-cache` took 13.5 seconds for 7 rooms and a warm cached run took 1.5 seconds. With 9 rooms and room 8's moving platform it takes about 32 seconds cold and 8 warm (main was already at 28 and 8 before the platform). It keeps what it works out about each room in `build/solver-cache/`. Check the numbers again as the world grows. Edit one room and run it again: only that room should be redone (the `cache:` line says how many). If an answer ever looks stale, `tools/validate.sh --no-cache` or deleting `build/solver-cache` gives the answer from scratch.
+- [ ] **Validator time.** On 2026-10-22, `tools/validate.sh --no-cache` took 13.5 seconds for 7 rooms and a warm cached run took 1.5 seconds. Before the room merge, with 9 rooms and room 8's moving platform it took about 32 seconds cold and 8 warm (main was already at 28 and 8 before the platform). It keeps what it works out about each room in `build/solver-cache/`. Check the numbers again as the world grows. Edit one room and run it again: only that room should be redone (the `cache:` line says how many). If an answer ever looks stale, `tools/validate.sh --no-cache` or deleting `build/solver-cache` gives the answer from scratch.
 
 ## Movement and doors
 
 - [ ] **Room 2 to room 3.** Cross both ways at different speeds. The floors and two-cell openings line up with no drop, and room 3's entrance still cannot skip the staircase to its token.
-- [ ] **Room 7's shaft.** It is one screen wide and four tall. Falling in from room 6 lands on the floor, and the map shows one column under room 6.
+- [ ] **Room 7's shaft.** It is one screen wide and four tall. The opening and 7-shaped obstacle in room 6 are three cells farther right. Release movement during the fall: land on the clear left floor, then walk left into s2. Check the right-hand spikes and moving platform are in this same room, and the map has no separate room 8. Try `?dev=1&room=6` with Imprint enabled, then retry the fall.
 - [ ] **The up-boost** of 180 px/s at ceiling doors: helps, or feels like a jump pad. The validator would still pass with a much weaker boost, because it only checks that some entry through the door lands.
 - [ ] **Doors that are not level,** and a door with a wall right behind it.
 - [ ] **Every way into a door,** not only the one the validator tried: slow, fast, from above, from the side.

@@ -155,6 +155,10 @@ func _file() -> bool:
 	where = save.load_game()
 	ok = _check(where.is_empty() and state.abilities.imprint_width == 5 and state.has_flag("pickup:x"), "a save for a room that is gone still gives the abilities, but no place") and ok
 
+	_write('{"version": 3, "room": "s2", "position": [165, 165], "save_room": "s2", "health": 2, "abilities": {"imprint_unlocked": true}, "visited": ["7", "8", "s2"]}')
+	where = save.load_game()
+	ok = _check(where.get("room") == "s2" and state.save_room == "s2" and state.health == 2 and state.abilities.imprint_unlocked and state.visited.has("8"), "a pre-merge save with room 8 visited still resumes at s2 with progression") and ok
+
 	_write("this is not json")
 	ok = _check(save.load_game().is_empty() and FileAccess.file_exists(TEMP + ".bad") and not FileAccess.file_exists(TEMP), "a damaged file is set aside as .bad and the game starts fresh") and ok
 

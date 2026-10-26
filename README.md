@@ -23,8 +23,8 @@ Open the project in the editor and press Play. The main scene is `res://src/worl
 
 ## Dev playtesting
 
-Open `http://localhost:8060/?dev=1&room=8` after building and serving, or run
-`godot --path . -- --dev --room=8`. A direct launch starts fresh progression.
+Open `http://localhost:8060/?dev=1&room=7` after building and serving, or run
+`godot --path . -- --dev --room=7`. A direct launch starts fresh progression. Room 7 starts on its safe landing beside the moving platform; start in room 6 to test the long fall (enable Imprint in F2 to cross its wall).
 Editor/debug runs always offer F2 and a clickable DEV button; exports require
 `?dev=1` or `--dev`. These switches are an opt-in, not access control.
 
@@ -102,7 +102,7 @@ After adding a script with a `class_name`, run `godot --headless --path . --impo
 | `tests/physics_test.gd` | The player scene through room s1, jump by jump (past its save machine, which holds the door shut), and out its door. Prints `PHYSICS pass`. |
 | `tests/parity_test.gd` | Replays input plans through the player and through the solver's simulator. They must end within 0.01 px. Prints `PARITY pass`. |
 | `tests/door_test.gd` | The player walks level through the aligned door from room 2 onto room 3's entrance ledge, and goes back. Prints `DOOR pass`. |
-| `tests/shaft_test.gd` | The player drops down the hole in room 3 into room 4 and climbs back up, keeping speed through the doors. Prints `SHAFT pass`. |
+| `tests/shaft_test.gd` | The player drops down the hole in room 3 into room 4 and climbs back up, keeping speed through the doors, then tests the shifted room 6–7 fall at three entry positions and three speeds, landing safely and walking into s2. Prints `SHAFT pass`. |
 | `tests/hazard_test.gd` | In room 5, spikes and falling out of a room shatter the player and, with health, put them back on safe floor (it gives the player health, since with none a death goes to the save room). An Imprint over spikes that breaks under the player does not leave a respawn in the air, and a bad respawn spot is stepped back from. Prints `HAZARD pass`. |
 | `tests/start_test.gd` | Starting in a chosen room, an unknown room, `warp_to`, and the protected F4 room picker (including `s1`). Prints `START pass`. |
 | `tests/entity_test.gd` | The room header: the legend, the `exits:` rule and `trap:`, tokens, 3TMs, save machines and save rooms (ids included). A valid one loads, and each way of writing one wrong is an error with its line. Prints `ENTITY pass`. |
@@ -117,7 +117,7 @@ After adding a script with a `class_name`, run `godot --headless --path . --impo
 | `tests/dev_catalog_test.gd` | Dev-control coverage, validation, snapshot copies, and loadout persistence/failure handling. Prints `DEV CATALOG pass`. |
 | `tests/dev_session_test.gd` | Save isolation, exact editing, door collisions, cross-room retries and death, and ending a session. Prints `DEV SESSION pass`. |
 | `tests/dev_ui_test.gd` | Panel input/drafts, modal pause ownership, deferred opening, room selection, and a direction held through the panel not turning the player. Native runs also render panel screenshots to `build/dev-panel-*.png`. Prints `DEV UI pass`. |
-| `tests/platform_test.gd` | Moving platforms. The room format (a platform and its `-` or `\|` track, and each rule around it as an error), where a path puts it at each tick, pushing and crushing, the solver (a ledge only a ride reaches, a platform out of reach, no Imprint on a track), and room 8 in play: a rider carried exactly through a whole trip, walking on it, leaving it with only their own speed (switch off, as shipped) and with the platform's added (switch on), the real player and `simulate_jump` ending in the same place, and a death while riding coming back on real floor. Prints `PLATFORM pass`. |
+| `tests/platform_test.gd` | Moving platforms. The room format (a platform and its `-` or `\|` track, and each rule around it as an error), where a path puts it at each tick, pushing and crushing, the solver (a ledge only a ride reaches, a platform out of reach, no Imprint on a track), and room 7 in play: a rider carried exactly through a whole trip, walking on it, leaving it with only their own speed (switch off, as shipped) and with the platform's added (switch on), the real player and `simulate_jump` ending in the same place, and a death while riding coming back on real floor. Prints `PLATFORM pass`. |
 | `tests/imprint_solver_test.gd` | The solver with Imprint, on strings: a pit too wide to jump is shut without Imprint and open with it, a platform that breaks too soon is no use, `~` cells forbid it, a room reports the pickup it needs, a room that holds its doors shut waits for its token, three tokens and a 3TM give Imprint, a `trap: allowed` room is a warning and not an error, a fall four screens tall lands, room 6's wall needs Imprint, only the block nearest the jump's start counts as footing (either on a tie), and a jump carried onto it by another block is dropped. Prints `IMPRINTSOLVER pass`. |
 | `tests/validate.gd` | Loads the whole world, then solves it: every room and door reachable from the start, nowhere to get stuck. Lists every problem and exits 1 if there is one, and says where the time went. Keeps what it works out about each room in `build/solver-cache/` (`--no-cache` skips it). Run through `tools/validate.sh`. |
 | `tests/render.gd` | Draws each room and the world map as PNGs in `build/renders/`, marking unreachable ledges, traps, one-way ledges, sealed doors, blocked doors, 3TMs, and moving platforms with their tracks. Run through `tools/render.sh`. |

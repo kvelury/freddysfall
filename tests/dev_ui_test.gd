@@ -16,7 +16,7 @@ func _initialize() -> void:
 
 func _run() -> void:
 	var world: Node = load("res://src/world/world.tscn").instantiate()
-	world.start_override = "8"
+	world.start_override = "7"
 	root.add_child(world)
 	await process_frame
 	var panel: Node = world.get_node("DevPanel")
@@ -33,7 +33,7 @@ func _run() -> void:
 	_check(imprint_switch.text == "Off", "disabling Imprint updates the label to Off")
 	_check(panel._rooms.item_count == root.get_node("WorldData").rooms.size(), "room picker initially lists every implemented room")
 	var selected: PackedInt32Array = panel._rooms.get_selected_items()
-	_check(selected.size() == 1 and panel._rooms.get_item_text(selected[0]) == "8", "current room is selected without filtering out other rooms")
+	_check(selected.size() == 1 and panel._rooms.get_item_text(selected[0]) == "7", "current room is selected without filtering out other rooms")
 	var save_index := -1
 	for index in panel._rooms.item_count:
 		if panel._rooms.get_item_text(index) == "s1":
@@ -165,7 +165,7 @@ func _run() -> void:
 	_check(panel.opened and panel._tabs.current_tab == 1, "F4 focuses room selection")
 	panel._room.text = "999"
 	panel._start(false)
-	_check(world.current.info.id == "8" and panel._status.text.contains("No such room"), "invalid room selection leaves test unchanged")
+	_check(world.current.info.id == "7" and panel._status.text.contains("No such room"), "invalid room selection leaves test unchanged")
 	panel._room.text = "s1"
 	panel._start(false)
 	await process_frame
