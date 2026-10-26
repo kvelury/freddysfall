@@ -96,7 +96,7 @@ The safe-floor respawns below happen when the player has health. Use `?dev=1`, g
 Automated catalog/session/UI tests pass only after the full check gate. A native
 panel render is a layout check, not a completed human browser playthrough.
 
-- [ ] **Activation.** `?dev=1&room=7` in the release browser build and `--dev --room=7` natively; F2 and DEV open/close, Escape cancels, F4 finds ordinary and save rooms. Without `dev=1`, release tools stay unavailable.
+- [ ] **Activation.** `?dev=1&room=7` in the release browser build and `--dev --room=7` natively; F2 and DEV open/close, Escape cancels, F4 opens the Map tab and finds ordinary and save rooms. Without `dev=1`, release tools stay unavailable.
 - [ ] **Save isolation.** Start with a known normal save, cheat, collect, feed a 3TM, use a save machine, warp, die and retry. End playtest/reload normally: the original save remains. Test `dev=1&new-game=1` without losing it.
 - [ ] **Powers.** Tokens add/fill/empty; health grants; Imprint on/off, width, duration and active count up/down. Invalid fields do not partly apply. Bounce is explicitly unavailable.
 - [ ] **Input and pause.** Edit while a platform moves or an Imprint ages: both stop. Close while holding movement/jump or clicking: no unintended input. Map and panel do not unpause each other. F2 during a save/3TM/door animation waits, and a second F2 cancels.
@@ -107,7 +107,8 @@ panel render is a layout check, not a completed human browser playthrough.
 
 ## Debug tools
 
-- [ ] **F4, a room number, Enter** in the protected room picker, in a real window. Digits, Escape, a room that does not exist.
+- [ ] **F4, a room number, Enter** on the Map tab, in a real window. Digits, Escape, a room that does not exist.
+- [ ] **The dev map.** F2, Map: all 12 rooms show with their ids, filling the screen, big enough to click, with the player's blink in the current room. Click a room: it is outlined and its id fills the box; double-click starts a test there (try s2 and the tall room 7). Typing an id highlights its room, and junk highlights none. The window is the whole screen on Map and shrinks back on Player and Loadouts. Bypass and retry-on-death still work from under the map. The Tab map in normal play still shows only visited rooms with no labels.
 - [ ] **A load-error overlay.** In a debug build, break a room file on purpose (a bad `exits:` line is a good one) and see the errors appear on screen. Never seen outside of tests.
 - [ ] **`godot --path . -- --room=3`** on the desktop build. A room started this way uses no save, so tokens and the 3TM start empty.
 

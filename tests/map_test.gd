@@ -27,6 +27,7 @@ func _run() -> void:
 	ok = await _new_game() and ok
 	ok = await _no_jump() and ok
 	ok = await _marker_in_room() and ok
+	ok = _shared_layer() and ok
 	print("MAP %s" % ("pass" if ok else "fail"))
 	quit(0 if ok else 1)
 
@@ -313,7 +314,7 @@ func _marker_in_room() -> bool:
 	var player: Player = world.get_node("Player")
 	var room: Room = world.current
 	var overlay: Node = world.get_node("MapOverlay")
-	var layer_class = overlay.get_script().get_script_constant_map()["MapLayer"]
+	var layer_class = load("res://src/ui/map_layer.gd")
 	var info: RoomInfo = room.info
 	var window := Rect2(Vector2.ZERO, VIEW)
 	var names := ["Out", "Middle", "In"]
@@ -362,6 +363,29 @@ func _keys(action: String) -> Array:
 		if event is InputEventKey:
 			out.append((event as InputEventKey).physical_keycode)
 	return out
+
+
+## The room layer the dev panel's map shares: it finds the room under a point,
+## and by default draws only what the player has visited, as the Tab map does.
+func _shared_layer() -> bool:
+	var ok := true
+	var layer_class = load("res://src/ui/map_layer.gd")
+	var state: Node = root.get_node("GameState")
+	var all: Array = root.get_node("WorldData").rooms.keys()
+	state.reset()
+	state.visited["s1"] = true
+	var layer = layer_class.new()
+	ok = _check(layer.room_ids() == ["s1"] and not layer.connect_all and not layer.labels and layer.selected_id == "", "by default it draws only visited rooms, with no labels, as the Tab map does") and ok
+	layer.rooms = func() -> Array: return all
+	ok = _check(layer.room_ids().size() == all.size(), "given a list of rooms it draws those") and ok
+	layer.free()
+	ok = _check(layer_class.room_at(all, Vector2(16, 9)) == "s1", "a point inside a room finds it") and ok
+	ok = _check(layer_class.room_at(all, Vector2(36, 9)) == "", "the gap between two rooms is no room") and ok
+	ok = _check(layer_class.room_at(all, Vector2(-100, -100)) == "", "and neither is a point outside them all") and ok
+	ok = _check(layer_class.room_at(all, Vector2(16, 52 + 80)) == "7", "the lower screens of a tall room find the room (room 7, 4 screens tall)") and ok
+	ok = _check(layer_class.room_at(["2"], Vector2(16, 9)) == "", "only the rooms given are looked through") and ok
+	state.reset()
+	return ok
 
 
 func _check(cond: bool, label: String) -> bool:

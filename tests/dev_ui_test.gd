@@ -31,29 +31,37 @@ func _run() -> void:
 	_check(imprint_switch.text == "On", "enabling Imprint updates the label to On")
 	imprint_switch.button_pressed = false
 	_check(imprint_switch.text == "Off", "disabling Imprint updates the label to Off")
-	_check(panel._rooms.item_count == root.get_node("WorldData").rooms.size(), "room picker initially lists every implemented room")
-	var selected: PackedInt32Array = panel._rooms.get_selected_items()
-	_check(selected.size() == 1 and panel._rooms.get_item_text(selected[0]) == "7", "current room is selected without filtering out other rooms")
-	var save_index := -1
-	for index in panel._rooms.item_count:
-		if panel._rooms.get_item_text(index) == "s1":
-			save_index = index
-	if save_index >= 0:
-		panel._rooms.item_selected.emit(save_index)
-	_check(panel._room.text == "s1" and panel._rooms.item_count == root.get_node("WorldData").rooms.size(), "selecting a listed room chooses it without hiding the list")
-	panel._filter_rooms("s")
-	var save_rooms: Array = root.get_node("WorldData").rooms.keys().filter(func(id: String) -> bool: return id.contains("s"))
-	_check(panel._rooms.item_count == save_rooms.size(), "typing still filters save rooms")
-	panel._filter_rooms("")
+	var ids: Array = root.get_node("WorldData").rooms.keys()
+	var dev_map: Control = panel._map
+	_check(panel._tabs.get_tab_title(1) == "Map" and panel._tabs.get_tab_count() == 3 and dev_map != null, "the second tab is the Map, and there is no Rooms tab")
+	_check(panel._window.size == Vector2(312, 160), "the Player tab uses the small window (%s)" % panel._window.size)
+	_check(dev_map.selected() == "7", "the current room is selected when the panel opens (%s)" % dev_map.selected())
 	panel._tabs.current_tab = 1
-	for index in 100:
-		panel._rooms.add_item("test_room_%d" % index)
-	for frame in 4:
+	_check(panel._window.size == Vector2(320, 180) and panel._window.position == Vector2.ZERO, "the Map tab uses the whole screen (%s)" % panel._window.size)
+	for frame in 3:
 		await process_frame
-	var last_room: Rect2 = panel._rooms.get_item_rect(panel._rooms.item_count - 1)
-	_check(last_room.end.y <= panel._rooms.size.y and not panel._rooms.get_v_scroll_bar().visible, "long room list grows to fit every row without an inner scrollbar")
-	var page: ScrollContainer = panel._tabs.get_child(1)
-	_check(page.get_v_scroll_bar().visible, "Rooms uses its single outer scrollbar for the long page")
+	var drawn := 0
+	for id: String in ids:
+		var at: Vector2 = dev_map.room_center(id)
+		if Rect2(Vector2.ZERO, dev_map.size).has_point(at) and dev_map.room_at(at) == id:
+			drawn += 1
+	_check(dev_map._layer.room_ids().size() == ids.size(), "and it draws every room, not only the visited ones")
+	_check(drawn == ids.size() and ids.size() == 12, "the map shows and finds every room, visited or not (%d of %d)" % [drawn, ids.size()])
+	_check(dev_map.room_at(dev_map.room_center("8") + Vector2(0, 0)) == "8" and dev_map.room_at(Vector2(-5, -5)) == "", "a point in a room finds it, and a point outside finds none")
+	_click(dev_map, dev_map.room_center("9"))
+	_check(panel._room.text == "9" and dev_map.selected() == "9", "clicking a room picks it")
+	_click(dev_map, Vector2(dev_map.size.x - 1.0, 1.0))
+	_check(panel._room.text == "9" and dev_map.selected() == "9", "clicking empty space changes nothing")
+	panel._room.text_changed.emit("s1")
+	_check(dev_map.selected() == "s1", "typing an id selects its room")
+	panel._room.text_changed.emit("zzz")
+	_check(dev_map.selected() == "", "and typing something that is not a room selects none")
+	_check(world.current.info.id == "7", "none of that started a test")
+	for control in [panel._bypass, panel._retry]:
+		_check(panel._tabs.get_current_tab_control().is_ancestor_of(control), "the %s switch is on the Map tab" % control.text)
+	panel._tabs.current_tab = 0
+	_check(panel._window.size == Vector2(312, 160), "back on Player the window is small again")
+	panel._tabs.current_tab = 1
 	panel._tabs.current_tab = 2
 	for index in 100:
 		panel._names.add_item("test_loadout_%d" % index)
@@ -62,7 +70,6 @@ func _run() -> void:
 	var last_loadout: Rect2 = panel._names.get_item_rect(panel._names.item_count - 1)
 	_check(last_loadout.end.y <= panel._names.size.y and not panel._names.get_v_scroll_bar().visible, "long loadout list also has no inner scrollbar")
 	panel._refresh_names()
-	panel._filter_rooms("")
 	panel._tabs.current_tab = 0
 	var tick: int = world.current.tick
 	await create_timer(0.05).timeout
@@ -166,14 +173,13 @@ func _run() -> void:
 	panel._room.text = "999"
 	panel._start(false)
 	_check(world.current.info.id == "7" and panel._status.text.contains("No such room"), "invalid room selection leaves test unchanged")
-	panel._room.text = "s1"
-	panel._start(false)
+	_click(panel._map, panel._map.room_center("s1"), true)
 	await process_frame
 	await process_frame
 	world = _current_world()
 	panel = world.get_node("DevPanel")
 	world.player.scripted = true
-	_check(world.current.info.id == "s1" and not paused and state.tokens == 3, "room picker starts a save-room test and replenishes the loadout")
+	_check(world.current.info.id == "s1" and not paused and state.tokens == 3, "double-clicking a room on the map starts a test there and replenishes the loadout")
 	panel.open_panel()
 	await process_frame
 	await process_frame
@@ -188,6 +194,16 @@ func _run() -> void:
 	world.free()
 	print("DEV UI %s" % ("pass" if _ok else "fail"))
 	quit(0 if _ok else 1)
+
+
+## A left click, or a double-click, on the map at `at` (its own pixels).
+func _click(map: Control, at: Vector2, double := false) -> void:
+	var event := InputEventMouseButton.new()
+	event.button_index = MOUSE_BUTTON_LEFT
+	event.pressed = true
+	event.position = at
+	event.double_click = double
+	map._gui_input(event)
 
 
 func _current_world() -> Node:

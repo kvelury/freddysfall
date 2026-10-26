@@ -15,7 +15,7 @@ var _original := {}
 var _full_draft := false
 var _dirty := {}
 var _room: LineEdit
-var _rooms: ItemList
+var _map: DevMap
 var _bypass: CheckButton
 var _retry: CheckButton
 var _classic: CheckButton
@@ -23,6 +23,11 @@ var _names: ItemList
 var _name: LineEdit
 var _store := DevLoadouts.new()
 var _world: Node
+
+## The window is the whole 320 x 180 screen on the Map tab, and smaller on the rest.
+const MAP_TAB := 1
+const WINDOW_SMALL := Rect2(4, 16, 312, 160)
+const WINDOW_BIG := Rect2(0, 0, 320, 180)
 
 
 func _ready() -> void:
@@ -89,14 +94,15 @@ func open_panel(tab := 0) -> void:
 		_window.show()
 		_set_fields(DevCatalog.capture(GameState.to_dict()))
 		_room.text = _world.current.info.id
-		_filter_rooms("")
+		_map.select(_room.text)
 		_bypass.set_pressed_no_signal(DevSession.bypass)
 		_retry.set_pressed_no_signal(DevSession.retry_on_death)
 		_classic.set_pressed_no_signal(DevSession.classic_imprint)
 		_status.text = _store.error
 	_tabs.current_tab = tab
+	_fit_window()
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-	if tab == 1:
+	if tab == MAP_TAB:
 		_room.grab_focus()
 		_room.select_all()
 
@@ -131,8 +137,8 @@ func _build() -> void:
 	_indicator.add_theme_constant_override("outline_size", 2)
 	add_child(_indicator)
 	_window = PanelContainer.new()
-	_window.position = Vector2(4, 16)
-	_window.size = Vector2(312, 160)
+	_window.position = WINDOW_SMALL.position
+	_window.size = WINDOW_SMALL.size
 	_window.theme = _theme()
 	_window.hide()
 	add_child(_window)
@@ -145,9 +151,10 @@ func _build() -> void:
 	margin.add_child(layout)
 	_tabs = TabContainer.new()
 	_tabs.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_tabs.tab_changed.connect(func(_tab: int) -> void: _fit_window())
 	layout.add_child(_tabs)
 	_build_player(_page("Player"))
-	_build_rooms(_page("Rooms"))
+	_build_map(_page("Map", false))
 	_build_loadouts(_page("Loadouts"))
 	_status = Label.new()
 	_status.custom_minimum_size.y = 18
@@ -194,16 +201,30 @@ func _theme() -> Theme:
 	return out
 
 
-func _page(title: String) -> VBoxContainer:
+## A tab's page. Most scroll; the map's does not, so the map can fill it.
+func _page(title: String, scrolls := true) -> VBoxContainer:
+	var body := VBoxContainer.new()
+	body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	body.add_theme_constant_override("separation", 2)
+	if not scrolls:
+		body.name = title
+		_tabs.add_child(body)
+		return body
 	var scroll := ScrollContainer.new()
 	scroll.name = title
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	_tabs.add_child(scroll)
-	var body := VBoxContainer.new()
-	body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	body.add_theme_constant_override("separation", 2)
 	scroll.add_child(body)
 	return body
+
+
+## The big window on the Map tab, the small one on the others.
+func _fit_window() -> void:
+	var rect := WINDOW_BIG if _tabs.current_tab == MAP_TAB else WINDOW_SMALL
+	_window.position = rect.position
+	_window.size = rect.size
+	if _map != null:
+		_map.fit()
 
 
 func _build_player(body: VBoxContainer) -> void:
@@ -284,52 +305,46 @@ func _nudge(key: String, direction: int, control: Dictionary) -> void:
 	edit.text = str(int(value)) if control["type"] == "int" else str(value)
 
 
-func _build_rooms(body: VBoxContainer) -> void:
-	_room = LineEdit.new()
-	_room.placeholder_text = "Room ID (including s1), then Enter"
-	_room.text_changed.connect(_filter_rooms)
-	_room.text_submitted.connect(func(_text: String) -> void: _start(false))
-	body.add_child(_room)
-	_rooms = ItemList.new()
-	_rooms.auto_height = true
-	_rooms.custom_minimum_size.y = 36
-	_rooms.item_selected.connect(func(index: int) -> void: _room.text = _rooms.get_item_text(index))
-	_rooms.item_activated.connect(func(index: int) -> void:
-		_room.text = _rooms.get_item_text(index)
+func _build_map(body: VBoxContainer) -> void:
+	_map = DevMap.new()
+	_map.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_map.custom_minimum_size.y = 60
+	_map.picked.connect(func(id: String) -> void:
+		_room.text = id
+		_map.select(id)
+	)
+	_map.activated.connect(func(id: String) -> void:
+		_room.text = id
 		_start(false)
 	)
-	body.add_child(_rooms)
+	body.add_child(_map)
 	var row := HBoxContainer.new()
 	body.add_child(row)
+	_room = LineEdit.new()
+	_room.placeholder_text = "Room ID"
+	_room.custom_minimum_size.x = 50
+	_room.text_changed.connect(func(text: String) -> void: _map.select(text.strip_edges().to_lower()))
+	_room.text_submitted.connect(func(_text: String) -> void: _start(false))
+	row.add_child(_room)
 	_button(row, "Start test", func() -> void: _start(false))
 	_button(row, "Start fresh test", func() -> void: _start(true))
 	_button(row, "Retry test", func() -> void: _report(DevSession.retry(_world)))
+	var switches := HBoxContainer.new()
+	body.add_child(switches)
 	_bypass = CheckButton.new()
 	_bypass.text = "Bypass door requirements"
 	_bypass.toggled.connect(func(on: bool) -> void:
 		_report(DevSession.set_bypass(_world, on))
 		_bypass.set_pressed_no_signal(DevSession.bypass)
 	)
-	body.add_child(_bypass)
+	switches.add_child(_bypass)
 	_retry = CheckButton.new()
 	_retry.text = "Retry original test on death"
 	_retry.toggled.connect(func(on: bool) -> void:
 		_report(DevSession.set_retry_on_death(_world, on))
 		_retry.set_pressed_no_signal(DevSession.retry_on_death)
 	)
-	body.add_child(_retry)
-
-
-func _filter_rooms(query: String) -> void:
-	_rooms.clear()
-	var search := query.strip_edges().to_lower()
-	var ids: Array = WorldData.rooms.keys()
-	ids.sort_custom(func(a: String, b: String) -> bool: return a.naturalnocasecmp_to(b) < 0)
-	for id in ids:
-		if search.is_empty() or String(id).contains(search):
-			_rooms.add_item(id)
-			if String(id) == _room.text.strip_edges().to_lower():
-				_rooms.select(_rooms.item_count - 1)
+	switches.add_child(_retry)
 
 
 func _start(fresh: bool) -> void:

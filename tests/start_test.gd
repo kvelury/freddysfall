@@ -26,7 +26,8 @@ func _run() -> void:
 	ok = _check(world.warp_to("3") and _stands(world), "after a warp the player is standing on floor") and ok
 	var panel := world.get_node("DevPanel")
 	_press(panel, KEY_F4)
-	ok = _check(panel.opened and panel._tabs.current_tab == 1 and root.get_node("DevSession").isolated(), "F4 opens the isolated room picker") and ok
+	ok = _check(panel.opened and panel._tabs.current_tab == 1 and root.get_node("DevSession").isolated(), "F4 opens the isolated Map tab") and ok
+	ok = _check(panel._tabs.get_tab_title(1) == "Map", "and tab 1 is the Map") and ok
 	panel._room.text = "99"
 	panel._start(false)
 	ok = _check(_in(world, "3") and "No such room" in panel._status.text, "unknown room stays put with an error") and ok

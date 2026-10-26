@@ -16,7 +16,7 @@ This file is the project: how it is laid out, how the code fits together, the ru
 
 Open the project in the editor and press Play. The main scene is `res://src/world/world.tscn`.
 
-- **Start in a room:** `godot --path . -- --room=3`, or `?room=3` on the web, or F4, a room ID and Enter when dev tools are available. F4 enters an isolated playtest. A game started in a chosen room neither reads nor writes the save.
+- **Start in a room:** `godot --path . -- --room=3`, or `?room=3` on the web, or F4 (the dev map), then a click on a room or a room ID and Enter, when dev tools are available. F4 enters an isolated playtest. A game started in a chosen room neither reads nor writes the save.
 - **Saving:** the game saves by itself when a room is entered, when a pickup or token is taken, when a 3TM finishes, when a save machine is used, and when the map is closed after its zoom changed. Whatever the player has done is kept, but a reload always starts at the save: the machine of the save room they last entered, or the start room's `P` before that. The file is `user://save.json` (the browser's IndexedDB on the web). A plain reload keeps the game.
 - **Start over:** `--new-game`, or `?new-game=1` on the web. It deletes the save and empties the game's state before anything is placed, so even a reload before the first autosave cannot bring the old game back. While `?new-game=1` stays in the address, every reload is a new game.
 - **Keys:** `move_left`, `move_right` (A/D, arrows), `jump` (Space, W, Up), `move_down` (S, Down; reserved, does nothing), `imprint` (left mouse button), `map` (hold Tab or M), `map_zoom_in` (Up or W while the map is held), `map_zoom_out` (Down or S), `debug` (F3). F2 opens dev tools, and F4 opens their room picker. The table with what each does is in the design doc.
@@ -29,7 +29,7 @@ Editor/debug runs always offer F2 and a clickable DEV button; exports require
 `?dev=1` or `--dev`. These switches are an opt-in, not access control.
 
 - **F2 / DEV:** pause and edit powers or resources. **Apply** commits; **Resume / Cancel**
-  closes, discarding unapplied edits. F4 focuses the room picker. Escape closes.
+  closes, discarding unapplied edits. F4 opens the Map tab. Escape closes.
 - **Player:** tokens (0–3), health, Imprint on/off, width (the size a platform
   *starts* at; it shrinks, and 3 is the default), duration, active count, and
   cooldown (0 is off, which is the default). Bounce is explicitly not implemented.
@@ -38,9 +38,12 @@ Editor/debug runs always offer F2 and a clickable DEV button; exports require
   a session switch like door bypass: it survives retries, is not saved, is not in
   loadouts, is not an ability, and End playtest or a fresh boot turns it off. Turning
   it on or off clears placed Imprints. Normal play always shrinks.
-- **Rooms:** the picker initially lists every implemented room, including unvisited
-  rooms and save rooms, with the current room selected. Click a room or type to
-  filter. Lists grow with their contents and use only the tab’s outer scrollbar.
+- **Map:** every implemented room, including unvisited rooms and save rooms, drawn
+  like the Tab map with each room's id in it, and the current room selected. Click a
+  room to choose it, double-click to start a test in it, or type an id in the box
+  below the map (the room is highlighted as you type; Enter starts). The window
+  fills the whole 320 × 180 screen on this tab and is smaller on the others.
+  The switches for door bypass and retry on death are under the map.
   **Start test** uses current test progression and the selected loadout. **Start fresh test** clears progression.
   **Retry test** returns to that original room with its captured progression and the
   latest explicitly applied powers/resources, even after travelling elsewhere.
@@ -104,7 +107,7 @@ After adding a script with a `class_name`, run `godot --headless --path . --impo
 | `tests/door_test.gd` | The player walks level through the aligned door from room 2 onto room 3's entrance ledge, and goes back. Prints `DOOR pass`. |
 | `tests/shaft_test.gd` | The player drops down the hole in room 3 into room 4 and climbs back up, keeping speed through the doors, then tests the shifted room 6–7 fall at three entry positions and three speeds, landing safely and walking into s2. Also samples the actual viewport camera at 60/90/120/144 FPS, including interpolation resets, room clamps, and transition ownership. Prints `SHAFT pass`. |
 | `tests/hazard_test.gd` | In room 5, spikes and falling out of a room shatter the player and, with health, put them back on safe floor (it gives the player health, since with none a death goes to the save room). An Imprint over spikes that breaks under the player does not leave a respawn in the air, and a bad respawn spot is stepped back from. Prints `HAZARD pass`. |
-| `tests/start_test.gd` | Starting in a chosen room, an unknown room, `warp_to`, and the protected F4 room picker (including `s1`). Prints `START pass`. |
+| `tests/start_test.gd` | Starting in a chosen room, an unknown room, `warp_to`, and the protected F4 dev map (including `s1`). Prints `START pass`. |
 | `tests/entity_test.gd` | The room header: the legend, the `exits:` rule and `trap:`, tokens, 3TMs, save machines and save rooms (ids included). A valid one loads, and each way of writing one wrong is an error with its line. Prints `ENTITY pass`. |
 | `tests/save_test.gd` | `Abilities`, `GameState`, and the save file: round trip, tokens, machines, the save room, health and the map's zoom, damaged, newer, older (a version 2 file is carried over) and missing-room files, and `erase` doing nothing while saving is off. Uses its own file. Prints `SAVE pass`. |
 | `tests/map_test.gd` | The map's three zoom levels (what each shows, that Out always fits the whole map), the legend, the keys (Up/W, Down/S), that the map and the marker agree at every level, that Up on the map does not jump the player, and that the level is saved while a new game wipes the save and a reload keeps it. Prints `MAP pass`. |
@@ -151,7 +154,7 @@ Two kinds of test, and which to write:
 | `src/imprint/` | `ImprintTool` (the cursor, placing, ageing, drawing), `ImprintPlatform` (one platform, its shrinking footing and its look), `ImprintRules` (where one may go), `ImprintReach` (whether the player can land on one from where they are). |
 | `src/player/` | `MovementConfig` (`movement.tres`), `MovementSim` (all of the movement), `Player` (a `Node2D` that advances a `MovementSim.State`), `InventoryMarks` (tokens, the Imprint line and the facing block cut into the body). |
 | `src/dev/` | `DevSession` (session boundary and retries), pure `DevCatalog` (generated controls, validation, coverage), `DevLoadouts` (separate named-loadout store). |
-| `src/ui/` | `MapOverlay` (the map, drawn into its own viewport) and `MapView` (its zoom and legend maths), `Toast` (a line of text), `DebugOverlay` (F3 and load errors), `DevPanel` (F2/F4 and playtest controls). |
+| `src/ui/` | `MapOverlay` (the map, drawn into its own viewport), `MapLayer` (the room outlines both maps draw), `MapView` (its zoom and legend maths), `DevMap` (the dev panel's clickable map of every room), `Toast` (a line of text), `DebugOverlay` (F3 and load errors), `DevPanel` (F2/F4 and playtest controls). |
 | `tests/` | The tests above. |
 | `tools/` | `check.sh` (the complete automated gate), `validate.sh`, `render.sh`, `snap.sh`, `build_web.sh`, `serve.sh`. |
 | `AGENTS.md`, `CLAUDE.md` | How an agent works here. |

@@ -73,7 +73,7 @@ The camera follows the player’s interpolated display position each rendered fr
 | Palettes | P, once that is built. Cycles and remembers the choice. |
 | Frame rate | F3. Shows FPS and frame time. A development readout, not a player feature. |
 | Dev tools | F2 or DEV button. Editor/debug builds, or exports opted in with `?dev=1` / `--dev`. |
-| Room picker | F4, a room ID (including `s1`), Enter. Starts an isolated test. |
+| Dev map | F4 opens the Map tab of the dev panel (an isolated test): click a room, or type its id (including `s1`) and press Enter. Double-click starts a test there. |
 
 Letting go of jump early is a short hop. Holding it is the full leap. A running jump goes farther than a standing one, because air friction is low and the jump keeps the speed you had on the ground.
 
@@ -275,15 +275,15 @@ s2 7                  7 meets s2 at its left door
 
 ### Starting in a room
 
-For testing, the game can begin in any room: `--room=<id>` on the command line, `?room=<id>` on the web, or F4 while dev tools are available. F4 enters an isolated session. The player is put on that room's `P`, or just inside its first door if it has none. An unknown id is reported and the start room is used.
+For testing, the game can begin in any room: `--room=<id>` on the command line, `?room=<id>` on the web, or F4 (the dev map) while dev tools are available. F4 enters an isolated session. The player is put on that room's `P`, or just inside its first door if it has none. An unknown id is reported and the start room is used.
 
 ### Dev playtesting
 
-F2 or the DEV button opens a paused panel with Player, Rooms and Loadouts tabs.
+F2 or the DEV button opens a paused panel with Player, Map and Loadouts tabs.
 Tools are always available in editor/debug runs. The browser release uses
 `?dev=1` (for example `?dev=1&room=7`), and native exports use `--dev`. Without the
 opt-in, exported gameplay has no cheat UI. F3 remains the performance readout;
-F4 opens room search. This opt-in is convenience, not a security boundary.
+F4 opens the Map tab. This opt-in is convenience, not a security boundary.
 
 A direct dev launch starts fresh progression and does not access the normal save.
 Entering from normal play copies current progression and leaves the player where
@@ -293,10 +293,14 @@ Apply commits a validated draft atomically. Resume / Cancel or Escape closes and
 discards unapplied edits. Closing keeps the test active, with `DEV · not saving`.
 Imprint-setting changes clear placed Imprints and any running cooldown; resource-only changes do not.
 
-The room picker opens with every loaded room listed, visited or not, in natural ID
-order, and the current room selected. Click a listed room to choose it, or type to
-filter the list. Room and loadout lists grow to their full height inside the tab’s
-single scrolling page; neither adds an inner scrollbar. Imprint’s switch text says
+The Map tab draws every loaded room, visited or not, like the Tab map, each with its
+id in it, and the current room is selected when the panel opens. Click a room to
+choose it (its id goes in the box under the map), or type an id and the room is
+highlighted; a double-click or Enter starts a test there, and Start test, Start fresh
+test and Retry test sit beside the box, with the door bypass and retry-on-death
+switches under them. The window is the whole 320 × 180 screen on this tab and the
+smaller size on the others. The loadout list grows to its full height inside its
+tab’s single scrolling page, with no inner scrollbar. Imprint’s switch text says
 On or Off to match its current staged value, including when reopening the panel.
 Start test captures current test progression and uses the selected loadout at the
 room's normal test spawn. Start fresh test first clears progression. Retry test
@@ -657,7 +661,7 @@ The solver answers "can a player get here, and get back", using `MovementSim` an
 
 ### The map (`ui/map_overlay.gd`, `ui/map_view.gd`)
 
-`MapOverlay` is a `CanvasLayer` (layer 10, process mode always). Holding `map` pauses the tree (it remembers that it did so, and unpauses only when the fade-out ends), fades a dim in over about 0.1 s, and scales a 256×148 panel from 0.92 to 1. The panel holds a 240×132 `SubViewport` texture (`VIEW_SIZE`) with a `MapLayer` in it, a `Marker` and a `Legend` control on top.
+`MapLayer` (its own file) draws the room outlines, door gaps and connectors for both maps: by default the visited rooms, as the Tab map shows them; given a `rooms` callable, `connect_all`, `labels` and a `selected_id`, any rooms. `MapLayer.room_at(ids, point)` finds the room under a map point. `DevMap` (a `Control` in the dev panel) fits a `MapLayer` of every room, labelled, to its size (up to twice, whole-pixel corners as on the Tab map), draws the player's blink, and emits `picked` on a click and `activated` on a double-click. `MapOverlay` is a `CanvasLayer` (layer 10, process mode always). Holding `map` pauses the tree (it remembers that it did so, and unpauses only when the fade-out ends), fades a dim in over about 0.1 s, and scales a 256×148 panel from 0.92 to 1. The panel holds a 240×132 `SubViewport` texture (`VIEW_SIZE`) with a `MapLayer` in it, a `Marker` and a `Legend` control on top.
 
 - **Map units:** one pixel per cell, a screen being `ROOM_PX` 32×18 and neighbours set `STRIDE` 40×26 apart, so there is an 8×8 gap between rooms. A room of several screens is one rectangle (`room_rect`).
 - **Drawing:** visited rooms are outlined (gaps where doors are), the current one filled grey (an opaque grey: a translucent white is premultiplied twice in the web build and vanishes), and connectors drawn to visited neighbours. It redraws, rendering the viewport once (`UPDATE_ONCE`), when the room changes, a room is visited, or the zoom changes.
@@ -771,6 +775,11 @@ What was decided, in the order it came up, with the reason. Pull requests are na
 
 **Wall spikes (rooms 7–11)**
 - **Spikes point away from what they sit on.** Room 8 has spikes along its right wall, and upward teeth there read as a stack of floors. Only the drawing turns; the hitbox is still the cell, and the renders still colour the cell.
+
+**Dev map (replaces the Rooms tab)**
+- **Rooms are chosen on a map, not a list.** The Rooms tab (an id box and a list) became the Map tab: every room in the world drawn like the Tab map, clickable. A click selects and shows the id, a double-click starts a test, and typing an id still works and highlights its room, so F4, an id and Enter is unchanged.
+- **Every room, labelled, and a bigger window.** The dev map shows unvisited rooms and writes each id in its room (the Tab map stays unlabelled and visited-only). The window is the whole 320 × 180 screen on the Map tab and the smaller size on the others. The map is height-limited (six rows of rooms), so rooms are drawn at about 0.4 times the Tab map's size; if that is too small to click comfortably, the switches under it can move.
+- **One drawing of the rooms.** `MapLayer` moved out of `MapOverlay` into its own file, with options for the dev map (which rooms, labels, a selection). Its defaults draw exactly the Tab map.
 
 **Dev tools (2026-10-24)**
 - **Testing is isolated.** The user chose returning to their normal save over permanently granting cheats. F4 now shares that protection.
