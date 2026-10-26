@@ -292,6 +292,11 @@ func _health() -> bool:
 	var node := Entities.create(def)
 	ok = _check(node is HealthPip, "it builds as a HealthPip") and ok
 	node.free()
+	var room := Room.new()
+	room.build(info)
+	var touched := room.touched_things(Rect2(Grid.cell_center(Vector2i(5, 3)) - Vector2(5, 5), Vector2(10, 10)))
+	ok = _check(touched.size() == 1 and touched[0] is HealthPip, "a body over it in a built room touches it, so it is taken") and ok
+	room.free()
 	errors.clear()
 	RoomParser.parse_room("7", Vector2i.ZERO, _room(["legend:", "  H = health id=h1 value=2"], {Vector2i(5, 3): "H"}), errors)
 	ok = _check(_has(errors, "value="), "a setting it does not use is an error (%s)" % [errors]) and ok
