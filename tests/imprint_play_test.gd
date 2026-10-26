@@ -96,12 +96,15 @@ func _run() -> void:
 	ok = _check(player.solids.size() == base + 1, "and the player has one platform to collide with") and ok
 	tool.clear(false)
 	tool.sync_solids()
+	# From the floor on the left, so the block that lasts is over floor, not spikes.
+	player.place(room.position + Grid.cell_center(Vector2i(2, 16)), room.world_rects())
 	tool.place()
 	ok = _check(is_equal_approx(tool.platforms[0].rect.position.x, room.position.x + 30.0), "the next one goes where it is aimed once the first is gone") and ok
 
 	# Time breaks it, and the player on it falls.
 	tool.platforms[0].lifetime = 0.5
-	player.global_position = room.position + Vector2(35.0, 20.0)
+	# On the block that lasts, so it is time that drops them, not a block going.
+	player.global_position = room.position + Vector2(35.0 + 10.0 * float(tool.platforms[0].last_cell()), 20.0)
 	player.velocity = Vector2.ZERO
 	for i in 20:
 		await physics_frame
@@ -125,7 +128,7 @@ func _run() -> void:
 	tool.place()
 	ok = _check(is_equal_approx(tool.platforms[0].lifetime, 6.0) and is_equal_approx(tool.platforms[0].rect.size.x, 30.0), "width and duration come from the abilities") and ok
 	state.abilities.imprint_duration = Abilities.new().imprint_duration
-	state.abilities.imprint_width = 2
+	state.abilities.imprint_width = Abilities.new().imprint_width
 
 	# With the cooldown off, the next may go the moment one breaks.
 	tool.clear(false)
@@ -172,6 +175,111 @@ func _run() -> void:
 	ok = _check(two and tool.platforms.size() == 2 and not tool.place() and tool.platforms.size() == 2, "at a limit of two, two stand and a third is refused") and ok
 	state.abilities.imprint_max_active = 1
 
+	# It shrinks: the default platform is three blocks, and a block goes every third of its
+	# life. The order is fixed at the click: the block farthest from the player goes first.
+	state.abilities.imprint_cooldown = 0.2
+	tool.clear(false)
+	tool.sync_solids()
+	player.place(room.position + Grid.cell_center(Vector2i(2, 16)), room.world_rects())
+	tool.scripted_cell = Vector2i(3, 6)
+	ok = _check(tool.place() and tool.platforms[0].shrinks and is_equal_approx(tool.platforms[0].rect.size.x, 30.0), "the default platform is 30 px wide and shrinks") and ok
+	var blocks: ImprintPlatform = tool.platforms[0]
+	ok = _check(blocks.order == [2, 1, 0], "placed by a player to its left, it goes right, middle, left (%s)" % [blocks.order]) and ok
+	player.global_position = room.position + Vector2(35.0, 20.0)
+	player.velocity = Vector2.ZERO
+	for i in 20:
+		await physics_frame
+	ok = _check(player.is_on_floor() and player.global_position.y < room.position.y + 60.0, "a player on the left block stands on it (%s)" % player.global_position) and ok
+	var solids := player.solids.size()
+	for i in 60:
+		await physics_frame
+		if blocks.rect.size.x < 29.0:
+			break
+	ok = _check(is_equal_approx(blocks.rect.size.x, 20.0) and is_equal_approx(blocks.rect.position.x, room.position.x + 30.0), "the right block goes first (%s)" % [blocks.rect]) and ok
+	ok = _check(player.solids.size() == solids and player.solids.has(blocks.rect), "the player's solids are the same count, and hold the smaller rect") and ok
+	ok = _check(is_zero_approx(tool.cooldown_left) and tool.platforms.size() == 1, "a block going does not start the cooldown, and the platform stays") and ok
+	var stood := true
+	for i in 70:
+		await physics_frame
+		if blocks.age > 1.3:
+			break
+		stood = stood and player.is_on_floor() and player.global_position.y < room.position.y + 60.0
+	ok = _check(stood and blocks.rect == Rect2(room.position + Vector2(30.0, 60.0), Vector2(10.0, 10.0)), "the left block, nearest where the player placed it, lasts, and they stand on it to the end (%s)" % [blocks.rect]) and ok
+	for i in 30:
+		await physics_frame
+		if tool.platforms.is_empty():
+			break
+	ok = _check(tool.platforms.is_empty() and tool.cooldown_left > 0.15, "the cooldown starts when the platform finally breaks (%.3f)" % tool.cooldown_left) and ok
+	var dropped := false
+	for i in 30:
+		await physics_frame
+		if player.global_position.y > room.position.y + 80.0:
+			dropped = true
+			break
+	ok = _check(dropped, "and they fall when it breaks") and ok
+	tool.cooldown_left = 0.0
+
+	# Placed by a player to its right, the left block goes first.
+	player.place(room.position + Grid.cell_center(Vector2i(24, 16)), room.world_rects())
+	ok = _check(tool.place() and tool.platforms[0].order == [0, 1, 2], "placed by a player to its right, it goes left, middle, right (%s)" % [tool.platforms[0].order]) and ok
+	blocks = tool.platforms[0]
+	for i in 60:
+		await physics_frame
+		if blocks.rect.size.x < 29.0:
+			break
+	ok = _check(is_equal_approx(blocks.rect.position.x, room.position.x + 40.0) and is_equal_approx(blocks.rect.size.x, 20.0), "and the left block is the first to go (%s)" % [blocks.rect]) and ok
+	tool.clear(false)
+	tool.sync_solids()
+
+	# A tie: under the middle of a platform, the block behind the player goes first.
+	player.place(room.position + Grid.cell_center(Vector2i(2, 16)), room.world_rects())
+	tool.scripted_cell = Vector2i(1, 6)
+	player.facing = 1
+	ok = _check(tool.place() and tool.platforms[0].order == [0, 2, 1], "centred and facing right, the left block goes first (%s)" % [tool.platforms[0].order]) and ok
+	tool.clear(false)
+	tool.sync_solids()
+	player.facing = -1
+	ok = _check(tool.place() and tool.platforms[0].order == [2, 0, 1], "facing left, the right block goes first (%s)" % [tool.platforms[0].order]) and ok
+	player.facing = 1
+	tool.clear(false)
+	tool.sync_solids()
+	state.abilities.imprint_cooldown = 0.0
+
+	# The cursor's refusal follows the footing: where a block has gone, a platform may go.
+	state.abilities.imprint_max_active = 2
+	player.place(room.position + Grid.cell_center(Vector2i(2, 16)), room.world_rects())
+	tool.scripted_cell = Vector2i(3, 6)
+	tool.place()
+	tool.scripted_cell = Vector2i(5, 6)
+	tool.refresh_preview()
+	ok = _check(tool.preview_reason() == "imprint", "a cursor over a standing platform is refused (%s)" % tool.preview_reason()) and ok
+	for i in 60:
+		await physics_frame
+		if tool.platforms[0].rect.size.x < 29.0:
+			break
+	ok = _check(tool.preview_reason() == "" and tool.preview_state() != "unavailable", "and once the block under it goes the same cursor is allowed, with no new click or move (%s)" % tool.preview_reason()) and ok
+	state.abilities.imprint_max_active = 1
+	tool.clear(false)
+	tool.sync_solids()
+
+	# Classic keeps its width, but only in a dev test.
+	var session: Node = root.get_node("DevSession")
+	player.place(room.position + Grid.cell_center(Vector2i(2, 16)), room.world_rects())
+	session.classic_imprint = true
+	tool.scripted_cell = Vector2i(3, 6)
+	ok = _check(tool.place() and tool.platforms[0].shrinks, "with the switch on outside a dev test, it shrinks anyway") and ok
+	tool.clear(false)
+	tool.sync_solids()
+	session.mode = session.Mode.DEV_TEST
+	ok = _check(tool.place() and not tool.platforms[0].shrinks and is_equal_approx(tool.platforms[0].rect.size.x, 30.0), "in a dev test with the switch on, it keeps its width") and ok
+	tool.platforms[0].age = 1.0
+	await physics_frame
+	ok = _check(is_equal_approx(tool.platforms[0].rect.size.x, 30.0), "and keeps it late in its life") and ok
+	session.mode = session.Mode.NORMAL
+	session.classic_imprint = false
+	tool.clear(false)
+	tool.sync_solids()
+
 	# Leaving the room clears it, and the cooldown with it.
 	tool.cooldown_left = 5.0
 	ok = _check(world.warp_to("4") and tool.platforms.is_empty() and world.get_node("Player").solids.size() == world.current.world_rects().size(), "leaving a room removes the platform and its collision") and ok
@@ -189,6 +297,21 @@ func _run() -> void:
 		await physics_frame
 	ok = _check(tool.platforms.is_empty(), "dying removes the platform") and ok
 	ok = _check(is_zero_approx(tool.cooldown_left), "and the cooldown") and ok
+
+	# Facing: it turns with input, stays when the input stops, and a warp turns it right.
+	for i in 120:
+		if not world.is_busy() and player.input_enabled:
+			break
+		await physics_frame
+	player.scripted_x = -1.0
+	for i in 3:
+		await physics_frame
+	ok = _check(player.facing == -1, "left input turns the player left") and ok
+	player.scripted_x = 0.0
+	await physics_frame
+	ok = _check(player.facing == -1, "and letting go keeps it") and ok
+	world.warp_to("4")
+	ok = _check(player.facing == 1, "a warp turns them right again") and ok
 
 	world.queue_free()
 	await process_frame

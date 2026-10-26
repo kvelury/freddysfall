@@ -20,6 +20,8 @@ func _initialize() -> void:
 	ok = _one_way() and ok
 	ok = _tall_fall() and ok
 	ok = _barrier() and ok
+	ok = _not_last_block() and ok
+	ok = _second_simulation() and ok
 	ok = _room_six() and ok
 	print("IMPRINTSOLVER %s" % ("pass" if ok else "fail"))
 	quit(0 if ok else 1)
@@ -300,6 +302,137 @@ func _barrier() -> bool:
 		marks[Vector2i(x, 17)] = "X"
 	var low := ReachGraph.new(_rooms([[marks, ""], [ceiling, "trap: allowed\n---\n"]], true), _cfg).analyze("1")
 	ok = _check(low.errors.is_empty(), "a wall four cells tall is just a jump %s" % [low.errors]) and ok
+	return ok
+
+
+## The solver counts only the block that lasts as footing, and which block that
+## is depends on where the player stood to place it: the jump's start. A jump
+## that comes down on any other block is not counted, even though the block is
+## there when it lands, because it goes first. A platform of one, whose only
+## block is the last, counts the same landing. Found by looking, on a plain floor.
+func _not_last_block() -> bool:
+	var ok := true
+	var fixture := _floor_fixture(3)
+	var search: ImprintSearch = fixture["search"]
+	var narrow: Dictionary = _floor_fixture(1)
+	var limit := 80
+	var found: ImprintSearch.Candidate = null
+	var block := Vector2i.ZERO
+	for row in range(16, 11, -1):
+		for column in range(2, 28):
+			var cell := Vector2i(column, row)
+			var full: Array[Rect2] = fixture["near"].duplicate()
+			full.append(Grid.cell_rect(Rect2i(cell, Vector2i(3, 1))))
+			for arc: ImprintSearch.Arc in search._arcs_of(fixture["ledge"], fixture["info"], fixture["geo"]):
+				var lasts: Array[Vector2i] = search._last_cells(cell, 3, arc.start.x)
+				if lasts.size() != 1:
+					continue
+				var last := Grid.cell_rect(Rect2i(lasts[0], Vector2i(1, 1)))
+				var on_last: Vector2 = search._landing(fixture["geo"], arc, full, last, limit)
+				if on_last.x == on_last.x:
+					continue
+				for k in 3:
+					var other := Vector2i(column + k, row)
+					if other == lasts[0]:
+						continue
+					var rect := Grid.cell_rect(Rect2i(other, Vector2i(1, 1)))
+					var on_full: Vector2 = search._landing(fixture["geo"], arc, full, rect, limit)
+					var alone: Array[Rect2] = fixture["near"].duplicate()
+					alone.append(rect)
+					var on_alone: Vector2 = search._landing(fixture["geo"], arc, alone, rect, limit)
+					if on_full.x == on_full.x and on_alone.x == on_alone.x and on_full.distance_to(on_alone) < 0.5:
+						found = ImprintSearch.Candidate.new()
+						found.cell = cell
+						found.arcs.append(arc)
+						block = other
+						break
+				if found != null:
+					break
+			if found != null:
+				break
+		if found != null:
+			break
+	ok = _check(found != null, "a jump that lands only on a block that goes before the last one exists") and ok
+	ok = _check(found != null and not search._lands_on(fixture["info"], fixture["geo"], fixture["ledge"], found, limit), "and with a platform of three it is not counted") and ok
+	if found != null:
+		var one := ImprintSearch.Candidate.new()
+		one.cell = block
+		one.arcs = found.arcs
+		var narrow_search: ImprintSearch = narrow["search"]
+		ok = _check(narrow_search._lands_on(narrow["info"], narrow["geo"], narrow["ledge"], one, limit) and one.last == block, "while a platform of one on that block counts it") and ok
+
+	# Which block lasts, from where the player stands: the nearest, or either of two on a tie.
+	ok = _check(search._last_cells(Vector2i(10, 12), 3, 50.0) == [Vector2i(10, 12)], "a player to the left: the left block lasts") and ok
+	ok = _check(search._last_cells(Vector2i(10, 12), 3, 300.0) == [Vector2i(12, 12)], "a player to the right: the right block lasts") and ok
+	ok = _check(search._last_cells(Vector2i(10, 12), 3, 115.0) == [Vector2i(11, 12)], "a player under the middle: the middle lasts") and ok
+	ok = _check(search._last_cells(Vector2i(10, 12), 2, 110.0) == [Vector2i(11, 12), Vector2i(10, 12)], "on a tie either block may last, as the player may face either way (%s)" % [search._last_cells(Vector2i(10, 12), 2, 110.0)]) and ok
+	return ok
+
+
+## A plain floor with the start on the left, and the solver parts for a platform
+## of `width`: the graph, the search, the room, its geometry, the start ledge and
+## the solids near it.
+func _floor_fixture(width: int) -> Dictionary:
+	var abilities := Abilities.new()
+	abilities.imprint_unlocked = true
+	abilities.imprint_width = width
+	var rooms := _rooms([[{Vector2i(3, 16): "P"}, ""]])
+	var graph := ReachGraph.new(rooms, _cfg, abilities)
+	var info := graph.room_info("1")
+	var geo := graph.geometry_of(info)
+	var ledge: ReachGraph.Ledge = graph.ledges_in("1")[0]
+	return {"graph": graph, "search": ImprintSearch.new(graph), "info": info, "geo": geo, "ledge": ledge, "near": graph.near_solids(geo.rects, ledge)}
+
+
+## A jump that lands on the last block only because the platform's other blocks
+## are there (it brushes one, and is carried onto the last) is no use once they
+## have gone. `_lands_on` runs the jump again with the last block alone and
+## drops it. Found by looking: on a plain floor, a platform of three, the jumps
+## from the start ledge that land on the last block with the whole platform
+## there, and where they land with the last block alone.
+func _second_simulation() -> bool:
+	var ok := true
+	var fixture := _floor_fixture(3)
+	var search: ImprintSearch = fixture["search"]
+	var info: RoomInfo = fixture["info"]
+	var geo: ReachGraph.Geometry = fixture["geo"]
+	var ledge: ReachGraph.Ledge = fixture["ledge"]
+	var near: Array[Rect2] = fixture["near"]
+	var limit := 80
+	var carried: ImprintSearch.Candidate = null
+	var steady: ImprintSearch.Candidate = null
+	for row in range(16, 11, -1):
+		for column in range(2, 28):
+			var cell := Vector2i(column, row)
+			var full: Array[Rect2] = near.duplicate()
+			full.append(Grid.cell_rect(Rect2i(cell, Vector2i(3, 1))))
+			for arc: ImprintSearch.Arc in search._arcs_of(ledge, info, geo):
+				if carried != null and steady != null:
+					break
+				var lasts: Array[Vector2i] = search._last_cells(cell, 3, arc.start.x)
+				if lasts.size() != 1:
+					continue
+				var last := Grid.cell_rect(Rect2i(lasts[0], Vector2i(1, 1)))
+				var with_all: Vector2 = search._landing(geo, arc, full, last, limit)
+				if with_all.x != with_all.x:
+					continue
+				var alone: Array[Rect2] = near.duplicate()
+				alone.append(last)
+				var by_itself: Vector2 = search._landing(geo, arc, alone, last, limit)
+				var made := ImprintSearch.Candidate.new()
+				made.cell = cell
+				made.arcs.append(arc)
+				if by_itself.x != by_itself.x and carried == null:
+					carried = made
+				elif by_itself.x == by_itself.x and with_all.distance_to(by_itself) < 0.5 and steady == null:
+					steady = made
+			if carried != null and steady != null:
+				break
+		if carried != null and steady != null:
+			break
+	ok = _check(carried != null, "a jump that lands on the last block only because of the others exists") and ok
+	ok = _check(carried != null and not search._lands_on(info, geo, ledge, carried, limit), "and it is not counted") and ok
+	ok = _check(steady != null and search._lands_on(info, geo, ledge, steady, limit), "while a jump that lands the same with the last block alone is") and ok
 	return ok
 
 

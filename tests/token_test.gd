@@ -117,7 +117,7 @@ func _marks() -> bool:
 	var counts := []
 	for tokens in 4:
 		counts.append(InventoryMarks.pixels(tokens, false).size())
-	ok = _check(counts == [0, 5, 10, 15], "each token cuts five pixels out of the body (%s)" % [counts]) and ok
+	ok = _check(counts == [0, 4, 8, 12], "each token cuts a 2 x 2 dot, four pixels, out of the body (%s)" % [counts]) and ok
 	ok = _check(InventoryMarks.pixels(0, true).size() == 8, "the Imprint line is eight pixels") and ok
 	var line := InventoryMarks.pixels(0, true)
 	var crowded := InventoryMarks.pixels(3, true)
@@ -125,13 +125,31 @@ func _marks() -> bool:
 	for p in crowded:
 		if crowded.count(p) > 1:
 			overlap += 1
-	ok = _check(crowded.size() == 23 and overlap == 0, "three tokens and the line never share a pixel (%d)" % crowded.size()) and ok
+	ok = _check(crowded.size() == 20 and overlap == 0, "three tokens and the line never share a pixel (%d)" % crowded.size()) and ok
 	var inside := true
 	for p in crowded:
 		inside = inside and p.x >= 0 and p.y >= 0 and p.x < 10 and p.y < 10
 	ok = _check(inside, "and all of them are inside the 10 x 10 body") and ok
 	ok = _check(line.all(func(p: Vector2i) -> bool: return p.y == 8), "the line runs along the one row") and ok
-	ok = _check(InventoryMarks.pixels(7, false).size() == 15, "more than three tokens draws no more than three") and ok
+	ok = _check(InventoryMarks.pixels(7, false).size() == 12, "more than three tokens draws no more than three") and ok
+	# Centred: the dots mirror each other about the body's middle, between columns 4 and 5.
+	var one := InventoryMarks.pixels(1, false)
+	var mirrored := one.map(func(p: Vector2i) -> Vector2i: return Vector2i(9 - p.x, p.y))
+	var sideways := InventoryMarks.pixels(3, false).filter(func(p: Vector2i) -> bool: return p.y >= 5)
+	var side_mirror := sideways.map(func(p: Vector2i) -> Vector2i: return Vector2i(9 - p.x, p.y))
+	ok = _check(one.all(func(p: Vector2i) -> bool: return mirrored.has(p)), "the first token sits exactly on the middle of the body") and ok
+	ok = _check(sideways.size() == 8 and sideways.all(func(p: Vector2i) -> bool: return side_mirror.has(p)), "and the second and third mirror each other about it") and ok
+	# The facing block: 2 x 2, one row down in the top right when facing right, the top left when facing left.
+	var right := InventoryMarks.pixels(3, true, 1)
+	var left := InventoryMarks.pixels(3, true, -1)
+	var clear := true
+	for p in InventoryMarks.FACE_RIGHT + InventoryMarks.FACE_LEFT:
+		clear = clear and not crowded.has(p) and p.x >= 0 and p.y >= 0 and p.x < 10 and p.y < 10
+	ok = _check(clear and right.size() == 24 and left.size() == 24, "the facing block adds four pixels inside the body, on none of the other marks") and ok
+	ok = _check(InventoryMarks.FACE_RIGHT.all(func(p: Vector2i) -> bool: return p.x >= 8 and p.y in [1, 2]) and InventoryMarks.FACE_RIGHT.size() == 4, "facing right it is the 2 x 2 block in the top right") and ok
+	ok = _check(InventoryMarks.FACE_LEFT.all(func(p: Vector2i) -> bool: return p.x <= 1 and p.y in [1, 2]) and InventoryMarks.FACE_LEFT.size() == 4, "facing left it is the 2 x 2 block in the top left") and ok
+	ok = _check(InventoryMarks.FACE_LEFT.all(func(p: Vector2i) -> bool: return InventoryMarks.FACE_RIGHT.has(Vector2i(9 - p.x, p.y))), "and the two are mirror images") and ok
+	ok = _check(InventoryMarks.pixels(0, false, 0).is_empty(), "no facing given draws no block") and ok
 	return ok
 
 

@@ -15,9 +15,23 @@ Nobody has played these yet. Headless tests prove the rule, not the feel. Use `?
 - [ ] **Clicking again and again.** While a platform stands, more clicks do nothing: it is not renewed and its clock does not restart.
 - [ ] **The cross while locked out.** The cursor is the small × anywhere while a platform stands, and the dotted outline comes back once it has broken.
 - [ ] **1.5 s is enough.** Room 5's pit both ways, and room 6's wall. The validator passes, but check the jump onto a platform and off it is not too tight in real play.
-- [ ] **The clock at 1.5 s.** The four dashes (one every 0.375 s) and the last-dash blink still read.
+- [ ] **The clock at 1.5 s (Classic only).** The four dashes (one every 0.375 s) and the last-dash blink still read. Since the shrinking Imprint this is only in F2 with Classic Imprint on.
 - [ ] **The cooldown at 0.2 s.** In F2 set the cooldown to 0.2 and Apply: after each break the × stays for about a fifth of a second. Does it feel fair, or should it stay at 0 (the default)? Also try 0.5.
 - [ ] **Leaving a room or dying** with a cooldown running: the next room starts with no cooldown.
+
+## Imprint shrinking
+
+Nobody has played these yet. Headless tests prove the order, the timing and the solver, not the feel. Use `?dev=1&room=5` with Imprint turned on in F2 (or `?room=5` after the 3TM).
+
+- [ ] **Rooms 5 and 6 with a 3-wide shrinking platform.** Room 5's pit both ways and room 6's wall can be crossed. A block goes every 0.5 s, the one farthest from where you clicked first, and the one nearest you lasts to the end.
+- [ ] **The blink warning.** The next block blinks in its last quarter second and the footing under you does not change while it does. It reads, and it is not annoying.
+- [ ] **The dotted border.** A placed platform is a white block with a black dotted inner border, and it looks different from the white dotted cursor outline.
+- [ ] **Per-block shards.** A shatter at every block going is not too busy.
+- [ ] **The order follows where you stood.** Click from the left of a platform: it shrinks toward the left. From the right: toward the right. Standing right under its middle, the block you face lasts. Moving after the click changes nothing.
+- [ ] **The facing block and the token dots.** A 2 x 2 block in the top right when you last went right, the top left when you last went left, and tokens as 2 x 2 dots in a centred triangle (top, left, right); all read at 1x and none clash. Check with 0 to 3 tokens and with Imprint found (the line). A respawn or warp faces right.
+- [ ] **Landing on a block that goes early feels fair.** The solver only counts the last block; in play the others help. Landing on one that is about to go should not feel like a trap.
+- [ ] **Classic switches cleanly both ways.** In F2, Player tab: Classic on gives full-width platforms with dashes, off gives shrinking, and toggling clears the platforms. The indicator says "classic imprint". End playtest turns it off.
+- [ ] **Widths 1, 2 and 5 in F2.** Width 1 never shrinks; widths 2 and 5 keep the block nearest where you clicked from. The total time stays 1.5 s.
 
 ## Save rooms
 

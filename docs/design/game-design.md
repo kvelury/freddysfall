@@ -17,10 +17,11 @@ Implementation steps for the palette pass live in `docs/plans/soft-duotone-palet
 | Health pips: the pickup, how they show, refilling | Designed, not built |
 | Imprint width, duration and multiple active platforms | Built; available in dev tools, not awarded by current rooms |
 | Imprint lockout (no replacing), 1.5 s duration, and a cooldown that is off by default | Built; the cooldown is tried through dev tools, no room awards it |
+| Shrinking Imprint, default width 3 and the Classic dev switch | Built; not yet played by a person |
 | Imprint bounce and other special behaviors | Designed, not built |
 | Isolated dev tools, named loadouts, retries and door bypass | Built |
 | The solver using Imprint, and what each room needs | Built |
-| The solver's cache between runs (a repeat validate takes about 8 s) | Built |
+| The solver's cache between runs (a repeat validate takes about half as long as a cold one; see "Speed, and the cache") | Built |
 | The map's three zoom levels, its legend, saved with the game | Built |
 | Moving platforms: drawn with their track, ridden, and checked by the solver | Built |
 | Softer two-color palettes | Designed, not built |
@@ -203,7 +204,7 @@ A **3TM** (3 token machine, kind `machine`, settings `upgrade=` and `value=` lik
 
 A **save machine** (kind `save`, no settings besides its `id`) is described under Health and save rooms. Its 5 x 3 zone has to be open air and the five cells under it solid. A room with an id that is not `s` and a number cannot have one, and a save room has to have exactly one and nothing else but platforms.
 
-The player's body is the inventory. Each token carried cuts a small black diamond out of it, in a fixed triangle in the upper body: top, then left, then right. Once the player has Imprint, a line is cut across the bottom row. The tokens and the line never share a pixel, so more marks can go above the line later.
+The player's body is the inventory. Each token carried cuts a small black 2 x 2 dot out of it, in a fixed triangle in the upper body: top, then left, then right. The body is 10 pixels wide, so a 2 x 2 dot is what lets the triangle sit exactly on the middle; a shape three pixels wide is always half a pixel off. Once the player has Imprint, a line is cut across the bottom row. The tokens and the line never share a pixel, so more marks can go above the line later.
 
 ```
 3 tokens       Imprint+3      Imprint only
@@ -302,12 +303,19 @@ resource counts. Later pickups and consumed tokens/health do not rewrite the
 selected loadout. A rebuilt scene resets Imprints, effects, motion and platform
 clocks, rather than trying to replay a mid-animation frame.
 
-Two optional switches start off. Retry original test on death plays the normal
+Three optional switches start off. Retry original test on death plays the normal
 shatter, then restores the attempt, including its chosen health. Off uses normal
 health/death rules. Bypass door requirements removes physical blocks and exit
 locks, retaining ordinary transitions and destinations; it sets no flags. Turning
 it off recomputes actual requirements and is refused while the player overlaps a
-door that would close. It never opens sealed boundaries.
+door that would close. It never opens sealed boundaries. Classic Imprint (no
+shrinking), on the Player tab, makes platforms placed from then on keep their
+full width and show the old dash clock, so the two can be compared at any time.
+It is a session switch like door bypass: it survives retries, is not saved, is not
+in named loadouts, and End playtest or a fresh boot turns it off. It is a
+comparison, not progression, so it is not an ability and not in the catalog.
+Turning it on or off clears placed Imprints and any cooldown, so platforms of the
+two kinds never stand together. Normal play always shrinks.
 
 Named loadouts store powers, tokens and health in `user://dev_loadouts.json`,
 version 1, independently of the normal save. Selecting stages a draft; Apply uses
@@ -354,7 +362,7 @@ A **ledge** is a run of cells with air above and floor below. From each ledge th
 
 **What a room needs.** `tools/validate.sh` solves with the starting abilities, takes every pickup that solve could reach, solves again with what they gave, and repeats to a fixpoint, when nothing new turns up or the newly reached things do not change the abilities. The number of things in the world makes this finite; if the search ever fails to settle within that bound, validation fails instead of accepting a partial answer. A room, a ledge, or a pickup that only opens in a later round lists the pickups it needs, cut down by dropping them one at a time to a set it still opens with. Example, from the current world: `Room 5: the ledge on row 16, cells 0-4 needs r2_token, r3_token, r4_3tm, r5_token`. Errors come from the last solve, so a room that stays shut even with every pickup is an error. Tokens and 3TMs are part of this. A save machine reached sets the flag that opens `exits: saved`, and gives nothing, so it never changes what a room needs. A token reached is taken. A 3TM reached gives its upgrade if three tokens are taken for it, and several machines are paid in the order of their ids. A room with an exit rule keeps its doors shut in the search until what the rule asks for has been reached, so a room is only open if the player can first do what it asks. The search does not model the carry limit of three (a player who cannot take a fourth token before spending three is not caught), and it does not treat a blocked doorway as a wall for a body falling through a chain of doors. A trap is judged where the player could first be in it, with the fewest abilities, because a player who has not found Imprint yet is also stuck in a place that needs it to leave.
 
-**Speed, and the cache.** A cold run is about 32 s for 9 rooms, and most of it is the Imprint search: each ledge's jumps (about 5 s, 3 of them room 8's moving platform) and, for every platform Imprint could put down, a check that the jump lands on it (about 6 s) and a "leg" of about 40 simulated jumps from it (about 19 s). What the solver works out about a room depends on nothing but the room and the solver, so it is kept between runs in `build/solver-cache/<room>.json`: the jumps from each ledge, and each platform's leg by cell, width and length. A room's file is used only if two fingerprints match: the room's (its grid with the openings that lead nowhere sealed, its doors and where they lead, its things, where it sits, so a neighbour that appears or moves counts) and the solver's (a hash of the code and numbers that decide a jump: `reach_graph.gd`, `imprint_search.gd`, `movement_sim.gd`, `movement.tres`, and the others listed in `SolverCache.SOLVER_FILES`). Change either and that room, or every room, is worked out again. What is not kept is cheap and depends on more than one room: where a door leads, and the search that spreads out from the start. A warm run takes about 8 s, nearly all of it the landing checks, which are not kept. A run after editing one room redoes that room's share. A file that cannot be read is ignored. The tests never read the cache. `tools/validate.sh --no-cache` ignores it too, and prints the same answers.
+**Speed, and the cache.** A cold run is about 32 s for 9 rooms, and most of it is the Imprint search: each ledge's jumps (about 5 s, 3 of them room 8's moving platform) and, for every platform Imprint could put down, a check that the jump lands on it (about 6 s) and a "leg" of about 40 simulated jumps from it (about 19 s). What the solver works out about a room depends on nothing but the room and the solver, so it is kept between runs in `build/solver-cache/<room>.json`: the jumps from each ledge, and each platform's leg by cell, width and length. A room's file is used only if two fingerprints match: the room's (its grid with the openings that lead nowhere sealed, its doors and where they lead, its things, where it sits, so a neighbour that appears or moves counts) and the solver's (a hash of the code and numbers that decide a jump: `reach_graph.gd`, `imprint_search.gd`, `movement_sim.gd`, `movement.tres`, and the others listed in `SolverCache.SOLVER_FILES`). Change either and that room, or every room, is worked out again. What is not kept is cheap and depends on more than one room: where a door leads, and the search that spreads out from the start. A warm run is nearly all the landing checks, which are not kept. Before the last-block model it took about 8 s on the user's machine (11.8 s measured in the cloud, against 52 s cold); the second simulation each landing arc now needs makes the landing checks about three times as long (landings 8.6 s to 25.7 s), so a warm run measured in the cloud is 29.4 s against 55 s cold (the legs got cheaper, being one block wide and shared across widths: 33 s to 19 s cold). Caching the landing checks, or skipping the second simulation for an arc whose path never comes near an outer block, would bring it back down; neither is done. A run after editing one room redoes that room's share. A file that cannot be read is ignored. The tests never read the cache. `tools/validate.sh --no-cache` ignores it too, and prints the same answers.
 
 Threads were tried first and are not used: GDScript's simulation only runs about 1.5 times faster on two or four threads, and slower on eight, so an Imprint search on all cores saved about 15%.
 
@@ -403,7 +411,7 @@ The build steps for that pass are in `docs/plans/soft-duotone-palettes.md`.
 
 ## Imprint
 
-Status: built: finding it (three tokens at a 3TM), placing it, the reach check, the lifetime and its countdown, and the rules below. The solver knows about it, so `tools/validate.sh` proves which rooms are open or shut by it. Width, duration, the cooldown, and multiple active platforms work in the runtime and can be set through dev tools, though current rooms award none of them. Bounce is only a stored effect name; its behavior is not built.
+Status: built: finding it (three tokens at a 3TM), placing it, the reach check, the lifetime and how it shrinks, and the rules below. The solver knows about it, so `tools/validate.sh` proves which rooms are open or shut by it. Width, duration, the cooldown, and multiple active platforms work in the runtime and can be set through dev tools, though current rooms award none of them. Bounce is only a stored effect name; its behavior is not built.
 
 Imprint is the ability that makes Freddy's Fall a metroidvania. The mouse cursor is a platform. The player places it, jumps from it, and uses longer, longer-lasting, and stranger versions of it to open paths that the authored rooms withhold.
 
@@ -415,13 +423,13 @@ The cursor is a promise of a foothold. Before the click, the player can see whet
 
 The cursor snaps to a cell. That cell is the platform's left edge. The platform is `width_cells` wide and one cell tall. It is never rotated and never placed between cells. It shares edges, heights, and jump distances with the authored platforms, which are about four or five cells wide.
 
-At the start, `width_cells` is 2: the player's width plus one spare cell. The first description of that spare was "one pixel." On this grid one cell is the player, so the spare is one cell.
+At the start, `width_cells` is 3: the player's width plus a spare cell each side. The first description of that spare was "one pixel." On this grid one cell is the player, so the spare is one cell. The width is the size a platform *starts* at; it shrinks (see below).
 
 ### Placing
 
 Left click places the platform under the cursor. There is no keyboard or gamepad way to place one, and none planned for now. The code gets the target cell from one function, so another input can feed it later.
 
-- **An Imprint is never replaced.** The starting limit is one (`imprint_max_active`), and while that many stand, a click does nothing, however often it is made. The next may go down only once the live one has broken on time, plus `imprint_cooldown` seconds. The cooldown starts when a platform breaks and is 0 by default, so it is off in real play and is only tried through dev tools (0.2 s is the value to try). Leaving a room, dying, warping and applying a change in the dev panel clear the platforms and the cooldown. No current room awards a larger limit or a shorter cooldown.
+- **An Imprint is never replaced.** The starting limit is one (`imprint_max_active`), and while that many stand, a click does nothing, however often it is made. The next may go down only once the live one has broken on time (when its last block goes), plus `imprint_cooldown` seconds. The cooldown starts when a platform finally breaks, not when a block of it goes, and is 0 by default, so it is off in real play and is only tried through dev tools (0.2 s is the value to try). Leaving a room, dying, warping and applying a change in the dev panel clear the platforms and the cooldown. No current room awards a larger limit or a shorter cooldown.
 - **Why.** Replacing let a player click again and again and keep one platform alive for ever, which walks around any puzzle that is meant to be solved in the platform's lifetime. The starting duration is 1.5 s.
 - It has to lie fully inside the current room. The room is the whole room, including every screen it spans, not the visible viewport.
 - It cannot overlap level geometry, spikes, or a door's trigger zone and the cell around it, so it cannot wall off a doorway or cover spikes.
@@ -432,7 +440,13 @@ A platform may sit just above spikes. Bridging a spike pit with a platform a few
 
 A placed platform is solid on every side, like authored floor. It can be stood on, bumped from below, and walked into. When it breaks under the player, they fall.
 
-A legal placement lasts `duration` seconds, 1.5 at the start. The dashed line through it is its clock: it starts with a dash for every pair of cells it is wide (four, at the start), and one dash goes in each equal share of its life, the leftmost first, so at 1.5 seconds one goes every 0.375 seconds. While the last dash is the only one left, the whole platform also blinks, every tenth of a second. Then it shatters into pixel shards. It does not fade out.
+A legal placement lasts `duration` seconds, 1.5 at the start, and the platform is its own clock: it gets smaller, one block at a time. Each equal share of its life (the life divided by the width it started with) one block goes. At width 3 and 1.5 s a block goes every 0.5 s: three blocks until 0.5 s, two until 1.0 s, one until 1.5 s. The total time never depends on the width.
+
+**The order is set at the click, from where the player is, and never changes after.** The block farthest from the player's centre goes first, and the block nearest them goes last, so in the last share the platform is the one block closest to where they stood. Placed by a player to its left, a 3-wide platform goes right, middle, left; placed from its right, left, middle, right. The farthest block is always an end, so the platform stays in one piece. When two blocks are exactly as far (a player standing right under the middle of a 3-wide platform, or on the line between the two blocks of a 2-wide one), the block **behind** the player goes first, so the one they face lasts longer. Moving after the click changes nothing.
+
+The block that goes next blinks, every tenth of a second, for the last 0.25 s before it goes (never more than half a share, so a very short life is not blinking all the time). Its footing stays until it goes. Each block that goes shatters into pixel shards where it stood, and the last block shatters as the platform ends. Nothing fades.
+
+A placed platform is a white block with a **1 px black dotted border**, drawn 1 px inside its edge, which follows the platform as it shrinks. The border means "you placed this", and it is not the white dotted cursor outline.
 
 ### Reach, before the click
 
@@ -452,7 +466,7 @@ The operating system cursor is hidden while Imprint is available, because the pr
 
 Imprint is the gate, the puzzle, and the traversal tool.
 
-- A gap wider than a running jump is closed by a platform the player can reach and place.
+- A gap wider than a running jump is closed by a platform the player can reach and place. A wider platform buys landing time and room, but the block a puzzle can count on is the last one: the player has to be on it, or off it, by the end.
 - A route that needs a wider platform, a longer-lived one, or a platform that bounces stays closed until that upgrade is found.
 - A `~` region is a place the designer has decided must be crossed some other way.
 - Once the one platform is placed it stands until it breaks, so a puzzle can require the player to choose which gap to bridge and to wait for it.
@@ -471,7 +485,7 @@ Upgrades are pickups in the world, written into a room's legend and drawn with t
 
 | Upgrade | Starts at | Grows to |
 | --- | --- | --- |
-| Width | 2 cells | 3, then 5 |
+| Width | 3 cells | 5 |
 | Duration | 1.5 seconds | longer |
 | Cooldown | 0 seconds (off) | shorter, if a later upgrade ever does; none exists, and it is tried in dev tools |
 | How many at once | 1 | stays 1 unless a later upgrade says otherwise |
@@ -489,7 +503,7 @@ Upgrades not awarded by current rooms; the first three work in the runtime and c
 - A shorter cooldown (a `min` upgrade, which keeps the smaller value). It works in the runtime and in dev tools; no room awards it.
 - A bouncy platform.
 
-The starting values are the defaults in `Abilities` (`src/core/abilities.gd`): width 2, duration 1.5 seconds, one at a time, cooldown 0, no special behavior, and Imprint itself locked. They live in `GameState.abilities`, and the width and duration are read when a platform is placed.
+The starting values are the defaults in `Abilities` (`src/core/abilities.gd`): width 3, duration 1.5 seconds, one at a time, cooldown 0, no special behavior, and Imprint itself locked. They live in `GameState.abilities`, and the width and duration are read when a platform is placed.
 
 ### Look
 
@@ -497,7 +511,7 @@ Imprint uses the same black-and-white pixel language as the rest of the game.
 
 - Dotted outline: a platform can go here.
 - A small ×: you cannot put one here.
-- Dashes going out, left to right: how long a placed platform has left. Blinking with one dash left: it is about to break.
+- A white block with a black dotted border inside its edge: a platform you placed. It gets smaller one block at a time, the block farthest from where you clicked from first, and the block that goes next blinks. (In Classic mode, a dev comparison switch, it stays full width and has a dashed line through it that counts down, with the last dash blinking.)
 - A placed platform is always drawn over the cursor, so what the player can land on is never hidden by the preview.
 - Shatter into pixel shards: it is gone.
 
@@ -611,10 +625,10 @@ also lives in `AGENTS.md` so future agents cannot treat cheats as optional clean
 
 `ImprintTool` is a `Node2D` child of the world, with interpolation off and drawing in world space. It is active when Imprint is unlocked, the player is in control, a room is current, and the world is not busy.
 
-- **Placing** (`place`, on the `imprint` action): the cell under the cursor is the platform's left end and it is `imprint_width` cells wide. `ImprintRules.check` refuses, in this order, with the reason: outside the room, on solid, on spikes, within a cell of a door's trigger, on a `~` cell, overlapping the player, overlapping a platform that stands. Before that, `ImprintRules.blocked` refuses when `imprint_max_active` platforms stand (`limit`) or `cooldown_left` is above 0 (`cooldown`): a click never replaces a platform. A placed platform is a rectangle added to the player's collision list by `sync_solids` (the room's rects plus every platform), which is also called when one expires and when a room's doors open.
-- **Ageing:** each platform's `age` grows by the physics delta unless the world is busy (a door slide, a death, a 3TM feed). At `lifetime` it shatters, `sync_solids` runs, and `cooldown_left` is set to `imprint_cooldown`. `cooldown_left` counts down by the same delta (before the breaks in that tick) and stops with ageing while the world is busy. Leaving a room, dying, warping and a dev-panel Apply of an Imprint setting clear the platforms and the cooldown (`clear`); a retry rebuilds the tool, which starts at 0.
-- **The clock** (`ImprintPlatform`): `_line_xs` gives the dashes (one 2 px dash every 4 px, starting 2 px in, while 2 px fit before the end, so a 2-cell platform has four). `lines_left()` is `ceil(total × (lifetime − age) / lifetime)`, so one dash goes in each equal share of the life, the leftmost first. `blink_time()` is `lifetime / total` (the last dash's share), and `blinked_off()` is true for every other `BLINK_PERIOD` (0.1 s) while `age > lifetime − blink_time()`.
-- **The preview:** `_update_preview` recomputes only when the key (cursor cell, player cell, on the floor, width, platform count, whether a cooldown is running) changes. While `ImprintRules.blocked` gives a reason (`limit` or `cooldown`) the state is unavailable wherever the cursor is, so it is the cross. It sets `_state` to unavailable (a rule refused it), unreachable, or reachable (`ImprintReach.can_land_on` found a jump). `ImprintReach` tries input left, none and right, with the jump held for `HOLDS` (3, 8 or 90 ticks) or, from the ground, not jumped; and plans that go straight and steer `STEER_AT` ticks later. A path counts if it lands on the platform's top (within 0.6 px, overlapping it by more than 0.5 px) and does not touch spikes or a door. Its window is `REACH_X` 170, `REACH_UP` 70, `REACH_DOWN` 400 px. The look ignores reachable versus unreachable for now (both are the dotted outline).
+- **Placing** (`place`, on the `imprint` action): the cell under the cursor is the platform's left end and it is `imprint_width` cells wide. `ImprintRules.check` refuses, in this order, with the reason: outside the room, on solid, on spikes, within a cell of a door's trigger, on a `~` cell, overlapping the player, overlapping a platform that stands. Before that, `ImprintRules.blocked` refuses when `imprint_max_active` platforms stand (`limit`) or `cooldown_left` is above 0 (`cooldown`): a click never replaces a platform. Placing creates `ImprintPlatform.new(rect, duration, not DevSession.classic_imprint_active())`. A placed platform is a rectangle added to the player's collision list by `sync_solids` (the room's rects plus every platform), which is also called when a block goes, when one expires and when a room's doors open.
+- **Ageing:** each platform's `age` grows by the physics delta unless the world is busy (a door slide, a death, a 3TM feed). Then `update_footing()` brings its `rect` in line with `age`: each block that went is shattered at its centre and `sync_solids` runs, but the cooldown is not touched. At `lifetime` the last block shatters, `sync_solids` runs, and `cooldown_left` is set to `imprint_cooldown`. `cooldown_left` counts down by the same delta (before the breaks in that tick) and stops with ageing while the world is busy. Leaving a room, dying, warping and a dev-panel Apply of an Imprint setting clear the platforms and the cooldown (`clear`); a retry rebuilds the tool, which starts at 0.
+- **The footing and the look** (`ImprintPlatform`): `rect` is always the footing right now (every other reader, the tool, the preview, the tests, uses it) and `full_rect` is what was placed. `blocks_left()` is `ceil(cells × (lifetime − age) / lifetime)`, so one block goes in each equal share of the life. The order is the array `order`, made once in `_init` by the pure static `removal_order(cells, left_x, player_x, facing)`: it repeatedly takes whichever end of what is left has its centre farther from `player_x`, and on an exact tie the end behind the player (the left one when `facing` is 1). `place()` passes the player's centre x and `facing`; with no `player_x` the platform's own centre is used, which gives left, right, middle at width 3. `last_cell()` is the block that lasts. `next_cell()` is `order[cells − blocks_left()]`, `footing(left)` is the run of blocks not yet in the order, and `time_to_next()` follows, `warn_time()` is `min(WARN_TIME, lifetime / cells × 0.5)` (`WARN_TIME` is 0.25 s), and `blinking_off()` is true for every other `BLINK_PERIOD` (0.1 s) in that last stretch before the next block goes. The block that blinks is always an end of the footing, so `drawn_rect()` stays one rect. `draw` paints it white and then a black pixel on every other pixel of the perimeter of that rect shrunk by 1 px; the parity is counted from the placed platform's corner so the dots do not shimmer as it shrinks. `update_footing()` returns the rects of the blocks that just went and never the last one (its going is the platform's expiry). *Classic* (`shrinks == false`, the dev switch) keeps the old dash code: `_line_xs` gives the dashes (one 2 px dash every 4 px, starting 2 px in), `lines_left()` is `ceil(total × (lifetime − age) / lifetime)`, the leftmost goes first, and the last dash blinks (`blink_time()`, `blinked_off()`).
+- **The preview:** `_update_preview` recomputes only when the key (cursor cell, player cell, on the floor, width, platform count, how many blocks stand across all platforms, whether a cooldown is running) changes. The blocks standing are in the key because a shrinking platform frees cells without the platform count changing. While `ImprintRules.blocked` gives a reason (`limit` or `cooldown`) the state is unavailable wherever the cursor is, so it is the cross. It sets `_state` to unavailable (a rule refused it), unreachable, or reachable (`ImprintReach.can_land_on` found a jump). `ImprintReach` tries input left, none and right, with the jump held for `HOLDS` (3, 8 or 90 ticks) or, from the ground, not jumped; and plans that go straight and steer `STEER_AT` ticks later. A path counts if it lands on the platform's top (within 0.6 px, overlapping it by more than 0.5 px) and does not touch spikes or a door. Its window is `REACH_X` 170, `REACH_UP` 70, `REACH_DOWN` 400 px. The look ignores reachable versus unreachable for now (both are the dotted outline).
 - **Drawing:** the preview first, then the placed platforms, so a platform is never hidden by the cursor. The operating system's cursor is hidden while the tool is active.
 
 ### The solver (`world/reach_graph.gd`, `world/imprint_search.gd`)
@@ -629,7 +643,7 @@ The solver answers "can a player get here, and get back", using `MovementSim` an
 - **Home.** `_home` walks the edges backwards from the start; a reached ledge not in it is a trap. For ledges with no way home with Imprint unlocked, `_place_imprints_to_get_home` searches again with the ledges that are home and the doors as targets. In a `trap: allowed` room a trap is a one-way warning instead.
 - **The report** (`Report`): `errors` (a room, door, pickup or exit rule that cannot be reached; a door that lands nowhere; traps), `warnings` (ledges nobody reached, one-way ledges and doors nobody inside can touch), counts, `pickups`, `needs`. Lines are capped at `MAX_LINES` (6) per kind.
 - **Progression** (`solve`): solve with the starting abilities; take every pickup, token and 3TM reached; give the abilities those make (`_with`: each pickup's upgrade, and each machine's upgrade if tokens can pay `MACHINE_COST` = 3 for it, machines paid in id order); solve again until nothing new is reached or the abilities stop changing. `taken` only grows, so `_things.size() + 1` analyses are enough for every thing to be discovered one round at a time and for one final pass with the last upgrade applied. Exhausting that safety bound is an error, never a partial successful report. `needs` for a room, ledge or pickup is the set of things taken before the round it first opened, cut down by dropping one at a time (`_needs`). Errors come from the last solve; a trap is judged in the first round it appears, with the fewest abilities.
-- **`ImprintSearch`** keeps three caches: `_arcs` (each ledge's jumps, recorded tick by tick), `_legs`, and the graph's `_landings`. `expand` takes the arcs of a ledge; wherever a falling arc crosses the top of a cell row, the platforms of `width` cells that arc would land on are **candidates**, if `ImprintRules` allows them and one of the targets is within `REACH_X`/`REACH_UP`/`REACH_DOWN` of standing on them (at most `MAX_CANDIDATES` = 600 per ledge, and `MAX_ARCS_PER_CANDIDATE` = 6 arcs each). Each candidate is checked by re-simulating its arc with the platform in place (`_lands_on`). A candidate that passes gets a **leg**: it is treated as a ledge of its own (`_compute_leg`: about 40 simulated jumps and walks from it) and what it reaches is merged in. The jump onto a platform has `_land_limit` ticks, `clamp(duration × 60 − SPARE_TICKS, 0, frame_limit)` (50 ticks at 1.5 s; at 0 `expand` finds nothing). The legs off it use the ordinary `frame_limit` (180), because the platform is not needed once the player has left it. Legs are keyed by cell, width and limit.
+- **`ImprintSearch`** keeps three caches: `_arcs` (each ledge's jumps, recorded tick by tick), `_legs`, and the graph's `_landings`. `expand` takes the arcs of a ledge; wherever a falling arc crosses the top of a cell row, the platforms of `width` cells that arc would land on are **candidates**, if `ImprintRules` allows them and one of the targets is within `REACH_X`/`REACH_UP`/`REACH_DOWN` of standing on them (at most `MAX_CANDIDATES` = 600 per ledge, and `MAX_ARCS_PER_CANDIDATE` = 6 arcs each). Each candidate is checked by re-simulating its arc with the platform in place (`_lands_on`). A candidate that passes gets a **leg**: it is treated as a ledge of its own (`_compute_leg`: about 40 simulated jumps and walks from it) and what it reaches is merged in. The jump onto a platform has `_land_limit` ticks, `clamp(duration × 60 − SPARE_TICKS, 0, frame_limit)` (50 ticks at 1.5 s; at 0 `expand` finds nothing). The legs off it use the ordinary `frame_limit` (180), because the platform is not needed once the player has left it. **The footing the solver counts on is the last block**, which stands for the whole life, so a route it accepts never depends on a block that goes earlier. The player places from the ledge, so `_last_cells(cell, width, arc.start.x)` takes the last of `ImprintPlatform.removal_order` from the arc's start for facing right and for facing left: one block, or two on a tie, and a landing on either counts, because the player can turn before clicking. `_lands_on` records the block it landed on in `candidate.last`, and the leg starts from it. The whole platform still has to be legal to place, and the arc is simulated with the whole platform in place, but it has to land on the last block, and then (`_landing`) the same arc is simulated again with only the last block and has to land in the same place (within 0.5 px); an arc that touches another block differs between the two and is dropped. A leg starts from the last block alone, one block wide, so legs are keyed by cell, width (always 1 now) and limit and are shared across widths.
 
 ### The solver's cache (`world/solver_cache.gd`)
 
@@ -652,6 +666,7 @@ The solver answers "can a player get here, and get back", using `MovementSim` an
 ### What the solver and the preview do not model
 
 - Placing a platform in mid-air, and using two in a row. A room that needs either is reported out of reach.
+- Landing on a block of a platform that goes before the last one while it stands, or walking off onto such blocks while they stand: only the last block counts. Placing the platform from anywhere but the ledge the jump starts from (the runtime lets the player click from mid-air or after walking; the order is then set from there). Because Classic keeps strictly more footing, validation is conservative for it. The reach preview treats the platform under the cursor as full width (it has not been placed yet), and its look does not tell reachable from unreachable.
 - The carry limit of three tokens, and a blocked doorway as a wall for a body falling through a chain of doors.
 - Paths other than the fixed plans (the inputs and holds above), so "unreachable" can mean "a plan it did not try". That is why an unreached ledge is a warning and an unreached room, door or pickup is an error.
 - A ledge's `MAX_CANDIDATES` cap, and `REACH_*` windows: a platform beyond them is not tried.
@@ -676,7 +691,7 @@ What was decided, in the order it came up, with the reason. Pull requests are na
 **Tokens, the 3TM, exit rules (PR #16)**
 - **Imprint is earned: three tokens at a 3TM.** Tokens are the currency, a 3TM the shop, one upgrade per machine. Partial deposits are saved; a spent machine does nothing; the pocket holds three.
 - **A room's exit rule blocks every door, including the one the player came in by,** with solid shaded blocks, not glows. `exits: pickups` is the first rule. A rule is a flag test, so a reload gives the same answer.
-- **The body is the inventory.** Tokens and the Imprint line are cut into the player's square, so no HUD is needed.
+- **The body is the inventory.** Tokens and the Imprint line are cut into the player's square, so no HUD is needed. So is the facing: a 2 x 2 block in the top right when facing right, the top left when facing left, one row down from the edge.
 
 **Save rooms and health (PR #26)**
 - **Dying with no health goes to the save room.** Health is a count of pips, none at the start. With a pip, a death spends it and keeps the old safe-floor respawn. A pip is a pickup that is designed and not built, so today every death goes to the save room.
@@ -706,7 +721,7 @@ What was decided, in the order it came up, with the reason. Pull requests are na
 **Imprint's look and timing (PRs #18 and #21)**
 - **The cursor is always a dotted outline,** whether or not the platform can be reached. A filled cursor with a circling sparkle (and a trailing dotted tail) was built and removed at the user's request. The reach check still runs, so a look that tells them apart can return.
 - **A placed platform is drawn over the cursor,** so what can be landed on is never hidden.
-- **The dashes are a clock:** four, one going in each equal share of the life, from the left; the last dash blinks (the blink lasts the last dash's share, so it scales with duration and width).
+- **The dashes are a clock** (since the shrinking Imprint, Classic mode only): four, one going in each equal share of the life, from the left; the last dash blinks (the blink lasts the last dash's share, so it scales with duration and width).
 - **A platform lasts 1.5 s** (it was 4, then 3, then 2.5). It was tuned by playing, and the last change was the user's choice together with the lockout below. Saves from before the change keep their old value.
 
 **The map and saving (PR #20)**
@@ -751,6 +766,18 @@ What was decided, in the order it came up, with the reason. Pull requests are na
 - **Old saves keep their stored duration,** so only new games get 1.5 s.
 - **The solver needs no lockout model.** It puts one platform down at a time and never two in a row, and none from a moving platform, so waiting is always possible. It does need its time budget changed: the jump onto a platform has to land within its life, and what the player does after leaving it no longer does.
 
+**Imprint shrinks one block per interval (PR #33)**
+- **The platform is its own clock.** The dashes counted down a life that was hard to read; a platform that loses a block each interval shows the same thing by being smaller. The dashes no longer mean anything, so a placed platform has a dotted border to tell it from floor and from the cursor.
+- **Width 3.** It was chosen so a real middle block lasted. The order now follows the player, and the user kept 3 as the start.
+- **The order is set at the click, from the player** (the user's change after playing the first version, which went from the ends toward the middle, left first): the block farthest from the player's centre goes first and the one nearest them last, and it never changes after the click. Measured from the body's centre x; only left and right matter, the blocks being on one row.
+- **Ties go by facing:** the block behind the player goes first. A tie happens in real play, because the player respawns on cell centres and the platform snaps to cells. Facing is new: the last left or right input, not part of the movement, not saved, right on a new game, a spawn, a respawn, a warp and a retry, kept through doors and the save machine, and not turned by input the world is holding back. It is shown as a 2 x 2 block cut into the body, one row down, in the top right when facing right and the top left when facing left, clear of the token and Imprint marks. It was first a three-pixel `>`/`<`, then a dot, and the user settled on the 2 x 2 block after trying a one-pixel dot in the corner, a two-pixel dash, and other shapes. The tokens changed with it, from plus shapes to 2 x 2 dots so they sit exactly centred.
+- **The interval is life / starting width,** not the old dash interval: a block has two dashes' worth of width, so reusing 0.375 s would end a 3-block platform in 1.1 s. At 1.5 s and width 3 a block goes every 0.5 s, and the total time never changes with the width.
+- **Only the next block blinks, in its last 0.25 s** (capped at half a share), and its footing stays until it goes. The cap and the border drawn around the blocks that remain while an end block blinks are judgement calls, reported in the pull request.
+- **The solver counts only the last block as footing.** It stands for the whole life, so an accepted route does not depend on a block that goes earlier still being there. The last block is the one nearest the jump's start, where the player stands to click; on a tie either counts, because the player can turn first. The cost: a wider starting width never makes a room easier *on paper*, only in play. The second simulation (the arc with the last block alone) is what keeps an arc that brushes an outer block from being accepted. Every room passed with the same "needs" lines as before.
+- **Classic stays as a dev comparison switch** (a session switch like door bypass, not saved, not in loadouts, not an ability), so the old look and the new one can be compared until the user has played both.
+- **Old saves are left alone:** a save that stored width 2 keeps 2. Only new games start at 3.
+- **No `Save.VERSION` change.** A missing field falls back to its default.
+
 **Process**
 - **One record.** `AGENTS.md` for how an agent works, `README.md` for the code and its rules, this file for the game and its decisions, `docs/testing-checklist.md` for what nobody has played. `docs/plans/` is history.
 - **Every new test is mutation-checked,** and the pull request says which mutants were tried.
@@ -760,10 +787,14 @@ What was decided, in the order it came up, with the reason. Pull requests are na
 
 Do not: copy a movement formula; reference an autoload from a pure class; derive or rename an entity id; change the save's shape without `Save.VERSION` and a `_migrate` step; put a `Camera2D` back in the map; add threads to the solver; make the cursor or any effect fade (nothing fades: a pixel is on or off); add colours (the picture is two colours); call a tuned number the default without saying so in the docs; or leave a test you have not tried to break.
 
-**The Imprint rule every Imprint-related feature must keep.** An Imprint is never replaced, refreshed or extended by another click. No new one goes down until the live one has broken, plus `imprint_cooldown`. A feature that gives the player another way to make footing (more platforms at once, mid-air placement, refreshing a platform's life) or that makes waiting on real floor costly (timers, crumbling floor, chasing hazards, routes that only moving platforms carry) must say how it keeps this rule, in the runtime and in the solver. Loosening it is the user's decision, not an implementation detail.
+**The Imprint rule every Imprint-related feature must keep.** An Imprint is never replaced, refreshed or extended by another click. No new one goes down until the live one has broken, plus `imprint_cooldown`. A feature that gives the player another way to make footing (more platforms at once, mid-air placement, refreshing a platform's life) or that makes waiting on real floor costly (timers, crumbling floor, chasing hazards, routes that only moving platforms carry) must say how it keeps this rule, in the runtime and in the solver. Loosening it is the user's decision, not an implementation detail. The footing the solver counts on is the last block, for the whole life: the one nearest where the player stood to place it. A feature that changes the shrink order, the interval, the starting width or how the order is chosen must keep that model true, or change the solver with it.
 
 ## Not decided
 
+- Whether the facing block and the token dots read at 1x, and whether it should show before Imprint is found.
+- Whether Classic Imprint is removed once the user has played both.
+- Whether the shards of each block that goes are too busy.
+- Whether the first width upgrade should still exist when the start is 3 (a `imprint_width` pickup of value 3 now gives nothing). Rooms do not award one today.
 - What S / Down does.
 - How hard a bounce platform throws the player, and whether the player aims it.
 - A gamepad or keyboard way to aim and place an Imprint.

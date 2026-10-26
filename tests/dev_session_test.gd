@@ -38,7 +38,7 @@ func _run() -> void:
 	root.add_child(_world)
 	await process_frame
 	_world.player.scripted = true
-	_check(state.health == 0 and state.abilities.imprint_width == 2, "direct room starts with fresh state, not the save")
+	_check(state.health == 0 and state.abilities.imprint_width == 3, "direct room starts with fresh state, not the save")
 	_check(session.enter(_world).is_empty() and session.isolated(), "enter protected dev mode")
 	_check(not save.write("8", Vector2.ZERO) and save.load_game().is_empty(), "normal save reads and writes are blocked")
 	save.erase()
@@ -71,6 +71,22 @@ func _run() -> void:
 	_world.player.place(_world.current.position + Grid.cell_center(Vector2i(3, 4)), _world.current.world_rects())
 	_check(session.set_bypass(_world, false).is_empty() and _world.current.locked and _world.current.world_rects().size() == blocked_count, "turning bypass off restores unmet requirements and collisions")
 
+	# The Classic Imprint switch: a comparison, for a dev test only.
+	_check(not session.classic_imprint and not session.classic_imprint_active(), "Classic Imprint starts off")
+	_world.imprint.platforms.append(ImprintPlatform.new(Rect2(10, 10, 30, 10), 1.5))
+	_world.imprint.cooldown_left = 2.0
+	_check(session.set_classic_imprint(_world, true).is_empty() and session.classic_imprint and session.classic_imprint_active(), "Classic Imprint can be turned on in a dev test")
+	_check(_world.imprint.platforms.is_empty() and is_zero_approx(_world.imprint.cooldown_left), "and turning it on clears platforms and the cooldown")
+	_world.imprint.platforms.append(ImprintPlatform.new(Rect2(10, 10, 30, 10), 1.5, false))
+	_check(session.set_classic_imprint(_world, false).is_empty() and not session.classic_imprint_active() and _world.imprint.platforms.is_empty(), "turning it off clears them too")
+	_check(not _dict_has_classic(state.to_dict()) and not _dict_has_classic(session.loadout) and not _dict_has_classic(session.baseline), "it is in no save, loadout or baseline")
+	session.mode = session.Mode.NORMAL
+	_check(not session.set_classic_imprint(_world, true).is_empty() and not session.classic_imprint, "it is refused outside a dev test")
+	session.classic_imprint = true
+	_check(not session.classic_imprint_active(), "and a flag left set does nothing outside a dev test")
+	session.classic_imprint = false
+	session.mode = session.Mode.DEV_TEST
+
 	state.flags["pickup:baseline"] = true
 	state.machines["baseline_machine"] = 1
 	_check(session.start(_world, "8").is_empty(), "start a repeatable test")
@@ -82,8 +98,10 @@ func _run() -> void:
 	state.tokens = 0
 	state.health = 0
 	state.map_zoom = 2
+	_check(session.set_classic_imprint(_world, true).is_empty(), "turn Classic Imprint on before a retry")
 	_check(session.retry(_world).is_empty(), "retry after travelling across rooms")
 	await _replacement()
+	_check(session.classic_imprint and session.classic_imprint_active(), "Classic Imprint survives a retry")
 	_check(_world.current.info.id == "8" and state.flags.has("pickup:baseline") and not state.flags.has("pickup:later") and state.machines["baseline_machine"] == 1, "retry restores original room, flags, and machine fills")
 	_check(state.tokens == 3 and state.health == 6 and state.abilities.imprint_duration == 5.0, "retry uses latest explicitly applied powers and replenishes resources")
 	_check(is_equal_approx(state.abilities.imprint_cooldown, 0.2) and is_zero_approx(_world.imprint.cooldown_left), "retry keeps the applied cooldown setting, with no cooldown running")
@@ -113,6 +131,7 @@ func _run() -> void:
 	_check(FileAccess.get_file_as_string(TEMP) == original, "all playtest operations preserve the save bytes")
 	_check(session.end(_world).is_empty(), "end isolated playtest")
 	await _replacement()
+	_check(not session.classic_imprint and not session.classic_imprint_active(), "ending the playtest resets Classic Imprint")
 	_check(not session.isolated() and state.health == 7 and state.abilities.imprint_width == 4 and _world.current.info.id == "8", "ending restores normal saved progression")
 	_check(FileAccess.get_file_as_string(TEMP) == original, "ending does not save test state")
 	# The independent headless/test disable flag must survive ending a session.
@@ -127,6 +146,15 @@ func _run() -> void:
 		DirAccess.remove_absolute(path)
 	print("DEV SESSION %s" % ("pass" if _ok else "fail"))
 	quit(0 if _ok else 1)
+
+
+## Whether a dictionary holds the switch anywhere, however deep.
+func _dict_has_classic(value: Variant) -> bool:
+	if value is Dictionary:
+		for key in value:
+			if String(key).contains("classic") or _dict_has_classic(value[key]):
+				return true
+	return false
 
 
 func _replacement() -> void:

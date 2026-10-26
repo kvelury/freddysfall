@@ -13,6 +13,8 @@ func _initialize() -> void:
 	ok = _reach() and ok
 	ok = _platform() and ok
 	ok = _countdown() and ok
+	ok = _shrink() and ok
+	ok = _order() and ok
 	ok = _lockout() and ok
 	print("IMPRINT %s" % ("pass" if ok else "fail"))
 	quit(0 if ok else 1)
@@ -85,9 +87,10 @@ func _reach() -> bool:
 	return ok
 
 
+## Classic only: the blink on the last dash.
 func _platform() -> bool:
 	var ok := true
-	var p := ImprintPlatform.new(Rect2(0, 0, 20, 10), 4.0)
+	var p := ImprintPlatform.new(Rect2(0, 0, 20, 10), 4.0, false)
 	p.age = 1.0
 	ok = _check(not p.blinked_off() and not p.expired(), "a new platform is solid and drawn") and ok
 	p.age = 3.05
@@ -124,16 +127,163 @@ func _room(marks: Dictionary) -> String:
 	return "\n".join(rows) + "\n"
 
 
+## Ages a platform the way the tool does, one tick at a time up to `age`, and
+## returns the blocks that went on the way.
+func _age_to(p: ImprintPlatform, age: float) -> Array[Rect2]:
+	var gone: Array[Rect2] = []
+	while p.age < age - 0.0001:
+		p.age = minf(p.age + 1.0 / 60.0, age)
+		gone.append_array(p.update_footing())
+	return gone
+
+
+## The platform is its own clock: one block goes in each equal share of its life,
+## from the ends toward the middle, left first. The one that lasts is cells / 2.
+func _shrink() -> bool:
+	var ok := true
+	var p := ImprintPlatform.new(Rect2(100, 50, 30, 10), 1.5)
+	ok = _check(p.shrinks and p.cells == 3 and p.rect == p.full_rect, "a new platform of three cells is whole and shrinks") and ok
+	_age_to(p, 0.25)
+	ok = _check(p.rect == Rect2(100, 50, 30, 10) and p.blocks_left() == 3, "it is whole at 0.25 s") and ok
+	var gone := _age_to(p, 0.75)
+	ok = _check(is_equal_approx(p.rect.position.x, 110.0) and is_equal_approx(p.rect.size.x, 20.0) and p.blocks_left() == 2, "at 0.75 s the left block has gone (%s)" % [p.rect]) and ok
+	ok = _check(gone == [Rect2(100, 50, 10, 10)], "and update_footing said which (%s)" % [gone]) and ok
+	gone.append_array(_age_to(p, 1.25))
+	ok = _check(is_equal_approx(p.rect.position.x, 110.0) and is_equal_approx(p.rect.size.x, 10.0) and p.blocks_left() == 1, "at 1.25 s only the middle block stands (%s)" % [p.rect]) and ok
+	ok = _check(gone == [Rect2(100, 50, 10, 10), Rect2(120, 50, 10, 10)], "the right block went second (%s)" % [gone]) and ok
+	ok = _check(_age_to(p, 1.49).is_empty() and p.rect.size.x == 10.0 and not p.expired(), "the last block stays until the end, and is never reported as gone") and ok
+	_age_to(p, 1.5)
+	ok = _check(p.expired() and p.blocks_left() == 0, "the platform is gone at 1.5 s") and ok
+	ok = _check(p.update_footing().is_empty(), "and update_footing has nothing more to give") and ok
+
+	var counts := []
+	var q := ImprintPlatform.new(Rect2(0, 0, 30, 10), 1.5)
+	for age in [0.25, 0.75, 1.25]:
+		q.age = age
+		counts.append(q.blocks_left())
+	ok = _check(counts == [3, 2, 1], "blocks_left at 0.25, 0.75 and 1.25 s is 3, 2, 1 (%s)" % [counts]) and ok
+
+	# The order, from the ends toward the middle: the block left standing is cells / 2.
+	for width in [1, 2, 3, 4, 5]:
+		var w := ImprintPlatform.new(Rect2(100, 0, 10 * width, 10), 1.5)
+		_age_to(w, 1.49)
+		var want := 100.0 + 10.0 * float(width / 2)
+		ok = _check(w.rect == Rect2(want, 0, 10, 10), "width %d ends on block %d (%s)" % [width, width / 2, w.rect]) and ok
+	var five := ImprintPlatform.new(Rect2(0, 0, 50, 10), 1.5)
+	var order := []
+	for i in range(1, 151):
+		five.age = 0.01 * float(i)
+		for block in five.update_footing():
+			order.append(int(block.position.x / 10.0))
+	ok = _check(order == [0, 4, 1, 3], "width 5 loses 0, 4, 1, 3 and keeps 2 (%s)" % [order]) and ok
+
+	var one := ImprintPlatform.new(Rect2(100, 50, 10, 10), 1.5)
+	var changed := false
+	for i in range(1, 150):
+		one.age = 0.01 * float(i)
+		one.update_footing()
+		changed = changed or one.rect != Rect2(100, 50, 10, 10)
+	ok = _check(not changed, "a width of one never changes before it expires") and ok
+
+	# The warning: only the block that goes next blinks, in its last 0.25 s.
+	var b := ImprintPlatform.new(Rect2(100, 50, 30, 10), 1.5)
+	var early := false
+	for age in [0.1, 0.15, 0.2]:
+		b.age = age
+		early = early or b.blinking_off()
+	ok = _check(not early, "nothing blinks while a block is far from going") and ok
+	b.age = 0.0
+	ok = _check(b.next_cell() == 0 and is_equal_approx(b.time_to_next(), 0.5), "the left block goes first, in 0.5 s") and ok
+	var blinked := false
+	for age in [0.26, 0.28, 0.3, 0.32, 0.34, 0.36, 0.38]:
+		b.age = age
+		blinked = blinked or b.blinking_off()
+	ok = _check(blinked, "the next block blinks off at some time in its last 0.25 s") and ok
+	b.age = 0.35
+	ok = _check(b.blinking_off() and b.rect == Rect2(100, 50, 30, 10), "while it blinks it still counts as footing") and ok
+	ok = _check(b.drawn_rect() == Rect2(110, 50, 20, 10), "and the left block is left out of the drawing (%s)" % [b.drawn_rect()]) and ok
+	b.age = 0.55
+	b.update_footing()
+	b.age = 0.95
+	ok = _check(b.next_cell() == 2 and b.blinking_off() and b.drawn_rect() == Rect2(110, 50, 10, 10), "the right block is next, and it is the one left out (%s)" % [b.drawn_rect()]) and ok
+	b.age = 1.0
+	b.update_footing()
+	b.age = 1.35
+	ok = _check(b.next_cell() == 1 and b.blinking_off(), "the last block blinks before it goes with the platform") and ok
+	ok = _check(b.drawn_rect().size.x <= 0.0, "and nothing is drawn while it is blinked off") and ok
+	var quick := ImprintPlatform.new(Rect2(0, 0, 30, 10), 0.3)
+	ok = _check(is_equal_approx(quick.warn_time(), 0.05), "the warning is no more than half a share (%.3f)" % quick.warn_time()) and ok
+	ok = _check(is_equal_approx(b.warn_time(), 0.25), "and 0.25 s at the starting life") and ok
+
+	# Classic keeps its width and has no blink of this kind.
+	var classic := ImprintPlatform.new(Rect2(100, 50, 30, 10), 1.5, false)
+	var same := true
+	var blink := false
+	for i in range(1, 150):
+		classic.age = 0.01 * float(i)
+		same = same and classic.update_footing().is_empty() and classic.rect == classic.full_rect
+		blink = blink or classic.blinking_off()
+	ok = _check(same and not classic.shrinks, "a Classic platform keeps its width for its whole life") and ok
+	ok = _check(not blink and classic.next_cell() == -1 and classic.blocks_left() == 3, "and no block blinks") and ok
+	return ok
+
+
+## The order is fixed at the click, from the player's centre: the block farthest
+## from them goes first and the nearest one lasts. On a tie the block behind
+## them goes first.
+func _order() -> bool:
+	var ok := true
+	ok = _check(ImprintPlatform.removal_order(3, 100.0, 50.0, 1) == [2, 1, 0], "a player to the left: right, middle, left") and ok
+	ok = _check(ImprintPlatform.removal_order(3, 100.0, 200.0, 1) == [0, 1, 2], "a player to the right: left, middle, right") and ok
+	ok = _check(ImprintPlatform.removal_order(3, 100.0, 200.0, -1) == [0, 1, 2], "facing does not matter without a tie") and ok
+	ok = _check(ImprintPlatform.removal_order(3, 100.0, 105.0, 1) == [2, 1, 0], "a player over the left block keeps it to the end") and ok
+	ok = _check(ImprintPlatform.removal_order(3, 100.0, 105.0, -1) == [2, 1, 0], "whichever way they face") and ok
+	ok = _check(ImprintPlatform.removal_order(3, 100.0, 118.0, 1) == [0, 2, 1], "over the middle, a little right of centre: left, right, middle") and ok
+	# Ties: centred under a 3-wide platform, and on the line between the two blocks of a 2-wide one.
+	ok = _check(ImprintPlatform.removal_order(3, 0.0, 15.0, 1) == [0, 2, 1], "centred, facing right: the left block goes first (%s)" % [ImprintPlatform.removal_order(3, 0.0, 15.0, 1)]) and ok
+	ok = _check(ImprintPlatform.removal_order(3, 0.0, 15.0, -1) == [2, 0, 1], "centred, facing left: the right block goes first (%s)" % [ImprintPlatform.removal_order(3, 0.0, 15.0, -1)]) and ok
+	ok = _check(ImprintPlatform.removal_order(2, 0.0, 10.0, 1) == [0, 1] and ImprintPlatform.removal_order(2, 0.0, 10.0, -1) == [1, 0], "width 2 on the line: the block in front lasts") and ok
+	ok = _check(ImprintPlatform.removal_order(1, 0.0, 500.0, 1) == [0], "width 1 is its own last block") and ok
+	# The block nearest the player is always last, for widths 1 to 5 and the player anywhere.
+	var nearest_last := true
+	for width in [1, 2, 3, 4, 5]:
+		for px in range(-40, 100, 3):
+			var order := ImprintPlatform.removal_order(width, 0.0, float(px) + 0.25, 1)
+			var best := 0
+			for k in width:
+				if absf((float(k) + 0.5) * 10.0 - float(px) - 0.25) < absf((float(best) + 0.5) * 10.0 - float(px) - 0.25):
+					best = k
+			var seen := {}
+			for k in order:
+				seen[k] = true
+			nearest_last = nearest_last and order.size() == width and seen.size() == width and order[order.size() - 1] == best
+	ok = _check(nearest_last, "for widths 1 to 5, every block goes once and the nearest is last") and ok
+
+	# The platform follows its order, footing and blink included.
+	var p := ImprintPlatform.new(Rect2(100, 50, 30, 10), 1.5, true, 50.0, 1)
+	ok = _check(p.order == [2, 1, 0] and p.last_cell() == 0, "a platform placed from the left keeps its left block") and ok
+	_age_to(p, 0.75)
+	ok = _check(p.rect == Rect2(100, 50, 20, 10), "at 0.75 s the right block has gone (%s)" % [p.rect]) and ok
+	_age_to(p, 1.25)
+	ok = _check(p.rect == Rect2(100, 50, 10, 10), "at 1.25 s the left block stands alone (%s)" % [p.rect]) and ok
+	var q := ImprintPlatform.new(Rect2(100, 50, 30, 10), 1.5, true, 50.0, 1)
+	q.age = 0.35
+	ok = _check(q.next_cell() == 2 and q.blinking_off() and q.drawn_rect() == Rect2(100, 50, 20, 10), "the right block is the one that blinks, and is left out of the drawing (%s)" % [q.drawn_rect()]) and ok
+	var r := ImprintPlatform.new(Rect2(100, 50, 30, 10), 1.5)
+	ok = _check(r.order == [0, 2, 1], "with no player given, it is the old order: left, right, middle") and ok
+	return ok
+
+
 func _check(cond: bool, label: String) -> bool:
 	print(("ok   " if cond else "FAIL ") + label)
 	return cond
 
 
-## The dashes are a clock: one goes each quarter of the platform's life, from
-## the left, and the last one is the one that blinks.
+## Classic only: the dashes are a clock. One goes each quarter of the platform's
+## life, from the left, and the last one is the one that blinks.
 func _countdown() -> bool:
 	var ok := true
-	var p := ImprintPlatform.new(Rect2(100, 50, 20, 10), 4.0)
+	var p := ImprintPlatform.new(Rect2(100, 50, 20, 10), 4.0, false)
 	var full := p.line_rects()
 	ok = _check(full.size() == 4 and p.lines_left() == 4, "a new platform of two cells has four lines (%d)" % full.size()) and ok
 	var counts := []
@@ -150,7 +300,7 @@ func _countdown() -> bool:
 	ok = _check(p.lines_left() == 1, "one line is left until the very end") and ok
 	p.age = 4.0
 	ok = _check(p.lines_left() == 0 and p.expired(), "none at the end") and ok
-	var wide := ImprintPlatform.new(Rect2(0, 0, 30, 10), 6.0)
+	var wide := ImprintPlatform.new(Rect2(0, 0, 30, 10), 6.0, false)
 	var shown := []
 	for age in [0.5, 2.5, 5.5]:
 		wide.age = age
@@ -159,7 +309,7 @@ func _countdown() -> bool:
 
 	# The starting platform: 1.5 seconds and four lines, so one goes every
 	# 0.375 s, and it blinks while the last one is alone (from 1.125 s).
-	var start := ImprintPlatform.new(Rect2(0, 0, 20, 10), Abilities.new().imprint_duration)
+	var start := ImprintPlatform.new(Rect2(0, 0, 20, 10), Abilities.new().imprint_duration, false)
 	ok = _check(is_equal_approx(start.lifetime, 1.5), "a starting platform lasts 1.5 seconds") and ok
 	var quarters := []
 	for age in [0.2, 0.5, 0.9, 1.2]:

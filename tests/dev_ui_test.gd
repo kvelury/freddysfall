@@ -101,11 +101,27 @@ func _run() -> void:
 	_check(float(panel._fields["imprint_cooldown"].text) == 0.0, "and − stops at 0 (%s)" % panel._fields["imprint_cooldown"].text)
 	panel._apply()
 	_check(is_zero_approx(state.abilities.imprint_cooldown), "and the cooldown can be turned off again")
+	_check(panel._classic != null and not panel._classic.button_pressed and not session.classic_imprint, "the Classic Imprint switch is on the Player tab, off")
+	panel._classic.button_pressed = true
+	_check(session.classic_imprint, "turning it on reaches the session")
+	panel._process(0.0)
+	_check(panel._indicator.text.contains("classic imprint"), "and the indicator says so (%s)" % panel._indicator.text)
+	_check(not panel._draft().has("classic_imprint") and not panel._draft().get("abilities", {}).has("classic_imprint"), "it is not part of the draft")
+	panel._fields["imprint_cooldown"].text = "0"
+	_check(panel._apply() and session.classic_imprint, "Apply does not change it")
 	panel._fields["health"].text = "bad"
 	panel._fields["tokens"].text = "2"
 	_check(not panel._apply() and state.tokens == 1, "invalid panel draft is atomic")
 	_press(panel, KEY_ESCAPE)
 	_check(not panel.opened and not paused and state.tokens == 1, "Escape discards unapplied fields")
+	_check(session.classic_imprint, "and does not change the Classic switch")
+	panel.open_panel()
+	_check(panel._classic.button_pressed, "the switch shows its state when the panel opens again")
+	panel._classic.button_pressed = false
+	_check(not session.classic_imprint, "and turns off again")
+	panel._process(0.0)
+	_check(not panel._indicator.text.contains("classic"), "with the indicator gone")
+	panel.close_panel()
 	world._busy = true
 	_press(panel, KEY_F2)
 	_check(not panel.opened and panel._pending == 0, "panel defers opening during an animation")
@@ -128,8 +144,23 @@ func _run() -> void:
 	panel.close_panel()
 	Input.action_press("jump")
 	_check(world.gameplay_input_blocked(), "held gameplay input is suppressed after closing")
+	# A direction held through the panel does not turn the player either.
+	world.player.scripted = false
+	world.player.facing = 1
+	Input.action_press("move_left")
+	for i in 3:
+		await physics_frame
+	_check(world.player.facing == 1, "a held direction does not turn the player while input is suppressed")
+	Input.action_release("move_left")
 	Input.action_release("jump")
 	_check(not world.gameplay_input_blocked(), "gameplay resumes once held keys are released")
+	Input.action_press("move_left")
+	for i in 2:
+		await physics_frame
+	Input.action_release("move_left")
+	_check(world.player.facing == -1, "and a fresh press turns them")
+	world.player.facing = 1
+	world.player.scripted = true
 	_press(panel, KEY_F4)
 	_check(panel.opened and panel._tabs.current_tab == 1, "F4 focuses room selection")
 	panel._room.text = "999"
