@@ -523,7 +523,7 @@ The shards are small. They should read at 320×180 and survive the softer palett
 
 ### Aiming without a mouse (planned, not built)
 
-Status: planned, not built, and not scheduled. Nothing below is in the game. A concept video was recorded in the engine on 2026-10-26 from a throwaway prototype that is not in the repo. When this is built, this section becomes the spec and the rest of "Imprint" is updated to match.
+Status: planned, not built, and not scheduled. Nothing below is in the game. A concept video was recorded in the engine on 2026-10-26 from a throwaway prototype, kept with the video in `tools/concept/`. When this is built, this section becomes the spec and the rest of "Imprint" is updated to match.
 
 **Why.** Moving a mouse to an exact cell in the middle of a jump is slow and hard to learn, and the puzzles want a platform in a split second. A gamepad has no pointer at all. Controller support is the long-term goal, so placement has to be something a stick and a button can do.
 
@@ -884,7 +884,7 @@ What was decided, in the order it came up, with the reason. Pull requests are na
 - **Placement moves to a fixed set of slots around Freddy, five directions by near and far.** Free mouse aim was hard to use in the split second the puzzles want, and it has no gamepad form. The plan is under "Aiming without a mouse".
 - **Both dash-style (hold a direction, J near / K far) and build mode (hold Shift, slowed time, steer, release) are to be built and switched in F2,** alongside free aim as a dev-only third choice, so they can be compared in play. Four schemes were considered. Twin-stick flick was dropped because nothing shows where the platform will go before it is placed. A snapping cursor was dropped because it is still a pointing task and slow on a pad.
 - **Near and far are both available from the start; the mouse snaps to the nearest slot.** Decided by the user.
-- **A concept video was recorded before any building,** at the user's request. The prototype was throwaway and is not in the repo.
+- **A concept video was recorded before any building,** at the user's request. The prototype was throwaway; it is kept with the video in `tools/concept/` for reference.
 
 **Process**
 - **One record.** `AGENTS.md` for how an agent works, `README.md` for the code and its rules, this file for the game and its decisions, `docs/testing-checklist.md` for what nobody has played. `docs/plans/` is history.
