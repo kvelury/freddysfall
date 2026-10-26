@@ -153,6 +153,11 @@ func _overlay() -> bool:
 	var overlay: Node = (load("res://src/ui/map_overlay.tscn") as PackedScene).instantiate()
 	parent.add_child(overlay)
 	await process_frame
+	var before_removed: Rect2 = overlay._visited_bounds()
+	state.visited["8"] = true
+	overlay.refresh()
+	ok = _check(overlay._visited_bounds() == before_removed, "a pre-merge visit to removed room 8 adds no phantom map room") and ok
+
 	ok = _check(state.map_zoom == MapView.MIDDLE and is_equal_approx(overlay.zoom, 1.0), "the map opens at the middle level") and ok
 
 	Input.action_press("map")

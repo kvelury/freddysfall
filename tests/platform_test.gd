@@ -220,7 +220,7 @@ func _play() -> bool:
 	var room: Room = world.current
 	var cfg := player.config
 	var original := cfg.inherit_platform_velocity
-	ok = _check(room.info.id == "8" and room.movers.size() == 1, "room 8 has one moving platform") and ok
+	ok = _check(room.info.id == "7" and room.movers.size() == 1, "room 7 has one moving platform") and ok
 	var node: MovingPlatform = null
 	for child in room.get_children():
 		if child is MovingPlatform:
@@ -270,6 +270,15 @@ func _play() -> bool:
 	# Parity: the real player and the solver's simulation agree, with whatever
 	# the game ships with.
 	ok = _parity(room, player, cfg) and ok
+	# Step off the returning platform's left edge onto the clear landing.
+	room.tick = 0
+	_put_on(room, player, 5.0)
+	player.scripted_x = -1.0
+	for i in 45:
+		_tick(room, player)
+	player.scripted_x = 0.0
+	var local: Vector2 = player.global_position - room.position
+	ok = _check(player.is_on_floor() and player.riding() == -1 and is_equal_approx(local.y, _floor_y(room)) and local.x + MovementSim.HALF.x <= 150.0, "stepping left off the platform returns to safe floor (%s)" % local) and ok
 	world.queue_free()
 	await process_frame
 	return ok
@@ -286,8 +295,8 @@ func _parity(room: Room, player: Player, cfg: MovementConfig) -> bool:
 	var offset := -1
 	var from_x := 0.0
 	for t in period:
-		for x in [25.0, 35.0, 45.0, 55.0]:
-			var found := MovementSim.simulate_jump(cfg, rects, room.position + Vector2(x, 165), Vector2.ZERO, 1.0, 90, true, true, [], Rect2(), [], [], NAN, 0, 120, false, room.movers, t, -1)
+		for x in [115.0, 125.0, 135.0, 145.0]:
+			var found := MovementSim.simulate_jump(cfg, rects, room.position + Vector2(x, _floor_y(room)), Vector2.ZERO, 1.0, 90, true, true, [], Rect2(), [], [], NAN, 0, 120, false, room.movers, t, -1)
 			if found["landed"] and int(found["riding"]) == 0:
 				offset = t
 				from_x = x
@@ -299,7 +308,7 @@ func _parity(room: Room, player: Player, cfg: MovementConfig) -> bool:
 		return false
 	while posmod(room.tick, period) != offset:
 		_tick(room, player)
-	var start := room.position + Vector2(from_x, 165)
+	var start := room.position + Vector2(from_x, _floor_y(room))
 	player.place(start, rects)
 	var expected := MovementSim.simulate_jump(cfg, rects, start, Vector2.ZERO, 1.0, 90, true, true, [], Rect2(), [], [], NAN, 0, 120, false, room.movers, room.tick, -1)
 	for frame in int(expected["frames"]):
@@ -341,7 +350,7 @@ func _dying_while_riding() -> bool:
 		await physics_frame
 	var room: Room = world.current
 	_put_on(room, player, 25.0)
-	for i in 120:
+	for i in 40:
 		await physics_frame
 	ok = _check(player.riding() == 0 and room.movers.step_of(0, room.tick).x > 0.0, "riding out over the spikes") and ok
 	player.scripted_x = 1.0
@@ -357,8 +366,8 @@ func _dying_while_riding() -> bool:
 		if player.visible and player.input_enabled and player.is_on_floor():
 			break
 	var local: Vector2 = player.global_position - (world.current as Room).position
-	ok = _check(died and world.current.info.id == "8" and state.health == 0, "stepping off into the spikes spends the pip and stays in room 8") and ok
-	ok = _check(player.is_on_floor() and player.riding() == -1 and is_equal_approx(local.y, 165.0) and local.x < 60.0, "and they come back on the floor by the door (%s)" % local) and ok
+	ok = _check(died and world.current.info.id == "7" and state.health == 0, "stepping off into the spikes spends the pip and stays in room 7") and ok
+	ok = _check(player.is_on_floor() and player.riding() == -1 and is_equal_approx(local.y, _floor_y(world.current)) and local.x < 150.0, "and they come back on the floor by the door (%s)" % local) and ok
 	# A crush is a death: the world checks it before the player's next step.
 	state.health = 1
 	player._state.crushed = true
@@ -372,6 +381,11 @@ func _dying_while_riding() -> bool:
 
 
 # --- helpers ---------------------------------------------------------------
+
+
+## The player centre while standing on the merged room's bottom floor.
+func _floor_y(room: Room) -> float:
+	return room.info.pixel_size.y - Grid.CELL - MovementSim.HALF.y
 
 
 ## One physics tick in the game's order: the room moves its platforms, then
@@ -422,7 +436,7 @@ func _jump(room: Room, player: Player) -> Dictionary:
 
 func _world() -> Node:
 	var world := (load("res://src/world/world.tscn") as PackedScene).instantiate()
-	world.start_override = "8"
+	world.start_override = "7"
 	root.add_child(world)
 	await process_frame
 	return world

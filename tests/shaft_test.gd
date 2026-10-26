@@ -2,7 +2,7 @@ extends SceneTree
 
 ## The real player goes down the shaft from room 3 to room 4 and climbs back
 ## up, so up and down doors keep their place and their speed and land the
-## player on their feet.
+## player on their feet. The long drop from 6 to 7 lands safely beside s2.
 
 
 func _initialize() -> void:
@@ -47,8 +47,37 @@ func _run() -> void:
 	player.scripted_jump_held = false
 	player.scripted_x = 1.0
 	ok = _check(await _settles(world), "steering onto the floor, the player lands in room 3 and stays") and ok
+	ok = await _merged_drop(world) and ok
+	world.queue_free()
 	print("SHAFT %s" % ("pass" if ok else "fail"))
 	quit(0 if ok else 1)
+
+
+## Cross the real shifted doorway at several positions and speeds, release
+## steering, and fall to the floor. No moving-platform timing is required.
+func _merged_drop(world: Node) -> bool:
+	var ok := true
+	var state: Node = root.get_node("GameState")
+	var player: Player = world.get_node("Player")
+	state.health = 1
+	for x in [55.0, 85.0, 125.0]:
+		for vx in [-90.0, 0.0, 90.0]:
+			world.warp_to("6")
+			var source: Room = world.current
+			player.place(source.position + Vector2(x, 170.5), source.world_rects())
+			player.velocity = Vector2(vx, 100.0)
+			player.scripted_x = 0.0
+			var entered := await _until(world, "7")
+			var landed := entered and await _settles(world)
+			var local: Vector2 = player.global_position - world.current.position
+			ok = _check(landed and world.current.info.id == "7" and state.health == 1 and player.riding() == -1 and is_equal_approx(local.y, 705.0) and local.x + MovementSim.HALF.x <= 150.0, "drop x %.0f, vx %.0f lands on safe floor without steering (%s, health %d)" % [x, vx, local, state.health]) and ok
+			if not entered or state.health != 1:
+				return false
+	# The landing connects to the existing save room through its left door.
+	player.scripted_x = -1.0
+	ok = _check(await _until(world, "s2"), "the landing floor leads left into save room s2") and ok
+	player.scripted_x = 0.0
+	return ok
 
 
 ## Waits until the world is in `id` with control handed back, up to 8 seconds.
