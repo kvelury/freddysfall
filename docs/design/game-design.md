@@ -112,7 +112,7 @@ A room is an ASCII file, `data/rooms/<id>.txt`. Its id is a number (`2`, `3`, �
 | `X` | An exit opening. It has to sit on the room's outer edge, and not on a corner. An opening that crosses a screen boundary is split into one exit per screen. |
 | `P` | Where the player starts, the first time, in the start room. Also a standable mark used when entering, and where the player is put when a room is started in directly. |
 | `~` | A cell that refuses an Imprint. Open air otherwise, and not drawn. |
-| `^` | Spikes. Not solid: the player can walk into them, and dies. |
+| `^` | Spikes. Not solid: the player can walk into them, and dies. Drawn as two teeth pointing away from the solid they sit against (`RoomInfo.spike_facing`): up from a floor, which wins, then left from a right wall, right from a left wall, down from a ceiling, and up in open air. The whole cell is deadly whichever way they point. |
 | `-` | A moving platform's track, side to side. Open air. See Moving platforms. |
 | `\|` | A moving platform's track, up and down. Open air. |
 | a letter or digit | A thing named in the room's legend. See below. Open air. |
@@ -757,6 +757,9 @@ What was decided, in the order it came up, with the reason. Pull requests are na
 
 **Health pips (rooms 7–11)**
 - **A pip adds one to the health count, and a death spends it.** The user's choice for room 7's pip: no cap, no refill, and nothing shows the count yet besides the line when one is taken. A pip is its own legend kind, `health`, because it changes no ability; it counts for `exits: pickups` like a token, and the solver must reach it like any pickup. Dev tools already set and clear health; a retry puts a taken pip back with the room's flags.
+
+**Wall spikes (rooms 7–11)**
+- **Spikes point away from what they sit on.** Room 8 has spikes along its right wall, and upward teeth there read as a stack of floors. Only the drawing turns; the hitbox is still the cell, and the renders still colour the cell.
 
 **Dev tools (2026-10-24)**
 - **Testing is isolated.** The user chose returning to their normal save over permanently granting cheats. F4 now shares that protection.

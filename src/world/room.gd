@@ -54,6 +54,9 @@ func build(room_info: RoomInfo, flags := {}, fills := {}, door_override := false
 			chunk.position = Vector2(sx * Grid.SCREEN_CELLS.x, sy * Grid.SCREEN_CELLS.y) * float(Grid.CELL)
 			chunk.rects = local_rects
 			chunk.hazards = local_hazards
+			var offset := Vector2i(sx * Grid.SCREEN_CELLS.x, sy * Grid.SCREEN_CELLS.y)
+			for cell in local_hazards:
+				chunk.facings.append(info.spike_facing(cell + offset))
 			add_child(chunk)
 	_floor_rects = _solid_rects()
 	for ex in info.exits:
@@ -288,20 +291,37 @@ func _add_halo(ex: Door) -> void:
 class RoomChunk extends Node2D:
 	var rects: Array[Rect2i] = []
 	var hazards: Array[Vector2i] = []
+	## Which way each of `hazards` points (RoomInfo.spike_facing).
+	var facings: Array[Vector2i] = []
 
 	func _draw() -> void:
 		for cell_rect in rects:
 			draw_rect(Grid.cell_rect(cell_rect), Color.WHITE, true)
 		# Spikes: a row of teeth, so a hazard reads as sharp and not as a block.
-		for cell in hazards:
-			var origin := Grid.cell_to_world(cell)
+		# The teeth are drawn pointing up, (u along the base, v up from it),
+		# and turned to point away from the solid they sit against.
+		for i in hazards.size():
+			var origin := Grid.cell_to_world(hazards[i])
+			var facing := facings[i] if i < facings.size() else Vector2i.UP
 			for tooth in 2:
-				var left := origin.x + float(tooth) * 5.0
+				var left := float(tooth) * 5.0
 				draw_colored_polygon(PackedVector2Array([
-					Vector2(left, origin.y + 10.0),
-					Vector2(left + 2.5, origin.y + 3.0),
-					Vector2(left + 5.0, origin.y + 10.0),
+					origin + _turn(left, 0.0, facing),
+					origin + _turn(left + 2.5, 7.0, facing),
+					origin + _turn(left + 5.0, 0.0, facing),
 				]), Color.WHITE)
+
+	## A point `u` along a cell's base and `v` out from it, in the cell, for
+	## teeth pointing `facing`.
+	static func _turn(u: float, v: float, facing: Vector2i) -> Vector2:
+		match facing:
+			Vector2i.LEFT:
+				return Vector2(10.0 - v, u)
+			Vector2i.RIGHT:
+				return Vector2(v, u)
+			Vector2i.DOWN:
+				return Vector2(u, v)
+		return Vector2(u, 10.0 - v)
 
 
 ## A shaded block that fills a doorway while the room's exit rule is unmet:

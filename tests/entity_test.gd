@@ -18,6 +18,7 @@ func _initialize() -> void:
 	ok = _world_ids() and ok
 	ok = _upgrade_file() and ok
 	ok = _health() and ok
+	ok = _spike_facing() and ok
 	print("ENTITY %s" % ("pass" if ok else "fail"))
 	quit(0 if ok else 1)
 
@@ -307,6 +308,22 @@ func _health() -> bool:
 	state.take_health(def)
 	ok = _check(state.health == 2, "pips add up") and ok
 	state.reset()
+	return ok
+
+
+## Spikes point away from the solid they sit against, a floor first.
+func _spike_facing() -> bool:
+	var ok := true
+	var errors: Array[String] = []
+	var marks := {Vector2i(5, 16): "^", Vector2i(30, 5): "^", Vector2i(1, 5): "^", Vector2i(10, 1): "^", Vector2i(15, 8): "^", Vector2i(30, 16): "^"}
+	var info := RoomParser.parse_room("7", Vector2i.ZERO, _room([], marks), errors)
+	ok = _check(errors.is_empty(), "a room of spikes loads %s" % [errors]) and ok
+	ok = _check(info.spike_facing(Vector2i(5, 16)) == Vector2i.UP, "spikes on a floor point up") and ok
+	ok = _check(info.spike_facing(Vector2i(30, 5)) == Vector2i.LEFT, "on a right wall, left") and ok
+	ok = _check(info.spike_facing(Vector2i(1, 5)) == Vector2i.RIGHT, "on a left wall, right") and ok
+	ok = _check(info.spike_facing(Vector2i(10, 1)) == Vector2i.DOWN, "under a ceiling, down") and ok
+	ok = _check(info.spike_facing(Vector2i(15, 8)) == Vector2i.UP, "in open air, up") and ok
+	ok = _check(info.spike_facing(Vector2i(30, 16)) == Vector2i.UP, "in a corner, the floor wins") and ok
 	return ok
 
 
