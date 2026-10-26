@@ -23,6 +23,7 @@ func _initialize() -> void:
 	ok = _not_last_block() and ok
 	ok = _second_simulation() and ok
 	ok = _room_six() and ok
+	ok = _from_a_mover() and ok
 	print("IMPRINTSOLVER %s" % ("pass" if ok else "fail"))
 	quit(0 if ok else 1)
 
@@ -455,6 +456,38 @@ func _room_six() -> bool:
 	abilities.imprint_unlocked = true
 	var open := ReachGraph.new(built["rooms"], _cfg, abilities).analyze("6")
 	ok = _check(open.errors.is_empty() and open.reached_rooms.has("7"), "and with Imprint they drop into room 7 %s" % [open.errors]) and ok
+	return ok
+
+
+## A rider can put an Imprint down. Room 1's floor ends at spikes; a platform
+## slides right over them, and a door is high in the far wall, eight rows above
+## the rider: out of a jump, and out of reach from the floor even with Imprint.
+## Only a platform placed while riding gets there.
+func _from_a_mover() -> bool:
+	var ok := true
+	var marks := {Vector2i(2, 16): "P"}
+	for x in range(5, 31):
+		marks[Vector2i(x, 16)] = "^"
+	for x in range(5, 10):
+		marks[Vector2i(x, 13)] = "L"
+	for x in range(10, 21):
+		marks[Vector2i(x, 13)] = "-"
+	for x in range(24, 31):
+		marks[Vector2i(x, 5)] = "#"
+	for y in range(2, 5):
+		marks[Vector2i(31, y)] = "X"
+	var errors: Array[String] = []
+	var rooms: Dictionary = RoomParser.build([
+		{"id": "1", "grid_pos": Vector2i(0, 0), "text": "legend:\n  L = platform id=t_lift speed=60\n---\n" + _room(marks)},
+		{"id": "2", "grid_pos": Vector2i(1, 0), "text": _room({Vector2i(0, 2): "X", Vector2i(0, 3): "X", Vector2i(0, 4): "X", Vector2i(1, 5): "#", Vector2i(2, 5): "#"})},
+	], "1", errors)["rooms"]
+	ok = _check(errors.is_empty(), "the moving-platform world loads %s" % [errors]) and ok
+	var plain := ReachGraph.new(rooms, _cfg).analyze("1")
+	ok = _check(_has(plain.errors, "Room 2 cannot be reached"), "without Imprint the high door is out of reach %s" % [plain.errors]) and ok
+	var abilities := Abilities.new()
+	abilities.imprint_unlocked = true
+	var open := ReachGraph.new(rooms, _cfg, abilities).analyze("1")
+	ok = _check(not _has(open.errors, "Room 2 cannot be reached"), "a platform put down while riding reaches it %s" % [open.errors]) and ok
 	return ok
 
 
