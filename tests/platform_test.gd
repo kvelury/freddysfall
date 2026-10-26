@@ -270,7 +270,7 @@ func _play() -> bool:
 	# Parity: the real player and the solver's simulation agree, with whatever
 	# the game ships with.
 	ok = _parity(room, player, cfg) and ok
-	# Step off the returning platform's left edge onto the clear landing.
+	# Step off the returning platform's left edge onto the step beside it.
 	room.tick = 0
 	_put_on(room, player, 5.0)
 	player.scripted_x = -1.0
@@ -278,7 +278,7 @@ func _play() -> bool:
 		_tick(room, player)
 	player.scripted_x = 0.0
 	var local: Vector2 = player.global_position - room.position
-	ok = _check(player.is_on_floor() and player.riding() == -1 and is_equal_approx(local.y, _floor_y(room)) and local.x + MovementSim.HALF.x <= 150.0, "stepping left off the platform returns to safe floor (%s)" % local) and ok
+	ok = _check(player.is_on_floor() and player.riding() == -1 and (is_equal_approx(local.y, _floor_y(room)) or is_equal_approx(local.y, _step_y(room))) and local.x + MovementSim.HALF.x <= 140.0, "stepping left off the platform returns to the step or the floor (%s)" % local) and ok
 	world.queue_free()
 	await process_frame
 	return ok
@@ -288,27 +288,27 @@ func _play() -> bool:
 func _parity(room: Room, player: Player, cfg: MovementConfig) -> bool:
 	var ok := true
 	var rects: Array[Rect2] = room.world_rects()
-	# From the floor onto the platform: find a standing start on the strip, at
+	# From the step onto the platform: find a standing start on the step, at
 	# some moment of its trip, whose full jump lands on it, then replay that
 	# jump through the real player.
 	var period := room.info.platforms[0].period()
 	var offset := -1
 	var from_x := 0.0
 	for t in period:
-		for x in [115.0, 125.0, 135.0, 145.0]:
-			var found := MovementSim.simulate_jump(cfg, rects, room.position + Vector2(x, _floor_y(room)), Vector2.ZERO, 1.0, 90, true, true, [], Rect2(), [], [], NAN, 0, 120, false, room.movers, t, -1)
+		for x in [95.0, 105.0, 115.0, 125.0, 135.0]:
+			var found := MovementSim.simulate_jump(cfg, rects, room.position + Vector2(x, _step_y(room)), Vector2.ZERO, 1.0, 90, true, true, [], Rect2(), [], [], NAN, 0, 120, false, room.movers, t, -1)
 			if found["landed"] and int(found["riding"]) == 0:
 				offset = t
 				from_x = x
 				break
 		if offset >= 0:
 			break
-	ok = _check(offset >= 0, "some full jump from the strip lands on it (tick %d of its trip, from x %.0f)" % [offset, from_x]) and ok
+	ok = _check(offset >= 0, "some full jump from the step lands on it (tick %d of its trip, from x %.0f)" % [offset, from_x]) and ok
 	if offset < 0:
 		return false
 	while posmod(room.tick, period) != offset:
 		_tick(room, player)
-	var start := room.position + Vector2(from_x, _floor_y(room))
+	var start := room.position + Vector2(from_x, _step_y(room))
 	player.place(start, rects)
 	var expected := MovementSim.simulate_jump(cfg, rects, start, Vector2.ZERO, 1.0, 90, true, true, [], Rect2(), [], [], NAN, 0, 120, false, room.movers, room.tick, -1)
 	for frame in int(expected["frames"]):
@@ -318,7 +318,7 @@ func _parity(room: Room, player: Player, cfg: MovementConfig) -> bool:
 		_tick(room, player)
 	player.scripted_x = 0.0
 	var gap := player.global_position.distance_to(expected["position"])
-	ok = _check(expected["landed"] and int(expected["riding"]) == 0 and player.riding() == 0 and gap <= TOLERANCE, "a jump from the floor lands on it, in the game and in the solver alike (%.4f px apart)" % gap) and ok
+	ok = _check(expected["landed"] and int(expected["riding"]) == 0 and player.riding() == 0 and gap <= TOLERANCE, "a jump from the step lands on it, in the game and in the solver alike (%.4f px apart)" % gap) and ok
 
 	# Riding, then jumping off part way along.
 	_until_moving(room, player)
@@ -386,6 +386,11 @@ func _dying_while_riding() -> bool:
 ## The player centre while standing on the merged room's bottom floor.
 func _floor_y(room: Room) -> float:
 	return room.info.pixel_size.y - Grid.CELL - MovementSim.HALF.y
+
+
+## The player centre while standing on room 7's step (row 67), under the wall's foot.
+func _step_y(room: Room) -> float:
+	return room.info.pixel_size.y - Grid.CELL * 5 - MovementSim.HALF.y
 
 
 ## One physics tick in the game's order: the room moves its platforms, then

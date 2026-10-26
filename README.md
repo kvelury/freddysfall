@@ -24,7 +24,7 @@ Open the project in the editor and press Play. The main scene is `res://src/worl
 ## Dev playtesting
 
 Open `http://localhost:8060/?dev=1&room=7` after building and serving, or run
-`godot --path . -- --dev --room=7`. A direct launch starts fresh progression. Room 7 starts on its safe landing beside the moving platform; start in room 6 to test the long fall (enable Imprint in F2 to cross its wall).
+`godot --path . -- --dev --room=7`. A direct launch starts fresh progression. Room 7 starts on its safe landing below the step and the moving platform; start in room 6 to test the long fall (enable Imprint in F2 to cross its wall). Rooms 8 to 11 continue from room 7's exit 1 and come back in at its exit 2.
 Editor/debug runs always offer F2 and a clickable DEV button; exports require
 `?dev=1` or `--dev`. These switches are an opt-in, not access control.
 
