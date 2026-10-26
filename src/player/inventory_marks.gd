@@ -6,16 +6,15 @@ extends Node2D
 ## child of the body sprite, so it squashes with it.
 ##
 ## The body is 10 x 10 pixels. Cut-outs are black, in pixel columns and rows
-## counted from the top left. Tokens fill the top, then left, then right slot,
-## a triangle that is exactly centred: a line two pixels wide has no half pixel
-## to spare on a body with no middle pixel. The line is at the bottom, so more slots can go
-## above it later. A 2 x 2 block in a top corner, one row down, shows which way
-## the player faces: on the right when facing right, on the left when facing
-## left.
+## counted from the top left. Tokens stack bottom to top on the side opposite
+## facing, one pixel inside the body edge with one clear row between lines.
+## The Imprint line sits below the stack with one clear row between them.
+## A 2 x 2 block in a top corner, one row down, shows which way the player
+## faces: on the right when facing right, on the left when facing left.
 
 const SIZE := 10
-## The left pixel of each token's 2 x 1 line.
-const SLOTS: Array[Vector2i] = [Vector2i(4, 4), Vector2i(2, 6), Vector2i(6, 6)]
+## The left pixel of each token's 2 x 1 line when facing right, bottom first.
+const SLOTS: Array[Vector2i] = [Vector2i(1, 6), Vector2i(1, 4), Vector2i(1, 2)]
 const WIDTH := 2
 const LINE_ROW := 8
 const LINE_FROM := 1
@@ -45,12 +44,13 @@ func _ready() -> void:
 
 
 ## The body pixels cut out for `tokens` carried, Imprint found or not, and the
-## block for `facing` (0 draws none).
+## block for `facing` (0 omits the block and uses the right-facing stack).
 static func pixels(tokens: int, imprint: bool, face := 0) -> Array[Vector2i]:
 	var out: Array[Vector2i] = []
 	for i in mini(tokens, SLOTS.size()):
 		for dx in WIDTH:
-			out.append(SLOTS[i] + Vector2i(dx, 0))
+			var p := SLOTS[i] + Vector2i(dx, 0)
+			out.append(Vector2i(SIZE - 1 - p.x, p.y) if face < 0 else p)
 	if imprint:
 		for x in range(LINE_FROM, LINE_TO + 1):
 			out.append(Vector2i(x, LINE_ROW))

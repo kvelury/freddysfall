@@ -204,17 +204,17 @@ A **3TM** (3 token machine, kind `machine`, settings `upgrade=` and `value=` lik
 
 A **save machine** (kind `save`, no settings besides its `id`) is described under Health and save rooms. Its 5 x 3 zone has to be open air and the five cells under it solid. A room with an id that is not `s` and a number cannot have one, and a save room has to have exactly one and nothing else but platforms.
 
-The player's body is the inventory. Each token carried cuts a small black line, two pixels wide and one tall, out of it, in a fixed triangle in the upper body: top, then left, then right. The body is 10 pixels wide, so a line two pixels wide is what lets the triangle sit exactly on the middle; a shape three pixels wide is always half a pixel off. Once the player has Imprint, a line is cut across the bottom row. The tokens and the line never share a pixel, so more marks can go above the line later.
+The player's body is the inventory. Each token carried cuts a small black line, two pixels wide and one tall, out of it. The lines stack on the side opposite the player's facing, from bottom to top, on rows 6, 4 and 2 (counting from zero). One pixel of body stays between the stack and the side edge, and one clear row stays between tokens. Facing right puts the stack in columns 1–2; facing left mirrors it into columns 7–8. Once the player has Imprint, a line is cut across row 8, columns 1–8, with one clear row between it and the bottom token.
 
 ```
 3 tokens       Imprint+3      Imprint only
 ##########     ##########     ##########
-####.#####     ####.#####     ##########
-###...####     ###...####     ##########
-##.#.#.###     ##.#.#.###     ##########
-#...#...##     #...#...##     ##########
-##.###.###     ##.###.###     ##########
+########..     ########..     ########..
+#..#####..     #..#####..     ########..
 ##########     ##########     ##########
+#..#######     #..#######     ##########
+##########     ##########     ##########
+#..#######     #..#######     ##########
 ##########     ##########     ##########
 ##########     #........#     #........#
 ##########     ##########     ##########
@@ -661,7 +661,7 @@ The solver answers "can a player get here, and get back", using `MovementSim` an
 
 ### Effects and small parts
 
-`ExitHalo` is a dithered half-disc of 12 pre-painted 64 px frames, played as a pulse. `Shatter` is 14 square shards that fly out and fall for 0.5 s; nothing fades. `Toast` (layer 15) shows a line for 2.5 s. `FlyingToken` arcs 16 px high with a trail of 6 recent positions, every other one drawn. `InventoryMarks` cuts black plus-shaped 3×3 marks out of the body at (4,2), (2,4) and (6,4) for tokens one to three, and a line on row 8 from column 1 to 8 once Imprint is unlocked. `SaveMachine` draws a pixel ring (outer radius 13 px, the band from 8 px lit a segment at a time) around a hole of 4 px, on a 12 px base, with no antialiasing. `DebugOverlay` (layer 20) shows F3's readout and debug load errors. `DevPanel` (layer 30) owns F2/F4 and the paused playtest UI.
+`ExitHalo` is a dithered half-disc of 12 pre-painted 64 px frames, played as a pulse. `Shatter` is 14 square shards that fly out and fall for 0.5 s; nothing fades. `Toast` (layer 15) shows a line for 2.5 s. `FlyingToken` arcs 16 px high with a trail of 6 recent positions, every other one drawn. `InventoryMarks` cuts black 2×1 token lines into the rear side of the body, filling rows 6, 4 and 2 in that order (columns 1–2 facing right, 7–8 facing left), and a line on row 8 from column 1 to 8 once Imprint is unlocked. `SaveMachine` draws a pixel ring (outer radius 13 px, the band from 8 px lit a segment at a time) around a hole of 4 px, on a 12 px base, with no antialiasing. `DebugOverlay` (layer 20) shows F3's readout and debug load errors. `DevPanel` (layer 30) owns F2/F4 and the paused playtest UI.
 
 ### What the solver and the preview do not model
 
@@ -777,6 +777,10 @@ What was decided, in the order it came up, with the reason. Pull requests are na
 - **Classic stays as a dev comparison switch** (a session switch like door bypass, not saved, not in loadouts, not an ability), so the old look and the new one can be compared until the user has played both.
 - **Old saves are left alone:** a save that stored width 2 keeps 2. Only new games start at 3.
 - **No `Save.VERSION` change.** A missing field falls back to its default.
+
+**Rear token stack**
+- **Approved from mockups:** the existing 2 x 1 token lines fill bottom to top behind the facing direction. One pixel separates the stack from the body edge and one row separates each line. Turning mirrors the stack immediately; the facing block and Imprint line keep their positions.
+- **Dev setup uses the existing token control:** F2 can set 0–3 tokens, clear them, retry, and save/reload their count in a named loadout. No new resource or ability is introduced.
 
 **Process**
 - **One record.** `AGENTS.md` for how an agent works, `README.md` for the code and its rules, this file for the game and its decisions, `docs/testing-checklist.md` for what nobody has played. `docs/plans/` is history.
