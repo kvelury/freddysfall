@@ -53,8 +53,8 @@ var _carried := Vector2.ZERO
 func _ready() -> void:
 	WorldData.ensure_loaded()
 	camera.position_smoothing_enabled = false
-	# The camera steps in whole pixels. Interpolating it would blur the
-	# integer-scaled tiles while a room scrolls. The player still interpolates.
+	# Follow the player's displayed pose per frame, then snap to a pixel.
+	# Automatic camera interpolation would interpolate that pose a second time.
 	camera.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 	camera.make_current()
 	var requested := start_override if not start_override.is_empty() else _launch_arg("room")
@@ -158,9 +158,20 @@ func _physics_process(_delta: float) -> void:
 				_on_exit(door)
 			elif player.is_on_floor() and current.is_safe_spot(body):
 				_record_safe(current.info.id, player.global_position)
-	if not _follow:
+
+
+## Follow the same point in time that the renderer uses for the player.
+func _process(_delta: float) -> void:
+	_update_camera(Engine.get_physics_interpolation_fraction())
+
+
+## Apply the presentation-time pose while keeping physics and pixels intact.
+## Door transitions own the camera while following is suspended.
+func _update_camera(fraction: float) -> void:
+	if current == null or not _follow:
 		return
-	camera.position = _camera_focus(current, player.global_position)
+	camera.position = _camera_focus(current, player.render_position(fraction))
+	camera.force_update_scroll()
 
 
 func _make_room(id: String) -> Room:

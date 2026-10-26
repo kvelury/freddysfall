@@ -28,6 +28,8 @@ var cooldown_left := 0.0
 
 var _world: Node
 var _player: Player
+## Reachability is a diagnostic query; both legal states draw the same outline.
+var _reach_pending := false
 var _state := UNAVAILABLE
 var _reason := ""
 var _preview_cell := Vector2i.ZERO
@@ -50,7 +52,11 @@ func is_active() -> bool:
 	return not _world.gameplay_input_blocked() and GameState.abilities.imprint_unlocked and _player.input_enabled and _world.current != null and not _world.is_busy()
 
 
+## Reports precise reachability on demand. Drawing and clicking need only the
+## cheap legality checks, so a fall never runs hidden jump searches each tick.
 func preview_state() -> String:
+	if _reach_pending:
+		_update_reachability()
 	return _state
 
 
@@ -157,6 +163,7 @@ func _update_preview() -> void:
 	if key == _key:
 		return
 	_key = key
+	_reach_pending = false
 	_preview_cell = cell
 	# Locked out: the cursor is the cross wherever it is.
 	_reason = ImprintRules.blocked(platforms.size(), GameState.abilities.imprint_max_active, cooldown_left)
@@ -165,6 +172,18 @@ func _update_preview() -> void:
 	if not _reason.is_empty():
 		_state = UNAVAILABLE
 		return
+	# Both legal states have the same dotted outline. Defer the expensive
+	# distinction until a diagnostic actually requests it.
+	_state = UNREACHABLE
+	_reach_pending = true
+
+
+## Runs the optional diagnostic against current room geometry and motion.
+func _update_reachability() -> void:
+	_reach_pending = false
+	var room: Room = _world.current
+	var width := GameState.abilities.imprint_width
+	var cell := _preview_cell
 	var rect := Grid.cell_rect(Rect2i(cell, Vector2i(width, 1)))
 	rect.position += room.position
 	var rects := room.world_rects()
@@ -206,6 +225,7 @@ func sync_solids() -> void:
 
 func _forget() -> void:
 	_key = ""
+	_reach_pending = false
 	# Until recomputed, no old legal preview may be drawn at a new width.
 	_state = UNAVAILABLE
 
@@ -242,9 +262,8 @@ func _draw_preview() -> void:
 	var origin := room.position + Vector2(_preview_cell) * float(Grid.CELL)
 	var width := GameState.abilities.imprint_width
 	var area := Rect2(origin, Vector2(width * Grid.CELL, Grid.CELL))
-	# Reachable or not, the cursor looks the same for now: a dotted outline
-	# wherever a platform may go. The state is still worked out, for when the
-	# look tells them apart again.
+	# Reachable or not, the cursor looks the same: a dotted outline wherever
+	# a platform may go. Only an explicit diagnostic asks for reachability.
 	if _state == UNAVAILABLE:
 		_cross(origin + Vector2(Grid.CELL, Grid.CELL) * 0.5)
 	else:

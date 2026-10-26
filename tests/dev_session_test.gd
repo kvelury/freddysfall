@@ -27,20 +27,20 @@ func _run() -> void:
 	state.reset()
 	state.health = 7
 	state.abilities.imprint_width = 4
-	save.write("8", Vector2(15, 165))
+	save.write("7", Grid.cell_center(Vector2i(7, 70)))
 	var original := FileAccess.get_file_as_string(TEMP)
 	var output: Array[String] = []
-	var result := OS.execute(OS.get_executable_path(), ["--headless", "--path", ProjectSettings.globalize_path("res://"), "--script", "res://tests/dev_session_test.gd", "--", "--dev", "--room=8", "--new-game", "--boot-probe"], output, true)
+	var result := OS.execute(OS.get_executable_path(), ["--headless", "--path", ProjectSettings.globalize_path("res://"), "--script", "res://tests/dev_session_test.gd", "--", "--dev", "--room=7", "--new-game", "--boot-probe"], output, true)
 	_check(result == 0, "actual dev launch starts fresh and new-game cannot erase the save: %s" % "".join(output).strip_edges())
 	state.reset()
 	_world = load("res://src/world/world.tscn").instantiate()
-	_world.start_override = "8"
+	_world.start_override = "7"
 	root.add_child(_world)
 	await process_frame
 	_world.player.scripted = true
 	_check(state.health == 0 and state.abilities.imprint_width == 3, "direct room starts with fresh state, not the save")
 	_check(session.enter(_world).is_empty() and session.isolated(), "enter protected dev mode")
-	_check(not save.write("8", Vector2.ZERO) and save.load_game().is_empty(), "normal save reads and writes are blocked")
+	_check(not save.write("7", Vector2.ZERO) and save.load_game().is_empty(), "normal save reads and writes are blocked")
 	save.erase()
 	_check(FileAccess.get_file_as_string(TEMP) == original, "erase cannot delete a normal save during a test")
 	var error: String = session.apply(_world, {"abilities": {"imprint_unlocked": true, "imprint_width": 5, "imprint_max_active": 2}, "tokens": 3, "health": 4})
@@ -89,7 +89,7 @@ func _run() -> void:
 
 	state.flags["pickup:baseline"] = true
 	state.machines["baseline_machine"] = 1
-	_check(session.start(_world, "8").is_empty(), "start a repeatable test")
+	_check(session.start(_world, "7").is_empty(), "start a repeatable test")
 	await _replacement()
 	_check(state.tokens == 3 and state.health == 6, "starting a test replenishes the selected resources")
 	_world.warp_to("3")
@@ -102,7 +102,7 @@ func _run() -> void:
 	_check(session.retry(_world).is_empty(), "retry after travelling across rooms")
 	await _replacement()
 	_check(session.classic_imprint and session.classic_imprint_active(), "Classic Imprint survives a retry")
-	_check(_world.current.info.id == "8" and state.flags.has("pickup:baseline") and not state.flags.has("pickup:later") and state.machines["baseline_machine"] == 1, "retry restores original room, flags, and machine fills")
+	_check(_world.current.info.id == "7" and state.flags.has("pickup:baseline") and not state.flags.has("pickup:later") and state.machines["baseline_machine"] == 1, "retry restores original room, flags, and machine fills")
 	_check(state.tokens == 3 and state.health == 6 and state.abilities.imprint_duration == 5.0, "retry uses latest explicitly applied powers and replenishes resources")
 	_check(is_equal_approx(state.abilities.imprint_cooldown, 0.2) and is_zero_approx(_world.imprint.cooldown_left), "retry keeps the applied cooldown setting, with no cooldown running")
 	_check(_world.current.tick == 0 and _world.imprint.platforms.is_empty() and _world.player.velocity == Vector2.ZERO, "rebuild resets platform clock and transient player state")
@@ -112,7 +112,7 @@ func _run() -> void:
 	await create_timer(0.8).timeout
 	_world = _current_world()
 	_world.player.scripted = true
-	_check(_world.current.info.id == "8" and state.health == 6 and not _world.is_busy(), "automatic death retry refills health and finishes the death effect")
+	_check(_world.current.info.id == "7" and state.health == 6 and not _world.is_busy(), "automatic death retry refills health and finishes the death effect")
 	session.set_retry_on_death(_world, false)
 	_world._die()
 	await create_timer(0.8).timeout
@@ -123,8 +123,8 @@ func _run() -> void:
 	await create_timer(0.8).timeout
 	_world = _current_world()
 	_world.player.scripted = true
-	_check(_world.current.info.id == "8" and state.health == 6, "automatic retry also works with no health")
-	_check(session.start(_world, "8", true).is_empty(), "start a fresh test")
+	_check(_world.current.info.id == "7" and state.health == 6, "automatic retry also works with no health")
+	_check(session.start(_world, "7", true).is_empty(), "start a fresh test")
 	await _replacement()
 	_check(state.flags.is_empty() and state.machines.is_empty() and state.tokens == 3, "fresh test clears progression and retains the selected loadout")
 	_world.save_now()
@@ -132,7 +132,7 @@ func _run() -> void:
 	_check(session.end(_world).is_empty(), "end isolated playtest")
 	await _replacement()
 	_check(not session.classic_imprint and not session.classic_imprint_active(), "ending the playtest resets Classic Imprint")
-	_check(not session.isolated() and state.health == 7 and state.abilities.imprint_width == 4 and _world.current.info.id == "8", "ending restores normal saved progression")
+	_check(not session.isolated() and state.health == 7 and state.abilities.imprint_width == 4 and _world.current.info.id == "7", "ending restores normal saved progression")
 	_check(FileAccess.get_file_as_string(TEMP) == original, "ending does not save test state")
 	# The independent headless/test disable flag must survive ending a session.
 	save.enabled = false
@@ -195,7 +195,7 @@ func _boot_probe() -> void:
 	var world: Node = load("res://src/world/world.tscn").instantiate()
 	root.add_child(world)
 	await process_frame
-	_check(session.isolated() and world.current.info.id == "8" and state.health == 0 and state.flags.is_empty(), "direct dev boot resets progression")
+	_check(session.isolated() and world.current.info.id == "7" and state.health == 0 and state.flags.is_empty(), "direct dev boot resets progression")
 	_check(FileAccess.get_file_as_string(TEMP) == original, "new-game is ignored in isolated startup")
 	world.free()
 	quit(0 if _ok else 1)
