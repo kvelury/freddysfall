@@ -1,22 +1,22 @@
 class_name InventoryMarks
 extends Node2D
 
-## The player's inventory, drawn on the body: a small 2 x 2 dot cut out for each
+## The player's inventory, drawn on the body: a small 2 x 1 line cut out for each
 ## token carried, and a line near the bottom once Imprint is found. It is a
 ## child of the body sprite, so it squashes with it.
 ##
 ## The body is 10 x 10 pixels. Cut-outs are black, in pixel columns and rows
 ## counted from the top left. Tokens fill the top, then left, then right slot,
-## a triangle that is exactly centred: a 2 x 2 dot has no half pixel to spare on
-## a body with no middle pixel. The line is at the bottom, so more slots can go
+## a triangle that is exactly centred: a line two pixels wide has no half pixel
+## to spare on a body with no middle pixel. The line is at the bottom, so more slots can go
 ## above it later. A 2 x 2 block in a top corner, one row down, shows which way
 ## the player faces: on the right when facing right, on the left when facing
 ## left.
 
 const SIZE := 10
-## The top left pixel of each token's 2 x 2 dot.
-const SLOTS: Array[Vector2i] = [Vector2i(4, 2), Vector2i(2, 5), Vector2i(6, 5)]
-const DOT := 2
+## The left pixel of each token's 2 x 1 line.
+const SLOTS: Array[Vector2i] = [Vector2i(4, 4), Vector2i(2, 6), Vector2i(6, 6)]
+const WIDTH := 2
 const LINE_ROW := 8
 const LINE_FROM := 1
 const LINE_TO := 8
@@ -49,9 +49,8 @@ func _ready() -> void:
 static func pixels(tokens: int, imprint: bool, face := 0) -> Array[Vector2i]:
 	var out: Array[Vector2i] = []
 	for i in mini(tokens, SLOTS.size()):
-		for dy in DOT:
-			for dx in DOT:
-				out.append(SLOTS[i] + Vector2i(dx, dy))
+		for dx in WIDTH:
+			out.append(SLOTS[i] + Vector2i(dx, 0))
 	if imprint:
 		for x in range(LINE_FROM, LINE_TO + 1):
 			out.append(Vector2i(x, LINE_ROW))
