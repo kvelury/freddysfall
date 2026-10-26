@@ -73,7 +73,7 @@ func build(room_info: RoomInfo, flags := {}, fills := {}, door_override := false
 		var thing := Entities.create(def, fills)
 		thing.position = Grid.cell_center(def.cell)
 		add_child(thing)
-		if thing is Pickup or thing is Token or thing is TokenMachine or thing is SaveMachine:
+		if thing is Pickup or thing is Token or thing is HealthPip or thing is TokenMachine or thing is SaveMachine:
 			_things.append(thing)
 
 
@@ -119,7 +119,7 @@ func door_world_rects() -> Array[Rect2]:
 	return out
 
 
-## The pickups, tokens, 3TMs and save machines a body at `body` (world pixels)
+## The pickups, tokens, health pips, 3TMs and save machines a body at `body` (world pixels)
 ## is touching. A token or 3TM the body has left forgets that it already told
 ## the player something.
 func touched_things(body: Rect2) -> Array[Node2D]:

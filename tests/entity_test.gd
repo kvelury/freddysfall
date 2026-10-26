@@ -17,6 +17,7 @@ func _initialize() -> void:
 	ok = _trap_line() and ok
 	ok = _world_ids() and ok
 	ok = _upgrade_file() and ok
+	ok = _health() and ok
 	print("ENTITY %s" % ("pass" if ok else "fail"))
 	quit(0 if ok else 1)
 
@@ -277,6 +278,38 @@ func _upgrade_file() -> bool:
 
 ## A one-screen room: walls all round, `header` lines and a --- line above it
 ## when there is a header, and `marks` (cell -> glyph) drawn in.
+## A health pip: a thing with only an id, taken by touch, that an `exits:
+## pickups` room waits for, and that adds one to the player's health.
+func _health() -> bool:
+	var ok := true
+	var errors: Array[String] = []
+	var info := RoomParser.parse_room("7", Vector2i.ZERO, _room(["exits: pickups", "legend:", "  H = health id=h1"], {Vector2i(5, 3): "H"}), errors)
+	ok = _check(errors.is_empty() and info.entities.size() == 1 and info.entities[0].type == "health", "a health pip needs only an id %s" % [errors]) and ok
+	var def := info.entities[0]
+	ok = _check(Entities.is_collectible(def) and Entities.flag_for(def) == "health:h1", "it is taken by touch, with the flag health:h1") and ok
+	ok = _check(not ExitRules.met(info, {}) and ExitRules.met(info, {"health:h1": true}), "exits: pickups waits for it") and ok
+	ok = _check(Entities.present(def, {}) and not Entities.present(def, {"health:h1": true}), "and once taken the room builds without it") and ok
+	var node := Entities.create(def)
+	ok = _check(node is HealthPip, "it builds as a HealthPip") and ok
+	node.free()
+	var room := Room.new()
+	room.build(info)
+	var touched := room.touched_things(Rect2(Grid.cell_center(Vector2i(5, 3)) - Vector2(5, 5), Vector2(10, 10)))
+	ok = _check(touched.size() == 1 and touched[0] is HealthPip, "a body over it in a built room touches it, so it is taken") and ok
+	room.free()
+	errors.clear()
+	RoomParser.parse_room("7", Vector2i.ZERO, _room(["legend:", "  H = health id=h1 value=2"], {Vector2i(5, 3): "H"}), errors)
+	ok = _check(_has(errors, "value="), "a setting it does not use is an error (%s)" % [errors]) and ok
+	var state: Node = root.get_node("GameState")
+	state.reset()
+	var line: String = state.take_health(def)
+	ok = _check(state.health == 1 and state.has_flag("health:h1") and "1" in line, "taking it adds one pip and says so (%s)" % line) and ok
+	state.take_health(def)
+	ok = _check(state.health == 2, "pips add up") and ok
+	state.reset()
+	return ok
+
+
 func _room(header: Array, marks: Dictionary) -> String:
 	var rows: Array[String] = []
 	for y in 18:

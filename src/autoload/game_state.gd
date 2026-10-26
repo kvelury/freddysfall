@@ -78,6 +78,14 @@ func take_token(def: EntityDef) -> bool:
 	return true
 
 
+## Takes a health pip: one more death that goes back to the last safe floor.
+## Returns a line to show the player.
+func take_health(def: EntityDef) -> String:
+	flags[HealthPip.flag_for(def)] = true
+	health += 1
+	return "Health pip (%d)" % health
+
+
 ## Gives up one carried token, for a 3TM to take.
 func spend_token() -> void:
 	tokens = maxi(0, tokens - 1)

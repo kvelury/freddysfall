@@ -27,6 +27,10 @@ Nobody has played these yet. Headless tests prove the rule, not the feel. Use `?
 - [ ] **The cooldown at 0.2 s.** In F2 set the cooldown to 0.2 and Apply: after each break the × stays for about a fifth of a second. Does it feel fair, or should it stay at 0 (the default)? Also try 0.5.
 - [ ] **Leaving a room or dying** with a cooldown running: the next room starts with no cooldown.
 
+## Health pips
+
+- [ ] **Room 7's pip.** It reads as a plus that bobs, apart from tokens and pickups; taking it says "Health pip (1)". Then die on spikes: you come back on the last safe floor, not at s2, and the next death goes to s2. In F2, set health, clear it, retry (the pip comes back), and round-trip it through a loadout.
+
 ## Imprint shrinking
 
 Nobody has played these yet. Headless tests prove the order, the timing and the solver, not the feel. Use `?dev=1&room=5` with Imprint turned on in F2 (or `?room=5` after the 3TM).

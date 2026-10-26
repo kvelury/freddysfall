@@ -139,7 +139,7 @@ Two kinds of test, and which to write:
 | `src/autoload/` | `WorldData` (reads the world files, keeps the rooms and `errors`), `GameState` (current room, visited set, abilities, flags, tokens, machines, map zoom, save room, health), `Save` (reads and writes `user://save.json`). |
 | `src/world/room_parser.gd` | Pure text-to-`RoomInfo`: header, glyphs and walls, legend, merging `#` into rectangles, pairing and sealing doors. |
 | `src/world/room_info.gd`, `door.gd`, `entity_def.gd`, `tiles.gd` | A loaded room, one opening in its wall (and `Door.crossing`, where a body appears on the far side), one legend entry, and the glyph table. |
-| `src/world/entities.gd`, `entities/` | The kinds of thing a legend can place (`pickup`, `token`, `machine`, `save`, `platform`): the registry and one script each. |
+| `src/world/entities.gd`, `entities/` | The kinds of thing a legend can place (`pickup`, `token`, `health`, `machine`, `save`, `platform`): the registry and one script each. |
 | `src/world/platform_path.gd`, `movers.gd` | A moving platform's path, where it is at each tick, and a room's platforms as a body sees them. Shared by the game and the solver. |
 | `src/world/exit_rules.gd` | The conditions a room can put on leaving it. |
 | `src/world/world.gd`, `world.tscn` | The scene root: places the player, builds rooms, door slides, death and respawn, collecting, the 3TM feed, autosave. |
