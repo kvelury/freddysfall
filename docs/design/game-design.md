@@ -19,6 +19,7 @@ Implementation steps for the palette pass live in `docs/plans/soft-duotone-palet
 | Imprint lockout (no replacing), 1.5 s duration, and a cooldown that is off by default | Built; the cooldown is tried through dev tools, no room awards it |
 | Shrinking Imprint, default width 2 (3 from room 9's 3TM) and the Classic dev switch | Built; not yet played by a person |
 | Imprint bounce and other special behaviors | Designed, not built |
+| Aiming Imprint without a mouse: fixed slots, dash-style and build mode, controller | Planned, not built; a concept video was recorded (see "Aiming without a mouse") |
 | Isolated dev tools, named loadouts, retries and door bypass | Built |
 | The solver using Imprint, and what each room needs | Built |
 | The solver's cache between runs (a repeat validate takes about half as long as a cold one; see "Speed, and the cache") | Built |
@@ -430,7 +431,7 @@ At the start, `width_cells` is 2: the player's width plus one spare cell. The 3T
 
 ### Placing
 
-Left click places the platform under the cursor. There is no keyboard or gamepad way to place one, and none planned for now. The code gets the target cell from one function, so another input can feed it later.
+Left click places the platform under the cursor. There is no keyboard or gamepad way to place one yet. One is planned, not built: see "Aiming without a mouse" below. The code gets the target cell from one function, so another input can feed it later.
 
 - **An Imprint is never replaced.** The starting limit is one (`imprint_max_active`), and while that many stand, a click does nothing, however often it is made. The next may go down only once the live one has broken on time (when its last block goes), plus `imprint_cooldown` seconds. The cooldown starts when a platform finally breaks, not when a block of it goes, and is 0 by default, so it is off in real play and is only tried through dev tools (0.2 s is the value to try). Leaving a room, dying, warping and applying a change in the dev panel clear the platforms and the cooldown. No current room awards a larger limit or a shorter cooldown.
 - **Why.** Replacing let a player click again and again and keep one platform alive for ever, which walks around any puzzle that is meant to be solved in the platform's lifetime. The starting duration is 1.5 s.
@@ -519,6 +520,62 @@ Imprint uses the same black-and-white pixel language as the rest of the game.
 - Shatter into pixel shards: it is gone.
 
 The shards are small. They should read at 320×180 and survive the softer palette, because that palette remaps the frame rather than the sprites.
+
+### Aiming without a mouse (planned, not built)
+
+Status: planned, not built, and not scheduled. Nothing below is in the game. A concept video was recorded in the engine on 2026-10-26 from a throwaway prototype that is not in the repo. When this is built, this section becomes the spec and the rest of "Imprint" is updated to match.
+
+**Why.** Moving a mouse to an exact cell in the middle of a jump is slow and hard to learn, and the puzzles want a platform in a split second. A gamepad has no pointer at all. Controller support is the long-term goal, so placement has to be something a stick and a button can do.
+
+**The idea: fixed slots.** A platform can only go in a small set of places relative to Freddy: five directions, each with a near and a far slot. Placing is then one press, and every place is learnable.
+
+The offsets are counted from Freddy's own cell: his centre column, and the row just above the first row wholly under his feet. So row +1 is the floor row when he stands, and the first clear row under him in the air. The offset names the **anchor block**, the one nearest Freddy, which is the one that lasts (see the shrink order above). The rest of the platform extends away from him. Facing left mirrors every slot.
+
+| Direction | Near | Far | Use |
+| --- | --- | --- | --- |
+| Forward (or nothing held) | 1 ahead, on the floor row (+1, +1) | 4 ahead (+4, +1) | extend a ledge, bridge a gap from its edge |
+| Up-forward | 2 ahead, 1 up (+2, −1) | 4 ahead, 3 up (+4, −3) | a step up; the top of a full jump |
+| Up | 1 ahead, 3 up (+1, −3) | straight up 5 (0, −5) | a high perch |
+| Down-forward | 2 ahead, 2 down (+2, +2) | 4 ahead, 4 down (+4, +4) | a landing pad for a drop |
+| Down | under the feet (0, +1) | 4 down (0, +4) | catch a fall |
+
+These are starting numbers, kept in one data table that the runtime and the solver share. They are expected to change in playtesting. The concept first had forward near at +2 and far at +5. Near at +2 left a one-cell hole at a ledge's edge. Far at +5 meant a jump to it landed on the far block after that block had gone.
+
+A slot that is not legal (`ImprintRules.check`: a wall, spikes, a door's zone, `~`, Freddy, another platform) shows the existing small × and refuses. It never slides to a nearby legal cell. What the player sees is what they get.
+
+**Two schemes, both to be built and switched in the F2 dev panel to compare.**
+
+- **A, dash-style (the default in normal play until one is chosen).** Like Celeste's dash: hold a direction and press a button. **J places the near slot and K the far one.** While Imprint is ready, the near slot (white dotted outline) and the far slot (grey) for the held direction are always drawn, so the player sees both before pressing. W becomes aim-up, so jump is Space or Up only.
+- **C, build mode.** Hold Shift (LT on a pad). Time drops to 30% and every slot lights up. The held direction selects the slot nearest that way, and tapping it again steps out to the far one. Letting go places it. It opens only when a placement is allowed (no platform standing, no cooldown). It lasts about 1 s of real time at most, and it ends on release, on that cap, on death, on a door and on opening the dev panel.
+- **Free aim (classic, dev only).** Today's free mouse aim. It stays only as the third F2 choice, for comparison.
+- **The mouse** stays as an input in A and C, but a click places at the slot nearest the cursor, so mouse players keep the same rules.
+- **Near and far are both available from the start.** There is no upgrade for the far ring.
+
+| Action | Keyboard | Pad |
+| --- | --- | --- |
+| Move, and aim | A / D, and W / S | left stick or d-pad |
+| Jump | Space, Up | A |
+| Imprint near / far (A) | J / K | X / Y |
+| Build mode (C) | hold Shift | hold LT |
+
+**The Imprint rule is unchanged.** Still one platform, never replaced or refreshed, and the next only after it breaks plus `imprint_cooldown`. The shrink order is still set at the press, from where Freddy is. Build mode cannot be used to get around it, because it only opens when a placement is already allowed.
+
+**What it changes in the solver.** Today the solver places a platform from a ledge onto any cell a jump crosses (see "The solver"), and mid-air placement is left out. With slots, a placement is a press at some tick of a jump, times a slot relative to the body at that tick. So mid-air placement has to be added to the search: sample press ticks along each arc, take the slots there, check them with `ImprintRules.check`, and verify the landing on the last block as now. There are far fewer candidates than the current sweep of every cell. The slot table joins the solver cache's hash.
+
+Rooms built for free aim may stop solving, especially any that rely on a platform placed far from Freddy. `tools/validate.sh` will name them. They are reported to the user and are not redesigned without asking.
+
+**What the concept showed.**
+- **Forward slots do not catch a fall.** Freddy falls about 5 px a tick and moves 1.5 px a tick sideways, so a platform placed ahead and below in mid-fall is already above him by the time he reaches it. Down and down-forward are the slots for falling. Forward is for use from a ledge.
+- **The far block of a forward slot can be gone before the jump lands.** A puzzle should count on the anchor block, as it already does.
+- **Godot's `Engine.time_scale` keeps 60 physics ticks a second and shrinks each tick's delta.** `MovementSim` and the solver assume a fixed tick, so build mode's slow-down must be done another way that keeps the runtime and the solver in agreement. One way is to step physics less often.
+
+**Dev tools, when built.**
+- An "Imprint aim" choice in the F2 panel: dash-style, build mode or free aim. It is kept with the dev session, survives retries, round-trips in named loadouts and never touches the normal save.
+- No new ability stat, since nothing is unlocked.
+- Tests:
+  - slot maths: mirroring, widths 2 and 3, both rings, a refused slot, and the mouse snapping to the nearest slot
+  - build mode: it is refused while a platform stands or the cooldown runs, and time is always restored
+  - the solver finding a mid-air catch with down-near
 
 ## Implementation reference
 
@@ -823,6 +880,12 @@ What was decided, in the order it came up, with the reason. Pull requests are na
 - **The cursor does not search for an invisible answer every tick.** Legal reachable and unreachable positions already share one dotted outline, and placement checks legality rather than reachability. A shaft-fall probe measured the old automatic search at 24.4 ms average / 42.9 ms worst on the user’s machine. Deferring reachability to an explicit `preview_state()` query reduced automatic preview refresh to 0.015 ms average / 0.043 ms worst in the same headless probe. These are diagnostic samples, not a browser FPS guarantee.
 - **Imprint’s rules stay the same.** Legality, lifetime, shrinking, lockout and cooldown still run on physics time; no click replaces or refreshes a standing platform. This is presentation and unused-work removal, with no new ability or loadout field. F2, retries and normal-save isolation continue to apply.
 
+**Aiming Imprint without a mouse (2026-10-26, planned, not built)**
+- **Placement moves to a fixed set of slots around Freddy, five directions by near and far.** Free mouse aim was hard to use in the split second the puzzles want, and it has no gamepad form. The plan is under "Aiming without a mouse".
+- **Both dash-style (hold a direction, J near / K far) and build mode (hold Shift, slowed time, steer, release) are to be built and switched in F2,** alongside free aim as a dev-only third choice, so they can be compared in play. Four schemes were considered. Twin-stick flick was dropped because nothing shows where the platform will go before it is placed. A snapping cursor was dropped because it is still a pointing task and slow on a pad.
+- **Near and far are both available from the start; the mouse snaps to the nearest slot.** Decided by the user.
+- **A concept video was recorded before any building,** at the user's request. The prototype was throwaway and is not in the repo.
+
 **Process**
 - **One record.** `AGENTS.md` for how an agent works, `README.md` for the code and its rules, this file for the game and its decisions, `docs/testing-checklist.md` for what nobody has played. `docs/plans/` is history.
 - **Every new test is mutation-checked,** and the pull request says which mutants were tried.
@@ -841,7 +904,7 @@ Do not: copy a movement formula; reference an autoload from a pure class; derive
 - Whether the shards of each block that goes are too busy.
 - What S / Down does.
 - How hard a bounce platform throws the player, and whether the player aims it.
-- A gamepad or keyboard way to aim and place an Imprint.
+- Which aiming scheme ships, dash-style or build mode, and the slot offsets. The plan is under "Aiming without a mouse". It is not built and is waiting on playtesting both.
 - How many tokens an upgrade after Imprint should cost, and whether the pocket should ever hold more than three.
 - What a spent 3TM should offer, if anything.
 - Whether `~` cells should ever be drawn.
