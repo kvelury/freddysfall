@@ -24,10 +24,16 @@ extends RefCounted
 ## land there just the same with the other blocks gone. Legs, the places a body
 ## standing on the platform can get to, start from the last block alone.
 ##
+## A rider on a moving platform can put one down too. Their jumps are tried
+## from the moments of the platform's trip that ReachGraph.phases picks, with
+## the platform moving, and each candidate is checked with it moving. Waiting on
+## the platform is always possible (the row above it is kept clear), so
+## waiting for a platform to break is as possible there as on a ledge.
+##
 ## What it leaves out: placing the platform in mid-air, and using two in a row.
 ## A room that needs either is reported unreachable even though a player might
-## do it. It does not see moving platforms either: it puts no Imprint down
-## from one, and its jumps pass through them. It leaves out landing on an outer
+## do it. The jumps off a placed platform (its legs) pass through moving
+## platforms and never land on one. It leaves out landing on an outer
 ## block while it stands, and walking off onto outer blocks while they stand.
 ## Classic mode is not modelled either; it has strictly more footing, so
 ## validation is conservative for it.
@@ -58,7 +64,7 @@ func _init(graph: ReachGraph) -> void:
 ## "pickups": [index]}, all of it reachable from the ledge by one platform.
 func expand(ledge: ReachGraph.Ledge, targets: Array) -> Dictionary:
 	var out := {"ledges": [], "touches": [], "pickups": []}
-	if targets.is_empty() or ledge.moving:
+	if targets.is_empty():
 		return out
 	var info := _graph.room_info(ledge.room_id)
 	var geo := _graph.geometry_of(info)
@@ -180,7 +186,7 @@ func _last_cells(cell: Vector2i, width: int, player_x: float) -> Array[Vector2i]
 func _lands_on(info: RoomInfo, geo: ReachGraph.Geometry, ledge: ReachGraph.Ledge, candidate: Candidate, limit: int) -> bool:
 	var width := _graph.abilities.imprint_width
 	var platform := Grid.cell_rect(Rect2i(candidate.cell, Vector2i(width, 1)))
-	var near := _graph.near_solids(geo.rects, ledge)
+	var near := _near_of(ledge, info, geo)
 	var rects := near.duplicate()
 	rects.append(platform)
 	for arc: Arc in candidate.arcs:
@@ -202,8 +208,9 @@ func _lands_on(info: RoomInfo, geo: ReachGraph.Geometry, ledge: ReachGraph.Ledge
 
 ## Where `arc`, run among `rects`, comes down on `last`, or NaN if it does not.
 func _landing(geo: ReachGraph.Geometry, arc: Arc, rects: Array[Rect2], last: Rect2, limit: int) -> Vector2:
-	var result := MovementSim.simulate_jump(_graph.movement(), rects, arc.start, Vector2(arc.speed, 0.0), arc.input, arc.hold, true, arc.jump, geo.triggers, geo.bounds, geo.hazards, [], NAN, 0, limit)
-	if result["hazard"] or int(result["trigger"]) >= 0 or not result["landed"]:
+	var movers: Movers = geo.movers if arc.tick >= 0 else null
+	var result := MovementSim.simulate_jump(_graph.movement(), rects, arc.start, Vector2(arc.speed, 0.0), arc.input, arc.hold, true, arc.jump, geo.triggers, geo.bounds, geo.hazards, [], NAN, 0, limit, false, movers, maxi(arc.tick, 0), arc.riding)
+	if result["hazard"] or int(result["trigger"]) >= 0 or not result["landed"] or int(result["riding"]) >= 0:
 		return Vector2(NAN, NAN)
 	var at: Vector2 = result["position"]
 	if absf(at.y + MovementSim.HALF.y - last.position.y) < 0.6 and at.x + MovementSim.HALF.x > last.position.x + 0.5 and at.x - MovementSim.HALF.x < last.end.x - 0.5:
@@ -274,8 +281,12 @@ func _arcs_of(ledge: ReachGraph.Ledge, info: RoomInfo, geo: ReachGraph.Geometry)
 	if _arcs.has(key):
 		return _arcs[key]
 	var out: Array[Arc] = []
-	var near := _graph.near_solids(geo.rects, ledge)
+	var near := _near_of(ledge, info, geo)
 	var cell := float(Grid.CELL)
+	if ledge.moving:
+		out = _riding_arcs(ledge, info, geo, near)
+		_arcs[key] = out
+		return out
 	for x in _graph.start_xs(ledge):
 		for input in [-1.0, 0.0, 1.0]:
 			var speed := _graph.run_speed(ledge, x, input)
@@ -292,14 +303,58 @@ func _arcs_of(ledge: ReachGraph.Ledge, info: RoomInfo, geo: ReachGraph.Geometry)
 	return out
 
 
-func _arc(near: Array[Rect2], geo: ReachGraph.Geometry, ledge: ReachGraph.Ledge, x: float, speed: float, input: float, hold: int, jump: bool) -> Arc:
+## The solids a jump from `ledge` can meet. For a moving platform, everything
+## near anywhere on its track.
+func _near_of(ledge: ReachGraph.Ledge, info: RoomInfo, geo: ReachGraph.Geometry) -> Array[Rect2]:
+	if not ledge.moving:
+		return _graph.near_solids(geo.rects, ledge)
+	var path := info.platforms[ledge.path]
+	return _graph._within(geo.rects, path.keep_out().grow_individual(ReachGraph.REACH_X, ReachGraph.REACH_UP, ReachGraph.REACH_X, ReachGraph.REACH_DOWN))
+
+
+## The jumps a rider can make from moving platform `ledge`: the same tries as
+## ReachGraph._ride, from every spot on it at every moment it picks, with the
+## platforms moving.
+func _riding_arcs(ledge: ReachGraph.Ledge, info: RoomInfo, geo: ReachGraph.Geometry, near: Array[Rect2]) -> Array[Arc]:
+	var out: Array[Arc] = []
+	var path := info.platforms[ledge.path]
+	var cell := float(Grid.CELL)
+	var run := _graph.movement().run_speed
+	for tick in _graph.phases(info):
+		var rect := path.rect_at(tick)
+		var lo := rect.position.x - cell * 0.5 + 0.01
+		var hi := rect.end.x + cell * 0.5 - 0.01
+		var xs: Array[float] = [lo]
+		for x in range(path.start_cells.size.x):
+			xs.append(rect.position.x + (float(x) + 0.5) * cell)
+		xs.append(hi)
+		for x in xs:
+			for input in [-1.0, 0.0, 1.0]:
+				var speed := 0.0
+				if input > 0.0 and x - lo >= ReachGraph.RUN_UP:
+					speed = run
+				elif input < 0.0 and hi - x >= ReachGraph.RUN_UP:
+					speed = -run
+				for hold in ReachGraph.HOLDS:
+					out.append(_arc(near, geo, ledge, x, speed, input, hold, true, tick, rect.position.y))
+		for side in [-1.0, 1.0]:
+			var edge := rect.end.x - 1.0 if side > 0.0 else rect.position.x + 1.0
+			out.append(_arc(near, geo, ledge, edge, side * run, side, 0, false, tick, rect.position.y))
+			out.append(_arc(near, geo, ledge, edge, side * run, 0.0, 0, false, tick, rect.position.y))
+	return out
+
+
+func _arc(near: Array[Rect2], geo: ReachGraph.Geometry, ledge: ReachGraph.Ledge, x: float, speed: float, input: float, hold: int, jump: bool, tick := -1, top := NAN) -> Arc:
 	var arc := Arc.new()
-	arc.start = Vector2(x, ledge.top - float(Grid.CELL) * 0.5)
+	arc.start = Vector2(x, (ledge.top if is_nan(top) else top) - float(Grid.CELL) * 0.5)
 	arc.speed = speed
 	arc.input = input
 	arc.hold = hold
 	arc.jump = jump
-	var result := MovementSim.simulate_jump(_graph.movement(), near, arc.start, Vector2(speed, 0.0), input, hold, true, jump, geo.triggers, geo.bounds, geo.hazards, [], NAN, 0, 180, true)
+	arc.tick = tick
+	arc.riding = ledge.path if tick >= 0 else -1
+	var movers: Movers = geo.movers if tick >= 0 else null
+	var result := MovementSim.simulate_jump(_graph.movement(), near, arc.start, Vector2(speed, 0.0), input, hold, true, jump, geo.triggers, geo.bounds, geo.hazards, [], NAN, 0, 180, true, movers, maxi(tick, 0), arc.riding)
 	arc.path = result["path"]
 	return arc
 
@@ -311,6 +366,10 @@ class Arc extends RefCounted:
 	var input := 0.0
 	var hold := 0
 	var jump := true
+	## The moment of the moving platforms' trip the jump starts at, or -1
+	## from a still ledge, and the platform it starts on, or -1.
+	var tick := -1
+	var riding := -1
 	var path := PackedVector2Array()
 
 
