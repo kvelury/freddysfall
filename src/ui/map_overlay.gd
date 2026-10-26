@@ -215,6 +215,10 @@ class MapLayer extends Node2D:
 	static func shown_rooms() -> Array:
 		return WorldData.rooms.keys() if DevSession.available else GameState.visited.keys()
 
+	## Whether each room's id is written in it: in dev mode, for reference.
+	static func shows_labels() -> bool:
+		return DevSession.available
+
 	static func map_size(info: RoomInfo) -> Vector2:
 		# A multi-screen room is one continuous rectangle. The stride gap
 		# stays outside the room, between it and its neighbors.
@@ -248,6 +252,18 @@ class MapLayer extends Node2D:
 				draw_rect(box, Color(0.42, 0.42, 0.42, 1), true)
 			_outline(rect, box, info)
 			_connectors(rect, box, info)
+			if shows_labels():
+				_label(String(room_id), box)
+
+	## The id, small and centred in `box`, white on a black edge so it reads on
+	## the grey fill and across the outline.
+	func _label(text: String, box: Rect2) -> void:
+		var font := ThemeDB.fallback_font
+		var size := 6
+		var width := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
+		var at := (box.get_center() + Vector2(-width * 0.5, font.get_ascent(size) * 0.5)).round()
+		draw_string_outline(font, at, text, HORIZONTAL_ALIGNMENT_LEFT, -1, size, 2, Color.BLACK)
+		draw_string(font, at, text, HORIZONTAL_ALIGNMENT_LEFT, -1, size, Color.WHITE)
 
 	func _px(units: float) -> float:
 		return roundf(units * zoom)

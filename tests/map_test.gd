@@ -228,7 +228,10 @@ func _overlay() -> bool:
 		all_rooms = rect if all_rooms.size == Vector2.ZERO else all_rooms.merge(rect)
 	ok = _check(every == all_rooms.grow(4.0) and every != visited_only, "in dev mode the map's bounds take in every room, not only the visited one") and ok
 	ok = _check(overlay._layer.get_script().shown_rooms().size() == rooms.size(), "and it draws every room") and ok
+	var layer_script = overlay._layer.get_script()
+	ok = _check(layer_script.shows_labels(), "in dev mode each room has its id written in it") and ok
 	session.available = false
+	ok = _check(not layer_script.shows_labels(), "and out of dev mode no labels") and ok
 	overlay.refresh()
 	ok = _check(overlay._visited_bounds() == visited_only and overlay._layer.get_script().shown_rooms() == ["s1"], "out of dev mode it is the visited rooms again") and ok
 
