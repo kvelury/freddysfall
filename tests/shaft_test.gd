@@ -144,7 +144,7 @@ func _merged_drop(world: Node) -> bool:
 			var entered := await _until(world, "7")
 			var landed := entered and await _settles(world)
 			var local: Vector2 = player.global_position - world.current.position
-			ok = _check(landed and world.current.info.id == "7" and state.health == 1 and player.riding() == -1 and is_equal_approx(local.y, 705.0) and local.x + MovementSim.HALF.x <= 150.0, "drop x %.0f, vx %.0f lands on safe floor without steering (%s, health %d)" % [x, vx, local, state.health]) and ok
+			ok = _check(landed and world.current.info.id == "7" and state.health == 1 and player.riding() == -1 and (is_equal_approx(local.y, 705.0) or (is_equal_approx(local.y, 665.0) and local.x >= 85.0)) and local.x + MovementSim.HALF.x <= 140.0, "drop x %.0f, vx %.0f lands on the floor or the step, left of the wall, without steering (%s, health %d)" % [x, vx, local, state.health]) and ok
 			if not entered or state.health != 1:
 				return false
 	# The landing connects to the existing save room through its left door.

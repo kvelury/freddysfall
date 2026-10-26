@@ -27,9 +27,21 @@ Nobody has played these yet. Headless tests prove the rule, not the feel. Use `?
 - [ ] **The cooldown at 0.2 s.** In F2 set the cooldown to 0.2 and Apply: after each break the × stays for about a fifth of a second. Does it feel fair, or should it stay at 0 (the default)? Also try 0.5.
 - [ ] **Leaving a room or dying** with a cooldown running: the next room starts with no cooldown.
 
+## Rooms 7 to 11
+
+Start `?dev=1&room=6` with Imprint on in F2 (or later rooms directly with `room=<id>`).
+
+- [ ] **Room 7's fall.** Steering hard right through room 6's hole: the wall keeps you on the left, and you land on the floor or the step, never in the first spike.
+- [ ] **Room 7's climb.** Step, platform, then an Imprint while riding, to exit 1. Is the Imprint-from-the-platform jump fair?
+- [ ] **Room 8 at 100 px/s.** Tricky but fair; the upper platform to the exit ledge needs the Imprint.
+- [ ] **Room 9.** The lift, the Imprint across to the 3TM pillar, the Imprint up to the exit and the token.
+- [ ] **Room 10's lifts.** Lift 1, 2, 3 timing at 60 px/s, then the Imprint to the shelf.
+- [ ] **The loop.** 10 → 11 → 7's exit 2 → drop to the pip → exit 1 → 8 → 9, and feed the third token: Imprint becomes 3 wide.
+
 ## Health pips
 
-- [ ] **Room 7's pip.** It reads as a plus that bobs, apart from tokens and pickups; taking it says "Health pip (1)". Then die on spikes: you come back on the last safe floor, not at s2, and the next death goes to s2. In F2, set health, clear it, retry (the pip comes back), and round-trip it through a loadout.
+- [ ] **Room 11's way back.** Coming in from room 10 you land on the ledge under the door and can walk back into room 10; from room 11's floor the two steps climb back up to it.
+- [ ] **Room 7's pip.** Reached by dropping from exit 2. It reads as a plus that bobs, apart from tokens and pickups; taking it says "Health pip (1)". Then die on spikes: you come back on the last safe floor, not at s2, and the next death goes to s2. In F2, set health, clear it, retry (the pip comes back), and round-trip it through a loadout.
 
 ## Imprint shrinking
 

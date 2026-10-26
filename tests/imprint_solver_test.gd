@@ -455,7 +455,13 @@ func _room_six() -> bool:
 	var abilities := Abilities.new()
 	abilities.imprint_unlocked = true
 	var open := ReachGraph.new(built["rooms"], _cfg, abilities).analyze("6")
-	ok = _check(open.errors.is_empty() and open.reached_rooms.has("7"), "and with Imprint they drop into room 7 %s" % [open.errors]) and ok
+	ok = _check(open.errors.size() == 1 and open.reached_rooms.has("7"), "and with Imprint they drop into room 7 %s" % [open.errors]) and ok
+	# Without room 11 beyond exit 2, nothing in room 7 gets up to its health
+	# pip, with a platform 2 or 3 wide: it is reached only by the drop.
+	ok = _check(_has(open.errors, "health r7_health"), "room 7's pip is out of reach from below with a 2-wide Imprint %s" % [open.errors]) and ok
+	abilities.imprint_width = 3
+	var wide := ReachGraph.new(built["rooms"], _cfg, abilities).analyze("6")
+	ok = _check(_has(wide.errors, "health r7_health"), "and with a 3-wide one %s" % [wide.errors]) and ok
 	return ok
 
 
