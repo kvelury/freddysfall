@@ -50,6 +50,7 @@ Editor/debug runs always offer F2 and a clickable DEV button; exports require
 - **Loadouts:** save, update, select, rename, or delete named powers/resources in
   `user://dev_loadouts.json`, separate from `save.json`. Selection stages a draft;
   Apply activates it. Rooms, overrides, flags, and machine fills are not loadouts.
+- **Map:** while dev tools are available, the Tab map shows every room, not only the visited ones.
 - **End playtest:** discard test progress and resume the normal save at its save
   room, or a new ordinary game if none exists. The test world is destroyed first.
 

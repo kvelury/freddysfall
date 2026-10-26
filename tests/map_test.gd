@@ -212,6 +212,29 @@ func _overlay() -> bool:
 	state.load_dict({"visited": ["s1"]})
 	ok = _check(state.map_zoom == MapView.MIDDLE, "a save from before the zoom existed opens at the middle") and ok
 
+	# In dev mode the map shows every room, visited or not; out of it, only the visited.
+	var session: Node = root.get_node("DevSession")
+	var rooms: Dictionary = root.get_node("WorldData").rooms
+	state.reset()
+	state.visited["s1"] = true
+	overlay.refresh()
+	var visited_only: Rect2 = overlay._visited_bounds()
+	session.available = true
+	overlay.refresh()
+	var every: Rect2 = overlay._visited_bounds()
+	var all_rooms := Rect2()
+	for info: RoomInfo in rooms.values():
+		var rect := Rect2(Vector2(info.grid_pos) * STRIDE, Vector2(info.screens) * STRIDE - (STRIDE - ROOM_PX))
+		all_rooms = rect if all_rooms.size == Vector2.ZERO else all_rooms.merge(rect)
+	ok = _check(every == all_rooms.grow(4.0) and every != visited_only, "in dev mode the map's bounds take in every room, not only the visited one") and ok
+	ok = _check(overlay._layer.get_script().shown_rooms().size() == rooms.size(), "and it draws every room") and ok
+	var layer_script = overlay._layer.get_script()
+	ok = _check(layer_script.shows_labels(), "in dev mode each room has its id written in it") and ok
+	session.available = false
+	ok = _check(not layer_script.shows_labels(), "and out of dev mode no labels") and ok
+	overlay.refresh()
+	ok = _check(overlay._visited_bounds() == visited_only and overlay._layer.get_script().shown_rooms() == ["s1"], "out of dev mode it is the visited rooms again") and ok
+
 	parent.queue_free()
 	await process_frame
 	state.reset()
