@@ -17,7 +17,7 @@ Implementation steps for the palette pass live in `docs/plans/soft-duotone-palet
 | Health pips: the pickup, how they show, refilling | Designed, not built |
 | Imprint width, duration and multiple active platforms | Built; available in dev tools, not awarded by current rooms |
 | Imprint lockout (no replacing), 1.5 s duration, and a cooldown that is off by default | Built; the cooldown is tried through dev tools, no room awards it |
-| Shrinking Imprint, default width 3 and the Classic dev switch | Built; not yet played by a person |
+| Shrinking Imprint, default width 2 (3 from room 9's 3TM) and the Classic dev switch | Built; not yet played by a person |
 | Imprint bounce and other special behaviors | Designed, not built |
 | Isolated dev tools, named loadouts, retries and door bypass | Built |
 | The solver using Imprint, and what each room needs | Built |
@@ -422,7 +422,7 @@ The cursor is a promise of a foothold. Before the click, the player can see whet
 
 The cursor snaps to a cell. That cell is the platform's left edge. The platform is `width_cells` wide and one cell tall. It is never rotated and never placed between cells. It shares edges, heights, and jump distances with the authored platforms, which are about four or five cells wide.
 
-At the start, `width_cells` is 3: the player's width plus a spare cell each side. The first description of that spare was "one pixel." On this grid one cell is the player, so the spare is one cell. The width is the size a platform *starts* at; it shrinks (see below).
+At the start, `width_cells` is 2: the player's width plus one spare cell. The 3TM in room 9 raises it to 3, the player's width plus a spare cell each side. The width is the size a platform *starts* at; it shrinks (see below).
 
 ### Placing
 
@@ -439,7 +439,7 @@ A platform may sit just above spikes. Bridging a spike pit with a platform a few
 
 A placed platform is solid on every side, like authored floor. It can be stood on, bumped from below, and walked into. When it breaks under the player, they fall.
 
-A legal placement lasts `duration` seconds, 1.5 at the start, and the platform is its own clock: it gets smaller, one block at a time. Each equal share of its life (the life divided by the width it started with) one block goes. At width 3 and 1.5 s a block goes every 0.5 s: three blocks until 0.5 s, two until 1.0 s, one until 1.5 s. The total time never depends on the width.
+A legal placement lasts `duration` seconds, 1.5 at the start, and the platform is its own clock: it gets smaller, one block at a time. Each equal share of its life (the life divided by the width it started with) one block goes. At width 2 and 1.5 s a block goes every 0.75 s; at width 3 every 0.5 s: three blocks until 0.5 s, two until 1.0 s, one until 1.5 s. The total time never depends on the width.
 
 **The order is set at the click, from where the player is, and never changes after.** The block farthest from the player's centre goes first, and the block nearest them goes last, so in the last share the platform is the one block closest to where they stood. Placed by a player to its left, a 3-wide platform goes right, middle, left; placed from its right, left, middle, right. The farthest block is always an end, so the platform stays in one piece. When two blocks are exactly as far (a player standing right under the middle of a 3-wide platform, or on the line between the two blocks of a 2-wide one), the block **behind** the player goes first, so the one they face lasts longer. Moving after the click changes nothing.
 
@@ -484,7 +484,7 @@ Upgrades are pickups in the world, written into a room's legend and drawn with t
 
 | Upgrade | Starts at | Grows to |
 | --- | --- | --- |
-| Width | 3 cells | 5 |
+| Width | 2 cells | 3 at room 9's 3TM, later 5 |
 | Duration | 1.5 seconds | longer |
 | Cooldown | 0 seconds (off) | shorter, if a later upgrade ever does; none exists, and it is tried in dev tools |
 | How many at once | 1 | stays 1 unless a later upgrade says otherwise |
@@ -494,15 +494,15 @@ Width, duration, and behavior are the three things a room can demand. A later ro
 
 Bounce is the first special behavior. Others can be added the same way: a property of the placed platform, found as a pickup, and required by some later gap.
 
-Upgrades not awarded by current rooms; the first three work in the runtime and can be tried in dev tools:
+Room 9's 3TM gives a platform 3 wide. Upgrades not awarded by current rooms; they work in the runtime and can be tried in dev tools:
 
-- A longer platform.
+- A platform wider than 3.
 - More than one platform at a time. Several then stand together, up to the count. A click is still refused at the count, and never replaces one.
 - A longer life for the platform.
 - A shorter cooldown (a `min` upgrade, which keeps the smaller value). It works in the runtime and in dev tools; no room awards it.
 - A bouncy platform.
 
-The starting values are the defaults in `Abilities` (`src/core/abilities.gd`): width 3, duration 1.5 seconds, one at a time, cooldown 0, no special behavior, and Imprint itself locked. They live in `GameState.abilities`, and the width and duration are read when a platform is placed.
+The starting values are the defaults in `Abilities` (`src/core/abilities.gd`): width 2, duration 1.5 seconds, one at a time, cooldown 0, no special behavior, and Imprint itself locked. They live in `GameState.abilities`, and the width and duration are read when a platform is placed.
 
 ### Look
 
@@ -780,7 +780,11 @@ What was decided, in the order it came up, with the reason. Pull requests are na
 - **Only the next block blinks, in its last 0.25 s** (capped at half a share), and its footing stays until it goes. The cap and the border drawn around the blocks that remain while an end block blinks are judgement calls, reported in the pull request.
 - **The solver counts only the last block as footing.** It stands for the whole life, so an accepted route does not depend on a block that goes earlier still being there. The last block is the one nearest the jump's start, where the player stands to click; on a tie either counts, because the player can turn first. The cost: a wider starting width never makes a room easier *on paper*, only in play. The second simulation (the arc with the last block alone) is what keeps an arc that brushes an outer block from being accepted. Every room passed with the same "needs" lines as before.
 - **Classic stays as a dev comparison switch** (a session switch like door bypass, not saved, not in loadouts, not an ability), so the old look and the new one can be compared until the user has played both.
-- **Old saves are left alone:** a save that stored width 2 keeps 2. Only new games start at 3.
+- **Old saves are left alone:** a save keeps the width it stored. Only new games start at the default.
+
+**Imprint starts 2 wide (rooms 7–11)**
+- **The start is 2 blocks, and room 9's 3TM gives the third** (`imprint_width` value 3), the user's choice when drawing rooms 7 to 11. At 1.5 s a block goes every 0.75 s; a tie (the player on the line between the two blocks) goes by facing, which the solver's `_last_cells` already allows for. The solver counts only the last block, so every room validates with the same "needs" lines.
+- **Old saves keep the width they stored** (3 for a game started since PR #33). `?new-game=1` or F2 plays at 2.
 - **No `Save.VERSION` change.** A missing field falls back to its default.
 
 **Rear token stack**
@@ -814,7 +818,6 @@ Do not: copy a movement formula; reference an autoload from a pure class; derive
 - Whether the facing block and the token lines read at 1x, and whether it should show before Imprint is found.
 - Whether Classic Imprint is removed once the user has played both.
 - Whether the shards of each block that goes are too busy.
-- Whether the first width upgrade should still exist when the start is 3 (a `imprint_width` pickup of value 3 now gives nothing). Rooms do not award one today.
 - What S / Down does.
 - How hard a bounce platform throws the player, and whether the player aims it.
 - A gamepad or keyboard way to aim and place an Imprint.

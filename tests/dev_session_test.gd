@@ -38,7 +38,7 @@ func _run() -> void:
 	root.add_child(_world)
 	await process_frame
 	_world.player.scripted = true
-	_check(state.health == 0 and state.abilities.imprint_width == 3, "direct room starts with fresh state, not the save")
+	_check(state.health == 0 and state.abilities.imprint_width == 2, "direct room starts with fresh state, not the save")
 	_check(session.enter(_world).is_empty() and session.isolated(), "enter protected dev mode")
 	_check(not save.write("7", Vector2.ZERO) and save.load_game().is_empty(), "normal save reads and writes are blocked")
 	save.erase()

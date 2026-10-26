@@ -31,7 +31,7 @@ Nobody has played these yet. Headless tests prove the rule, not the feel. Use `?
 
 Nobody has played these yet. Headless tests prove the order, the timing and the solver, not the feel. Use `?dev=1&room=5` with Imprint turned on in F2 (or `?room=5` after the 3TM).
 
-- [ ] **Rooms 5 and 6 with a 3-wide shrinking platform.** Room 5's pit both ways and room 6's wall can be crossed. A block goes every 0.5 s, the one farthest from where you clicked first, and the one nearest you lasts to the end.
+- [ ] **Rooms 5 and 6 with a 2-wide shrinking platform** (the new start; use `?new-game=1` or F2, since an old save keeps 3). Room 5's pit both ways and room 6's wall can be crossed. A block goes every 0.75 s, the one farthest from where you clicked first, and the one nearest you lasts to the end.
 - [ ] **The blink warning.** The next block blinks in its last quarter second and the footing under you does not change while it does. It reads, and it is not annoying.
 - [ ] **The dotted border.** A placed platform is a white block with a black dotted inner border, and it looks different from the white dotted cursor outline.
 - [ ] **Per-block shards.** A shatter at every block going is not too busy.

@@ -28,7 +28,7 @@ func _abilities() -> bool:
 	ok = _check(not a.apply(unlock, true) and a.imprint_unlocked, "and does nothing the second time") and ok
 	ok = _check(Abilities.from_dict(a.to_dict()).imprint_unlocked, "the unlock survives to_dict and from_dict") and ok
 	a = Abilities.new()
-	ok = _check(a.imprint_width == 3 and is_equal_approx(a.imprint_duration, 1.5) and a.imprint_max_active == 1 and is_zero_approx(a.imprint_cooldown) and a.imprint_effects.is_empty(), "the starting abilities are width 3, 1.5 s, one at a time, no cooldown, no effects") and ok
+	ok = _check(a.imprint_width == 2 and is_equal_approx(a.imprint_duration, 1.5) and a.imprint_max_active == 1 and is_zero_approx(a.imprint_cooldown) and a.imprint_effects.is_empty(), "the starting abilities are width 2, 1.5 s, one at a time, no cooldown, no effects") and ok
 	ok = _check(a.apply(width, 4) and a.imprint_width == 4, "a wider upgrade widens") and ok
 	ok = _check(not a.apply(width, 3) and a.imprint_width == 4, "a narrower one later takes nothing away") and ok
 	ok = _check(not a.apply(width, 4), "the same one again changes nothing") and ok
@@ -86,7 +86,7 @@ func _file() -> bool:
 	ok = _check(save.write("3", Vector2(120.5, 80.0)), "the save is written") and ok
 
 	state.reset()
-	ok = _check(not state.has_flag("pickup:p") and state.abilities.imprint_width == 3 and state.visited.is_empty(), "resetting forgets everything") and ok
+	ok = _check(not state.has_flag("pickup:p") and state.abilities.imprint_width == 2 and state.visited.is_empty(), "resetting forgets everything") and ok
 	var where: Dictionary = save.load_game()
 	ok = _check(where.get("room") == "3" and where.get("position") == Vector2(120.5, 80.0), "loading says which room and where (%s)" % [where]) and ok
 	ok = _check(state.has_flag("pickup:p") and state.abilities.imprint_width == 4 and state.visited.has("1") and state.visited.has("3"), "and restores the flags, abilities and visited rooms") and ok

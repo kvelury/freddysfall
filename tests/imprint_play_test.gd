@@ -177,14 +177,17 @@ func _run() -> void:
 	ok = _check(two and tool.platforms.size() == 2 and not tool.place() and tool.platforms.size() == 2, "at a limit of two, two stand and a third is refused") and ok
 	state.abilities.imprint_max_active = 1
 
-	# It shrinks: the default platform is three blocks, and a block goes every third of its
-	# life. The order is fixed at the click: the block farthest from the player goes first.
+	# It shrinks: a platform of three blocks loses one every third of its life
+	# (the default is two; room 9's 3TM gives the third). The order is fixed at
+	# the click: the block farthest from the player goes first.
+	ok = _check(Abilities.new().imprint_width == 2, "the default platform is two blocks") and ok
+	state.abilities.imprint_width = 3
 	state.abilities.imprint_cooldown = 0.2
 	tool.clear(false)
 	tool.sync_solids()
 	player.place(room.position + Grid.cell_center(Vector2i(2, 16)), room.world_rects())
 	tool.scripted_cell = Vector2i(3, 6)
-	ok = _check(tool.place() and tool.platforms[0].shrinks and is_equal_approx(tool.platforms[0].rect.size.x, 30.0), "the default platform is 30 px wide and shrinks") and ok
+	ok = _check(tool.place() and tool.platforms[0].shrinks and is_equal_approx(tool.platforms[0].rect.size.x, 30.0), "a three-block platform is 30 px wide and shrinks") and ok
 	var blocks: ImprintPlatform = tool.platforms[0]
 	ok = _check(blocks.order == [2, 1, 0], "placed by a player to its left, it goes right, middle, left (%s)" % [blocks.order]) and ok
 	player.global_position = room.position + Vector2(35.0, 20.0)
