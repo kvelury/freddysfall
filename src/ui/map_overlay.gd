@@ -24,6 +24,8 @@ var view_center := Vector2.ZERO
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	layer = 10
+	# The UI is laid out in 320 x 180 units and drawn at the screen's finer resolution.
+	scale = Vector2.ONE * Display.RENDER_SCALE
 	_build()
 	GameState.room_changed.connect(func(_id: String) -> void: refresh())
 	GameState.visited_changed.connect(refresh)
@@ -142,21 +144,15 @@ func _visited_bounds() -> Rect2:
 
 func _build() -> void:
 	_dim = ColorRect.new()
-	_dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_dim.size = Grid.SCREEN_SIZE
 	_dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_dim.color = Color(0, 0, 0, 0)
 	_dim.visible = false
 	add_child(_dim)
 
 	_panel = Panel.new()
-	_panel.anchor_left = 0.5
-	_panel.anchor_top = 0.5
-	_panel.anchor_right = 0.5
-	_panel.anchor_bottom = 0.5
-	_panel.offset_left = -PANEL_SIZE.x * 0.5
-	_panel.offset_top = -PANEL_SIZE.y * 0.5
-	_panel.offset_right = PANEL_SIZE.x * 0.5
-	_panel.offset_bottom = PANEL_SIZE.y * 0.5
+	_panel.position = ((Grid.SCREEN_SIZE - PANEL_SIZE) * 0.5).floor()
+	_panel.size = PANEL_SIZE
 	_panel.pivot_offset = PANEL_SIZE * 0.5
 	_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_panel.visible = false
@@ -168,7 +164,10 @@ func _build() -> void:
 	add_child(_panel)
 
 	_viewport = SubViewport.new()
-	_viewport.size = VIEW_SIZE
+	# The map is laid out in VIEW_SIZE units and drawn at the screen's finer resolution.
+	_viewport.size = VIEW_SIZE * Display.RENDER_SCALE
+	_viewport.size_2d_override = VIEW_SIZE
+	_viewport.size_2d_override_stretch = true
 	_viewport.transparent_bg = true
 	_viewport.disable_3d = true
 	_viewport.handle_input_locally = false
@@ -183,6 +182,8 @@ func _build() -> void:
 	var texture := TextureRect.new()
 	texture.texture = _viewport.get_texture()
 	texture.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	# The texture has more pixels than it has units, so it is not what sets the size.
+	texture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	texture.stretch_mode = TextureRect.STRETCH_SCALE
 	texture.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	texture.position = (PANEL_SIZE - Vector2(VIEW_SIZE)) * 0.5

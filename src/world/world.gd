@@ -54,6 +54,9 @@ var _carried := Vector2.ZERO
 func _ready() -> void:
 	WorldData.ensure_loaded()
 	camera.position_smoothing_enabled = false
+	# The picture is Display.RENDER_SCALE screen pixels to a world pixel.
+	camera.zoom = Vector2.ONE * Display.RENDER_SCALE
+	get_window().oversampling_override = float(Display.RENDER_SCALE)
 	# Follow the player's displayed pose per frame, then snap to a pixel.
 	# Automatic camera interpolation would interpolate that pose a second time.
 	camera.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
@@ -445,7 +448,10 @@ func _on_exit(door: Door) -> void:
 	tween.set_process_mode(Tween.TWEEN_PROCESS_PHYSICS)
 	tween.set_trans(Tween.TRANS_SINE)
 	tween.set_ease(Tween.EASE_IN_OUT)
-	tween.tween_property(camera, "position", _camera_focus(_pending, player.global_position), TRANSITION_TIME)
+	# Stepped onto whole world pixels, as the 320 x 180 picture drew a fractional camera.
+	var from := camera.position
+	var to := _camera_focus(_pending, player.global_position)
+	tween.tween_method(func(t: float) -> void: camera.position = from.lerp(to, t).round(), 0.0, 1.0, TRANSITION_TIME)
 	tween.finished.connect(_finish_transition)
 
 

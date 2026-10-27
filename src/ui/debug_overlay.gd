@@ -8,6 +8,8 @@ var _shown := false
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	layer = 20
+	# The UI is laid out in 320 x 180 units and drawn at the screen's finer resolution.
+	scale = Vector2.ONE * Display.RENDER_SCALE
 	_label = Label.new()
 	_label.position = Vector2(12, 14)
 	_label.add_theme_font_size_override("font_size", 8)

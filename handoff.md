@@ -2,8 +2,10 @@
 
 _Updated 2026-10-27. Written as a build spec: implement exactly as written, and ask before deviating._
 
-> **Status: planned and approved, not built.** The user settled every decision below.
-> The previous handoff (shrinking Imprint, PR #33) was built.
+> **Status: built, not yet played by a person.** Built to this spec on branch
+> `claude/sharp-pascal-l7wh9r`. `tools/check.sh` and `tools/pixel_check.sh` pass; the
+> judgement calls are listed in the pull request. The previous handoff (shrinking
+> Imprint, PR #33) was built.
 
 ## Goal
 

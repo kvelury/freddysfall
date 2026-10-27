@@ -27,7 +27,7 @@ static func launch(parent: Node, from: Vector2, to: Vector2, duration: float, sp
 	flier._spark = spark
 	flier.z_index = 10
 	parent.add_child(flier)
-	flier.global_position = from
+	flier.global_position = Display.snap(from)
 	return flier
 
 
@@ -54,9 +54,9 @@ func _draw() -> void:
 	for i in _trail.size():
 		var dot := to_local(_trail[i])
 		if i % 2 == 0:
-			draw_rect(Rect2(dot.round() - Vector2.ONE * 0.5, Vector2.ONE), Color.WHITE)
+			draw_rect(Display.snap_rect(Rect2(dot.round() - Vector2.ONE * 0.5, Vector2.ONE)), Color.WHITE)
 	if _spark:
-		draw_rect(Rect2(-1.5, -1.5, 3, 3), Color.WHITE)
+		draw_rect(Display.snap_rect(Rect2(-1.5, -1.5, 3, 3)), Color.WHITE)
 	else:
 		# A little bigger than the token in the world, so it reads as leaving the body.
-		draw_colored_polygon(PackedVector2Array([Vector2(0, -6), Vector2(6, 0), Vector2(0, 6), Vector2(-6, 0)]), Color.WHITE)
+		PixelArt.draw(self, "flying_token", Vector2.ZERO)

@@ -247,6 +247,10 @@ func _door_slide() -> void:
 	for frame in 120:
 		await process_frame
 		if frame % 2 == 0:
+			# A camera between pixels shimmered the polygon shapes and the player by a
+			# pixel at 320 x 180. The camera is whole pixels now, so it is rounded here
+			# in both runs, to compare what is meant to be the same.
+			world.camera.position = world.camera.position.round()
 			await _grab("slide_%03d" % frame)
 
 
@@ -323,12 +327,111 @@ func _feed() -> void:
 # --- the parts that need the UI (compare only) --------------------------
 
 
+## The UI, with its text: saved as PNGs to read, and the text must be finer than
+## the world (some 2 x 2 block inside it is not one colour).
 func _text() -> void:
-	pass
+	await _start("s1")
+	var layers := {}
+	for layer in ["Toast", "DebugOverlay", "DevPanel", "MapOverlay"]:
+		layers[layer] = world.get_node(layer)
+	layers["Toast"].visible = true
+	world.toast.show_text("Game saved")
+	await _frames(3)
+	var label: Label = layers["Toast"].get_child(0)
+	await _grab_ui("ui_toast", label.get_global_rect(), 20)
+	layers["Toast"].visible = false
+	layers["DebugOverlay"].visible = true
+	layers["DebugOverlay"]._shown = true
+	layers["DebugOverlay"]._label.visible = true
+	await _frames(3)
+	await _grab_ui("ui_f3", layers["DebugOverlay"]._label.get_global_rect(), 40)
+	layers["DebugOverlay"].visible = false
+	layers["DevPanel"].visible = true
+	var panel: Node = layers["DevPanel"]
+	for tab in 3:
+		panel.open_panel(tab)
+		await _frames(3)
+		await _grab_ui("ui_dev_panel_%d" % tab, Rect2(panel._window.get_global_rect()), 100)
+	panel.close_panel()
+	layers["DevPanel"].visible = false
+	layers["MapOverlay"].visible = true
+	var overlay: Node = layers["MapOverlay"]
+	for level in 3:
+		overlay.set_level(level)
+		Input.action_press("map")
+		await _frames(20)
+		await _grab_ui("ui_map_%d" % level, Rect2(Vector2(32, 16), overlay.PANEL_SIZE), 0)
+		Input.action_release("map")
+		await _frames(20)
 
 
+## A frame with the UI, saved as is. `need` is how many 2 x 2 blocks of `region`
+## (in the UI's 320 x 180 units) must be mixed, which a world pixel never is.
+func _grab_ui(name: String, region: Rect2, need: int) -> void:
+	await RenderingServer.frame_post_draw
+	var image := root.get_texture().get_image()
+	image.convert(Image.FORMAT_RGB8)
+	image.save_png("%s/%s.png" % [CHECK, name])
+	captured += 1
+	var scale := image.get_width() / BASE.x
+	if scale < 2:
+		return
+	var mixed := 0
+	var from := Vector2i(region.position * float(scale)) / scale * scale
+	var to := Vector2i(region.end * float(scale))
+	for y in range(maxi(from.y, 0), mini(to.y, image.get_height() - scale), scale):
+		for x in range(maxi(from.x, 0), mini(to.x, image.get_width() - scale), scale):
+			var colour := image.get_pixel(x, y)
+			if image.get_pixel(x + 1, y) != colour or image.get_pixel(x, y + 1) != colour or image.get_pixel(x + 1, y + 1) != colour:
+				mixed += 1
+	if mixed < need:
+		failures.append("%s: only %d finer-than-world blocks in %s, wanted %d" % [name, mixed, region, need])
+	print("%s: %d finer blocks" % [name, mixed])
+
+
+## The cursor lands on the cell under it: a click at a screen pixel is the
+## world pixel under the zoomed camera.
 func _mouse() -> void:
-	pass
+	await _start("5")
+	var tool: Node = world.get_node("Imprint")
+	tool.scripted = false
+	root.get_node("GameState").abilities.imprint_unlocked = true
+	await _frames(3)
+	var room: Room = world.current
+	for screen in [Vector2(333, 217), Vector2(3, 3), Vector2(630, 350)]:
+		var move := InputEventMouseMotion.new()
+		move.position = screen
+		move.global_position = move.position
+		root.push_input(move, true)
+		Input.warp_mouse(screen * float(DisplayServer.window_get_size().x) / root.get_visible_rect().size.x)
+		await _frames(2)
+		var want := Vector2i((screen / float(Display.RENDER_SCALE) / float(Grid.CELL)).floor())
+		if tool.cursor_cell() != want:
+			failures.append("mouse at %s is on cell %s, expected %s" % [screen, tool.cursor_cell(), want])
+		else:
+			print("mouse at %s is on cell %s" % [screen, want])
+	# A click on the DEV badge, which is UI in the scaled layer, opens the panel.
+	var panel: Node = world.get_node("DevPanel")
+	panel.visible = true
+	await _frames(2)
+	var badge: Button = panel._badge
+	var factor := float(DisplayServer.window_get_size().x) / root.get_visible_rect().size.x
+	var at := (badge.position + badge.size * 0.5) * float(Display.RENDER_SCALE)
+	Input.warp_mouse(at * factor)
+	await _frames(2)
+	for pressed in [true, false]:
+		var click := InputEventMouseButton.new()
+		click.button_index = MOUSE_BUTTON_LEFT
+		click.pressed = pressed
+		click.position = at
+		click.global_position = at
+		root.push_input(click, true)
+		await _frames(2)
+	if panel.opened:
+		print("the DEV badge opens the panel")
+		panel.close_panel()
+	else:
+		failures.append("a click on the DEV badge at %s did not open the panel" % at)
 
 
 ## Draws each polygon shape with the code as it is, one per known spot on a

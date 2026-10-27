@@ -95,6 +95,7 @@ tools/validate.sh              # the whole world, solved: a room is not done unt
 tools/validate.sh --no-cache   # the same, without the solver's cache
 tools/render.sh [ids]          # PNGs of rooms and the world map in build/renders/
 tools/snap.sh <id>             # a real in-game frame of a room (opens a window; run on your own machine)
+tools/pixel_check.sh           # draws scenarios with a renderer: every world pixel on the grid, equal to the 320x180 baseline
 godot --headless --path . --script tests/<name>.gd
 ```
 
@@ -120,6 +121,7 @@ After adding a script with a `class_name`, run `godot --headless --path . --impo
 | `tests/double_jump_test.gd` | Double jump in `MovementSim`: none without the ability, an air jump at the top rising as far again (about 102 px in all), a tap cutting it short, a third press doing nothing, landing refilling it, a coyote press being a ground jump that keeps it, a press after coyote time being the air jump, a press with none left still buffering a landing jump, and the `double_jump` upgrade, its save round trip and old saves loading as 0. Prints `double jump test passed`. |
 | `tests/imprint_test.gd` | Where an Imprint platform may go (every refusal), when none may (the limit and the cooldown), whether the player can land on one, how a platform shrinks (the blocks left, the order set at the click from the player's centre with ties by facing, the nearest block lasting for widths 1 to 5, the blink of the next block, the warning cap), and, for Classic, the blink and the countdown lines. Prints `IMPRINT pass`. |
 | `tests/imprint_play_test.gd` | Imprint in room 5: locked until found, placed by the action, solid under the player, never replaced by another click while one stands (the cross shows), broken by time, shrinking one block at a time toward where the player placed it from (a player who placed it from the left stands on the left block to the end, from the right the left block goes first, ties by facing, the cooldown starting at the final break and not when a block goes, the cursor's refusal following the footing), Classic only in a dev test, the cooldown starting then and refusing until it ends, the limit of two, the platforms and cooldown cleared on leaving a room and on dying, facing turning with input and resetting on a warp, and automatic cursor updates deferring reachability without weakening placement or lockout. Prints `IMPRINTPLAY pass`. |
+| `tests/display_test.gd` | The 640×360 viewport and stretch settings, the camera zoom, the snapping rule, the pixel pictures, the player's body and marks, a moving platform and dust on whole world pixels, and the UI scale. Prints `DISPLAY pass`. `tests/pixel_grid.gd` (run by `tools/pixel_check.sh`, needs a renderer) checks the drawn frames. |
 | `tests/dev_catalog_test.gd` | Dev-control coverage, validation, snapshot copies, and loadout persistence/failure handling. Prints `DEV CATALOG pass`. |
 | `tests/dev_session_test.gd` | Save isolation, exact editing, door collisions, cross-room retries and death, and ending a session. Prints `DEV SESSION pass`. |
 | `tests/dev_ui_test.gd` | Panel input/drafts, modal pause ownership, deferred opening, room selection, and a direction held through the panel not turning the player. Native runs also render panel screenshots to `build/dev-panel-*.png`. Prints `DEV UI pass`. |
@@ -137,11 +139,11 @@ Two kinds of test, and which to write:
 
 | Path | Role |
 | --- | --- |
-| `project.godot` | Application `Freddysfall` 0.1.0, autoloads (`DevSession`, `GameState`, `Save`, `WorldData`), display (320×180, integer scale, nearest filter), input actions, 60 Hz physics with interpolation. |
+| `project.godot` | Application `Freddysfall` 0.1.0, autoloads (`DevSession`, `GameState`, `Save`, `WorldData`), display (640×360 viewport, the world drawn 2× so one world pixel is 2×2 screen pixels, integer scale, nearest filter), input actions, 60 Hz physics with interpolation. |
 | `data/world.json` | Start room, and each room's id and `grid_pos`. The room's file is `data/rooms/<id>.txt`. |
 | `data/rooms/` | One ASCII file per room: an optional header, then the grid. |
 | `data/upgrades.json` | The upgrades a pickup or 3TM can give: a name, the ability stat it changes, a kind (`unlock`, `max`, `add`) an optional message, and dev-control metadata. |
-| `src/core/` | `Grid` (cell and screen sizes, the camera clamp), `Abilities` (what the player can do), `Upgrades` (reads `upgrades.json`). No scene, no autoload. |
+| `src/core/` | `Grid` (cell and screen sizes, the camera clamp), `Display` (the render scale, the pixel snapping), `PixelArt` and `PixelShapes` (shapes drawn as pixel pictures), `Abilities` (what the player can do), `Upgrades` (reads `upgrades.json`). No scene, no autoload. |
 | `src/autoload/` | `WorldData` (reads the world files, keeps the rooms and `errors`), `GameState` (current room, visited set, abilities, flags, tokens, machines, map zoom, save room, health), `Save` (reads and writes `user://save.json`). |
 | `src/world/room_parser.gd` | Pure text-to-`RoomInfo`: header, glyphs and walls, legend, merging `#` into rectangles, pairing and sealing doors. |
 | `src/world/room_info.gd`, `door.gd`, `entity_def.gd`, `tiles.gd` | A loaded room, one opening in its wall (and `Door.crossing`, where a body appears on the far side), one legend entry, and the glyph table. |
@@ -203,7 +205,7 @@ These are the rules a change must not break. The design doc says why each exists
 2. **Room data is parsed purely.** `RoomParser` and everything that reads `RoomInfo` take plain values, not autoloads or nodes, so a test can build a world from strings. Rules that depend on player state take the state as an argument (`ExitRules.met(info, flags)`, `Entities.present(def, flags)`), not `GameState`.
 3. **Errors are collected, not thrown.** Loading reports every problem as a sentence with the room (and line, for the header) and keeps going. Repeats are capped (`MAX_PER_KIND`) and counted.
 4. **Ids are stable and global.** A pickup, token, 3TM or save machine is named by an `id` written in the room's legend, never derived from where it sits, because the save remembers it by that id. Unique across the whole world. Never rename one.
-5. **Everything is on the 10 px grid and whole pixels.** Rooms are whole screens (32×18 cells). Drawing and the camera use whole pixels at integer scale; the map is redrawn at each zoom, not stretched.
+5. **Everything is on the 10 px grid and whole world pixels.** Rooms are whole screens (32×18 cells). The picture is drawn at 2 screen pixels to a world pixel, and everything in the world lands on whole world pixels (`Display.snap`, `Display.snap_rect`, pixel pictures for shapes that were polygons), so it looks as it did at 320×180. Only UI text is finer. The camera uses whole world pixels; the map is redrawn at each zoom, not stretched. `tools/pixel_check.sh` checks this.
 6. **Nodes that move in `_process` turn physics interpolation off.** With 60 Hz physics and interpolation on, a node moved between physics steps glides from its old transform. The player is interpolated on purpose; the camera, effects, the door blocks, the map layer and the Imprint tool are not. A `Camera2D` inside the map's viewport lagged one zoom step behind for exactly this reason, so that layer is moved directly.
 7. **The save has a version.** The file's shape changes only with `Save.VERSION` and a step in `Save._migrate`; an unreadable or newer file is set aside as `save.json.bad`, never overwritten. Anything missing in a save falls back to its starting value.
 8. **Behaviour changes update the design doc in the same pull request.**

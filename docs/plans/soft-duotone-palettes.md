@@ -18,7 +18,7 @@ The game keeps drawing in pure black and white. One full-screen shader on the to
 - No color changes are needed in [room.gd](../../src/world/room.gd), [player.tscn](../../src/player/player.tscn), [exit_halo.gd](../../src/world/exit_halo.gd), [map_overlay.gd](../../src/ui/map_overlay.gd), or [debug_overlay.gd](../../src/ui/debug_overlay.gd). The ~20 hardcoded `Color.WHITE`/`Color.BLACK` uses keep working.
 - In-between tones follow the palette automatically: the dithered exit halo, the map dim (black at 72% alpha), and the gray current-room fill on the map.
 - Future effects (Imprint sparkle, shatter, blackout) pick up the palette for free.
-- Cost is one 320x180 quad per frame, negligible against the 60 fps budget.
+- Cost is one 640x360 quad per frame (the shader is per screen pixel, so it does not care about the resolution), negligible against the 60 fps budget.
 
 ```mermaid
 flowchart LR

@@ -104,12 +104,11 @@ func _draw() -> void:
 	_frame(Rect2(origin + Vector2(-15, -25), Vector2(WIDTH, 10)), dotted)
 	for i in SLOTS.size():
 		var at := origin + SLOTS[i]
-		var diamond := PackedVector2Array([at + Vector2(0, -4), at + Vector2(4, 0), at + Vector2(0, 4), at + Vector2(-4, 0), at + Vector2(0, -4)])
 		var ink := Color.BLACK if flashing else Color.WHITE
 		if i < filled:
 			Token.draw_token(self, at, ink)
 		else:
-			draw_polyline(diamond, ink, 1.0)
+			PixelArt.draw(self, "slot", at, ink)
 	# The square body, with a dithered face and a dark dispenser mouth.
 	_frame(Rect2(origin + Vector2(-10, -15), Vector2(20, 20)), dotted)
 	if not dotted:

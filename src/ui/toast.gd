@@ -12,6 +12,8 @@ var _tween: Tween
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	layer = 15
+	# The UI is laid out in 320 x 180 units and drawn at the screen's finer resolution.
+	scale = Vector2.ONE * Display.RENDER_SCALE
 	_label = Label.new()
 	_label.position = Vector2(0, 14)
 	_label.custom_minimum_size = Vector2(320, 0)

@@ -30,16 +30,18 @@ var air_jumps := 0:
 var facing := 1:
 	set(value):
 		facing = value
-		if _marks != null:
-			_marks.facing = value
+		if _visual != null:
+			_visual.facing = value
 
 ## Previous physics pose, shared with the frame-rate camera.
 var _previous_position := Vector2.ZERO
 var _state := MovementSim.State.new()
 var _was_on_floor := true
 var _squash := 0.0
-var _visual: Polygon2D
-var _marks: InventoryMarks
+var _visual: PlayerBody
+## The body's squash when the last physics tick began, and as last drawn.
+var _squash_before := Vector2.ONE
+var _squash_now := Vector2.ONE
 
 
 func _ready() -> void:
@@ -50,9 +52,7 @@ func _ready() -> void:
 		config = load("res://src/player/movement.tres")
 	_state.coyote = config.coyote_time
 	_visual = $Visual
-	_marks = InventoryMarks.new()
-	_marks.facing = facing
-	_visual.add_child(_marks)
+	_visual.facing = facing
 
 
 ## Puts the body at rest in a room: at `world_position`, among `rects`.
@@ -103,6 +103,7 @@ func body_rect() -> Rect2:
 func _physics_process(delta: float) -> void:
 	# Held players can still move on a save-machine tween later in this tick.
 	_previous_position = global_position
+	_squash_before = _squash_now
 	if not input_enabled:
 		velocity = Vector2.ZERO
 		# Held still, the player is not carried, so they are not riding when let go.
@@ -143,14 +144,18 @@ func _physics_process(delta: float) -> void:
 func _process(delta: float) -> void:
 	if _visual == null:
 		return
+	var squash := Vector2.ONE
 	if _squash > 0.0:
-		_visual.scale = Vector2(0.9, 1.1).lerp(Vector2.ONE, 1.0 - _squash)
+		squash = Vector2(0.9, 1.1).lerp(Vector2.ONE, 1.0 - _squash)
 		_squash = maxf(0.0, _squash - delta * 8.0)
 	elif _squash < 0.0:
-		_visual.scale = Vector2(1.1, 0.9).lerp(Vector2.ONE, 1.0 + _squash)
+		squash = Vector2(1.1, 0.9).lerp(Vector2.ONE, 1.0 + _squash)
 		_squash = minf(0.0, _squash + delta * 8.0)
-	else:
-		_visual.scale = Vector2.ONE
+	# The engine interpolated the squash as it did the position: from what it
+	# was when the tick began to what it was last set to.
+	_squash_now = squash
+	var fraction := Engine.get_physics_interpolation_fraction() if is_physics_interpolated_and_enabled() else 1.0
+	_visual.show_at(render_position(fraction), _squash_before.lerp(squash, fraction))
 
 
 func _spawn_dust(downward := false) -> void:
@@ -174,13 +179,25 @@ class Dust extends Node2D:
 		# Animated in _process; interpolating it smears new pixels from the parent origin.
 		physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 
+	## Where the speck is, between world pixels. The node sits on the world
+	## pixel that speck's 1 x 1 box lights.
+	var _exact := Vector2.ZERO
+
+	func _ready() -> void:
+		_exact = position
+		_place()
+
 	func _process(delta: float) -> void:
 		life -= delta
-		position += velocity * delta
+		_exact += velocity * delta
 		velocity.y += 420.0 * delta
+		_place()
 		queue_redraw()
 		if life <= 0.0:
 			queue_free()
 
+	func _place() -> void:
+		position = Display.snap(_exact - Vector2(0.5, 0.5))
+
 	func _draw() -> void:
-		draw_rect(Rect2(-0.5, -0.5, 1.0, 1.0), Color.WHITE)
+		draw_rect(Rect2(0.0, 0.0, 1.0, 1.0), Color.WHITE)

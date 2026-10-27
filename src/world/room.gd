@@ -74,7 +74,6 @@ func build(room_info: RoomInfo, flags := {}, fills := {}, door_override := false
 	for path in info.platforms:
 		var platform := MovingPlatform.new(path)
 		add_child(platform)
-		platform.reset_physics_interpolation()
 		_platforms.append(platform)
 	for def in info.entities:
 		if def.type == "platform" or not Entities.present(def, flags):
@@ -329,31 +328,21 @@ class RoomChunk extends Node2D:
 	func _draw() -> void:
 		for cell_rect in rects:
 			draw_rect(Grid.cell_rect(cell_rect), Color.WHITE, true)
-		# Spikes: a row of teeth, so a hazard reads as sharp and not as a block.
-		# The teeth are drawn pointing up, (u along the base, v up from it),
-		# and turned to point away from the solid they sit against.
+		# Spikes: two teeth a cell, pointing away from the solid they sit against.
 		for i in hazards.size():
-			var origin := Grid.cell_to_world(hazards[i])
 			var facing := facings[i] if i < facings.size() else Vector2i.UP
-			for tooth in 2:
-				var left := float(tooth) * 5.0
-				draw_colored_polygon(PackedVector2Array([
-					origin + _turn(left, 0.0, facing),
-					origin + _turn(left + 2.5, 7.0, facing),
-					origin + _turn(left + 5.0, 0.0, facing),
-				]), Color.WHITE)
+			PixelArt.draw(self, _spikes(facing), Grid.cell_to_world(hazards[i]))
 
-	## A point `u` along a cell's base and `v` out from it, in the cell, for
-	## teeth pointing `facing`.
-	static func _turn(u: float, v: float, facing: Vector2i) -> Vector2:
+	## The picture of a cell's teeth pointing `facing`.
+	static func _spikes(facing: Vector2i) -> String:
 		match facing:
 			Vector2i.LEFT:
-				return Vector2(10.0 - v, u)
+				return "spikes_left"
 			Vector2i.RIGHT:
-				return Vector2(v, u)
+				return "spikes_right"
 			Vector2i.DOWN:
-				return Vector2(u, v)
-		return Vector2(u, 10.0 - v)
+				return "spikes_down"
+		return "spikes_up"
 
 
 ## A shaded block that fills a doorway while the room's exit rule is unmet:

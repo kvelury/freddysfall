@@ -54,7 +54,7 @@ func _run() -> void:
 
 
 ## Sample the real viewport camera at display rates above and below the
-## physics rate. A falling body should stay centred within pixel rounding,
+## physics rate. A falling body should stay centred within a world pixel's rounding,
 ## including frames between physics ticks; the physics pose must not change.
 func _camera_follow(world: Node) -> bool:
 	var ok := true
@@ -89,14 +89,14 @@ func _camera_follow(world: Node) -> bool:
 			var drawn := previous.lerp(physics_pose, fraction)
 			var viewport: Viewport = world.get_viewport()
 			var on_screen := viewport.canvas_transform * drawn
-			worst = maxf(worst, absf(on_screen.y - viewport.get_visible_rect().get_center().y))
+			worst = maxf(worst, absf(on_screen.y - viewport.get_visible_rect().get_center().y) / float(Display.RENDER_SCALE))
 			crisp = crisp and world.camera.position == world.camera.position.round()
 			unchanged = unchanged and player.global_position == physics_pose and player.velocity == velocity
 			if ticks == last_ticks and world.camera.position != last_camera:
 				between_ticks += 1
 			last_ticks = ticks
 			last_camera = world.camera.position
-		ok = _check(worst <= 0.5001 and crisp and unchanged, "fall camera at %d FPS stays within half a pixel, crisp, without changing physics (%.3f px)" % [fps, worst]) and ok
+		ok = _check(worst <= 0.5001 and crisp and unchanged, "fall camera at %d FPS stays within half a world pixel, crisp, without changing physics (%.3f px)" % [fps, worst]) and ok
 		ok = _check(fps == 60 or between_ticks > 0, "display-frame updates at %d FPS include sub-tick motion (%d frames)" % [fps, between_ticks]) and ok
 		world._process(0.0)
 		var expected := Grid.camera_focus(room.position, room.info.pixel_size, previous.lerp(player.global_position, Engine.get_physics_interpolation_fraction()))
