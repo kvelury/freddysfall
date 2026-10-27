@@ -16,6 +16,13 @@ var scripted := false
 var scripted_x := 0.0
 var scripted_jump_pressed := false
 var scripted_jump_held := false
+## Air jumps the body may make before it lands. The world sets it from
+## GameState.abilities. A change clamps what is left of the current jump.
+var air_jumps := 0:
+	set(value):
+		air_jumps = maxi(0, value)
+		_state.air_jumps = air_jumps
+		_state.air_left = mini(_state.air_left, air_jumps)
 ## Which way the player last chose to go: 1 right, -1 left. It turns with left
 ## or right input and is not part of the movement. A placed Imprint uses it to
 ## break a tie (the block behind the player goes first), and the body shows it.
@@ -57,6 +64,7 @@ func place(world_position: Vector2, rects: Array[Rect2]) -> void:
 	_state.grounded = MovementSim.standing(world_position, rects)
 	_state.coyote = config.coyote_time if _state.grounded else 0.0
 	_state.buffer = 0.0
+	_state.air_left = air_jumps
 	_state.launched = false
 	_state.cut = false
 	_state.riding = -1
@@ -124,6 +132,8 @@ func _physics_process(delta: float) -> void:
 	velocity = _state.velocity
 	if _state.jumped:
 		_squash = 1.0
+	if _state.air_jumped:
+		_spawn_dust(true)
 	if _state.grounded and not _was_on_floor:
 		_squash = -1.0
 		_spawn_dust()
@@ -143,7 +153,7 @@ func _process(delta: float) -> void:
 		_visual.scale = Vector2.ONE
 
 
-func _spawn_dust() -> void:
+func _spawn_dust(downward := false) -> void:
 	var parent := get_parent()
 	if parent == null:
 		return
@@ -151,6 +161,8 @@ func _spawn_dust() -> void:
 		var dust := Dust.new()
 		dust.position = parent.to_local(global_position + Vector2(randf_range(-4.0, 4.0), 5.0))
 		dust.velocity = Vector2(randf_range(-28.0, 28.0), randf_range(-40.0, -12.0))
+		if downward:
+			dust.velocity.y = randf_range(10.0, 40.0)
 		parent.add_child(dust)
 
 

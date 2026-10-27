@@ -23,9 +23,15 @@ class State extends RefCounted:
 	var buffer := 0.0
 	var launched := false
 	var cut := false
+	## Air jumps the body may make before it next lands (the owner sets it from
+	## the abilities), and how many it has left. Landing refills `air_left`.
+	var air_jumps := 0
+	var air_left := 0
 	## Set by step(): a jump began this tick, and the rect the body is
 	## standing on, if any.
 	var jumped := false
+	## Set by step(): that jump was an air jump.
+	var air_jumped := false
 	var floor_rect := Rect2()
 	## The moving platform the body is standing on, or -1.
 	var riding := -1
@@ -57,7 +63,7 @@ static func step(
 		solid.append_array(movers.rects(tick + 1))
 	integrate(
 		cfg, s.velocity, s.grounded, s.coyote, s.buffer, s.launched, s.cut,
-		input_x, jump_pressed, jump_held, delta, s.scratch
+		input_x, jump_pressed, jump_held, delta, s.scratch, s.air_jumps, s.air_left
 	)
 	s.velocity = s.scratch["velocity"]
 	s.coyote = s.scratch["coyote"]
@@ -65,6 +71,8 @@ static func step(
 	s.launched = s.scratch["launched"]
 	s.cut = s.scratch["cut"]
 	s.jumped = s.scratch["jumped"]
+	s.air_jumped = s.scratch["air_jumped"]
+	s.air_left = s.scratch["air_left"]
 	s.position = corner_correct(cfg, s.position, s.velocity, s.grounded, solid, delta)
 	var resolved := resolve(s.position, s.velocity, solid, delta, HALF)
 	s.position = resolved["position"]
@@ -75,6 +83,7 @@ static func step(
 	if s.grounded:
 		s.launched = false
 		s.cut = false
+		s.air_left = s.air_jumps
 		if movers != null:
 			for i in movers.size():
 				if s.floor_rect == movers.rect(i, tick + 1):
@@ -188,7 +197,9 @@ static func integrate(
 	jump_pressed: bool,
 	jump_held: bool,
 	delta: float,
-	out: Dictionary
+	out: Dictionary,
+	air_jumps := 0,
+	air_left := 0
 ) -> void:
 	var target := 0.0
 	var accel := cfg.ground_friction if grounded else cfg.air_friction
@@ -207,12 +218,27 @@ static func integrate(
 		buffer = maxf(0.0, buffer - delta)
 
 	var jumped := false
+	var air_jumped := false
+	if grounded:
+		air_left = air_jumps
+	else:
+		air_left = mini(air_left, air_jumps)
 	if buffer > 0.0 and coyote > 0.0:
 		velocity.y = -cfg.jump_speed
 		jumped = true
 		launched = true
 		cut = false
 		coyote = 0.0
+		buffer = 0.0
+	elif jump_pressed and air_left > 0:
+		# A fresh press in the air, with no ground or coyote jump to use: a
+		# second jump, as strong as the first, from whatever speed it was at.
+		velocity.y = -cfg.air_jump_speed
+		jumped = true
+		air_jumped = true
+		launched = true
+		cut = false
+		air_left -= 1
 		buffer = 0.0
 	else:
 		if launched and not jump_held and velocity.y < 0.0 and not cut:
@@ -236,6 +262,8 @@ static func integrate(
 	out["launched"] = launched
 	out["cut"] = cut
 	out["jumped"] = jumped
+	out["air_jumped"] = air_jumped
+	out["air_left"] = air_left
 
 
 static func resolve(position: Vector2, velocity: Vector2, rects: Array, delta: float, half: Vector2) -> Dictionary:
@@ -300,9 +328,14 @@ static func simulate_jump(
 	record: bool = false,
 	movers: Movers = null,
 	start_tick := 0,
-	start_riding := -1
+	start_riding := -1,
+	air_jumps := 0,
+	air_frame := -1,
+	air_hold := 0
 ) -> Dictionary:
 	var s := State.new()
+	s.air_jumps = air_jumps
+	s.air_left = air_jumps
 	s.position = start_position
 	s.velocity = start_velocity
 	s.grounded = grounded_start
@@ -323,7 +356,10 @@ static func simulate_jump(
 	for frame in limit:
 		frames = frame + 1
 		var input := input_x if is_nan(later_input) or frame < switch_frame else later_input
-		step(cfg, s, rects, input, jump and frame == 0, frame < hold_frames, delta, movers, start_tick + frame)
+		# A second press at `air_frame`, held for `air_hold` ticks, replaces the first jump's hold.
+		var press := (jump and frame == 0) or frame == air_frame
+		var held := frame < hold_frames if air_frame < 0 or frame < air_frame else frame < air_frame + air_hold
+		step(cfg, s, rects, input, press, held, delta, movers, start_tick + frame)
 		if record:
 			path.append(s.position)
 		min_feet = minf(min_feet, s.position.y + HALF.y)

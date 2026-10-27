@@ -10,6 +10,7 @@ ground_friction = 1200.0
 air_accel = 600.0
 air_friction = 300.0
 jump_speed = 267.0
+air_jump_speed = 267.0
 gravity = 740.0
 jump_cut = 0.4
 apex_threshold = 40.0

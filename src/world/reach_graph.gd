@@ -40,6 +40,17 @@ const MACHINE_COST := TokenMachine.COST
 ## The most ticks between the moments a moving platform is tried at. A slower
 ## platform is tried at the moments it has moved a cell, if that is sooner.
 const MAX_PHASE_STEP := 12
+## The air jumps the solver tries, from a ground jump held for each of
+## AIR_FIRST_HOLDS ticks: the second press at each of AIR_FRAMES (ticks after
+## the first), held for each of AIR_HOLDS. A walk off a ledge uses the later
+## frames only (AIR_OFF_FRAMES), because the early ones are still its coyote jump.
+const AIR_FIRST_HOLDS: Array[int] = [8, 90]
+const AIR_FRAMES: Array[int] = [10, 18, 26, 40]
+const AIR_OFF_FRAMES: Array[int] = [16, 24, 36]
+const AIR_HOLDS: Array[int] = [8, 90]
+## The same, thinned, for a rider on a moving platform (it is tried at many moments).
+const AIR_RIDE_FRAMES: Array[int] = [12, 24, 38]
+const AIR_RIDE_HOLDS: Array[int] = [90]
 
 var abilities: Abilities
 ## Kept between runs when set: what each room's ledges and platforms can reach,
@@ -55,6 +66,7 @@ var _rooms: Dictionary
 var _ledges := {}
 var _geometry := {}
 var _solved := {}
+var _air_solved := {}
 var _landings := {}
 var _imprint: ImprintSearch
 ## Microseconds spent building the jumps of every ledge.
@@ -218,6 +230,8 @@ func _with(base: Abilities, ids: Array) -> Abilities:
 			break
 		tokens -= MACHINE_COST
 		var def: EntityDef = _things[id]
+		if def.props.has("prize"):
+			continue
 		out.apply(Upgrades.get_def(String(def.props["upgrade"])), Upgrades.parse_value(String(def.props["upgrade"]), String(def.props.get("value", ""))))
 	return out
 
@@ -327,12 +341,20 @@ func _flood(run: Run) -> void:
 		var ledge: Ledge = run.queue.pop_back()
 		var info: RoomInfo = _rooms[ledge.room_id]
 		_ensure_edges(info)
+		var air := abilities != null and abilities.air_jumps > 0
+		if air:
+			_ensure_air_edges(info)
 		var next: Array[Ledge] = []
 		for index in ledge.to_ledges:
 			next.append(_ledges[ledge.room_id][index])
+		if air:
+			for index in ledge.air_to_ledges:
+				next.append(_ledges[ledge.room_id][index])
 		next.append_array(run.extra_to.get(ledge, []))
 		var touches: Array[Touch] = []
 		touches.append_array(ledge.touches)
+		if air:
+			touches.append_array(ledge.air_touches)
 		touches.append_array(run.extra_touches.get(ledge, []))
 		# The doors of a locked room are blocks: its touches wait until it opens.
 		if run.locked.has(ledge.room_id) and not touches.is_empty():
@@ -507,7 +529,7 @@ func _pickup_reached(run: Run, room_id: String, index: int) -> bool:
 	for ledge: Ledge in _ledges[room_id]:
 		if not run.reached.has(ledge):
 			continue
-		if ledge.pickups.has(index) or run.extra_pickups.get(ledge, []).has(index):
+		if ledge.pickups.has(index) or (abilities.air_jumps > 0 and ledge.air_pickups.has(index)) or run.extra_pickups.get(ledge, []).has(index):
 			return true
 	return false
 
@@ -713,6 +735,58 @@ func _ensure_edges(info: RoomInfo) -> void:
 	_edge_usec += Time.get_ticks_usec() - started
 
 
+## The jumps that need double jump: every ground jump (and walk off a ledge)
+## with a second press in the air. Kept apart from the ledge's ordinary edges
+## and used only while the abilities have an air jump, so the rounds before a
+## 3TM gives it stay as they were. Worked out the first time a solve needs them.
+func _ensure_air_edges(info: RoomInfo) -> void:
+	if _air_solved.has(info.id):
+		return
+	_air_solved[info.id] = true
+	var started := Time.get_ticks_usec()
+	var entry: SolverCache.Entry = cache.entry_for(info) if cache != null else null
+	if entry != null and _restore_air_edges(entry, _ledges[info.id]):
+		cache.stats["air_rooms_cached"] += 1
+		_edge_usec += Time.get_ticks_usec() - started
+		return
+	var geo := geometry_of(info)
+	for ledge: Ledge in _ledges[info.id]:
+		if ledge.moving:
+			_ride_air(info, geo, ledge)
+			continue
+		var near := near_solids(geo.rects, ledge)
+		var ticks: Array[int] = [-1]
+		if _near_a_track(geo, ledge):
+			ticks = phases(info)
+		for tick in ticks:
+			for x in start_xs(ledge):
+				for input in [-1.0, 0.0, 1.0]:
+					var speed := run_speed(ledge, x, input)
+					# Near a moving platform there are many moments, so fewer plans at each.
+					var frames := AIR_FRAMES if tick < 0 else AIR_RIDE_FRAMES
+					var holds := AIR_HOLDS if tick < 0 else AIR_RIDE_HOLDS
+					for hold in AIR_FIRST_HOLDS:
+						for frame in frames:
+							for air_hold in holds:
+								try_plan(info, geo, ledge, near, x, speed, input, hold, true, -1, tick, NAN, -1, frame, air_hold)
+			walk_off(info, geo, ledge, near, -1, tick, true)
+	if entry != null:
+		entry.store_air_edges(_ledges[info.id])
+		cache.stats["air_rooms_solved"] += 1
+	_edge_usec += Time.get_ticks_usec() - started
+
+
+func _restore_air_edges(entry: SolverCache.Entry, ledges: Array) -> bool:
+	if not entry.has_air or entry.air_edges.size() != ledges.size():
+		return false
+	for ledge: Ledge in ledges:
+		if not entry.air_edges.get(str(ledge.index)) is Dictionary:
+			return false
+	for ledge: Ledge in ledges:
+		SolverCache.unpack(ledge, entry.air_edges[str(ledge.index)], true)
+	return true
+
+
 ## Fills the room's ledges from the cache. False, and nothing touched, if the
 ## cache has no answer for every one of them.
 func _restore_edges(entry: SolverCache.Entry, ledges: Array) -> bool:
@@ -799,16 +873,26 @@ func run_speed(ledge: Ledge, x: float, input: float) -> float:
 	return 0.0
 
 
-func walk_off(info: RoomInfo, geo: Geometry, ledge: Ledge, near: Array[Rect2], limit := -1, tick := -1) -> void:
+## With `air`, each walk off also presses jump in the air (see AIR_OFF_FRAMES).
+func walk_off(info: RoomInfo, geo: Geometry, ledge: Ledge, near: Array[Rect2], limit := -1, tick := -1, air := false) -> void:
 	var cell := float(Grid.CELL)
 	if not info.is_solid(ledge.x1 + 1, ledge.row) and not info.is_hazard(ledge.x1 + 1, ledge.row):
 		var edge := float(ledge.x1 + 1) * cell - 1.0
-		try_plan(info, geo, ledge, near, edge, _cfg.run_speed, 1.0, 0, false, limit, tick)
-		try_plan(info, geo, ledge, near, edge, _cfg.run_speed, 0.0, 0, false, limit, tick)
+		_off_plans(info, geo, ledge, near, edge, _cfg.run_speed, 1.0, limit, tick, air)
+		_off_plans(info, geo, ledge, near, edge, _cfg.run_speed, 0.0, limit, tick, air)
 	if not info.is_solid(ledge.x0 - 1, ledge.row) and not info.is_hazard(ledge.x0 - 1, ledge.row):
 		var edge := float(ledge.x0) * cell + 1.0
-		try_plan(info, geo, ledge, near, edge, -_cfg.run_speed, -1.0, 0, false, limit, tick)
-		try_plan(info, geo, ledge, near, edge, -_cfg.run_speed, 0.0, 0, false, limit, tick)
+		_off_plans(info, geo, ledge, near, edge, -_cfg.run_speed, -1.0, limit, tick, air)
+		_off_plans(info, geo, ledge, near, edge, -_cfg.run_speed, 0.0, limit, tick, air)
+
+
+func _off_plans(info: RoomInfo, geo: Geometry, ledge: Ledge, near: Array[Rect2], edge: float, speed: float, input: float, limit: int, tick: int, air: bool) -> void:
+	if not air:
+		try_plan(info, geo, ledge, near, edge, speed, input, 0, false, limit, tick)
+		return
+	for frame in AIR_OFF_FRAMES:
+		for air_hold in (AIR_HOLDS if tick < 0 else AIR_RIDE_HOLDS):
+			try_plan(info, geo, ledge, near, edge, speed, input, 0, false, limit, tick, NAN, -1, frame, air_hold)
 
 
 ## `limit` is how many ticks the path may run, `frame_limit` if left out. It is
@@ -816,18 +900,19 @@ func walk_off(info: RoomInfo, geo: Geometry, ledge: Ledge, near: Array[Rect2], l
 ## With a `tick` of 0 or more the room's moving platforms are there, at that
 ## tick when the path starts, and `top` and `riding` say where the body starts:
 ## the height of what it stands on, and the platform it is on, or -1.
-func try_plan(info: RoomInfo, geo: Geometry, ledge: Ledge, near: Array[Rect2], x: float, speed: float, input: float, hold: int, jump: bool, limit := -1, tick := -1, top := NAN, riding := -1) -> void:
+func try_plan(info: RoomInfo, geo: Geometry, ledge: Ledge, near: Array[Rect2], x: float, speed: float, input: float, hold: int, jump: bool, limit := -1, tick := -1, top := NAN, riding := -1, air_frame := -1, air_hold := 0) -> void:
 	var start := Vector2(x, (ledge.top if is_nan(top) else top) - float(Grid.CELL) * 0.5)
 	var movers: Movers = geo.movers if tick >= 0 else null
-	var result := MovementSim.simulate_jump(_cfg, near, start, Vector2(speed, 0.0), input, hold, true, jump, geo.triggers, geo.bounds, geo.hazards, geo.things, NAN, 0, frame_limit if limit < 0 else limit, false, movers, maxi(tick, 0), riding)
+	var result := MovementSim.simulate_jump(_cfg, near, start, Vector2(speed, 0.0), input, hold, true, jump, geo.triggers, geo.bounds, geo.hazards, geo.things, NAN, 0, frame_limit if limit < 0 else limit, false, movers, maxi(tick, 0), riding, 1 if air_frame >= 0 else 0, air_frame, air_hold)
+	var air := air_frame >= 0
 	# A pickup is taken even on a path that then dies on spikes.
 	for index in result["collected"]:
-		ledge.add_pickup(index)
+		ledge.add_pickup(index, air)
 	if result["hazard"]:
 		return
 	var door := int(result["trigger"])
 	if door >= 0:
-		ledge.add_touch(door, result["position"], result["velocity"])
+		ledge.add_touch(door, result["position"], result["velocity"], air)
 	elif result["landed"]:
 		var target: Ledge = null
 		if int(result["riding"]) >= 0:
@@ -835,7 +920,7 @@ func try_plan(info: RoomInfo, geo: Geometry, ledge: Ledge, near: Array[Rect2], x
 		else:
 			target = ledge_at_position(info, result["position"])
 		if target != null and target != ledge:
-			ledge.add_ledge(target.index)
+			ledge.add_ledge(target.index, air)
 
 
 ## The moments a room's moving platforms are tried at, in ticks from when the
@@ -904,6 +989,32 @@ func _ride(info: RoomInfo, geo: Geometry, ledge: Ledge) -> void:
 			try_plan(info, geo, ledge, near, edge, side * _cfg.run_speed, 0.0, 0, false, -1, tick, rect.position.y, ledge.path)
 
 
+## `_ride` with a second press in the air, from every moment and spot, at the
+## thinned AIR_RIDE_FRAMES.
+func _ride_air(info: RoomInfo, geo: Geometry, ledge: Ledge) -> void:
+	var path := info.platforms[ledge.path]
+	var cell := float(Grid.CELL)
+	var near := _within(geo.rects, path.keep_out().grow_individual(REACH_X, REACH_UP, REACH_X, REACH_DOWN))
+	for tick in phases(info):
+		var rect := path.rect_at(tick)
+		var lo := rect.position.x - cell * 0.5 + 0.01
+		var hi := rect.end.x + cell * 0.5 - 0.01
+		var xs: Array[float] = [lo]
+		for x in range(path.start_cells.size.x):
+			xs.append(rect.position.x + (float(x) + 0.5) * cell)
+		xs.append(hi)
+		for x in xs:
+			for input in [-1.0, 0.0, 1.0]:
+				var speed := 0.0
+				if input > 0.0 and x - lo >= RUN_UP:
+					speed = _cfg.run_speed
+				elif input < 0.0 and hi - x >= RUN_UP:
+					speed = -_cfg.run_speed
+				for hold in AIR_FIRST_HOLDS:
+					for frame in AIR_RIDE_FRAMES:
+						try_plan(info, geo, ledge, near, x, speed, input, hold, true, -1, tick, rect.position.y, ledge.path, frame, 90)
+
+
 ## The state of one solve: what has been reached and how.
 class Run extends RefCounted:
 	var queue: Array[Ledge] = []
@@ -969,21 +1080,29 @@ class Ledge extends RefCounted:
 	var touches: Array[Touch] = []
 	## Indices of the room's pickups that some path from here touches.
 	var pickups: Array[int] = []
+	## The same, for what needs an air jump. Used only while the player has one.
+	var air_to_ledges: Array[int] = []
+	var air_touches: Array[Touch] = []
+	var air_pickups: Array[int] = []
 	var _touch_keys := {}
+	var _air_touch_keys := {}
 
-	func add_ledge(target: int) -> void:
-		if not to_ledges.has(target):
-			to_ledges.append(target)
+	func add_ledge(target: int, air := false) -> void:
+		var into := air_to_ledges if air else to_ledges
+		if not into.has(target):
+			into.append(target)
 
-	func add_pickup(index: int) -> void:
-		if not pickups.has(index):
-			pickups.append(index)
+	func add_pickup(index: int, air := false) -> void:
+		var into := air_pickups if air else pickups
+		if not into.has(index):
+			into.append(index)
 
-	func add_touch(door: int, at: Vector2, moving: Vector2) -> void:
+	func add_touch(door: int, at: Vector2, moving: Vector2, air := false) -> void:
 		var touch := Touch.new(door, at, moving)
-		if not _touch_keys.has(touch.key()):
-			_touch_keys[touch.key()] = true
-			touches.append(touch)
+		var keys := _air_touch_keys if air else _touch_keys
+		if not keys.has(touch.key()):
+			keys[touch.key()] = true
+			(air_touches if air else touches).append(touch)
 
 	func describe() -> String:
 		if moving:

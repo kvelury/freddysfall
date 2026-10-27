@@ -8,6 +8,22 @@ Everything here passed its headless tests or was reported as unverified in a pul
 
 Played in the browser and found good, so these are not listed line by line any more: Imprint in the browser (placing, the preview, the cross, the blink), saving and resuming, the solver and the "needs" lines, movement and doors, the whole world map of PR #17 (rooms 1 to 7, the exit rules, the tokens on the body, the 3TM and its feeding, and the spent machine), and the Imprint look of PR #18 (the dotted cursor, placed platforms drawn over it, the countdown lines, and the blink), and the map zoom of PR #20 (the three levels, the legend, the level kept across reloads, a new game starting fresh, and the marker staying in its room), and the 2.5 second Imprint of PR #21 (the time, the four lines, and the blink on the last line; the duration is now 1.5 s, see "Imprint lockout" below). On 2026-10-22 the release export was also smoke-tested in Chrome: it loaded without console errors, sustained keyboard movement and running jumps worked, and the map opened while held and closed on release. The cloud test executor could not reliably observe and steer a whole platforming route, so that smoke did not replace the earlier full progression playthroughs. A new problem in any of them goes back on this list.
 
+## Double jump
+
+Nobody has played this yet. Headless tests prove the rule (height, refill, priority), not the feel. Start `?dev=1&room=s1`, open F2, set Air jumps to 1 and Apply. Or play from a new game: the 3TM in room 4 gives it.
+
+- [ ] **The feel at the top of a jump.** Hold jump, then press again near the apex: a second jump of the same size that rises about 10 cells in all. Does it feel natural, or floaty/snappy? Tuning knob: `air_jump_speed` in `movement.tres`.
+- [ ] **Late in a fall.** Press jump well into a fall: it should still jump at once, from the falling speed.
+- [ ] **Tap versus hold on the second jump.** Releasing early gives a short second hop.
+- [ ] **A third press does nothing**, and a press just before landing still gives a jump on landing.
+- [ ] **Refill.** Land on a floor, on a moving platform (room 7, 8, 10) and, with Imprint on in F2, on an Imprint platform: the air jump comes back each time. Spawning, respawning and warping also refill; crossing a door keeps what is left.
+- [ ] **Walking off a ledge.** A press right after leaving is a normal jump and keeps the air jump; a press after a moment is the air jump.
+- [ ] **Feedback.** The 1 px stretch and a puff of dust downward from the feet on an air jump.
+- [ ] **F2 field.** Air jumps 0, 1 and 3, Apply, retry and a named loadout round trip. Lowering it mid-air takes the extra jumps away at once. Changing it does not clear placed Imprints.
+- [ ] **Room 4's 3TM** gives double jump with the line "Double jump. Press jump again in the air.", and Imprint stays locked (no cursor platform, no line on the body).
+- [ ] **Room 9's 3TM** (reached with `?dev=1&room=9` and three tokens set in F2) gives a health pip and nothing else.
+- [ ] **Rooms 5 and 6 without Imprint.** Cross room 5's pit with double jump from the token platform (the left floor is a one-way landing, so you cannot cross back; both rooms are `trap: allowed`). Then try the rest of the world to room 10 and the 3TM in room 9 without Imprint: the validator says all 56 ledges are reachable, but nobody has played it.
+
 ## Fall presentation
 
 The user confirmed the merged room 7 layout and the subsequent falling-performance fixes work in their browser playtest on 2026-10-25. The broader comparisons and edge cases below have not been individually confirmed.
@@ -18,7 +34,7 @@ The user confirmed the merged room 7 layout and the subsequent falling-performan
 
 ## Imprint lockout
 
-Nobody has played these yet. Headless tests prove the rule, not the feel. Use `?room=5` after the 3TM, or `?dev=1&room=5` with Imprint turned on in F2.
+Nobody has played these yet. Headless tests prove the rule, not the feel. Use `?room=5` after the 3TM, or `?dev=1&room=5` with Imprint turned on in F2 (room 4's 3TM now gives double jump, not Imprint).
 
 - [ ] **Clicking again and again.** While a platform stands, more clicks do nothing: it is not renewed and its clock does not restart.
 - [ ] **The cross while locked out.** The cursor is the small × anywhere while a platform stands, and the dotted outline comes back once it has broken.

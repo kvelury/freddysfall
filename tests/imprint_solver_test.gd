@@ -11,6 +11,7 @@ func _initialize() -> void:
 	_cfg = load("res://src/player/movement.tres")
 	var ok := true
 	ok = _gate() and ok
+	ok = _double_jump() and ok
 	ok = _progression() and ok
 	ok = _many_rounds() and ok
 	ok = _forbidden() and ok
@@ -54,6 +55,49 @@ func _gate() -> bool:
 
 	# The starting duration is the one that has to be enough.
 	ok = _check(is_equal_approx(Abilities.new().imprint_duration, 1.5), "the starting duration is 1.5 seconds, which crossed the pit above") and ok
+	return ok
+
+
+## The air jump: a pit of 10 cells is crossable with one and not without, a pit
+## of 24 is not, and a pickup that gives double jump opens the way and is what
+## room 2 needs.
+func _double_jump() -> bool:
+	var ok := true
+	var narrow := {Vector2i(19, 16): ".", Vector2i(20, 16): "."}
+	var rooms := _world(narrow)
+	var abilities := Abilities.new()
+	abilities.air_jumps = 1
+	var open := ReachGraph.new(rooms, _cfg, abilities).analyze("1")
+	ok = _check(open.errors.is_empty(), "with an air jump a 10-cell pit is crossed %s" % [open.errors]) and ok
+	var plain := ReachGraph.new(rooms, _cfg, Abilities.new()).analyze("1")
+	ok = _check(_has(plain.errors, "Room 2 cannot be reached"), "and without one it is not") and ok
+
+	var wide := {}
+	for x in range(4, 28):
+		wide[Vector2i(x, 16)] = "^"
+	var too_wide := ReachGraph.new(_world(wide), _cfg, abilities).analyze("1")
+	ok = _check(_has(too_wide.errors, "Room 2 cannot be reached"), "a pit of 24 cells is too wide even for an air jump %s" % [too_wide.errors]) and ok
+
+	narrow[Vector2i(4, 16)] = "U"
+	rooms = _world(narrow, "legend:\n  U = pickup id=key upgrade=double_jump value=1\n---\n")
+	var base := Abilities.new()
+	var report := ReachGraph.new(rooms, _cfg, base).solve("1")
+	ok = _check(report.errors.is_empty() and report.needs.get("2") == ["key"] and base.air_jumps == 0, "a pickup that gives double jump opens room 2, which needs it (%s)" % [report.needs.get("2")]) and ok
+
+	# A cached run gives the same answer as one without a cache, air edges included.
+	var directory := "user://air_cache_test"
+	var cache := SolverCache.new(directory)
+	var warm_graph := ReachGraph.new(_world(narrow), _cfg, abilities)
+	warm_graph.cache = cache
+	var cold := warm_graph.analyze("1")
+	cache.save()
+	var again_cache := SolverCache.new(directory)
+	var again := ReachGraph.new(_world(narrow), _cfg, abilities)
+	again.cache = again_cache
+	var warm := again.analyze("1")
+	ok = _check(cold.errors == warm.errors and again_cache.stats["air_rooms_cached"] > 0 and again_cache.stats["air_rooms_solved"] == 0, "the air edges come back from the cache (%s)" % [again_cache.stats]) and ok
+	for id in ["1", "2"]:
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(directory).path_join("%s.json" % id))
 	return ok
 
 
@@ -442,7 +486,9 @@ func _second_simulation() -> bool:
 func _room_six() -> bool:
 	var ok := true
 	var six := FileAccess.get_file_as_string("res://data/rooms/6.txt").split("\n")
-	six[16] = six[16].substr(0, 28) + "P" + six[16].substr(29)
+	# Row 16 of the grid, below the header (a `trap:` line and a divider) if there is one.
+	var top := six.find("---") + 1
+	six[top + 16] = six[top + 16].substr(0, 28) + "P" + six[top + 16].substr(29)
 	var seven := FileAccess.get_file_as_string("res://data/rooms/7.txt")
 	var errors: Array[String] = []
 	var built := RoomParser.build([

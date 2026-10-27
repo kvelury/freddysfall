@@ -4,8 +4,10 @@ extends RefCounted
 ## What the player can do. The values here are the starting ones; upgrades
 ## raise them. Each name in STATS is a stat that data/upgrades.json may name.
 
-const STATS: Array[String] = ["imprint_unlocked", "imprint_width", "imprint_duration", "imprint_max_active", "imprint_cooldown", "imprint_effects"]
+const STATS: Array[String] = ["air_jumps", "imprint_unlocked", "imprint_width", "imprint_duration", "imprint_max_active", "imprint_cooldown", "imprint_effects"]
 
+## Jumps the player can make in mid-air before landing. 0 until they find double jump.
+var air_jumps := 0
 ## Whether the player has found Imprint. Until they do, the cursor is just a cursor.
 var imprint_unlocked := false
 ## Imprint platform width in cells.
@@ -55,6 +57,7 @@ func copy() -> Abilities:
 
 func to_dict() -> Dictionary:
 	return {
+		"air_jumps": air_jumps,
 		"imprint_unlocked": imprint_unlocked,
 		"imprint_width": imprint_width,
 		"imprint_duration": imprint_duration,
@@ -68,6 +71,7 @@ func to_dict() -> Dictionary:
 ## at their starting values or ignored, so an old save still loads.
 static func from_dict(data: Dictionary) -> Abilities:
 	var out := Abilities.new()
+	out.air_jumps = maxi(0, int(data.get("air_jumps", out.air_jumps)))
 	out.imprint_unlocked = bool(data.get("imprint_unlocked", out.imprint_unlocked))
 	out.imprint_width = int(data.get("imprint_width", out.imprint_width))
 	out.imprint_duration = float(data.get("imprint_duration", out.imprint_duration))
@@ -81,9 +85,10 @@ static func from_dict(data: Dictionary) -> Abilities:
 
 
 func describe() -> String:
+	var jumps := "" if air_jumps <= 0 else ("double jump, " if air_jumps == 1 else "%d air jumps, " % air_jumps)
 	if not imprint_unlocked:
-		return "imprint locked"
-	var text := "imprint %d wide, %.1f s, %d at once" % [imprint_width, imprint_duration, imprint_max_active]
+		return jumps + "imprint locked"
+	var text := jumps + "imprint %d wide, %.1f s, %d at once" % [imprint_width, imprint_duration, imprint_max_active]
 	if imprint_cooldown > 0.0:
 		text += ", %.1f s cooldown" % imprint_cooldown
 	if not imprint_effects.is_empty():

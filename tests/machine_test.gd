@@ -1,8 +1,9 @@
 extends SceneTree
 
 ## The 3TM in room 4: with no tokens it says how full it is, with some it takes
-## them one at a time, remembers them, and on the third gives Imprint, after
-## which it does nothing. The fill and the upgrade survive a save.
+## them one at a time, remembers them, and on the third gives double jump, after
+## which it does nothing. The fill and the upgrade survive a save. Room 9's
+## 3TM gives a health pip instead of an upgrade.
 
 const TEMP := "user://machine_test.json"
 
@@ -55,9 +56,9 @@ func _run() -> void:
 		frames += 1
 	ok = _check(froze and flew == 1, "the player is frozen and a token flies while the machine works") and ok
 	ok = _check(machine.filled == 2 and state.tokens == 0 and state.machines.get("r4_3tm") == 2, "two slots fill and two tokens are spent (%d filled, %d carried, %s)" % [machine.filled, state.tokens, state.machines]) and ok
-	ok = _check(not state.abilities.imprint_unlocked and player.input_enabled and not world.is_busy(), "two tokens give nothing yet, and the player is free") and ok
+	ok = _check(state.abilities.air_jumps == 0 and player.input_enabled and not world.is_busy(), "two tokens give nothing yet, and the player is free") and ok
 
-	# The third token fills the last slot and the machine gives Imprint.
+	# The third token fills the last slot and the machine gives double jump.
 	state.tokens = 1
 	state.tokens_changed.emit()
 	await physics_frame
@@ -70,9 +71,9 @@ func _run() -> void:
 		await physics_frame
 		frames += 1
 	ok = _check(machine.spent and machine.filled == 3 and state.tokens == 0, "the third token fills it") and ok
-	ok = _check(state.abilities.imprint_unlocked, "and gives Imprint") and ok
+	ok = _check(state.abilities.air_jumps == 1 and not state.abilities.imprint_unlocked, "and gives double jump, not Imprint") and ok
 	ok = _check(sparked, "with a spark that comes back to the player") and ok
-	ok = _check(toast.visible and "Imprint" in toast.text, "and a line says what it was (%s)" % toast.text) and ok
+	ok = _check(toast.visible and "Double jump" in toast.text, "and a line says what it was (%s)" % toast.text) and ok
 	ok = _check(player.input_enabled and not world.is_busy(), "the player is free again") and ok
 	ok = _check(FileAccess.file_exists(TEMP), "and the game saved") and ok
 
@@ -82,7 +83,7 @@ func _run() -> void:
 	await _frames_idle(world, 40)
 	ok = _check(state.tokens == 1 and not world.is_busy(), "a spent 3TM leaves the token with the player") and ok
 
-	# Resume from the save: the machine is spent and Imprint is still there.
+	# Resume from the save: the machine is spent and double jump is still there.
 	world.queue_free()
 	await process_frame
 	state.reset()
@@ -90,10 +91,29 @@ func _run() -> void:
 	# The resume point is inside the save machine, which lets the player out first.
 	while world.is_busy():
 		await physics_frame
-	ok = _check(state.abilities.imprint_unlocked and state.machines.get("r4_3tm") == 3, "starting again keeps Imprint and the machine's fill (%s)" % [state.machines]) and ok
+	ok = _check(state.abilities.air_jumps == 1 and state.machines.get("r4_3tm") == 3, "starting again keeps double jump and the machine's fill (%s)" % [state.machines]) and ok
 	world.warp_to("4")
 	machine = _machine(world.current)
 	ok = _check(machine != null and machine.spent, "and room 4 builds the 3TM already spent") and ok
+
+	# Room 9's 3TM gives a health pip, and no ability.
+	var prize: EntityDef = null
+	for def in root.get_node("WorldData").get_room("9").entities:
+		if def.type == "machine":
+			prize = def
+	ok = _check(prize != null and prize.props.get("prize") == "health" and Entities.problems(prize).is_empty(), "room 9's 3TM has prize=health") and ok
+	var health_before: int = state.health
+	var abilities_before: Dictionary = state.abilities.to_dict()
+	var line: String = state.machine_prize(prize)
+	ok = _check(state.health == health_before + 1 and state.abilities.to_dict() == abilities_before and "Health pip" in line, "it gives a health pip and no ability (%s)" % line) and ok
+	var both := EntityDef.new()
+	both.type = "machine"
+	both.id = "bad"
+	both.props = {"upgrade": "double_jump", "value": "1", "prize": "health"}
+	var neither := EntityDef.new()
+	neither.type = "machine"
+	neither.id = "bad2"
+	ok = _check(not Entities.problems(both).is_empty() and not Entities.problems(neither).is_empty(), "a 3TM with both an upgrade and a prize, or neither, is a validation error") and ok
 
 	world.queue_free()
 	await process_frame

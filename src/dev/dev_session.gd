@@ -70,7 +70,7 @@ func apply(world: Node, patch: Dictionary) -> String:
 				var control: Dictionary = DevCatalog.controls().get(stat, {})
 				if control.get("type") == "unsupported":
 					return String(control["reason"])
-				if live["abilities"].get(stat) != patch[key][stat]:
+				if stat != "air_jumps" and live["abilities"].get(stat) != patch[key][stat]:
 					changed_imprint = true
 				live["abilities"][stat] = patch[key][stat]
 				selected["abilities"][stat] = patch[key][stat]

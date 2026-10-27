@@ -1,4 +1,17 @@
 {
+  "double_jump": {
+    "name": "Double jump",
+    "stat": "air_jumps",
+    "kind": "max",
+    "message": "Double jump. Press jump again in the air.",
+    "dev": {
+      "type": "int",
+      "min": 0,
+      "max": 3,
+      "step": 1,
+      "unit": "air jumps"
+    }
+  },
   "imprint": {
     "name": "Imprint",
     "stat": "imprint_unlocked",

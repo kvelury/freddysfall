@@ -86,6 +86,16 @@ func take_health(def: EntityDef) -> String:
 	return "Health pip (%d)" % health
 
 
+## What a 3TM gives when it is fed: its upgrade, or a health pip with
+## `prize=health`. Returns a line to show the player. A machine's fill count is
+## kept, so a spent one never gives it twice.
+func machine_prize(def: EntityDef) -> String:
+	if def.props.has("prize"):
+		health += 1
+		return "Health pip (%d)" % health
+	return grant(String(def.props["upgrade"]), String(def.props.get("value", "")))
+
+
 ## Gives up one carried token, for a 3TM to take.
 func spend_token() -> void:
 	tokens = maxi(0, tokens - 1)
