@@ -196,7 +196,7 @@ func draw(canvas: CanvasItem) -> void:
 			return
 		canvas.draw_rect(rect, Color.WHITE)
 		for line in line_rects():
-			canvas.draw_rect(line, Color.BLACK)
+			canvas.draw_rect(Display.snap_rect(line), Color.BLACK)
 		return
 	var shown := drawn_rect()
 	if shown.size.x <= 0.0:

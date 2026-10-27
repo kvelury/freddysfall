@@ -1,6 +1,6 @@
 """CONCEPT ONLY. Turns the Movie Maker frames into a 1280x720 MP4 and a GIF.
 
-Scales each 320x180 frame 4x (nearest), draws the captions and the key or
+Scales each 640x360 frame 2x (nearest), draws the captions and the key or
 pad overlay from build/concept/hud_log.json crisply on top, and pipes the
 result to ffmpeg.
 

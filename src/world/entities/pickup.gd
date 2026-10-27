@@ -42,5 +42,5 @@ func _process(delta: float) -> void:
 func _draw() -> void:
 	var lift := roundf(sin(_age * 3.0) * 1.5)
 	var c := Vector2(0.0, lift)
-	draw_colored_polygon(PackedVector2Array([c + Vector2(0, -4), c + Vector2(4, 0), c + Vector2(0, 4), c + Vector2(-4, 0)]), Color.WHITE)
+	PixelArt.draw(self, "token", c)
 	draw_rect(Rect2(c + Vector2(-1, -1), Vector2(2, 2)), Color.BLACK)

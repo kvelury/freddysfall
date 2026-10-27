@@ -46,4 +46,4 @@ func _draw() -> void:
 ## The token shape, centred on `at`, drawn onto `canvas`. The 3TM and the
 ## flying token use it too, so every token looks the same.
 static func draw_token(canvas: CanvasItem, at: Vector2, color := Color.WHITE) -> void:
-	canvas.draw_colored_polygon(PackedVector2Array([at + Vector2(0, -4), at + Vector2(4, 0), at + Vector2(0, 4), at + Vector2(-4, 0)]), color)
+	PixelArt.draw(canvas, "token", at, color)

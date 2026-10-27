@@ -24,7 +24,7 @@ The new room from the user's drawings. Start `?dev=1&room=11`, and in F2 turn th
 Nobody has played these yet. Headless tests prove the rules, not the feel. Use `?dev=1&room=7`, open F2, turn the gun on and Apply (add Air jumps 1 if you want to climb), or play to room 9's 3TM, which gives it.
 
 - [ ] **The rate.** Mash Space: about three shots a second, and no faster. Is it spammable enough, or too much? Tuning knobs: Gun cooldown and Shot speed in F2 (the starting values are in `Abilities`).
-- [ ] **The shot reads.** A 3 x 1 px white line at 1x: can you see it, and does it feel quick? Does it feel right leaving the body in the direction faced, and after turning mid-air?
+- [ ] **The shot reads.** A 3 x 1 world px white line: can you see it, and does it feel quick? Does it feel right leaving the body in the direction faced, and after turning mid-air?
 - [ ] **Shooting while jumping.** Jump and shoot to hit something higher. A shot stops at walls, moving platforms and Imprint platforms, and goes on past spikes.
 - [ ] **Space shoots, W and Up jump.** Space no longer jumps. Is it comfortable with a direction held?
 - [ ] **The cracks.** A wall looks cracked and breakable from across a room. Each hit flashes it and adds cracks, and the third shatters it cell by cell.
@@ -96,7 +96,7 @@ Nobody has played these yet. Headless tests prove the order, the timing and the 
 - [ ] **The dotted border.** A placed platform is a white block with a black dotted inner border, and it looks different from the white dotted cursor outline.
 - [ ] **Per-block shards.** A shatter at every block going is not too busy.
 - [ ] **The order follows where you stood.** Click from the left of a platform: it shrinks toward the left. From the right: toward the right. Standing right under its middle, the block you face lasts. Moving after the click changes nothing.
-- [ ] **The facing block and the token lines.** A 2 x 2 block in the top right when you last went right, the top left when you last went left, and tokens as 2 x 1 lines stacked bottom to top opposite facing, one pixel inside the edge and one clear row apart; all read at 1x and none clash. Check with 0 to 3 tokens and with Imprint found (the line). A respawn or warp faces right. Use F2 to set 0–3 tokens and remove them; turn both ways, retry, and round-trip the count through a named loadout.
+- [ ] **The facing block and the token lines.** A 2 x 2 block in the top right when you last went right, the top left when you last went left, and tokens as 2 x 1 lines stacked bottom to top opposite facing, one pixel inside the edge and one clear row apart; all read at a glance and none clash. Check with 0 to 3 tokens and with Imprint found (the line). A respawn or warp faces right. Use F2 to set 0–3 tokens and remove them; turn both ways, retry, and round-trip the count through a named loadout.
 - [ ] **Landing on a block that goes early feels fair.** The solver only counts the last block; in play the others help. Landing on one that is about to go should not feel like a trap.
 - [ ] **Classic switches cleanly both ways.** In F2, Player tab: Classic on gives full-width platforms with dashes, off gives shrinking, and toggling clears the platforms. The indicator says "classic imprint". End playtest turns it off.
 - [ ] **Widths 1, 2 and 5 in F2.** Width 1 never shrinks; widths 2 and 5 keep the block nearest where you clicked from. The total time stays 1.5 s.
@@ -134,6 +134,18 @@ The safe-floor respawns below happen when the player has health. Use `?dev=1`, g
 - [ ] **Falling out of a room** through a hole in the floor that leads nowhere.
 - [ ] **The step-back.** If you can make two deaths in a row, check that you end up on real floor and not in a loop.
 - [ ] **Dying in a locked room** (room 2, before the token). You come back inside room 2, not in room 1.
+
+## Resolution (640×360)
+
+Not yet played by a person. `tools/pixel_check.sh` passes (the world is on the grid and equal to the 320×180 baseline), so these are about how it feels.
+
+- [ ] **It looks the same.** At the default 1280×720 and fullscreen, the world is the same blocky picture it was: walls, the player, spikes, tokens, the save machine, halos. Nothing is smoother or thinner.
+- [ ] **It moves the same.** Jump, land, run, ride room 7's lift, cross a door: the same stepping, with no shimmer in the player or the walls. Compare a door slide: it is steadier than before, which is intended.
+- [ ] **The text is sharp.** The toast ("Game saved"), F3, the F2 panel on each tab, and the map's room ids (in dev mode) are crisp, with smooth edges, at the size they were.
+- [ ] **The map.** Open and close it: the panel grows a little finer than before, and that is expected. Zoom through all three levels.
+- [ ] **Imprint aims where the mouse is.** The cursor platform and the placed platform land on the cell under the pointer, at 1280×720 and fullscreen.
+- [ ] **Window fit.** A maximized browser window on a 1080p screen shows the game at 1280×720 with wider borders, and not at 1600×900 as before. Fullscreen fills the screen. Say if a window size you use now feels too small.
+- [ ] **Frame rate.** F3 stays at 60 FPS in the browser, including fullscreen on a large screen.
 
 ## Dev playtesting
 

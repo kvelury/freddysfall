@@ -8,11 +8,12 @@ Run from the repo root.
 
 | Command | What it does |
 | --- | --- |
-| `tools/check.sh` | The complete automated gate before a pull request: imports once, runs all 23 headless tests, validates the world without cache, builds the release web export, and checks its room data and cache-tagged files. CI runs this command too. It leaves `build/web/` ready for `tools/serve.sh` and the user's playthrough. |
+| `tools/check.sh` | The complete automated gate before a pull request: imports once, runs all 24 headless tests, validates the world without cache, builds the release web export, and checks its room data and cache-tagged files. CI runs this command too. It leaves `build/web/` ready for `tools/serve.sh` and the user's playthrough. |
 | `tools/validate.sh` | Loads every room and solves the world, with Imprint, taking pickups and tokens as it goes. A room is not done until this exits 0. It also prints what each room, ledge and pickup needs, and where the time went. What it works out about each room is kept in `build/solver-cache/`, so a run after editing one room only redoes that room (landing checks are not cached; timings depend on the layout); `--no-cache` ignores it, and deleting `build/` clears it. |
+| `tools/pixel_check.sh` | Draws scripted scenarios with a renderer (it uses `xvfb-run` with no display) and checks the world is on whole world pixels and equal to the 320×180 baseline. Run it after any change to how something is drawn; `--baseline` records the baseline on a commit that still draws at 320×180. Not part of `check.sh`. |
 | `tools/render.sh [ids]` | PNGs of rooms and the world map in `build/renders/`. Read them to see what you built. |
 | `tools/snap.sh <id>` | A real in-game frame of a room in `build/snaps/`. Opens a window for a second, so run it on the user's machine. |
-| `godot --headless --path . --script tests/<name>.gd` | Run one test; each file in `tests/` is one (`tools/check.sh` lists the 23 it runs). Prints a pass line and exits 0. |
+| `godot --headless --path . --script tests/<name>.gd` | Run one test; each file in `tests/` is one (`tools/check.sh` lists the 24 it runs). Prints a pass line and exits 0. |
 | `godot --path . -- --room=<id>` | Play starting in a room. In the browser, `?room=<id>`. Use `--dev --room=<id>` or `?dev=1&room=<id>` for tools; F2 opens the panel, F4 the protected room picker. |
 | `tools/build_web.sh` then `tools/serve.sh` | The browser build at http://localhost:8060. |
 

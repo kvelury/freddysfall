@@ -17,6 +17,8 @@ func _init() -> void:
 
 
 func _ready() -> void:
+	# A burst is made where something was, which may be between world pixels.
+	global_position = Display.snap(global_position)
 	for i in COUNT:
 		var angle := TAU * float(i) / float(COUNT) + randf_range(-0.2, 0.2)
 		var speed := randf_range(40.0, 110.0)

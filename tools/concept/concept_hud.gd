@@ -28,7 +28,7 @@ func _ready() -> void:
 	_canvas = Node2D.new()
 	_canvas.draw.connect(func() -> void:
 		if card:
-			_canvas.draw_rect(Rect2(0, 0, 320, 180), Color.BLACK)
+			_canvas.draw_rect(Rect2(Vector2.ZERO, Vector2(Display.VIEWPORT)), Color.BLACK)
 	)
 	add_child(_canvas)
 	reset_keys()

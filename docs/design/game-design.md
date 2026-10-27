@@ -29,6 +29,7 @@ Implementation steps for the palette pass live in `docs/plans/soft-duotone-palet
 | The map's three zoom levels, its legend, saved with the game | Built |
 | Moving platforms: drawn with their track, ridden, and checked by the solver | Built |
 | Softer two-color palettes | Designed, not built |
+| Rendered at 640×360, two screen pixels to a world pixel, the world drawn exactly as at 320×180 and the text sharper | Built; not yet played by a person |
 
 ## What it is
 
@@ -40,7 +41,7 @@ The first power-up is double jump. Imprint, where the mouse cursor becomes a pla
 
 **Movement is a specific feel, taken from one place.** The jump comes from the variable-jump, apex hang, fast fall, jump buffer, coyote time, rounded-ledge correction, and momentum described in section 4 of the Hollow Knight notes. That section is the whole of the borrowing. Combat, charms, art, map style, and anything else from that source are not part of this game.
 
-**The picture stays small on purpose.** Geometry is solid pixel blocks. The player is a square the size of one cell. Effects are few and they mean something: dust when you land, a halo on an exit, a shatter when a platform breaks. The drawing is one bit, black and white, so a block, a gap, and the player read instantly at 320×180.
+**The picture stays small on purpose.** Geometry is solid pixel blocks. The player is a square the size of one cell. Effects are few and they mean something: dust when you land, a halo on an exit, a shatter when a platform breaks. The drawing is one bit, black and white, so a block, a gap, and the player read instantly at 320×180 world pixels. The screen is drawn at twice that resolution so text is sharp, but the world is still drawn in those blocks (see "Frame and scale").
 
 **Two colors, gentler in the dark.** Pure black and white is the authoring language and the default look. It is harsh for playing in a dark room. The softer version is still exactly two colors, remapped at the end of the frame. The world does not gain a third color.
 
@@ -56,14 +57,17 @@ The first power-up is double jump. Imprint, where the mouse cursor becomes a pla
 
 | | |
 | --- | --- |
-| Cell | 10×10 px. The player is one cell, a 10×10 box. |
-| Screen | 32×18 cells, 320×180 px. This is the viewport, not the room. |
-| Window | Integer nearest-neighbor scale, aspect kept. Default window 1280×720, which is 4×. |
+| Cell | 10×10 world px. The player is one cell, a 10×10 box. |
+| Screen | 32×18 cells, 320×180 world px. This is the part of the world the camera shows, not the room. |
+| Render | The viewport is 640×360: `Display.RENDER_SCALE` (2) screen pixels to a world pixel. The camera is zoomed by that, and text and other UI are drawn at the finer resolution. |
+| Window | Integer nearest-neighbor scale of the viewport, aspect kept. Default window 1280×720, which is 2×. |
 | Physics | 60 ticks per second. 2D physics interpolation on. At most 8 steps per frame. |
 | Display | `max_fps` 0, vsync on. Movement math uses `delta`, so the tick rate can change later without rewriting the feel. |
 | Filter | Nearest. Pixels stay pixels. |
 
-The camera follows the player’s interpolated display position each rendered frame and snaps to whole pixels. The player stays interpolated. A camera sitting between pixels shimmers when the 320×180 view is scaled up by a whole number.
+The camera follows the player’s interpolated display position each rendered frame and snaps to whole world pixels. The player stays interpolated. A camera sitting between world pixels shimmers when the view is scaled up by a whole number.
+
+**The world-pixel grid.** Everything in the world is drawn on whole world pixels, so at 640×360 it is the same picture as at 320×180: each world pixel is a 2×2 block of screen pixels and nothing is finer. Positions and rect corners are whole world pixels (`Display.snap`, `Display.snap_rect`), and shapes that were polygons are pixel pictures (`PixelShapes`, drawn by `PixelArt`). Only UI is finer: text is drawn at the screen's resolution. A thing that is meant to be finer than a world pixel, by decision, joins the `Display.FINE_GROUP` node group so the pixel check leaves it out. Nothing is in it yet.
 
 ## Controls
 
@@ -384,7 +388,7 @@ Threads were tried first and are not used: GDScript's simulation only runs about
 The camera shows one screen, and it stays inside the room.
 
 - A room that is exactly one screen locks the camera to the room's center. It never scrolls.
-- A wider or taller room follows the player, clamped so the 320×180 view never leaves the room, then rounded to whole pixels.
+- A wider or taller room follows the player, clamped so the 320×180 (world pixel) view never leaves the room, then rounded to whole world pixels.
 - The follow target is the player. During a door slide, follow is off until the slide finishes.
 
 ## Map
@@ -528,7 +532,7 @@ Imprint uses the same black-and-white pixel language as the rest of the game.
 - A placed platform is always drawn over the cursor, so what the player can land on is never hidden by the preview.
 - Shatter into pixel shards: it is gone.
 
-The shards are small. They should read at 320×180 and survive the softer palette, because that palette remaps the frame rather than the sprites.
+The shards are small. They should read at 320×180 world pixels and survive the softer palette, because that palette remaps the frame rather than the sprites.
 
 ### Aiming without a mouse (planned, not built)
 
@@ -709,7 +713,7 @@ also lives in `AGENTS.md` so future agents cannot treat cheats as optional clean
 
 ### The camera (`core/grid.gd`, `world/world.gd`)
 
-`Grid.camera_focus` centres a one-screen room, and otherwise clamps the 320×180 view inside the room and rounds to whole pixels. `World._process` follows `Player.render_position(fraction)` using `Engine.get_physics_interpolation_fraction()` on each rendered frame, then calls `Camera2D.force_update_scroll`. The player remembers its position before every physics step, including held steps used by save-machine arcs; `place` resets both positions for warps, respawns and retries. With interpolation disabled, the live physics position is used. The camera’s own interpolation and smoothing stay off, so it samples once and remains pixel-aligned. A door slide owns the camera until following resumes.
+`Grid.camera_focus` centres a one-screen room, and otherwise clamps the 320×180 world-pixel view inside the room and rounds to whole world pixels. The camera is zoomed by `Display.RENDER_SCALE`, and the door slide steps it onto whole world pixels each tick. `World._process` follows `Player.render_position(fraction)` using `Engine.get_physics_interpolation_fraction()` on each rendered frame, then calls `Camera2D.force_update_scroll`. The player remembers its position before every physics step, including held steps used by save-machine arcs; `place` resets both positions for warps, respawns and retries. With interpolation disabled, the live physics position is used. The camera’s own interpolation and smoothing stay off, so it samples once and remains pixel-aligned. A door slide owns the camera until following resumes.
 
 Previously the camera followed only in `World._physics_process`, before the player stepped. At the 300 px/s fall cap it held still between 5 px updates while the player was interpolated, giving a 5 px oscillation relative to the camera. Render-frame following bounds that mismatch to the half-pixel rounding error. Collision positions, movement timing and the solver are unchanged.
 
@@ -752,6 +756,14 @@ The solver answers "can a player get here, and get back", using `MovementSim` an
 - **Zoom** (`MapView`, pure statics): `scale_for(level, bounds, view)` is `min(1, view / bounds)` for Out, 1 for Middle, 2 for In; `scaled_rect` scales both corners and rounds them, so lines stay one pixel and neighbours keep their gaps; `view_center(focus, bounds, scale, view)` picks the point at the window's centre (clamped to the visited bounds when the map is bigger than the window, rounded to a pixel). `refresh()` focuses on the visited map (Out), the current room (Middle) or the player (In). `MapLayer` is **moved** to `view/2 − view_center`; a `Camera2D` here only moves in the physics step, after the one frame the viewport renders for a change, so it showed the previous zoom's view.
 - **Keys:** while open, `map_zoom_in` and `map_zoom_out` (just pressed) step the level and stop at the ends. `GameState.map_zoom` is the stored level. Closing the map after a change asks the world to save (`save_now`).
 - **Legend** (`MapView.legend`): two rows, each an arrow and a magnifying glass drawn from 5- and 7-pixel pictures, on a black patch 1 px from the bottom-right corner. A row that can do nothing is grey.
+
+### The render scale and the world-pixel grid (`core/display.gd`, `core/pixel_art.gd`, `core/pixel_shapes.gd`)
+
+`project.godot` makes the viewport 640×360 (`Display.VIEWPORT`, which `display_test` holds equal to `Grid.SCREEN_SIZE × Display.RENDER_SCALE`), stretched as the viewport by whole numbers with nearest filtering. `World._ready` zooms the camera by `RENDER_SCALE` and sets the window's `oversampling_override` to it, which is what makes text sharp. The UI layers (`Toast`, `DebugOverlay`, `DevPanel`, `MapOverlay`) keep their 320×180 layout and have `scale = RENDER_SCALE`; the map's `SubViewport` is `VIEW_SIZE × RENDER_SCALE` with `size_2d_override` set to `VIEW_SIZE`, and its `TextureRect` ignores the texture's size.
+
+`Display.snapf(x)` is `ceil(x − 0.5)`, the pixel a coordinate lights when a screen pixel is lit if its centre is inside the shape and an edge belongs to the pixel after it. `snap_rect` snaps both corners, so a box that fell between pixels lights the pixels its centres cover, as it did at 320×180. The player body is a `top_level` `PlayerBody` placed each frame at the interpolated position and drawn with `snap_rect`, with the inventory marks cut from the same squashed box; the squash is interpolated from what it was when the tick began to what it was last set to, as the engine did when it was a child of the interpolated player. A moving platform, a dust speck, a shatter burst and a flying token are snapped the same way. Spikes, the token and pickup diamond, the flying token and the 3TM's empty slot are pictures baked from the polygons by `tools/pixel_check.sh --shapes`.
+
+`tools/pixel_check.sh` (not part of `check.sh`, because it needs a renderer) captures scripted scenarios with `--fixed-fps 90`, so frames fall between physics ticks: every room, the player idle, a jump, a run and landing, a death, room 7's lift, a door slide, Imprint (preview, blocked, shrinking, Classic), a shot, the save machine and a 3TM feed. `--baseline` records them at 320×180 on a commit that still draws that way; the default run draws them at 640×360 with the UI hidden and checks that every 2×2 block is one colour and that the frame, taken at the top-left pixel of each block, equals the baseline. It also saves the UI (toast, F3, the dev panel's tabs, the map at each zoom), checks that the text has blocks that are not one colour, and checks that the mouse lands on the right cell. The door-slide frames are compared with the camera rounded in both runs (see the decision log).
 
 ### Effects and small parts
 
@@ -938,6 +950,15 @@ What was decided, in the order it came up, with the reason. Pull requests are na
 - **Room 9's 3TM gives the gun; a `prize=health` machine is kept** (nothing uses it now).
 - **The solver models a broken wall as a state of the room, not progress.** Because walls grow back, copies of a room with walls broken are kept apart and only a door-free shot from a ledge moves between them; leaving always lands in the room as loaded. The pip in room 7 therefore needs the gun (room 9's 3TM and the three tokens before it).
 
+**Resolution (640×360)**
+- **2×, keeping game units.** The viewport is 640×360 and the camera zooms 2×; a cell is still 10 world px, and every movement number, room file, save, the solver and every gameplay test is unchanged. Chosen over 3× and 4× because 2× fills 720p, 1080p, 1440p and 4K by whole numbers. Chosen over re-counting positions in screen pixels because that would touch the movement, the solver and the save for no visible gain.
+- **The world stays on the old grid.** Everything in the world is snapped to whole world pixels, so the look and the motion are the same as at 320×180. Finer motion or art can be allowed later for one thing at a time (`Display.FINE_GROUP`).
+- **Text is the same font and size, drawn at 2×** (`oversampling_override`), so it is sharp, with smooth edges.
+- **The built-in whole-number scaling is kept.** A window that showed the 320×180 picture at an odd multiple now drops a step: a maximized browser on a 1080p screen showed 1600×900 and shows 1280×720. Fullscreen 720p, 1080p, 1440p and 4K are unchanged. A scaler of our own, to keep today's size in those windows, was left out for the work and the risk.
+- **The map's open and close animation (a panel growing from 92% to 100% over 0.1 s) is drawn finer than before.** The one accepted difference.
+- **A door slide steps the camera onto whole world pixels.** At 320×180 a camera between pixels moved the polygon shapes and a player standing at a fractional position by a pixel from frame to frame during the half-second slide. The slide is rounded now, so the picture is steady. The pixel check rounds the camera in both runs for those frames.
+- **The engine's own interpolation of the squash is kept.** The squash of a landing or jump was a scale on a child of the interpolated player, so it lagged by up to a tick. It is reproduced, so the body is drawn pixel for pixel as before.
+
 **Process**
 - **One record.** `AGENTS.md` for how an agent works, `README.md` for the code and its rules, this file for the game and its decisions, `docs/testing-checklist.md` for what nobody has played. `docs/plans/` is history.
 - **Every new test is mutation-checked,** and the pull request says which mutants were tried.
@@ -945,7 +966,7 @@ What was decided, in the order it came up, with the reason. Pull requests are na
 
 ### Guardrails for a change
 
-Do not: copy a movement formula; reference an autoload from a pure class; derive or rename an entity id; change the save's shape without `Save.VERSION` and a `_migrate` step; put a `Camera2D` back in the map; add threads to the solver; make the cursor or any effect fade (nothing fades: a pixel is on or off); add colours (the picture is two colours); call a tuned number the default without saying so in the docs; or leave a test you have not tried to break.
+Do not: draw anything in the world between world pixels (snap it with `Display.snap_rect`, or draw a picture); copy a movement formula; reference an autoload from a pure class; derive or rename an entity id; change the save's shape without `Save.VERSION` and a `_migrate` step; put a `Camera2D` back in the map; add threads to the solver; make the cursor or any effect fade (nothing fades: a pixel is on or off); add colours (the picture is two colours); call a tuned number the default without saying so in the docs; or leave a test you have not tried to break.
 
 **The Imprint rule every Imprint-related feature must keep.** An Imprint is never replaced, refreshed or extended by another click. No new one goes down until the live one has broken, plus `imprint_cooldown`. A feature that gives the player another way to make footing (more platforms at once, mid-air placement, refreshing a platform's life) or that makes waiting on real floor costly (timers, crumbling floor, chasing hazards) must say how it keeps this rule, in the runtime and in the solver. Routes that moving platforms carry keep it, because a rider can always wait on the platform. Loosening it is the user's decision, not an implementation detail. The footing the solver counts on is the last block, for the whole life: the one nearest where the player stood to place it. A feature that changes the shrink order, the interval, the starting width or how the order is chosen must keep that model true, or change the solver with it.
 

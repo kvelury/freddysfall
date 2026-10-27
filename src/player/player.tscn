@@ -1,13 +1,13 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=4 format=3]
 
 [ext_resource type="Script" path="res://src/player/player.gd" id="1_player"]
 [ext_resource type="Resource" path="res://src/player/movement.tres" id="2_move"]
+[ext_resource type="Script" path="res://src/player/player_body.gd" id="3_body"]
 
 [node name="Player" type="Node2D"]
 physics_interpolation_mode = 1
 script = ExtResource("1_player")
 config = ExtResource("2_move")
 
-[node name="Visual" type="Polygon2D" parent="."]
-color = Color(1, 1, 1, 1)
-polygon = PackedVector2Array(-5, -5, 5, -5, 5, 5, -5, 5)
+[node name="Visual" type="Node2D" parent="."]
+script = ExtResource("3_body")

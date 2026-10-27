@@ -29,6 +29,8 @@ var _world: Node
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	layer = 30
+	# The UI is laid out in 320 x 180 units and drawn at the screen's finer resolution.
+	scale = Vector2.ONE * Display.RENDER_SCALE
 	_world = get_parent()
 	_build()
 	if DisplayServer.get_name() != "headless":
