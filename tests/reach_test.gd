@@ -65,7 +65,7 @@ func _room_shapes(data) -> bool:
 	var rights := wide.exits.filter(func(e) -> bool: return e.edge == "right").map(func(e) -> String: return "%s@%d" % [e.dest_id, e.rect.position.y])
 	ok = _check(wide.start_position() == Vector2(75, 705) and wide.exit_on("left").dest_id == "s2" and rights.has("11@32") and rights.has("8@50"), "room 7 starts on its landing, keeps s2, and leads to 8 (exit 1) and 11 (exit 2) %s" % [rights]) and ok
 	ok = _check(wide.platforms.size() == 1 and wide.platforms[0].id == "r8_lift" and wide.platforms[0].start_cells == Rect2i(15, 63, 5, 1) and wide.platforms[0].cells == 11, "the stable platform moves above the spike floor in room 7, four rows above the step") and ok
-	ok = _check(_has_rect(wide, Rect2i(14, 1, 1, 58)), "a wall beside the fall keeps it off the ledges on the right") and ok
+	ok = _check(range(1, 59).all(func(y: int) -> bool: return wide.is_solid(14, y)), "a wall beside the fall keeps it off the ledges on the right") and ok
 	var path := wide.platforms[0]
 	ok = _check(is_equal_approx(path.speed, 75.0) and path.travel_ticks == 88 and path.pause_ticks == 12, "platform keeps 75 px/s and 0.2-second pauses on its shorter track") and ok
 	ok = _check(wide.hazards.size() == 16 and wide.hazards.all(func(cell: Vector2i) -> bool: return cell.y == 70 and cell.x >= 15 and cell.x <= 30), "spikes leave the landing clear") and ok

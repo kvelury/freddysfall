@@ -22,15 +22,21 @@ var tick := 0
 ## The moving platforms as a body sees them, in world pixels.
 var movers := Movers.new()
 var _platforms: Array[MovingPlatform] = []
+## The breakable walls that still stand.
+var _walls: Array[BreakableWall] = []
 
 ## Emitted when the exit rule becomes met and the doors open.
 signal exits_opened
+## Emitted when a breakable wall has been shot down and no longer collides.
+signal wall_broken
 
 
 ## `flags` is what the player has already done (GameState.flags); things they
 ## have taken are left out. `fills` is how full each 3TM is, by id.
 func build(room_info: RoomInfo, flags := {}, fills := {}, door_override := false) -> void:
-	info = room_info
+	# Walls broken in this visit are in this copy only, so they are back the
+	# next time the room is built.
+	info = room_info.variant([])
 	_flags = flags
 	# The platforms move before the player steps, so the player is carried to
 	# where they are this tick.
@@ -72,6 +78,11 @@ func build(room_info: RoomInfo, flags := {}, fills := {}, door_override := false
 		_platforms.append(platform)
 	for def in info.entities:
 		if def.type == "platform" or not Entities.present(def, flags):
+			continue
+		if def.type == "breakable":
+			var wall := BreakableWall.new(def)
+			add_child(wall)
+			_walls.append(wall)
 			continue
 		var thing := Entities.create(def, fills)
 		thing.position = Grid.cell_center(def.cell)
@@ -228,9 +239,30 @@ func _refresh_doors(want_locked: bool) -> void:
 	exits_opened.emit()
 
 
+## The breakable wall `box` (world pixels) is touching, or null.
+func wall_at(box: Rect2) -> BreakableWall:
+	for wall in _walls:
+		for rect in wall.world_rects():
+			if rect.intersects(box):
+				return wall
+	return null
+
+
+## A shot lands on `wall`. If that breaks it, it stops colliding and
+## `wall_broken` is emitted. Returns whether it broke.
+func hit_wall(wall: BreakableWall, strength: int) -> bool:
+	if not wall.hit(strength):
+		return false
+	_walls.erase(wall)
+	info.broken.append(wall.def.id)
+	_floor_rects = _solid_rects()
+	wall_broken.emit()
+	return true
+
+
 func _solid_rects() -> Array[Rect2]:
 	var out: Array[Rect2] = []
-	for cell_rect in info.solids:
+	for cell_rect in info.all_solids():
 		var pixel := Grid.cell_rect(cell_rect)
 		out.append(Rect2(pixel.position + position, pixel.size))
 	return out

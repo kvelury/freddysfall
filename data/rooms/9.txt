@@ -1,7 +1,7 @@
 trap: allowed
 legend:
   V = platform id=r9_lift speed=60 pause=0.2
-  M = machine id=r9_3tm prize=health
+  M = machine id=r9_3tm upgrade=gun
   T = token id=r9_token
 ---
 ################################

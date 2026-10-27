@@ -18,6 +18,7 @@ const SAFE_SPACING := 30.0
 @onready var camera: Camera2D = $Camera2D
 @onready var toast: Toast = $Toast
 @onready var imprint: ImprintTool = $Imprint
+@onready var gun: Gun = $Gun
 
 ## Set before the world enters the tree to start in this room. The command
 ## line (`-- --room=3`) and, on the web, `?room=3` fill it in when it is empty.
@@ -109,6 +110,7 @@ func warp_to(id: String) -> bool:
 ## comes back to when they die.
 func _place_in(id: String, world_position := Vector2.INF, respawn := false) -> void:
 	imprint.clear(false)
+	gun.clear()
 	if current != null:
 		current.set_exits_active(false)
 		current.queue_free()
@@ -182,6 +184,7 @@ func _make_room(id: String) -> Room:
 	room.position = Vector2(info.grid_pos) * Grid.SCREEN_SIZE
 	room.build(info, GameState.flags, GameState.machines, DevSession.bypass and DevSession.mode == DevSession.Mode.DEV_TEST)
 	room.exits_opened.connect(_on_exits_opened)
+	room.wall_broken.connect(imprint.sync_solids)
 	rooms_root.add_child(room)
 	return room
 
@@ -382,6 +385,7 @@ func _die() -> void:
 			_safe.pop_back()
 	_busy = true
 	imprint.clear(true)
+	gun.clear()
 	player.input_enabled = false
 	player.velocity = Vector2.ZERO
 	player.visible = false
@@ -429,6 +433,7 @@ func _on_exit(door: Door) -> void:
 	player.velocity = Vector2.ZERO
 	current.set_exits_active(false)
 	imprint.clear(false)
+	gun.clear()
 	_pending = _make_room(door.dest_id)
 	_pending.set_exits_active(false)
 	var crossed := Door.crossing(door, _pending.info, player.global_position, _carried)
@@ -492,7 +497,7 @@ func gameplay_input_blocked() -> bool:
 	if not modal_owner.is_empty():
 		return true
 	if _input_release:
-		for action in ["move_left", "move_right", "move_down", "jump", "imprint", "map"]:
+		for action in ["move_left", "move_right", "move_down", "jump", "shoot", "imprint", "map"]:
 			if Input.is_action_pressed(action):
 				return true
 		_input_release = false

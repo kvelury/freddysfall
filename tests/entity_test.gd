@@ -18,6 +18,7 @@ func _initialize() -> void:
 	ok = _world_ids() and ok
 	ok = _upgrade_file() and ok
 	ok = _health() and ok
+	ok = _breakable() and ok
 	ok = _spike_facing() and ok
 	print("ENTITY %s" % ("pass" if ok else "fail"))
 	quit(0 if ok else 1)
@@ -351,3 +352,49 @@ func _has(lines: Array[String], needle: String) -> bool:
 func _check(cond: bool, label: String) -> bool:
 	print(("ok   " if cond else "FAIL ") + label)
 	return cond
+
+
+## A breakable wall: one glyph drawn on every cell of one connected shape, solid
+## while it stands, not collectible, and refused where it would be broken.
+func _breakable() -> bool:
+	var ok := true
+	var legend := ["legend:", "  B = breakable id=w1"]
+	var wall := {}
+	for y in range(5, 9):
+		wall[Vector2i(10, y)] = "B"
+	var errors: Array[String] = []
+	var info := RoomParser.parse_room("7", Vector2i.ZERO, _room(legend, wall), errors)
+	ok = _check(errors.is_empty() and info.entities.size() == 1 and info.entities[0].type == "breakable" and info.entities[0].cells.size() == 4, "a wall drawn on four cells loads as one thing %s" % [errors]) and ok
+	ok = _check(info.is_solid(10, 6) and info.solids.all(func(r: Rect2i) -> bool: return not r.has_point(Vector2i(10, 6))), "it is solid, but not one of the room's plain solids") and ok
+	ok = _check(info.standing_wall_at(Vector2i(10, 6)) == "w1" and info.variant(["w1"] as Array[String]).standing_wall_at(Vector2i(10, 6)) == "" and not info.variant(["w1"] as Array[String]).is_solid(10, 6), "and a variant with it broken has it open") and ok
+	ok = _check(not Entities.is_collectible(info.entities[0]) and not Entities.is_touchable(info.entities[0]), "it is not something to take or touch") and ok
+
+	var pieces := {Vector2i(10, 5): "B", Vector2i(10, 6): "B", Vector2i(10, 9): "B"}
+	errors = []
+	RoomParser.parse_room("7", Vector2i.ZERO, _room(legend, pieces), errors)
+	ok = _check(_has(errors, "do not touch"), "a wall in two pieces is an error %s" % [errors]) and ok
+
+	errors = []
+	RoomParser.parse_room("7", Vector2i.ZERO, _room(legend, {Vector2i(0, 5): "B"}), errors)
+	ok = _check(_has(errors, "outer wall"), "a wall cell in the outer wall is an error %s" % [errors]) and ok
+
+	errors = []
+	RoomParser.parse_room("7", Vector2i.ZERO, _room(["legend:", "  B = breakable"], {Vector2i(10, 5): "B"}), errors)
+	ok = _check(_has(errors, "needs an id"), "a wall needs an id %s" % [errors]) and ok
+
+	errors = []
+	RoomParser.parse_room("7", Vector2i.ZERO, _room(["legend:", "  B = breakable id=w1 hits=5"], {Vector2i(10, 5): "B"}), errors)
+	ok = _check(_has(errors, "does not use"), "and takes no other setting yet %s" % [errors]) and ok
+
+	errors = []
+	RoomParser.parse_room("s1", Vector2i.ZERO, _room(["legend:", "  B = breakable id=w1", "  S = save id=s1_save"], {Vector2i(10, 5): "B", Vector2i(16, 15): "S"}), errors)
+	ok = _check(_has(errors, "holds nothing but"), "a save room cannot hold one %s" % [errors]) and ok
+
+	errors = []
+	var pickups := RoomParser.parse_room("7", Vector2i.ZERO, _room(["exits: pickups", "legend:", "  B = breakable id=w1"], {Vector2i(10, 5): "B"}), errors)
+	ok = _check(pickups != null and not errors.is_empty(), "`exits: pickups` does not count a wall as something to take, so a room with only a wall refuses it %s" % [errors]) and ok
+
+	var node := Entities.create(info.entities[0])
+	ok = _check(node is BreakableWall, "it builds as a BreakableWall") and ok
+	node.free()
+	return ok

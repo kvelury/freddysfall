@@ -104,8 +104,11 @@ func _run() -> void:
 	_check(state.health == 1 and state.flags.has("health:later_pip"), "taking a health pip in a test adds one and sets its flag")
 	state.map_zoom = 2
 	_check(session.set_classic_imprint(_world, true).is_empty(), "turn Classic Imprint on before a retry")
+	_check(session.wall_strength() == 3 and session.set_wall_strength(_world, 5).is_empty() and session.wall_strength() == 5, "wall strength starts at 3 and a dev test can set it")
+	_check(not state.to_dict().has("wall_strength") and not session.loadout.has("wall_strength"), "it is in no save or loadout")
 	_check(session.retry(_world).is_empty(), "retry after travelling across rooms")
 	await _replacement()
+	_check(session.wall_strength() == 5, "wall strength survives a retry")
 	_check(session.classic_imprint and session.classic_imprint_active(), "Classic Imprint survives a retry")
 	_check(_world.current.info.id == "7" and state.flags.has("pickup:baseline") and not state.flags.has("pickup:later") and state.machines["baseline_machine"] == 1 and not state.flags.has("health:later_pip"), "retry restores original room, flags (the pip is back), and machine fills")
 	_check(state.tokens == 3 and state.health == 6 and state.abilities.imprint_duration == 5.0, "retry uses latest explicitly applied powers and replenishes resources")
@@ -137,6 +140,7 @@ func _run() -> void:
 	_check(session.end(_world).is_empty(), "end isolated playtest")
 	await _replacement()
 	_check(not session.classic_imprint and not session.classic_imprint_active(), "ending the playtest resets Classic Imprint")
+	_check(session.wall_strength() == 3 and session.wall_strength_override == 0, "and the wall strength")
 	_check(not session.isolated() and state.health == 7 and state.abilities.imprint_width == 4 and _world.current.info.id == "7", "ending restores normal saved progression")
 	_check(FileAccess.get_file_as_string(TEMP) == original, "ending does not save test state")
 	# The independent headless/test disable flag must survive ending a session.

@@ -8,6 +8,23 @@ Everything here passed its headless tests or was reported as unverified in a pul
 
 Played in the browser and found good, so these are not listed line by line any more: Imprint in the browser (placing, the preview, the cross, the blink), saving and resuming, the solver and the "needs" lines, movement and doors, the whole world map of PR #17 (rooms 1 to 7, the exit rules, the tokens on the body, the 3TM and its feeding, and the spent machine), and the Imprint look of PR #18 (the dotted cursor, placed platforms drawn over it, the countdown lines, and the blink), and the map zoom of PR #20 (the three levels, the legend, the level kept across reloads, a new game starting fresh, and the marker staying in its room), and the 2.5 second Imprint of PR #21 (the time, the four lines, and the blink on the last line; the duration is now 1.5 s, see "Imprint lockout" below). On 2026-10-22 the release export was also smoke-tested in Chrome: it loaded without console errors, sustained keyboard movement and running jumps worked, and the map opened while held and closed on release. The cloud test executor could not reliably observe and steer a whole platforming route, so that smoke did not replace the earlier full progression playthroughs. A new problem in any of them goes back on this list.
 
+## Gun and breakable walls
+
+Nobody has played these yet. Headless tests prove the rules, not the feel. Use `?dev=1&room=7`, open F2, turn the gun on and Apply (add Air jumps 1 if you want to climb), or play to room 9's 3TM, which gives it.
+
+- [ ] **The rate.** Mash Space: about three shots a second, and no faster. Is it spammable enough, or too much? Tuning knobs: Gun cooldown and Shot speed in F2 (the starting values are in `Abilities`).
+- [ ] **The shot reads.** A 3 x 1 px white line at 1x: can you see it, and does it feel quick? Does it feel right leaving the body in the direction faced, and after turning mid-air?
+- [ ] **Shooting while jumping.** Jump and shoot to hit something higher. A shot stops at walls, moving platforms and Imprint platforms, and goes on past spikes.
+- [ ] **Space shoots, W and Up jump.** Space no longer jumps. Is it comfortable with a direction held?
+- [ ] **The cracks.** A wall looks cracked and breakable from across a room. Each hit flashes it and adds cracks, and the third shatters it cell by cell.
+- [ ] **Standing on a wall.** An intact wall holds the player like any platform; once it breaks, they fall.
+- [ ] **A wall grows back.** Leave room 7 and come back, die and respawn in it, and retry from F2: the wall is whole each time.
+- [ ] **Room 7's pip.** Come in from room 11 (`?dev=1&room=11`), stand on the exit-2 ledge (the left two cells were removed), face left and shoot the wall (three hits), then jump in for the pip. The roof is five rows higher than before, with the wall running floor to roof and the floor two rows lower than the original, flush with it. Walking off the ledge now drops past the box. The player cannot get in without the gun, by jumping or dropping.
+- [ ] **Room 9's 3TM** gives the gun with "Gun. Space shoots the way you face." (`?dev=1&room=9` with three tokens set in F2).
+- [ ] **F2.** Gun on/off, cooldown and speed apply and survive a retry and a named loadout. Wall strength (Player tab, below Classic Imprint): 1 breaks in one shot, 5 in five, takes effect at once, survives a retry, and End playtest resets it to 3.
+- [ ] **The solver agrees.** `tools/validate.sh` lists room 7's pip as needing the gun (via room 9's 3TM and its tokens) and passes. Nobody has played the whole route to the pip without dev tools.
+- [ ] **Nothing odd:** shooting during a door slide, the map, the F2 panel or a save does nothing, and shots do not follow you into the next room.
+
 ## Double jump
 
 Nobody has played this yet. Headless tests prove the rule (height, refill, priority), not the feel. Start `?dev=1&room=s1`, open F2, set Air jumps to 1 and Apply. Or play from a new game: the 3TM in room 4 gives it.
@@ -21,7 +38,7 @@ Nobody has played this yet. Headless tests prove the rule (height, refill, prior
 - [ ] **Feedback.** The 1 px stretch and a puff of dust downward from the feet on an air jump.
 - [ ] **F2 field.** Air jumps 0, 1 and 3, Apply, retry and a named loadout round trip. Lowering it mid-air takes the extra jumps away at once. Changing it does not clear placed Imprints.
 - [ ] **Room 4's 3TM** gives double jump with the line "Double jump. Press jump again in the air.", and Imprint stays locked (no cursor platform, no line on the body).
-- [ ] **Room 9's 3TM** (reached with `?dev=1&room=9` and three tokens set in F2) gives a health pip and nothing else.
+- [ ] **Room 9's 3TM** (reached with `?dev=1&room=9` and three tokens set in F2) now gives the gun; see "Gun and breakable walls". No room gives a health pip from a 3TM any more.
 - [ ] **Rooms 5 and 6 without Imprint.** Cross room 5's pit with double jump from the token platform (the left floor is a one-way landing, so you cannot cross back; both rooms are `trap: allowed`). Then try the rest of the world to room 10 and the 3TM in room 9 without Imprint: the validator says all 56 ledges are reachable, but nobody has played it.
 
 ## Fall presentation
@@ -52,12 +69,12 @@ Start `?dev=1&room=6` with Imprint on in F2 (or later rooms directly with `room=
 - [ ] **Room 8 at 100 px/s.** Tricky but fair; the upper platform to the exit ledge needs the Imprint.
 - [ ] **Room 9.** The lift, the Imprint across to the 3TM pillar, the Imprint up to the exit and the token.
 - [ ] **Room 10's lifts.** Lift 1, 2, 3 timing at 60 px/s, then the Imprint to the shelf.
-- [ ] **The loop.** 10 → 11 → 7's exit 2 → drop to the pip → exit 1 → 8 → 9, and feed the third token: Imprint becomes 3 wide.
+- [ ] **The loop.** 10 → 11 → 7's exit 2 → drop to the pip → exit 1 → 8 → 9, and feed the third token: the gun (and not Imprint 3 wide, as it was).
 
 ## Health pips
 
 - [ ] **Room 11's way back.** Coming in from room 10 you land on the ledge under the door and can walk back into room 10; from room 11's floor the two steps climb back up to it.
-- [ ] **Room 7's pip.** Reached by dropping from exit 2. It reads as a plus that bobs, apart from tokens and pickups; taking it says "Health pip (1)". Then die on spikes: you come back on the last safe floor, not at s2, and the next death goes to s2. In F2, set health, clear it, retry (the pip comes back), and round-trip it through a loadout.
+- [ ] **Room 7's pip.** Reached by dropping from exit 2, then shooting the wall that closes it in (see "Gun and breakable walls"). It reads as a plus that bobs, apart from tokens and pickups; taking it says "Health pip (1)". Then die on spikes: you come back on the last safe floor, not at s2, and the next death goes to s2. In F2, set health, clear it, retry (the pip comes back), and round-trip it through a loadout.
 
 ## Imprint shrinking
 
