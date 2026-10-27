@@ -3,7 +3,7 @@ extends SceneTree
 ## The 3TM in room 4: with no tokens it says how full it is, with some it takes
 ## them one at a time, remembers them, and on the third gives double jump, after
 ## which it does nothing. The fill and the upgrade survive a save. Room 9's
-## 3TM gives a health pip instead of an upgrade.
+## 3TM gives the gun, and a `prize=health` machine gives a health pip.
 
 const TEMP := "user://machine_test.json"
 
@@ -96,12 +96,20 @@ func _run() -> void:
 	machine = _machine(world.current)
 	ok = _check(machine != null and machine.spent, "and room 4 builds the 3TM already spent") and ok
 
-	# Room 9's 3TM gives a health pip, and no ability.
-	var prize: EntityDef = null
+	# Room 9's 3TM gives the gun.
+	var second: EntityDef = null
 	for def in root.get_node("WorldData").get_room("9").entities:
 		if def.type == "machine":
-			prize = def
-	ok = _check(prize != null and prize.props.get("prize") == "health" and Entities.problems(prize).is_empty(), "room 9's 3TM has prize=health") and ok
+			second = def
+	ok = _check(second != null and second.props.get("upgrade") == "gun" and Entities.problems(second).is_empty(), "room 9's 3TM has upgrade=gun") and ok
+	ok = _check(not state.abilities.gun_unlocked and "Gun" in state.machine_prize(second) and state.abilities.gun_unlocked, "and gives the gun, with a line saying so") and ok
+
+	# A `prize=health` machine gives a health pip and no ability.
+	var prize := EntityDef.new()
+	prize.type = "machine"
+	prize.id = "health_machine"
+	prize.props = {"prize": "health"}
+	ok = _check(Entities.problems(prize).is_empty(), "a 3TM with prize=health is valid") and ok
 	var health_before: int = state.health
 	var abilities_before: Dictionary = state.abilities.to_dict()
 	var line: String = state.machine_prize(prize)

@@ -10,5 +10,8 @@ var type := ""
 ## never worked out from where the thing sits.
 var id := ""
 var cell := Vector2i.ZERO
+## Every cell the thing is drawn on, for the kinds that fill more than one (a
+## breakable wall). `cell` is the first of them.
+var cells: Array[Vector2i] = []
 ## Every other key=value the legend line had, as text.
 var props := {}

@@ -11,6 +11,12 @@ var bypass := false
 ## Imprint platforms keep their width and show the dash clock. A comparison
 ## switch for a dev test: not saved, not in a loadout.
 var classic_imprint := false
+## How many shots break a breakable wall in a dev test, or 0 for the default
+## (BreakableWall.DEFAULT_STRENGTH). World tuning and not an ability, so it is
+## a session setting like Classic Imprint: it survives retries, is not saved
+## and is not in a loadout, and End playtest or a fresh boot resets it.
+var wall_strength_override := 0
+const MAX_WALL_STRENGTH := 99
 var retry_on_death := false
 var target := ""
 var baseline := {}
@@ -32,6 +38,7 @@ func configure(dev: bool, room_test: bool) -> void:
 	mode = Mode.DEV_TEST if dev else (Mode.ROOM_TEST if room_test else Mode.NORMAL)
 	bypass = false
 	classic_imprint = false
+	wall_strength_override = 0
 	retry_on_death = false
 	baseline = {}
 	loadout = {}
@@ -142,6 +149,23 @@ func set_classic_imprint(world: Node, on: bool) -> String:
 	return ""
 
 
+## Shots a breakable wall takes to break: the dev test's setting if there is
+## one, else the default.
+func wall_strength() -> int:
+	if mode == Mode.DEV_TEST and wall_strength_override > 0:
+		return wall_strength_override
+	return BreakableWall.DEFAULT_STRENGTH
+
+
+func set_wall_strength(world: Node, shots: int) -> String:
+	if mode != Mode.DEV_TEST or replacing or world.is_busy():
+		return "Dev tools are not ready."
+	if shots < 1 or shots > MAX_WALL_STRENGTH:
+		return "Wall strength is a whole number from 1 to %d." % MAX_WALL_STRENGTH
+	wall_strength_override = shots
+	return ""
+
+
 func set_retry_on_death(world: Node, on: bool) -> String:
 	if mode != Mode.DEV_TEST or replacing or world.is_busy():
 		return "Dev tools are not ready."
@@ -172,6 +196,7 @@ func _replace(world: Node, state: Dictionary, normal: bool) -> void:
 		mode = Mode.NORMAL
 		bypass = false
 		classic_imprint = false
+		wall_strength_override = 0
 		retry_on_death = false
 		baseline = {}
 		loadout = {}

@@ -121,6 +121,15 @@ func _run() -> void:
 	_check(not session.classic_imprint, "and turns off again")
 	panel._process(0.0)
 	_check(not panel._indicator.text.contains("classic"), "with the indicator gone")
+	_check(panel._wall != null and panel._wall.text == "3", "the wall strength field is on the Player tab, at 3")
+	panel._wall.text_submitted.emit("4")
+	_check(session.wall_strength() == 4 and panel._wall.text == "4", "typing a number sets the strength")
+	panel._wall.text_submitted.emit("0")
+	_check(session.wall_strength() == 4 and panel._wall.text == "4", "an invalid number is refused and the field shows the real value")
+	panel._wall.text_submitted.emit("x")
+	_check(session.wall_strength() == 4, "and so is text")
+	session.wall_strength_override = 0
+	panel._wall.text = "3"
 	panel.close_panel()
 	world._busy = true
 	_press(panel, KEY_F2)

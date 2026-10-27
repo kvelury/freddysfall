@@ -44,6 +44,9 @@ const MAX_PHASE_STEP := 12
 ## AIR_FIRST_HOLDS ticks: the second press at each of AIR_FRAMES (ticks after
 ## the first), held for each of AIR_HOLDS. A walk off a ledge uses the later
 ## frames only (AIR_OFF_FRAMES), because the early ones are still its coyote jump.
+## Most states (sets of walls broken in one visit) the solver keeps for a room.
+## More than this is an error: split the room.
+const MAX_WALL_STATES := 16
 const AIR_FIRST_HOLDS: Array[int] = [8, 90]
 const AIR_FRAMES: Array[int] = [10, 18, 26, 40]
 const AIR_OFF_FRAMES: Array[int] = [16, 24, 36]
@@ -67,6 +70,14 @@ var _ledges := {}
 var _geometry := {}
 var _solved := {}
 var _air_solved := {}
+## The solver's copies of rooms with walls broken: key (see RoomInfo.key_for)
+## -> room, and base room id -> its keys. A copy's ledges are in `_ledges`
+## under its key, like any room's.
+var _variants := {}
+var _variant_keys := {}
+var _shots_cache := {}
+var _rise := {}
+var _state_errors: Array[String] = []
 var _landings := {}
 var _imprint: ImprintSearch
 ## Microseconds spent building the jumps of every ledge.
@@ -106,13 +117,43 @@ func timing() -> Dictionary:
 
 
 func room_info(room_id: String) -> RoomInfo:
-	return _rooms[room_id]
+	return _info_of(room_id)
 
 
 func ledges_in(room_id: String) -> Array[Ledge]:
 	var out: Array[Ledge] = []
 	out.assign(_ledges.get(room_id, []))
 	return out
+
+
+## A room as loaded or one of the solver's copies with walls broken, by key.
+func _info_of(key: String) -> RoomInfo:
+	return _rooms[key] if _rooms.has(key) else _variants[key]
+
+
+func _ledges_of(key: String) -> Array:
+	return _ledges[key]
+
+
+## The copy of room `base_id` with the walls in `broken` broken, made the first
+## time it is asked for. Null, with an error kept for the report, if the room
+## would have more than MAX_WALL_STATES.
+func _variant_for(base_id: String, broken: Array[String]) -> RoomInfo:
+	var key := RoomInfo.key_for(base_id, broken)
+	if _variants.has(key):
+		return _variants[key]
+	if not _variant_keys.has(base_id):
+		_variant_keys[base_id] = []
+	if _variant_keys[base_id].size() >= MAX_WALL_STATES:
+		var line := "Room %s has more than %d wall states (sets of its breakable walls broken in one visit); split the room or its walls" % [base_id, MAX_WALL_STATES]
+		if not _state_errors.has(line):
+			_state_errors.append(line)
+		return null
+	var info: RoomInfo = (_rooms[base_id] as RoomInfo).solver_variant(broken)
+	_variants[key] = info
+	_variant_keys[base_id].append(key)
+	_ledges[key] = _find_ledges(info)
+	return info
 
 
 ## Walks the whole graph from the start room's spawn with the abilities the
@@ -148,6 +189,9 @@ func solve(start_room: String) -> Report:
 		abilities = _with(base, taken.keys())
 		report = _analyze(start_room)
 		for ledge in report.reached:
+			# A copy of a room with walls broken is not a place of its own.
+			if ledge.room_id != ledge.base():
+				continue
 			if not room_round.has(ledge.room_id):
 				room_round[ledge.room_id] = round
 			if not ledge_round.has(ledge):
@@ -156,7 +200,8 @@ func solve(start_room: String) -> Report:
 			if not seen.has(ledge):
 				trap_lines.append("%s is a trap: once there, no path leads back to the start" % ledge.describe())
 		for ledge in report.reached:
-			seen[ledge] = true
+			if ledge.room_id == ledge.base():
+				seen[ledge] = true
 		var fresh := 0
 		for pickup in report.pickups:
 			if pickup["reached"] and not taken.has(pickup["id"]):
@@ -271,7 +316,7 @@ func _analyze(start_room: String) -> Report:
 			home = _place_imprints_to_get_home(run, start, _home(run, start))
 	var reached_rooms := {}
 	for ledge in reached:
-		reached_rooms[ledge.room_id] = true
+		reached_rooms[ledge.base()] = true
 	report.reached = reached
 	report.reached_rooms = reached_rooms
 	var unreached_rooms: Array[String] = []
@@ -301,7 +346,10 @@ func _analyze(start_room: String) -> Report:
 			elif reached_doors.has(key) and int(door_landings.get(key, 0)) == 0:
 				empty_doors.append("Room %s: the %s door at %s leads into room %s, but a body going through it never lands on anything (a void, or only spikes)" % [id, door.edge, door.rect, door.dest_id])
 		for ledge: Ledge in _ledges[id]:
-			if not reached.has(ledge):
+			if not reached.has(ledge) and _reached_in_a_state(run, ledge):
+				# Only a player who has broken a wall stands here, as in a box it closes in.
+				report.reached_ledges += 1
+			elif not reached.has(ledge):
 				report.unreached.append(ledge)
 				if reached_rooms.has(id):
 					unreached_ledges.append("%s cannot be reached" % ledge.describe())
@@ -326,11 +374,81 @@ func _analyze(start_room: String) -> Report:
 	_append_capped(report.errors, empty_doors)
 	_append_capped(report.warnings, unreached_ledges)
 	_append_capped(report.warnings, one_way_lines)
-	report.reached_ledges = reached.size()
+	# Copies of a room with walls broken are states of one visit, not more places.
+	for ledge in reached:
+		if ledge.room_id == ledge.base():
+			report.reached_ledges += 1
 	report.total_ledges = 0
-	for id in _ledges:
+	for id in _rooms:
 		report.total_ledges += _ledges[id].size()
+	_append_capped(report.errors, _state_errors)
 	return report
+
+
+## The ledges a body standing on `ledge` can get to by shooting a breakable
+## wall: for each wall it has a clear line to, the ledge at the same spot in
+## the copy of the room with that wall (and the ones already broken) broken.
+## Walls grow back whenever the player re-enters a room, so a broken wall is a
+## state of one visit: it is kept in the copy's key and never leaves the room.
+func _shot_ledges(ledge: Ledge, info: RoomInfo) -> Array[Ledge]:
+	var out: Array[Ledge] = []
+	if ledge.moving or info.breakables.is_empty():
+		return out
+	for shot in _shots_from(ledge, info):
+		var broken: Array[String] = []
+		broken.assign(info.broken)
+		broken.append(String(shot[0]))
+		var vinfo := _variant_for(ledge.base(), broken)
+		if vinfo == null:
+			continue
+		var target := _ledge_at_cell(vinfo, Vector2i(int(shot[1]), ledge.row))
+		if target != null and not out.has(target):
+			out.append(target)
+	return out
+
+
+## [wall id, column] pairs: a wall that still stands with a straight line along
+## a row from a column of `ledge`, the row being the one the body stands in or a
+## row it can jump up to with nothing solid in the way (the most it rises is
+## `_rise_cells`). A shot flies along the row to the first solid, which has to be
+## the wall.
+func _shots_from(ledge: Ledge, info: RoomInfo) -> Array:
+	var air := 1 if abilities.air_jumps > 0 else 0
+	var key := "%d|%d|%s" % [ledge.get_instance_id(), air, ",".join(info.broken)]
+	if _shots_cache.has(key):
+		return _shots_cache[key]
+	var out := []
+	var width := info.cell_size.x
+	var rise := _rise_cells(air)
+	for cx in range(ledge.x0, ledge.x1 + 1):
+		for height in rise + 1:
+			var row := ledge.row - height
+			if row < 0 or info.is_solid(cx, row):
+				break
+			for way in [-1, 1]:
+				var x: int = cx + way
+				while x >= 0 and x < width:
+					var wall := info.standing_wall_at(Vector2i(x, row))
+					if not wall.is_empty():
+						if not out.any(func(s: Array) -> bool: return s[0] == wall and s[1] == cx):
+							out.append([wall, cx])
+						break
+					if info.is_solid(x, row):
+						break
+					x += way
+	_shots_cache[key] = out
+	return out
+
+
+## How many whole cells a body rises in a full jump (with an air jump at the
+## top, if `air`), measured with the simulator.
+func _rise_cells(air: int) -> int:
+	if _rise.has(air):
+		return _rise[air]
+	var floor_rects: Array = [Rect2(-1000.0, 100.0, 3000.0, 50.0)]
+	var result := MovementSim.simulate_jump(_cfg, floor_rects, Vector2(0.0, 95.0), Vector2.ZERO, 0.0, 90, true, true, [], Rect2(), [], [], NAN, 0, 180, false, null, 0, -1, air, 22 if air > 0 else -1, 90)
+	_rise[air] = floori((100.0 - float(result["min_feet"])) / float(Grid.CELL))
+	return _rise[air]
 
 
 ## Spreads out from the ledges in the queue, following jumps, drops, walks and
@@ -339,7 +457,7 @@ func _analyze(start_room: String) -> Report:
 func _flood(run: Run) -> void:
 	while not run.queue.is_empty():
 		var ledge: Ledge = run.queue.pop_back()
-		var info: RoomInfo = _rooms[ledge.room_id]
+		var info: RoomInfo = _info_of(ledge.room_id)
 		_ensure_edges(info)
 		var air := abilities != null and abilities.air_jumps > 0
 		if air:
@@ -350,6 +468,8 @@ func _flood(run: Run) -> void:
 		if air:
 			for index in ledge.air_to_ledges:
 				next.append(_ledges[ledge.room_id][index])
+		if abilities != null and abilities.gun_unlocked:
+			next.append_array(_shot_ledges(ledge, info))
 		next.append_array(run.extra_to.get(ledge, []))
 		var touches: Array[Touch] = []
 		touches.append_array(ledge.touches)
@@ -357,14 +477,14 @@ func _flood(run: Run) -> void:
 			touches.append_array(ledge.air_touches)
 		touches.append_array(run.extra_touches.get(ledge, []))
 		# The doors of a locked room are blocks: its touches wait until it opens.
-		if run.locked.has(ledge.room_id) and not touches.is_empty():
-			if not run.held.has(ledge.room_id):
-				run.held[ledge.room_id] = []
-			if not run.held[ledge.room_id].has(ledge):
-				run.held[ledge.room_id].append(ledge)
+		if run.locked.has(ledge.base()) and not touches.is_empty():
+			if not run.held.has(ledge.base()):
+				run.held[ledge.base()] = []
+			if not run.held[ledge.base()].has(ledge):
+				run.held[ledge.base()].append(ledge)
 			touches.clear()
 		for touch in touches:
-			var key := "%s#%d" % [ledge.room_id, touch.door]
+			var key := "%s#%d" % [ledge.base(), touch.door]
 			run.reached_doors[key] = true
 			var landings := _landings_of(info, touch, 0)
 			run.door_landings[key] = int(run.door_landings.get(key, 0)) + landings.size()
@@ -475,7 +595,7 @@ func _place_imprints_to_get_home(run: Run, start: Ledge, home: Dictionary) -> Di
 			for other: Ledge in _ledges[ledge.room_id]:
 				if home.has(other):
 					targets.append(Rect2(other.lo - 5.0, other.top - 10.0, other.hi - other.lo + 10.0, 10.0))
-			for door in _rooms[ledge.room_id].exits:
+			for door in _info_of(ledge.room_id).exits:
 				targets.append(door.trigger_rect())
 			var found := _imprint.expand(ledge, targets)
 			if found["ledges"].is_empty() and found["touches"].is_empty():
@@ -526,12 +646,31 @@ func _unreached_targets(run: Run) -> Dictionary:
 
 
 func _pickup_reached(run: Run, room_id: String, index: int) -> bool:
-	for ledge: Ledge in _ledges[room_id]:
-		if not run.reached.has(ledge):
-			continue
-		if ledge.pickups.has(index) or (abilities.air_jumps > 0 and ledge.air_pickups.has(index)) or run.extra_pickups.get(ledge, []).has(index):
-			return true
+	var keys: Array = [room_id]
+	keys.append_array(_variant_keys.get(room_id, []))
+	for key in keys:
+		for ledge: Ledge in _ledges[key]:
+			if _pickup_on(run, ledge, index):
+				return true
 	return false
+
+
+## Whether `ledge`, in a room as loaded, is stood on in some state of it: a place
+## in the copy of the room with walls broken that covers the same cells.
+func _reached_in_a_state(run: Run, ledge: Ledge) -> bool:
+	if ledge.moving:
+		return false
+	for key in _variant_keys.get(ledge.room_id, []):
+		for other: Ledge in _ledges[key]:
+			if not other.moving and run.reached.has(other) and other.row == ledge.row and other.x0 <= ledge.x1 and other.x1 >= ledge.x0:
+				return true
+	return false
+
+
+func _pickup_on(run: Run, ledge: Ledge, index: int) -> bool:
+	if not run.reached.has(ledge):
+		return false
+	return ledge.pickups.has(index) or (abilities.air_jumps > 0 and ledge.air_pickups.has(index)) or run.extra_pickups.get(ledge, []).has(index)
 
 
 func _append_capped(into: Array[String], lines: Array[String]) -> void:
@@ -556,6 +695,7 @@ func _find_ledges(info: RoomInfo) -> Array[Ledge]:
 				continue
 			var ledge := Ledge.new()
 			ledge.room_id = info.id
+			ledge.base_id = info.base()
 			ledge.index = out.size()
 			ledge.row = y
 			ledge.x0 = x
@@ -576,6 +716,7 @@ func _find_ledges(info: RoomInfo) -> Array[Ledge]:
 		var start := path.rect_at(0)
 		var ledge := Ledge.new()
 		ledge.room_id = info.id
+		ledge.base_id = info.base()
 		ledge.index = out.size()
 		ledge.moving = true
 		ledge.path = i
@@ -678,7 +819,7 @@ func _land(dest: RoomInfo, pos: Vector2, vel: Vector2, skip_door: int, depth: in
 func geometry_of(info: RoomInfo) -> Geometry:
 	if not _geometry.has(info.id):
 		var geo := Geometry.new()
-		for cell_rect in info.solids:
+		for cell_rect in info.all_solids():
 			geo.rects.append(Grid.cell_rect(cell_rect))
 		for door in info.exits:
 			geo.triggers.append(door.trigger_rect())
@@ -1061,7 +1202,11 @@ class Touch extends RefCounted:
 
 
 class Ledge extends RefCounted:
+	## The key of the room the ledge is in: its id, or for a copy of a room with
+	## walls broken, the id and `~` and the broken ids (RoomInfo.key_for).
 	var room_id := ""
+	## The id of the room as loaded, which is `room_id` unless that is a copy.
+	var base_id := ""
 	var index := 0
 	var row := 0
 	var x0 := 0
@@ -1104,10 +1249,14 @@ class Ledge extends RefCounted:
 			keys[touch.key()] = true
 			(air_touches if air else touches).append(touch)
 
+	## The room as loaded (`base_id`, or `room_id` for a ledge made some other way).
+	func base() -> String:
+		return base_id if not base_id.is_empty() else room_id
+
 	func describe() -> String:
 		if moving:
-			return "Room %s: the moving platform %s" % [room_id, platform_id]
-		return "Room %s: the ledge on row %d, cells %d-%d" % [room_id, row, x0, x1]
+			return "Room %s: the moving platform %s" % [base(), platform_id]
+		return "Room %s: the ledge on row %d, cells %d-%d" % [base(), row, x0, x1]
 
 
 class Report extends RefCounted:

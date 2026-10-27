@@ -166,7 +166,7 @@ static func _place_entities(info: RoomInfo, placements: Dictionary, errors: Arra
 		var cells: Array = placements.get(glyph, [])
 		if cells.is_empty():
 			errors.append("Room %s: legend glyph '%s' (%s %s) is never drawn in the room" % [info.id, glyph, def.type, def.id])
-		elif cells.size() > 1 and def.type != "platform":
+		elif cells.size() > 1 and def.type != "platform" and def.type != "breakable":
 			errors.append("Room %s: legend glyph '%s' (%s %s) is drawn %d times, at %s and elsewhere; each one needs its own glyph and id" % [info.id, glyph, def.type, def.id, cells.size(), cells[0]])
 		elif def.type == "platform":
 			var path := _place_platform(info, def, cells, errors)
@@ -174,6 +174,14 @@ static func _place_entities(info: RoomInfo, placements: Dictionary, errors: Arra
 				def.cell = path.start_cells.position
 				info.entities.append(def)
 				info.platforms.append(path)
+		elif def.type == "breakable":
+			def.cell = cells[0]
+			for cell: Vector2i in cells:
+				def.cells.append(cell)
+			if not _connected(cells):
+				errors.append("Room %s: breakable wall %s is drawn in pieces that do not touch; one glyph is one wall, so draw it as one connected shape (or give each piece its own glyph and id)" % [info.id, def.id])
+			info.register_breakable(def.id, def.cells)
+			info.entities.append(def)
 		else:
 			def.cell = cells[0]
 			if def.type == "machine" or def.type == "save":
@@ -183,6 +191,21 @@ static func _place_entities(info: RoomInfo, placements: Dictionary, errors: Arra
 				if not problem.is_empty():
 					errors.append(problem)
 			info.entities.append(def)
+
+
+## Whether `cells` form one shape, each cell touching another along a side.
+static func _connected(cells: Array) -> bool:
+	var left := {}
+	for cell: Vector2i in cells:
+		left[cell] = true
+	var queue: Array[Vector2i] = [cells[0]]
+	left.erase(cells[0])
+	while not queue.is_empty():
+		var at: Vector2i = queue.pop_back()
+		for way in [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]:
+			if left.erase(at + way):
+				queue.append(at + way)
+	return left.is_empty()
 
 
 ## A moving platform is drawn as a row of its glyph where it starts, with its
@@ -276,6 +299,12 @@ static func _check_platforms(info: RoomInfo, errors: Array[String]) -> void:
 		var keep := path.keep_out()
 		for def in info.entities:
 			if def.type == "platform":
+				continue
+			if def.type == "breakable":
+				for wall_cell in def.cells:
+					if Grid.cell_rect(Rect2i(wall_cell, Vector2i.ONE)).intersects(keep):
+						found.append("Room %s: breakable wall %s is in the way of moving platform %s; keep things out of its track and the row above it" % [info.id, def.id, path.id])
+						break
 				continue
 			var space := Rect2i(def.cell, Vector2i.ONE)
 			if def.type == "machine":

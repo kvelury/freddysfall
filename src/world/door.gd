@@ -95,7 +95,7 @@ static func crossing(door: Door, dest: RoomInfo, position: Vector2, velocity: Ve
 static func _walled(room: RoomInfo, local_center: Vector2) -> bool:
 	var half := float(Grid.CELL) * 0.5
 	var body := Rect2(local_center - Vector2(half, half), Vector2(half, half) * 2.0)
-	for cell_rect in room.solids:
+	for cell_rect in room.all_solids():
 		if Grid.cell_rect(cell_rect).intersects(body):
 			return true
 	return false

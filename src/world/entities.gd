@@ -4,8 +4,9 @@ extends RefCounted
 ## The kinds of thing a room legend can place. The parser asks here whether a
 ## legend line is valid, and the room asks here to build the thing. Adding a
 ## kind means a line in TYPES, a script under src/world/entities/, and a case
-## in create. A moving platform is the one kind drawn as more than one cell:
-## the room parser turns it into a PlatformPath, and the room builds it.
+## in create. A moving platform and a breakable wall are the kinds drawn as more
+## than one cell: the room parser turns a platform into a PlatformPath, and a
+## breakable wall's cells go to RoomInfo.breakables; the room builds both.
 ##
 ## "required" and "optional" are the keys a legend line may carry besides
 ## id (always required) and the type itself.
@@ -17,6 +18,7 @@ const TYPES := {
 	"machine": {"required": [], "optional": ["upgrade", "value", "prize"]},
 	"save": {"required": [], "optional": []},
 	"platform": {"required": ["speed"], "optional": ["pause"]},
+	"breakable": {"required": [], "optional": []},
 }
 
 
@@ -114,5 +116,7 @@ static func create(def: EntityDef, fills := {}) -> Node2D:
 			return TokenMachine.new(def, int(fills.get(def.id, 0)))
 		"save":
 			return SaveMachine.new(def)
+		"breakable":
+			return BreakableWall.new(def)
 	# A platform is built by the room from its path, not from its def.
 	return null

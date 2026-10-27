@@ -36,6 +36,7 @@ const ONE_WAY := Color(0.55, 0.55, 0.55)
 const TRAP := Color(0.95, 0.85, 0.1)
 const LABEL := Color(0.75, 0.75, 0.75)
 const PLATFORM := Color(0.55, 0.75, 1.0)
+const BREAKABLE := Color(0.8, 0.45, 0.25)
 const TRACK := Color(0.3, 0.45, 0.85)
 
 ## 3 x 5 digits, and the s of a save room's id, one row per string.
@@ -143,7 +144,8 @@ func _room_image(info: RoomInfo, report: ReachGraph.Report) -> Image:
 
 func _cell_color(glyph: String, info: RoomInfo) -> Color:
 	if info.legend.has(glyph):
-		return PLATFORM if (info.legend[glyph] as EntityDef).type == "platform" else THING
+		var kind := (info.legend[glyph] as EntityDef).type
+		return PLATFORM if kind == "platform" else (BREAKABLE if kind == "breakable" else THING)
 	if Tiles.has_flag(glyph, "track"):
 		return TRACK
 	if not Tiles.is_known(glyph):

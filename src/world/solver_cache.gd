@@ -70,6 +70,8 @@ static func room_fingerprint(info: RoomInfo) -> String:
 		text += "door %s %s %s %s %s\n" % [door.edge, door.rect, door.screen, door.dest_id, door.dest_rect]
 	for cell in info.no_imprint:
 		text += "no_imprint %s\n" % cell
+	for wall_id in info.broken:
+		text += "broken %s\n" % wall_id
 	for def in info.entities:
 		var keys: Array = def.props.keys()
 		keys.sort()

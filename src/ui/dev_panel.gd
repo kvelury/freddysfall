@@ -19,6 +19,7 @@ var _rooms: ItemList
 var _bypass: CheckButton
 var _retry: CheckButton
 var _classic: CheckButton
+var _wall: LineEdit
 var _names: ItemList
 var _name: LineEdit
 var _store := DevLoadouts.new()
@@ -93,6 +94,7 @@ func open_panel(tab := 0) -> void:
 		_bypass.set_pressed_no_signal(DevSession.bypass)
 		_retry.set_pressed_no_signal(DevSession.retry_on_death)
 		_classic.set_pressed_no_signal(DevSession.classic_imprint)
+		_wall.text = str(DevSession.wall_strength())
 		_status.text = _store.error
 	_tabs.current_tab = tab
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
@@ -230,6 +232,29 @@ func _build_player(body: VBoxContainer) -> void:
 		_classic.set_pressed_no_signal(DevSession.classic_imprint)
 	)
 	body.add_child(_classic)
+	var wall_row := HBoxContainer.new()
+	body.add_child(wall_row)
+	var wall_label := Label.new()
+	wall_label.text = "Wall strength (shots to break)"
+	wall_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	wall_row.add_child(wall_label)
+	_wall = LineEdit.new()
+	_wall.custom_minimum_size.x = 62
+	wall_row.add_child(_wall)
+	_wall.text_submitted.connect(func(text: String) -> void: _set_wall(text))
+	_button(wall_row, "−", func() -> void: _set_wall(str(DevSession.wall_strength() - 1)))
+	_button(wall_row, "+", func() -> void: _set_wall(str(DevSession.wall_strength() + 1)))
+	_wall.text = str(DevSession.wall_strength())
+
+
+## Applies the wall strength typed or nudged. It takes effect at once, since it
+## is a session setting and not part of the staged loadout.
+func _set_wall(text: String) -> void:
+	if not text.is_valid_int():
+		_report("Wall strength is a whole number from 1 to %d." % DevSession.MAX_WALL_STRENGTH)
+	else:
+		_report(DevSession.set_wall_strength(_world, text.to_int()), "Wall strength set.")
+	_wall.text = str(DevSession.wall_strength())
 
 
 func _field(body: VBoxContainer, key: String, control: Dictionary) -> void:
