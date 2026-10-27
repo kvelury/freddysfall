@@ -189,6 +189,11 @@ panel render is a layout check, not a completed human browser playthrough.
 - [ ] **Doors that are not level,** and a door with a wall right behind it.
 - [ ] **Every way into a door,** not only the one the validator tried: slow, fast, from above, from the side.
 
+## Published site
+
+- [ ] **After the first deploy and after any change to the deploy workflow,** open https://kvelury.github.io/freddysfall/ on your own machine. The game loads, a door takes you to the next room, a reload keeps the save, and `?new-game=1` starts over.
+- [ ] **A first visit on a fresh browser profile** loads in a reasonable time (the `.wasm` and `.pck` are about 10 to 15 MB compressed) and plays audio after the first click.
+
 ## Things that were never built, so there is nothing to test yet
 
 Room 7's title card and its 3TM, gamepad and keyboard aiming, touch input, sound, the softer palettes, L-shaped rooms, the map panning, a second kind of token or a bigger pocket, and authored pickups/machines for Imprint numeric upgrades, plus bouncing. Width, duration, the cooldown and multiple active platforms already work and can be set through dev tools. Width and duration are read when a platform is placed, but no room gives either upgrade now (the width pickup went with the old room 5), so Imprint is the only upgrade you can get today.
