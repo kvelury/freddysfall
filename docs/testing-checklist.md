@@ -8,6 +8,17 @@ Everything here passed its headless tests or was reported as unverified in a pul
 
 Played in the browser and found good, so these are not listed line by line any more: Imprint in the browser (placing, the preview, the cross, the blink), saving and resuming, the solver and the "needs" lines, movement and doors, the whole world map of PR #17 (rooms 1 to 7, the exit rules, the tokens on the body, the 3TM and its feeding, and the spent machine), and the Imprint look of PR #18 (the dotted cursor, placed platforms drawn over it, the countdown lines, and the blink), and the map zoom of PR #20 (the three levels, the legend, the level kept across reloads, a new game starting fresh, and the marker staying in its room), and the 2.5 second Imprint of PR #21 (the time, the four lines, and the blink on the last line; the duration is now 1.5 s, see "Imprint lockout" below). On 2026-10-22 the release export was also smoke-tested in Chrome: it loaded without console errors, sustained keyboard movement and running jumps worked, and the map opened while held and closed on release. The cloud test executor could not reliably observe and steer a whole platforming route, so that smoke did not replace the earlier full progression playthroughs. A new problem in any of them goes back on this list.
 
+## Room 11
+
+The new room from the user's drawings. Start `?dev=1&room=11`, and in F2 turn the gun on and set Air jumps to 1 (or play from room 10).
+
+- [ ] **The stairs** from room 10's door down to the floor read as steps, and climb back up.
+- [ ] **`r11_lift`** rises to one cell under the ceiling spikes: does it feel fair, and is jumping off it at the top as dangerous as intended?
+- [ ] **`r11_slider`** over the floor spikes: its timing at 60 px/s, and getting on and off it.
+- [ ] **The pillar lift** above the pillar's top spikes: getting onto it from the slider, and its top, one column from the ceiling spikes.
+- [ ] **The door wall.** Shoot the L by the left door (three hits) and walk out into room 7's exit 2.
+- [ ] **Without the gun.** From room 10's bottom left platform a double jump reaches the door back to room 9 (the user found this in play), so room 10's token gets back to room 9's 3TM.
+
 ## Gun and breakable walls
 
 Nobody has played these yet. Headless tests prove the rules, not the feel. Use `?dev=1&room=7`, open F2, turn the gun on and Apply (add Air jumps 1 if you want to climb), or play to room 9's 3TM, which gives it.
