@@ -57,6 +57,7 @@ func _ready() -> void:
 	# Automatic camera interpolation would interpolate that pose a second time.
 	camera.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 	camera.make_current()
+	GameState.abilities_changed.connect(func() -> void: player.air_jumps = GameState.abilities.air_jumps)
 	var requested := start_override if not start_override.is_empty() else _launch_arg("room")
 	var id := WorldData.start_room
 	var at := Vector2.INF
@@ -115,6 +116,7 @@ func _place_in(id: String, world_position := Vector2.INF, respawn := false) -> v
 	var at := world_position
 	if not at.is_finite():
 		at = current.position + current.info.start_position()
+	player.air_jumps = GameState.abilities.air_jumps
 	player.place(at, current.world_rects())
 	player.room = current
 	player.facing = 1
@@ -316,7 +318,7 @@ func _feed(machine: TokenMachine) -> void:
 		var burst := Shatter.new()
 		burst.position = player.global_position
 		add_child(burst)
-		toast.show_text(GameState.grant(String(machine.def.props["upgrade"]), String(machine.def.props.get("value", ""))))
+		toast.show_text(GameState.machine_prize(machine.def))
 		await get_tree().create_timer(FEED_PAUSE, true, true).timeout
 	player.input_enabled = true
 	_busy = false

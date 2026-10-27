@@ -17,7 +17,7 @@ extends RefCounted
 ## The tests do not use it: they leave `ReachGraph.cache` empty.
 
 ## Goes up when the shape of the files changes.
-const FORMAT := 1
+const FORMAT := 2
 
 ## Everything a jump's result depends on.
 const SOLVER_FILES: Array[String] = [
@@ -44,7 +44,7 @@ var directory := ""
 ## The solver's fingerprint. Public so a test can change it.
 var solver := ""
 ## How much came from the cache and how much was worked out, for the report.
-var stats := {"edge_rooms_cached": 0, "edge_rooms_solved": 0, "legs_cached": 0, "legs_solved": 0}
+var stats := {"edge_rooms_cached": 0, "edge_rooms_solved": 0, "legs_cached": 0, "legs_solved": 0, "air_rooms_cached": 0, "air_rooms_solved": 0}
 var _rooms := {}
 
 
@@ -99,6 +99,10 @@ func entry_for(info: RoomInfo) -> Entry:
 				entry.has_edges = true
 			if legs is Dictionary:
 				entry.legs = legs
+			var air_edges = data.get("air_edges")
+			if air_edges is Dictionary:
+				entry.air_edges = air_edges
+				entry.has_air = true
 	_rooms[info.id] = entry
 	return entry
 
@@ -119,7 +123,7 @@ func save() -> int:
 		var file := FileAccess.open(_path(id), FileAccess.WRITE)
 		if file == null:
 			continue
-		var data := {"format": FORMAT, "solver": solver, "room": entry.fingerprint, "edges": entry.edges, "legs": entry.legs}
+		var data := {"format": FORMAT, "solver": solver, "room": entry.fingerprint, "edges": entry.edges, "legs": entry.legs, "air_edges": entry.air_edges}
 		file.store_string(JSON.stringify(data, "", true, true))
 		entry.dirty = false
 		written += 1
@@ -135,22 +139,22 @@ static func _absolute(path: String) -> String:
 
 
 ## Fills `ledge` with what `data` (from `pack`) says it can reach.
-static func unpack(ledge: ReachGraph.Ledge, data: Dictionary) -> void:
+static func unpack(ledge: ReachGraph.Ledge, data: Dictionary, air := false) -> void:
 	for index in data.get("to", []):
-		ledge.add_ledge(int(index))
+		ledge.add_ledge(int(index), air)
 	for touch in data.get("touches", []):
-		ledge.add_touch(int(touch[0]), Vector2(float(touch[1]), float(touch[2])), Vector2(float(touch[3]), float(touch[4])))
+		ledge.add_touch(int(touch[0]), Vector2(float(touch[1]), float(touch[2])), Vector2(float(touch[3]), float(touch[4])), air)
 	for index in data.get("pickups", []):
-		ledge.add_pickup(int(index))
+		ledge.add_pickup(int(index), air)
 
 
 ## What `ledge` can reach, as plain data: the ledges it jumps to, the door
 ## touches, and the pickups.
-static func pack(ledge: ReachGraph.Ledge) -> Dictionary:
+static func pack(ledge: ReachGraph.Ledge, air := false) -> Dictionary:
 	var touches := []
-	for touch in ledge.touches:
+	for touch in (ledge.air_touches if air else ledge.touches):
 		touches.append([touch.door, touch.position.x, touch.position.y, touch.velocity.x, touch.velocity.y])
-	return {"to": ledge.to_ledges.duplicate(), "touches": touches, "pickups": ledge.pickups.duplicate()}
+	return {"to": (ledge.air_to_ledges if air else ledge.to_ledges).duplicate(), "touches": touches, "pickups": (ledge.air_pickups if air else ledge.pickups).duplicate()}
 
 
 ## One room's kept answers.
@@ -160,6 +164,9 @@ class Entry extends RefCounted:
 	## Ledge index (as text) -> what it reaches, once the room's ledges are done.
 	var edges := {}
 	var has_edges := false
+	## The same for what needs an air jump, worked out only when a solve has one.
+	var air_edges := {}
+	var has_air := false
 	## "x|y|width|limit" of a platform -> what a body standing on it reaches.
 	var legs := {}
 	var dirty := false
@@ -169,6 +176,13 @@ class Entry extends RefCounted:
 		for ledge: ReachGraph.Ledge in ledges:
 			edges[str(ledge.index)] = SolverCache.pack(ledge)
 		has_edges = true
+		dirty = true
+
+	func store_air_edges(ledges: Array) -> void:
+		air_edges = {}
+		for ledge: ReachGraph.Ledge in ledges:
+			air_edges[str(ledge.index)] = SolverCache.pack(ledge, true)
+		has_air = true
 		dirty = true
 
 	func store_leg(key: String, ledge: ReachGraph.Ledge) -> void:

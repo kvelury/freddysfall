@@ -27,6 +27,7 @@ platform_test.gd
 dev_catalog_test.gd
 dev_session_test.gd
 dev_ui_test.gd
+double_jump_test.gd
 "
 
 for test in $TESTS; do

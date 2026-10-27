@@ -7,6 +7,10 @@ extends Resource
 @export var air_accel := 600.0
 @export var air_friction := 300.0
 @export var jump_speed := 267.0
+## The upward speed of an air jump (a second jump in mid-air). Equal to
+## `jump_speed`, so one made at the top of a jump rises as far as a jump off a
+## platform put down there.
+@export var air_jump_speed := 267.0
 @export var gravity := 740.0
 @export var jump_cut := 0.4
 @export var apex_threshold := 40.0

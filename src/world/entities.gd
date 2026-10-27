@@ -14,7 +14,7 @@ const TYPES := {
 	"pickup": {"required": ["upgrade"], "optional": ["value"]},
 	"token": {"required": [], "optional": []},
 	"health": {"required": [], "optional": []},
-	"machine": {"required": ["upgrade"], "optional": ["value"]},
+	"machine": {"required": [], "optional": ["upgrade", "value", "prize"]},
 	"save": {"required": [], "optional": []},
 	"platform": {"required": ["speed"], "optional": ["pause"]},
 }
@@ -68,7 +68,12 @@ static func problems(def: EntityDef) -> Array[String]:
 	for key in def.props:
 		if not spec["required"].has(key) and not spec["optional"].has(key):
 			out.append("%s %s has %s=, which %s does not use" % [def.type, def.id, key, def.type])
-	if out.is_empty() and (def.type == "pickup" or def.type == "machine"):
+	if out.is_empty() and def.type == "machine":
+		if def.props.has("upgrade") == def.props.has("prize"):
+			out.append("machine %s needs exactly one of upgrade= and prize=" % def.id)
+		elif def.props.has("prize") and (String(def.props["prize"]) != "health" or def.props.has("value")):
+			out.append("machine %s: prize= can only be health, and takes no value=" % def.id)
+	if out.is_empty() and (def.type == "pickup" or (def.type == "machine" and def.props.has("upgrade"))):
 		var message := Upgrades.check(String(def.props["upgrade"]), String(def.props.get("value", "")))
 		if not message.is_empty():
 			out.append("%s %s: %s" % [def.type, def.id, message])

@@ -1,3 +1,4 @@
+trap: allowed
 legend:
   T = token id=r5_token
 ---
