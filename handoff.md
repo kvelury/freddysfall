@@ -1,210 +1,457 @@
-# Handoff: render at 640×360 (2×) with the identical look
+# Handoff: in-game menus, pause, controls, power popups, title cards
 
 _Updated 2026-10-27. Written as a build spec: implement exactly as written, and ask before deviating._
 
-> **Status: built, not yet played by a person.** Built to this spec on branch
-> `claude/sharp-pascal-l7wh9r`. `tools/check.sh` and `tools/pixel_check.sh` pass; the
-> judgement calls are listed in the pull request. The previous handoff (shrinking
-> Imprint, PR #33) was built.
+> **Status: built, not yet played by a person.** Built to this spec on branch `in-game-menus`. `tools/check.sh` (26 tests) and `tools/pixel_check.sh` pass. Deviations: the theme variation is `MenuItem` (`MenuButton` is a built-in Godot class); a room or dev test session shows a title card once per world and sets no `title:` flag (the dev tests assert empty flags); `Upgrades` also validates `controls` ids; the pixel check hides the new layers. The previous handoff (render at 640×360, PR #51) was built and merged.
 
 ## Goal
 
-The game renders at 320×180, and the window scales that by a whole number. The user wants more resolution to work with: sharper text now, and later more detail on the character, the backgrounds and the rooms. **Nothing may change functionally, and the world must look and move exactly as it does today: blocky, pixelated, two colours.** The only visible change in this pass is that text is sharper.
-
-In the user's words: "Nothing should change functionally, gameplay needs to be identical to today, and everything should look and work the same way. Only the resolution is bumped up."
+In the user's words:
+- There should be a main menu when you start the game, with the title Freddy's Fall, and Start Game, selectable by mouse or arrow keys.
+- A Controls section shows the game's controls on its own page, with a Back button to the main menu.
+- Starting the game then works as it does now.
+- Esc opens a pause menu: Resume, Controls (the same content), Back to main menu.
+- A popup shows the controls each time the player gets a new power, and the player can dismiss it. It should be "a simple diagram of the button and what it does".
+- A way to show title overlays, for the game's title card and later for significant new areas. The first one shows as soon as the player enters the room 7 shaft: "Freddy's Fall". It disappears when they hit the ground. That can be a countdown timed to match the landing.
+- Share the dev menu's approach where it makes sense.
 
 ## Branch
 
-Cut `resolution-2x` from the latest `origin/main` (`git fetch origin && git switch -c resolution-2x origin/main`). One pull request.
+Cut `in-game-menus` from the latest `origin/main` (`git fetch origin && git switch -c in-game-menus origin/main`). Ship it as one pull request.
 
-Uncommitted: nothing. This file arrives on `main` by its own small PR.
+`main` was at `4394132` (PR #52, GitHub Pages deploy) when this was written, with a clean tree. Every merge to `main` now redeploys https://kvelury.github.io/freddysfall/, so the menus go live when this PR merges.
 
 ## Decisions the user made (do not re-litigate)
 
 | Question | Decision |
 | --- | --- |
-| How much | **2×.** The viewport becomes 640×360. One game pixel (a "world pixel") is drawn as 2×2 screen pixels. The default window stays 1280×720, which is now 2×. |
-| Units | **Keep game units.** A cell stays 10 world px. `Grid.CELL`, `Grid.SCREEN_SIZE` (320×180 world px), every movement number, the room files, the save, the solver and every gameplay test stay as they are. The camera zooms 2×. |
-| Motion | **Snap to the old grid.** Everything in the world is drawn on whole world pixels, reproducing exactly what the 320×180 raster drew. Finer motion can be allowed later, one thing at a time, by the user's decision. |
-| Text | **Same font** (Godot's default), same size on screen, same layout, rasterized at 2× so it is crisp. Antialiased edges are fine. |
-| Window fit | **Accept Godot's built-in whole-number scaling.** A window that showed 320×180 at an odd multiple now drops a step. A maximized browser on a 1080p screen showed 1600×900 (5×) and now shows 1280×720, with wider black borders. Fullscreen 1080p (1920×1080), 720p, 1440p and 4K are unchanged. No custom scaler. |
-| Map open/close | The 0.1 s grow from 92% to 100% may be drawn finer than today. That is allowed, and it is the one accepted difference in the world or UI shapes. |
+| Main menu items | With a save: **Continue**, **New Game**, **Controls**. With no save: **Start Game**, **Controls**. New Game asks "Erase your saved game and start over?" with **No** (the default) and **Yes**. |
+| Title card frequency | **Once per save.** It is remembered in the save. A New Game shows it again. |
+| Title card hide | **A fixed countdown** tuned to match a straight fall to the floor. It is not tied to landing. |
+| Power popup | **The game pauses until the popup is dismissed.** It shows on every real grant of an upgrade that has controls (a 3TM or a pickup). It never shows for dev panel edits, loadouts, loads or retries. |
+| Controls page content | **Only what the player has.** Move, Jump, Map, Map zoom and Pause always show. Double jump, Shoot and Imprint show once owned in the current game. From the main menu, where no game is loaded, only the base rows show. |
+| Pause keys | **Esc and P** both open the pause menu and close it. |
+| Look | **The dev panel's monochrome style:** black, 1px white borders, white text. The selected menu item is inverted (white box, black text). The title uses big text. Build one shared theme and have the dev panel use it too. |
+| Launch arguments | (Agent decision; keep it.) `?room=`, `?dev=1`, `--room=` and `--dev` **skip the main menu** and boot straight into the world as they do today. This keeps `tools/snap.sh`, every test, and dev playtesting unchanged. `?new-game=1` erases the save and then **shows the menu**, which now offers "Start Game". |
 
-## The rule this adds (a new guardrail)
+## Facts measured from the code (2026-10-27, main at 4394132)
 
-**The world-pixel grid.** Every world-space drawing lands on whole world pixels. Node positions and rect corners are whole world px. Non-rectangular shapes are pixel pictures, not polygons. A finer drawing is allowed only for art that is meant to be finer, by the user's decision. Such art joins the `Display.FINE_GROUP` node group so the pixel check skips it. UI (CanvasLayers) is exempt, because its text is meant to be finer.
+- **Boot:** the main scene is `res://src/world/world.tscn`. `World._ready` (`src/world/world.gd:54-98`) does all the booting: it reads launch arguments with `_launch_arg` (`world.gd:140-150`), calls `DevSession.configure`, handles `new_game`, `Save.load_game()` and `_place_in`.
+- **Modal system to reuse:**
+  - `World.acquire_modal(owner)` and `release_modal(owner)` (`world.gd:481-497`) pause the tree, with one owner at a time.
+  - `gameplay_input_blocked()` (`world.gd:502`) holds gameplay input until the play keys are released.
+  - Today's owners are `"map"` and `"dev"`.
+  - The dev panel waits while `world.is_busy()` (door slides, deaths, save or 3TM animations) by queuing its open in `_process` (`src/ui/dev_panel.gd:52-55`). **Copy that pattern.** `_feed` uses `create_timer(..., true, true)`, which keeps running while paused, so pausing in the middle of an animation is unsafe.
+- **UI layers:** each is a CanvasLayer with `scale = Vector2.ONE * Display.RENDER_SCALE` and `process_mode = PROCESS_MODE_ALWAYS`, laid out in 320×180 units (see `src/ui/toast.gd`). Current layers: MapOverlay 10, Toast 15, DebugOverlay 20, DevPanel 30. The font is the default `ThemeDB.fallback_font`; there are no font files.
+- **The dev theme** is `DevPanel._theme()` (`src/ui/dev_panel.gd:169-198`). `_button` is at `dev_panel.gd:503`. The panel forces `Input.mouse_mode = MOUSE_MODE_VISIBLE` while open (`dev_panel.gd:57,102`), because Imprint hides the cursor (`src/imprint/imprint_tool.gd:248`). Today Esc is read only by the dev panel's `_input`, and only while it is open.
+- **Input map** (`project.godot`):
 
-Add this rule to the design doc's Guardrails and to README's rules. `tools/pixel_check.sh` enforces it.
+  | Action | Keys |
+  | --- | --- |
+  | `move_left` | A, Left |
+  | `move_right` | D, Right |
+  | `move_down` | S, Down (not read by gameplay) |
+  | `jump` | W, Up (holding it gives a higher jump) |
+  | `shoot` | Space |
+  | `map` | Tab, M (held) |
+  | `map_zoom_in` | Up, W |
+  | `map_zoom_out` | Down, S |
+  | `imprint` | left mouse |
+  | `debug` | F3 |
 
-## What changes, file by file
+  There is no `pause` action yet.
+- **Granting powers:**
+  - `GameState.grant(id, text)` (`src/autoload/game_state.gd:56-63`) is called only by `collect()` (pickups) and `machine_prize()` (3TMs). Dev edits use `set_loadout`, and loads use `load_dict`. Both of those emit `abilities_changed`, so **do not** hook popups to `abilities_changed`.
+  - World shows the returned line with `toast.show_text(...)` at `world.gd:221` (pickup) and `world.gd:327` (3TM, still `_busy`). `_busy = false` at `world.gd:330`.
+  - In play today, double jump comes from `data/rooms/4.txt` (`r4_3tm`) and the gun from `data/rooms/9.txt` (`r9_3tm`). Imprint is never granted in play, only through dev tools, but it gets popup data anyway.
+- **Room 7** (`data/rooms/7.txt`, `grid_pos` [0,2]) is 32×72 cells.
+  - The shaft is columns 1-13. The top door is columns 5-12, entered from room 6's floor door, also columns 5-12.
+  - The floor is row 71 (y=710). A ledge at columns 9-13, row 67, is 40 px higher.
+  - `Door.crossing` puts the player about 20 px below the top edge, with the velocity they carried.
+  - `_on_exit` (`world.gd:429`) calls `GameState.visit(dest)` at the start of the 0.5 s slide (`TRANSITION_TIME`), while the player is frozen. `_finish_transition` (`world.gd:458`) autosaves.
+- **Fall physics** (`src/player/movement.tres`): gravity 740, fall scale 1.8 (1332 px/s²), apex scale 0.5 under 40 px/s, max fall 300 px/s, 60 ticks/s.
+  - Estimate, not measured: from slide start to landing on the floor is about 0.5 + 2.3 to 2.5 s, so **about 2.8-3.0 s**. The build must measure it (see test 2).
+- **Save:** the save is `user://save.json` and stores `GameState.to_dict()`. `flags` is an open set of strings that is saved as-is. The existing prefixes are `pickup:`, `token:`, `save:` and `health:`. A new `title:<room id>` prefix needs no save version change. `Save.enabled` is false in headless runs, and every write and read is skipped while `DevSession.isolated()`.
+- **Tests** instantiate `world.tscn` directly with `start_override` (pattern: `tests/start_test.gd`). `tools/check.sh` lists 24 tests by hand.
 
-### 1. `Display` constants and snapping (new `src/core/display.gd`)
+## What to build
 
-`class_name Display`, pure static, like `Grid`.
+### 1. Shared pieces (new files; run `godot --headless --path . --import` after adding `class_name`s)
 
-- `RENDER_SCALE := 2`.
-- `VIEWPORT := Vector2i(640, 360)`, which must equal `Grid.SCREEN_SIZE * RENDER_SCALE`.
-- `FINE_GROUP := "fine_pixels"`.
-- `snapf(x) = ceilf(x - 0.5)`, plus `snap(v: Vector2)` and `snap_rect(r: Rect2)`, which snaps both corners.
+**`src/core/launch_args.gd`**, `class_name LaunchArgs`, static.
+- Move `World._launch_arg` here, unchanged, as `static func value(name: String) -> String`.
+- `world.gd` calls `LaunchArgs.value(...)`. Delete `_launch_arg` from `world.gd`.
 
-`snapf` is the GPU's pixel-centre rule: a pixel is filled when its centre is inside, and left and top edges are inclusive. So snapping reproduces what 320×180 drew, including half-pixel cases (`x.5` goes to `x`). If the baseline diff (step 6) shows only one-pixel shifts at exact `.5` positions, switch to `floorf(x + 0.5)` and record that in the decision log.
+**`src/core/scenes.gd`**, `class_name Scenes`, static.
+- `static func swap(old: Node, next: Node) -> void`: remember `old.get_tree()`, `old.get_parent()` and whether `old` is `current_scene`. Then `old.free()`, set `tree.paused = false`, `parent.add_child(next)`, and set `current_scene = next` if `old` was.
+- Callers use `call_deferred`, because they run from inside `old`'s own button handlers.
+- This mirrors `DevSession._replace` (`src/dev/dev_session.gd:189-212`). **Do not** refactor `_replace` to use it.
 
-`PixelArt` (in the same file, or in `src/core/pixel_art.gd`) turns a small ASCII picture into rects and draws them with `draw_rect`. `#` is on and `.` is off, the room-file idiom. It merges runs within each row.
+**`src/ui/ui_theme.gd`**, `class_name UiTheme`.
+- Move the body of `DevPanel._theme()` here **unchanged** as `static func build() -> Theme`. `DevPanel` calls `UiTheme.build()`. The dev panel must look identical.
+- Add a type variation `"MenuButton"` (base `Button`):
+  - `normal`: a black box with a 1px white border, margins as in the dev box.
+  - `focus` and `hover`: white fill, white border, `font_focus_color` and `font_hover_color` black.
+  - This is the inverted selection.
+- Add `static func title_label(text: String, size := 24) -> Label`:
+  - white text with a black outline (`outline_size` 4)
+  - centred
+  - `custom_minimum_size.x = 320`
+  - used by the main menu and the title card
 
-Run `godot --headless --path . --import` after adding the new `class_name`s.
+**`src/ui/menu_list.gd`**, `class_name MenuList extends VBoxContainer`.
+- `func add_item(text: String, on_pick: Callable) -> Button` adds a Button with `theme_type_variation = "MenuButton"`, `custom_minimum_size.x = 96` and centred text. `mouse_entered` calls `grab_focus`, and `pressed` calls `on_pick`.
+- `func focus_first()` focuses item 0. `func focus_item(i)` focuses item `i`.
+- Arrow keys and Enter/Space come from Godot's built-in `ui_up`, `ui_down` and `ui_accept` on focused Buttons.
+- MenuList also maps `jump` (W) to previous and `move_down` (S) to next. It reads them in `_unhandled_input`, only while `is_visible_in_tree()`, and marks the event handled.
+- The list wraps around: set the first item's `focus_neighbor_top` to the last and the last's `focus_neighbor_bottom` to the first.
 
-### 2. Project and camera
+**`data/controls.json`** and **`src/core/controls.gd`** (`class_name Controls`, static, loaded once like `Upgrades`). One list feeds both the Controls page and the popups:
+```json
+[
+  {"id": "move", "label": "Move", "actions": ["move_left", "move_right"]},
+  {"id": "jump", "label": "Jump (hold to go higher)", "actions": ["jump"]},
+  {"id": "double_jump", "label": "Jump again in the air", "actions": ["jump"], "needs": "air_jumps"},
+  {"id": "shoot", "label": "Shoot the way you face", "actions": ["shoot"], "needs": "gun_unlocked"},
+  {"id": "imprint", "label": "Place a platform at the cursor", "actions": ["imprint"], "needs": "imprint_unlocked"},
+  {"id": "map", "label": "Map (hold)", "actions": ["map"]},
+  {"id": "map_zoom", "label": "Zoom the map (while held)", "actions": ["map_zoom_in", "map_zoom_out"]},
+  {"id": "pause", "label": "Pause", "actions": ["pause"]}
+]
+```
+Functions:
+- `rows() -> Array`
+- `get_row(id) -> Dictionary`
+- `problems() -> Array[String]`: unknown action, a `needs` that is not in `Abilities.STATS`, or a duplicate id
+- `owned(row, abilities: Abilities) -> bool`: true when there is no `needs`, when `abilities` is non-null and the stat is truthy (int > 0 or bool true), and false when `abilities` is null and there is a `needs`
+- `visible_rows(abilities: Abilities) -> Array` (`abilities` may be null)
+- `key_groups(row) -> Array`: binding index 0 of every action, then binding index 1 of every action, so `move` → `[["A","D"],["Left","Right"]]`. Labels come from the InputMap:
+  - `InputEventKey` → `OS.get_keycode_string(event.physical_keycode)`, then map `"Escape"` → `"Esc"`.
+  - `InputEventMouseButton` with button 1 → `"MouseLeft"`.
+  - Drop a group if it is empty.
 
-- **`project.godot`:** set `viewport_width=640` and `viewport_height=360`. Keep the window override at 1280×720, stretch `viewport`, aspect `keep`, scale `integer` and the nearest filter.
-- **`src/world/world.gd` `_ready`:** set `camera.zoom = Vector2.ONE * Display.RENDER_SCALE`. Code is the source of the zoom. Leave `world.tscn`'s camera position at 160,90, which is in world px.
-- **`Grid.camera_focus`:** unchanged. It still clamps with the world-px `SCREEN_SIZE` and still rounds with `.round()`.
-- **The door slide** (`world.gd:448`) tweens `camera.position` to fractional values. Change it to `tween_method`, setting `camera.position = p.round()` at each step. Today the 320×180 raster rounded the fractional camera, so this reproduces it.
-- **`Grid.SCREEN_SIZE`'s doc comment:** say that it is in world px, and that the visible area is the same 320×180 world px.
+**`src/ui/key_cap.gd`**, `class_name KeyCap extends Control`. It draws one key in UI units.
+- Height 11, width `max(11, text width + 6)`.
+- A black box with a 1px white border and the label in white at font size 8, centred.
+- `"Left"`, `"Right"`, `"Up"` and `"Down"` draw a pixel arrow instead of text, with `PixelArt.rects()` (`src/core/pixel_art.gd:13`). Up arrow (rotate it for the others):
+  ```
+  ..#..
+  .###.
+  #####
+  ```
+- `"MouseLeft"` draws a 7×9 mouse with the left button filled, in a box 11 wide:
+  ```
+  .#####.
+  ####..#
+  ####..#
+  ####..#
+  #######
+  #.....#
+  #.....#
+  #.....#
+  .#####.
+  ```
+- **Do not** add these to `PixelShapes`. That file is the polygon baseline `pixel_check --shapes` works from. Keep them as consts in `key_cap.gd`.
 
-### 3. UI layers: same layout, sharper text
+**`src/ui/controls_view.gd`**, `class_name ControlsView extends VBoxContainer`.
+- `func show_rows(rows: Array)` builds one HBox per row:
+  - the key groups as KeyCaps, with a `/` Label between groups, in a 120-wide column that is right-aligned
+  - an 8px gap
+  - the row's `label` at font size 8
+- The Controls page and the popup both use it.
 
-The UI scripts stay in 320×180 logical units. Try these options in order. Take the first one that passes the sharpness check (step 6: inside a text label's box, some 2×2 block is not one colour) **and** looks the same weight as today. Report which one you took in the PR.
+### 2. Input
 
-1. **Layer scale.** Give each UI `CanvasLayer` `scale = Vector2.ONE * Display.RENDER_SCALE`, relying on Godot 4.7's font oversampling. The layers are Toast (`src/ui/toast.gd`), DebugOverlay (`src/ui/debug_overlay.gd`), DevPanel (`src/ui/dev_panel.gd`) and MapOverlay (`src/ui/map_overlay.gd`).
-2. **Layer scale plus MSDF.** Do option 1 and also set `gui/theme/default_font_multichannel_signed_distance_field=true` in `project.godot`. MSDF text stays sharp under any scale, and the setting also covers `ThemeDB.fallback_font`.
-3. **Fallback: multiply every size.** Give the layers no scale. Multiply every UI size, position, margin, border, minimum size and font size by `Display.RENDER_SCALE`:
-   - The dev panel theme's `default_font_size` becomes 16.
-   - StyleBox borders become 2.
-   - The 12×6 CheckButton icons are resized ×2 with nearest filtering.
-   - `tests/dev_ui_test.gd:189`'s 312×160 bound is doubled.
+In `project.godot`, add a `pause` action bound to **Escape** and **P** (physical keycodes, the same shape as the other entries). Do not add `pause` to the held-keys list at `world.gd:506`.
 
-Anything that is not text stays chunky: a 1 px StyleBox border becomes 2 screen px, and each icon pixel becomes 2×2. Ask before deviating.
+### 3. Main menu: new main scene
 
-**The map** (`src/ui/map_overlay.gd`): make the room-id labels sharp too.
+**`src/ui/main_menu.tscn`** has a root `CanvasLayer` named `MainMenu` with the script `src/ui/main_menu.gd` (`class_name MainMenu`). Build everything in code, as the dev panel does.
+- Set `layer = 0`, `scale = Vector2.ONE * Display.RENDER_SCALE` and `theme` from `UiTheme.build()` on a root Control.
+- Children:
+  - a black `ColorRect` sized 320×180
+  - `UiTheme.title_label("Freddy's Fall", 24)` at y = 36
+  - a `MenuList` centred at y ≈ 92
+  - a footer Label at font size 8 and y = 166: `"↑↓ / W S choose · Enter select"`. Check the glyph renders. If the default font has no arrow, write `"Arrows / W S choose · Enter select"`.
+- Set `project.godot` `run/main_scene="res://src/ui/main_menu.tscn"`.
 
-- Set the SubViewport's `size = VIEW_SIZE * RENDER_SCALE` (480×264).
-- Put `MapLayer` under a new Node2D with `scale = RENDER_SCALE`. Then these stay as they are: the `MapView` maths, `VIEW_SIZE` (240×132 map units), `_layer.position`, and the `canvas_transform` that `map_test` reads.
-- The TextureRect keeps the logical size `VIEW_SIZE`. Under option 1 or 2 that is one texel per screen pixel; under option 3, double its size.
-- Lines stay 1 map px, which is 2 screen px.
-- The Marker and the Legend are Controls in the panel, so they follow the layer.
-- Leave the 0.92 to 1 panel scale alone (accepted).
+**Boot routing** happens in `_ready`, only on the first menu of the process, using `static var _booted := false`:
+```gdscript
+if not _booted:
+	_booted = true
+	if not LaunchArgs.value("room").is_empty() or LaunchArgs.value("dev") == "1":
+		# Test launches go straight in, exactly as before the menu existed.
+		Scenes.swap.call_deferred(self, load(WORLD).instantiate())
+		return
+	DevSession.configure(false, false)
+	if not LaunchArgs.value("new-game").is_empty():
+		Save.erase()
+		GameState.reset()
+```
+That world has `from_menu = false`, so World reads the launch arguments itself, as today. `DevSession.configure(false, false)` keeps `DevSession.available` (F2) working in debug builds when the game is started from the menu.
 
-### 4. Snap every world drawing that can sit between world pixels
+**Pages:**
+- **Root.** Without a save (`Save.has_game()` is false) the items are `Start Game` and `Controls`. With a save they are `Continue`, `New Game` and `Controls`. Focus item 0.
+- **New Game confirm.** The text "Erase your saved game and start over?" over the items `No` and `Yes`. Focus `No`. Esc or `ui_cancel` means No and returns to Root.
+- **Controls.** A "Controls" heading, `ControlsView.show_rows(Controls.visible_rows(null))`, and a `MenuList` with one item, `Back`. Esc goes back too.
 
-These are the known sites. `pixel_check` finds any that were missed.
+**Starting:**
+```gdscript
+func _start(fresh: bool) -> void:
+	if fresh:
+		Save.erase()
+	GameState.reset()
+	var world: Node = load(WORLD).instantiate()
+	world.from_menu = true
+	world.new_game = fresh
+	Scenes.swap.call_deferred(self, world)
+```
+Continue calls `_start(false)`. New Game → Yes calls `_start(true)`. Start Game calls `_start(false)`: with no save, World starts in `start_room`, as today.
 
-- **Player** (`src/player/player.gd`, `player.tscn`, `src/player/inventory_marks.gd`):
-  - The `Player` node stays physics-interpolated, because gameplay, the camera and `shaft_test` rely on it.
-  - The drawn body becomes a `top_level` node with interpolation off. Each `_process` places it at `Display.snap(render_position(Engine.get_physics_interpolation_fraction()))`.
-  - Squash no longer uses `Visual.scale`. Draw the body as `snap_rect` of the scaled 10×10 box. Draw each inventory mark as `snap_rect` of its scaled 1×1 pixel. Compute both from the exact, unsnapped interpolated position, then make them local. This reproduces today's raster exactly, including a mark that briefly goes 0 or 2 px wide in the middle of a squash.
-  - Keep `InventoryMarks.pixels()` unchanged, because `token_test` uses it.
-- **Dust** (the `Dust` class in `player.gd`): keep the exact float position in a field, and set `position = Display.snap(exact)` in `_process`. The old `Rect2(-0.5, -0.5, 1, 1)` at p filled the pixel at `snap(p - 0.5)`. Draw it with `snap_rect` and confirm against the baseline.
-- **Shatter** (`src/world/shatter.gd`): in `_ready`, set `global_position = Display.snap(global_position)`. Player deaths spawn it at float positions (`world.gd:322`, `world.gd:393`). The shard offsets are already rounded.
-- **Moving platform** (`src/world/entities/moving_platform.gd`, `room.gd:75-99`):
-  - First confirm that no gameplay reads the node's position. Collision goes through `Movers` and `PlatformPath`.
-  - Turn interpolation off.
-  - Keep the previous and the current tick's positions. In `_process`, set `position = Display.snap(prev.lerp(curr, fraction))`.
-- **FlyingToken** (`src/world/flying_token.gd`): snap the first `global_position` (`:30`). Draw the trail dots and the spark with `snap_rect`.
-- **Save-machine hop** (`world.gd:286-291`, and the `+0.5` centre at `save_machine.gd:100`): the player's snapped body handles it. Check it in `pixel_check` in the middle of a hop.
-- **Classic Imprint dashes** (`src/imprint/imprint_platform.gd:170,173`, y + 4.5): draw them with `snap_rect`.
-- **Shots** (`src/gun/gun.gd:83-86`): already rounded. Leave them.
+**`Save.has_game()`** is new, in `src/autoload/save.gd`: `return enabled and not DevSession.isolated() and FileAccess.file_exists(path)`. A file that cannot be read still counts. Continue then starts fresh, because `load_game` sets the file aside, as today.
 
-### 5. Non-rectangular shapes become pixel pictures copied from today's frame
+**`World` changes** (`world.gd:54-98`):
+- Add `var from_menu := false`, with a doc comment: built by the main menu, reads no launch arguments, and does not reconfigure DevSession.
+- `requested`: when `from_menu`, use `start_override` only (empty), never `LaunchArgs.value("room")`.
+- Skip `DevSession.configure(...)` when `from_menu`.
+- The new-game test becomes `new_game or (not from_menu and not LaunchArgs.value("new-game").is_empty())`.
+- Nothing else in the boot changes.
 
-At 640×360, polygons and polylines would rasterize with finer stair steps. Replace each of these with a `PixelArt` ASCII picture, drawn at the same whole-pixel anchor. Bake the pictures from the 1× render **before anything changes** (step 6 `--shapes`).
+### 4. Pause menu
 
-- Spikes, in all four facings, two teeth per cell (`src/world/room.gd:333-346`, `_turn`).
-- The token diamond (`src/world/entities/token.gd:49`).
-- The pickup diamond and its 2×2 hole (`pickup.gd:44-46`).
-- The FlyingToken's 12 px diamond (`flying_token.gd:62`).
-- The TokenMachine's diamond outline (`token_machine.gd:112`, `draw_polyline` with width 1).
+Add **`src/ui/pause_menu.gd`** (`class_name PauseMenu extends CanvasLayer`). Make it a child node `PauseMenu` in `world.tscn` with layer 25, `process_mode` ALWAYS, the UI scale, and the `UiTheme` theme.
+- **Contents:**
+  - a full-screen `ColorRect` in `Color(0, 0, 0, 0.6)`
+  - a centred `PanelContainer`, about 140 wide, holding the "Paused" Label and a MenuList with `Resume`, `Controls` and `Main menu`
+- **Controls page:** a second state inside the same panel. The panel widens to about 280. It holds `ControlsView.show_rows(Controls.visible_rows(GameState.abilities))` and the item `Back`.
+- **`_unhandled_input`:** act only on `event.is_action_pressed("pause")` that is not an echo.
+  - On the Controls page, go back to the list.
+  - If the menu is open, `close()` (resume).
+  - If it is closed and `_world.is_busy()`, set `_pending = true`.
+  - Otherwise `open()`.
+  - Mark the event handled.
+  - `ui_cancel` (Esc) on the Controls page also means Back.
+- **`open()`:**
+  - Return early if `not _world.acquire_modal("pause")`. That means the map or dev panel holds the modal; do nothing and do not queue.
+  - Remember `Input.mouse_mode`.
+  - Show the menu and call `focus_first()`.
+- **`_process`:**
+  - If `_pending` and the world is neither busy nor modal, open the menu.
+  - While open, force `Input.mouse_mode = MOUSE_MODE_VISIBLE`.
+- **`close()`:** hide the menu, restore the remembered mouse mode, call `gui_release_focus()`, then `_world.release_modal("pause")`. The existing `_input_release` stops the Space or click that chose Resume from leaking into shoot or Imprint.
+- **Main menu:** call `_world.leave_to_menu()`.
 
-Keep the old polygon maths only where something else uses it. For example, hazard rects use cells, not the polygon.
+**`World.leave_to_menu()`** is new:
+```gdscript
+## Back to the main menu. Everything collected was saved when it was taken;
+## this writes the resume point once more (skipped in a test session).
+func leave_to_menu() -> void:
+	save_now()
+	DevSession.reset_to_normal()
+	GameState.reset()
+	Scenes.swap.call_deferred(self, load("res://src/ui/main_menu.tscn").instantiate())
+```
 
-### 6. The pixel check (new `tools/pixel_check.sh` and `tests/pixel_grid.gd`)
+**`DevSession.reset_to_normal()`** is new in `src/dev/dev_session.gd`. It sets `mode = Mode.NORMAL`, `bypass = false`, `classic_imprint = false`, `wall_strength_override = 0`, `retry_on_death = false`, `baseline = {}`, `loadout = {}`, `target = ""` and `replacing = false`. It **keeps `available`**, so a `?dev=1` player still has F2 after Continue. Leave `configure` and `_replace` as they are.
 
-The check runs with a renderer, so it is not part of `check.sh`: a headless run has no renderer.
+### 5. Power popup
 
-How the script runs:
+Add **`src/ui/power_popup.gd`** (`class_name PowerPopup extends CanvasLayer`). Make it a node `PowerPopup` in `world.tscn` with layer 26, `process_mode` ALWAYS, the UI scale, and the theme.
+- **Layout:** a centred PanelContainer, about 220 wide, containing:
+  - "NEW POWER" at size 8
+  - the upgrade's `name` at size 16
+  - a `ControlsView` with the upgrade's control rows
+  - "Enter / click to continue" at size 8
+- **`open(upgrade_id) -> bool`:** return false unless `_world.acquire_modal("power")`. Then fill the panel, record `_opened_at = Time.get_ticks_msec()`, show it and force the cursor visible (restore it on close).
+- **`_input(event)`** runs while open:
+  - If less than `MIN_SHOW := 0.4` s have passed, consume the event and return.
+  - Otherwise `ui_accept`, `pause`, `jump`, or a left mouse button press (not echo) calls `dismiss()`.
+  - Mark the event handled.
+- **`dismiss()`:** hide it and `release_modal("power")`. It is public so tests can call it.
 
-- The shell runs `godot --path . --fixed-fps 60 --script tests/pixel_grid.gd -- <mode>`, under `xvfb-run -a` when there is no `$DISPLAY`.
-- The script sets `Save.enabled = false`, so it never touches the real save.
-- It seeds `seed(1)`, so dust and shards repeat from run to run.
-- It sets abilities through `GameState`/`DevSession` the way the dev tests do, never through room files or the save.
-- For comparisons it hides `ExitHalo` nodes (their frame follows the wall clock) and `Display.FINE_GROUP` nodes.
+**Triggering:**
+- In `game_state.gd`, add `signal upgrade_granted(id: String)` and emit it in `grant()` after `abilities.apply`, always, even if the value did not change.
+- In `data/upgrades.json`, add `"controls"` lists: `double_jump` gets `["double_jump"]`, `gun` gets `["shoot"]`, `imprint` gets `["imprint"]`. Keep every `"message"`; the toast still uses it if a popup is not shown.
+- In `world.gd`:
+  ```gdscript
+  var _popups: Array[String] = []
+  # _ready:
+  GameState.upgrade_granted.connect(func(id: String) -> void:
+  	if Upgrades.get_def(id).has("controls"):
+  		_popups.append(id))
+  # top of _physics_process, after the current == null check:
+  if not _busy and not _popups.is_empty() and modal_owner.is_empty():
+  	power_popup.open(_popups.pop_front())
+  ```
+- Replace `toast.show_text(GameState.collect(thing.def))` (`:221`) and `toast.show_text(GameState.machine_prize(machine.def))` (`:327`) with `_announce(...)`:
+  ```gdscript
+  ## A power with controls gets the popup instead of the toast line.
+  func _announce(line: String) -> void:
+  	if _popups.is_empty():
+  		toast.show_text(line)
+  ```
+- Popups show in room and dev test sessions too, when the grant is a real pickup or 3TM. Dev panel edits never go through `grant()`.
+- Do not persist a "seen" flag. A 3TM or pickup gives its upgrade once per save anyway.
 
-The modes:
+### 6. Title cards
 
-- **`--shapes`:** draws each shape from step 5 with the current code at 1× and prints its ASCII picture.
-- **`--baseline`:** for every room, captures frames of these scenarios into `build/pixel-baseline/`:
-  - idle at spawn
-  - a jump, with squash and stretch frames
-  - landing dust
-  - a death shatter
-  - room 7's moving platform at several phases
-  - a door slide part way through
-  - the Imprint preview, a placed platform part way through shrinking, and the Classic switch
-  - a shot in flight
-  - a save-machine hop (s1)
-  - a 3TM feed with a flying token
-- **`--compare`** (the default) captures the same scenarios at 640×360 into `build/pixel-check/` and checks them:
-  - With the UI layers hidden, **every 2×2 block is one colour** (the grid rule).
-  - With the UI layers hidden, the frame downsampled 2× (the top-left pixel of each block) **equals the baseline**.
-  - With the UI shown, it saves PNGs of the toast ("Game saved"), F3, the F2 panel on each tab, and the map at each zoom with dev labels. Each text box must contain 2×2 blocks that are not one colour, which shows the text is sharper.
-  - It warps the mouse to a known screen pixel and checks that the Imprint preview lands on the right cell, which tests the camera zoom in the mouse mapping.
-  - It prints `PIXEL pass`, or each failure with its room, scenario and coordinates.
+**Data:** in `data/world.json`, the room entry gains an optional `title`:
+```json
+{"id": "7", "grid_pos": [0, 2], "title": {"text": "Freddy's Fall", "hold": 2.1}}
+```
+`2.1` is a placeholder. Set it from the measurement in test 2.
 
-A scripted capture is a brief launch, not a playtest, so AGENTS.md allows it. If Godot cannot render in the cloud container (no Godot install, or no working GL under Xvfb), say so, and give the user the exact commands to run it on their own machine.
+**`WorldData`** (`src/autoload/world_data.gd`):
+- Add `var titles := {}` (room id → `{"text": String, "hold": float}`).
+- `_read_entry` parses `title`. Append an error to `errors` (so `tools/validate.sh` fails) when `title` is not a Dictionary, `text` is not a non-empty String, or `hold` is not a number > 0.
+- Do **not** touch `RoomParser`, `RoomInfo`, or the room-file format. The solver and its cache never see titles.
 
-### 7. Order of work
+Add **`src/ui/title_card.gd`** (`class_name TitleCard extends CanvasLayer`). Make it a node `TitleCard` in `world.tscn` with layer 5, which is under the map, toast, pause and popup. Leave `process_mode` at INHERIT so a pause freezes it.
+- It holds one `UiTheme.title_label("", 24)` at y = 36, with `modulate.a = 0` and hidden.
+- `const FADE_IN := 0.3` and `const FADE_OUT := 0.5`.
+- `func show_title(text: String, hold: float)`: kill any running tween, set the text, show it, then `create_tween()` with `set_process_mode(Tween.TWEEN_PROCESS_PHYSICS)`. Fade `modulate:a` from 0 to 1 over FADE_IN, `tween_interval(hold)`, fade to 0 over FADE_OUT, then hide.
+- `func total(hold) -> float` returns `FADE_IN + hold + FADE_OUT`.
+- It never blocks input and never takes a modal.
 
-1. Commit the pixel check and `--shapes` with **no rendering changes**. Run `--shapes` and `--baseline` on that commit, which is main's look. Keep the baseline in `build/`; do not commit it.
-2. Add `Display` and `PixelArt`, the project viewport, the camera zoom and the rounded slide, the chosen UI option, and the 2× map.
-3. Add the snapping (step 4) and the pixel pictures (step 5).
-4. Update the tests and docs (below). Run `tools/check.sh` and `tools/pixel_check.sh`; both must pass. Read the UI PNGs and a few world frames, and attach the key ones to the PR.
+**Trigger** (`world.gd`):
+```gdscript
+## A room's title card, once per game: the flag is saved with the rest.
+func _maybe_title(id: String) -> void:
+	var title: Dictionary = WorldData.titles.get(id, {})
+	var key := "title:" + id
+	if title.is_empty() or GameState.has_flag(key):
+		return
+	GameState.flags[key] = true
+	title_card.show_title(String(title["text"]), float(title["hold"]))
+```
+- Call it in `_on_exit` right after `GameState.visit(door.dest_id)`. The card appears as the slide starts; `_finish_transition` then autosaves the flag.
+- Call it in `_place_in` when `not respawn`, so `?room=7` and `?room=6` sessions can see it.
+- Room and dev test sessions reset GameState, so the card shows there every session and is never saved.
+- Before using `title:` keys, grep for code that loops over `GameState.flags` and assumes a prefix (`grep -rn "flags" src`). `ExitRules` and `Entities.present` only look up exact keys, so they are fine.
 
-### 8. Tests
+**Timing:** card total = slide start to landing. The countdown starts at `_on_exit` and runs in physics time, so a pause mid-fall keeps it in sync. The reference path is from rest in room 6 at column 7, falling straight to room 7's floor. Entering over columns 9-12 lands on the ledge about 0.13 s sooner, which is accepted. Set `hold = measured − FADE_IN − FADE_OUT`, rounded to 0.05.
 
-- **New headless `tests/display_test.gd`.** Add it to `check.sh`'s list. The count goes from 23 to 24 in `AGENTS.md` and README's test table. Also fix `check.sh`'s stale final message, which says "21 tests". The test checks:
-  - `project.godot`'s viewport equals `Grid.SCREEN_SIZE * RENDER_SCALE`, with stretch `viewport`, integer scale and the nearest filter.
-  - The world camera's zoom is `RENDER_SCALE`.
-  - A table of `snapf` and `snap_rect` results, including `.5` and negative values.
-  - `PixelArt` parsing, and each baked picture's size and pixel count.
-  - The player's drawn body and marks are whole-pixel over a sweep of fractional positions and squash values.
-  - The dust, shatter and moving-platform visuals are whole-pixel across fractions.
-  - The UI layer scale (option 1 or 2).
-- **`tests/shaft_test.gd:99`:** its bound is in viewport px, so it becomes `0.5001 * Display.RENDER_SCALE` ("within half a world pixel"). Update the message to match.
-- **Everything else** must pass unchanged: parity, physics, the solver, saves, the map maths, token pixels and Imprint. If a gameplay test needs a change, gameplay changed: stop and ask.
+### 7. The dev panel
 
-### 9. Docs (in the same PR)
+- Its only change is `_theme()` → `UiTheme.build()`.
+- **Dev tools rule (AGENTS.md):** these are presentation features, not abilities or progression. State in the design doc's Dev playtesting section that they intentionally have no dev control, and why:
+  - The title card replays in every `?room=6` / `?dev=1&room=6` session, because test sessions reset GameState.
+  - Power popups appear on real grants in test sessions and never on dev edits.
+  - `title:` flags are progression-neutral: `ExitRules` and the solver never read them.
+
+## Tests (two new; `tools/check.sh` goes from 24 to 26)
+
+Add both to `TESTS` in `tools/check.sh` and update its final message. Update the count in `AGENTS.md` (the commands table says "all 24 headless tests") and in README's test table. README still says "23", so fix that too.
+
+**`tests/menu_test.gd`** (pattern: `tests/start_test.gd`; free every world and menu; a 90 s fail-safe):
+1. **Controls data:**
+   - `Controls.problems()` is empty.
+   - Every upgrade `controls` id exists.
+   - `key_groups(move)` is `[["A","D"],["Left","Right"]]`.
+   - `key_groups(pause)` is `[["Esc"],["P"]]`.
+   - `key_groups(imprint)` is `[["MouseLeft"]]`.
+2. **Filtering:**
+   - `visible_rows(null)` ids are `move, jump, map, map_zoom, pause`.
+   - With `air_jumps = 1` and `gun_unlocked = true`, it adds `double_jump` and `shoot`.
+3. **Main menu:**
+   - Set `MainMenu._booted = true`, instantiate the scene, and wait a frame.
+   - With `Save.enabled = false`, the items are `["Start Game","Controls"]`.
+   - With `Save.enabled = true` and `Save.path = "user://menu_test_save.json"` written, the items are `["Continue","New Game","Controls"]`. Restore `enabled` and `path`, and delete the file after.
+   - New Game shows the confirm with No focused, and Esc returns.
+   - Controls → Back returns.
+   - Start Game: after two frames `current_scene` is a World with `from_menu == true`.
+4. **Pause** (world `start_override = "2"`):
+   - A `pause` action event (`InputEventAction` or an Esc key event to `_unhandled_input`) opens it: `paused`, `modal_owner == "pause"`.
+   - A second press resumes.
+   - P works the same.
+   - With `world._busy = true` the press queues, and it opens a frame after `_busy = false`.
+   - With the dev panel open, P does not open it.
+   - Main menu: after two frames `current_scene` is a MainMenu, the tree is not paused, `DevSession.mode == NORMAL`, and `GameState.abilities.air_jumps == 0`.
+5. **Popup:**
+   - In a world, `GameState.grant("double_jump", "1")`, then one physics frame: the popup is open, the tree is paused, and the toast label is not visible.
+   - `dismiss()` unpauses.
+   - `grant("gun_cooldown", "0.5")` gives no popup.
+   - `DevSession.apply(...)` raising `air_jumps` gives no popup.
+   - Input within 0.4 s does not dismiss.
+
+**`tests/title_card_test.gd`:**
+1. `WorldData.titles["7"].text == "Freddy's Fall"`. Feeding bad `title` values through `_read_entry` (or a small static parse helper you extract) gives errors.
+2. **Timing:**
+   - World `start_override = "6"`. Place the player at rest at room 6 local (75, 165) with no input. Follow `tests/shaft_test.gd` for stepping physics.
+   - Count physics ticks from the tick `GameState.current_room_id` becomes `"7"` to the first tick `player.is_on_floor()`.
+   - Print the measured seconds, then assert `abs(TitleCard.total(hold) − measured) <= 0.1`.
+   - Assert the card is visible on the entry tick, hidden within 6 ticks after landing, and that `GameState.has_flag("title:7")`.
+3. Going back to room 6 and dropping again shows no card.
+4. `acquire_modal("test")` and 30 frames leave `modulate.a` unchanged, so pause freezes the card. Release it after.
+
+**Existing tests:** a test that feeds a 3TM with an upgrade (likely `machine_test`, `token_test`, `double_jump_test`, `gun_test`) will now see the popup pause the tree and may time out. Fix each one by asserting the popup opened, then calling `world.power_popup.dismiss()`. Do **not** disable the popups in tests. Every other test must pass unchanged. If a gameplay test needs any other change, stop and ask.
+
+## Docs (same PR)
 
 - **`docs/design/game-design.md`:**
-  - The Frame and scale table. Cell: 10×10 world px. Screen: 32×18 cells, which is 320×180 world px, drawn at 640×360, 2 screen px per world px. Window: 1280×720, which is 2×. Text is drawn at 2×.
-  - The Philosophy line about the picture (line 43).
-  - The camera (lines 66, 387 and 712–714): it rounds to whole world px, and the slide is rounded too.
-  - The map (line 748): the SubViewport is 480×264; map units are unchanged.
-  - The shards line (531).
-  - A **Decision log** entry with the decisions table above.
-  - The new world-pixel-grid **Guardrail**.
+  - A new "Menus, pause and overlays" part of the Implementation reference: the boot routing, the modal owners `"pause"` and `"power"`, the layers, `data/controls.json`, world.json `title`, and the `title:` flags.
+  - A Decision log entry with the decisions table above.
+  - The dev-tools exemption line (section 7).
   - The status table row.
-- **`README.md`:** the `project.godot` line (140); rules 5 and 6 (whole world pixels, snapped visuals, `Display`); a code-map entry for `Display` and `PixelArt`; `tools/pixel_check.sh`.
-- **`AGENTS.md`:** add `tools/pixel_check.sh` to the commands table, and update the test count.
-- **`docs/testing-checklist.md`:**
-  - Run `tools/pixel_check.sh`.
-  - Check that text is sharp and the world looks unchanged at 1280×720 and fullscreen.
-  - Note the accepted window-fit change.
-- **`docs/plans/soft-duotone-palettes.md:21`:** the cost is one 640×360 quad, and the shader works per screen pixel at any resolution.
-- **`tools/concept/`:** update `concept_hud.gd:31`'s card and `compose.py`'s docstring for 640×360 frames (2× to 1280×720).
-- **`tools/snap.sh`:** no code change, but its frames are now 640×360.
+- **`README.md`:**
+  - controls (Esc/P pause)
+  - the main scene is now the menu, and `?room=` / `?dev=1` skip it
+  - the code-map entries for the new files
+  - world.json `title`
+  - the test count
+- **`AGENTS.md`:** the test count is 26, and a note that `--room` / `--dev` launches skip the main menu.
+- **`docs/testing-checklist.md`** (the user plays these):
+  - the main menu by mouse, arrows and W/S
+  - Continue vs Start Game
+  - New Game confirm
+  - Controls/Back
+  - Esc and P pause, and resume without a stray shot or Imprint
+  - the pause Controls page shows only owned powers
+  - Main menu → Continue resumes at the last save machine
+  - the double jump and gun popups (room 4 and 9 3TMs) pause the game and dismiss
+  - the room 7 title card shows on the first drop, fades as Freddy lands, and does not show again after a reload
+  - all of it in the browser (`?new-game=1` included)
 
-## Ask before
+## Must not change
 
-- Any change to a gameplay number, a test expectation or the solver.
-- Any visible world difference in the baseline diff that the `.5` tie rule does not explain.
-- Choosing UI option 3, or any UI element that would look different in any way other than sharper text.
+- **The `world.tscn` boot when it is instantiated directly** (`from_menu = false`). All 24 existing tests, `tools/snap.sh`, `tests/pixel_grid.gd` and the dev session rebuilds rely on it.
+- **`DevSession.configure` and `_replace`.** A dev rebuild must never go through the menu.
+- **Save format and `VERSION`.** `title:` keys go in `flags`; no migration.
+- **The room-file format, RoomParser, solver and solver cache.**
+- **The dev panel's appearance.** `UiTheme.build()` returns what `_theme()` did.
+- **The Imprint rule, movement numbers and the existing gameplay tests.**
 
-## Verification
+## Dead ends and rejected alternatives
 
-- `tools/check.sh` passes: every headless test including `display_test`, the validator without cache, the web build and its integrity check.
-- `tools/pixel_check.sh` prints `PIXEL pass`: no grid violations, no difference from the 1× baseline in any scenario, text measurably sharper, and the mouse lands on the right cell.
-- Read the saved UI PNGs (the toast, F3, each F2 tab, each map level) and a few world frames.
-- Run `tools/build_web.sh` and then `tools/serve.sh`. The user plays on their own machine and confirms that it looks and plays the same, with sharper text. Do not do this in the cloud.
+- **Hooking popups to `GameState.abilities_changed`.** It also fires on save loads, `reset()`, dev loadout edits and dev rebuilds, so popups would show at boot and on every F2 change. Use the new `upgrade_granted` signal from `grant()`.
+- **A `title:` header in the room file.** The header parser only accepts `exits:`, `trap:` and `legend:` (`src/world/room_parser.gd:400-447`). A new key would reach RoomInfo and the solver cache for something that is pure presentation. Titles go in `world.json`.
+- **Opening the pause menu while `world.is_busy()`.** `_feed` and the save machine use timers that run while paused (`create_timer(..., true, true)`), so the animation would continue under the menu. Queue the open instead, as the dev panel does.
+- **Making `?room=` / `?dev=1` go through the menu.** That would break `tools/snap.sh`, dev playtesting and the boot-probe in `dev_session_test`.
 
-## Later: drawing finer detail
+## Open questions for the user
 
-Once this is in, a node can draw at half a world pixel (0.5 world px is one screen pixel). Such art goes in `Display.FINE_GROUP` and needs the user's decision. Everything else stays on the world-pixel grid.
+None. Every design choice is in the decisions table. If something comes up that the table does not cover, ask.
+
+## Verify
+
+```sh
+godot --headless --path . --import
+tools/check.sh          # 26 tests, validation without cache, web export
+tools/pixel_check.sh    # must still print PIXEL pass (world drawing unchanged)
+tools/build_web.sh && tools/serve.sh
+```
+
+| Check | What to look for |
+| --- | --- |
+| `title_card_test` output | It prints the measured fall in seconds, and `hold` in world.json matches it |
+| `http://localhost:8060/` | The menu shows first. Mouse hover and click work, and so do arrows and W/S with Enter. |
+| `http://localhost:8060/?room=7` | Straight into room 7, no menu, and the title card shows |
+| `http://localhost:8060/?dev=1&room=4` | Feeding the 3TM shows the double jump popup. Raising air jumps in the F2 dev panel does not. |
+| Esc during a door slide | The pause opens when the slide ends, not in the middle of it |
+| Pause → Main menu → Continue | Back at the last save machine, with everything still collected |
+
+Do not playtest in the cloud. The user plays the web build on their own machine.
+
+## Session log
+- 2026-10-27: Wrote the menus, pause, controls, popups and title cards spec. Decisions are from the user Q&A in this session.
+- 2026-10-27: Built to this spec on `in-game-menus`; see the status note at the top for the deviations.
