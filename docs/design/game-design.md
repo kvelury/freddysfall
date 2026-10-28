@@ -28,6 +28,7 @@ Implementation steps for the palette pass live in `docs/plans/soft-duotone-palet
 | The solver's cache between runs (a repeat validate takes about half as long as a cold one; see "Speed, and the cache") | Built |
 | The map's three zoom levels, its legend, saved with the game | Built |
 | Moving platforms: drawn with their track, ridden, and checked by the solver | Built |
+| The main menu (Start Game, or Continue and New Game, and Controls), the pause menu (Esc or P), the Controls page, power popups, and title cards (room 7's "Freddy's Fall") | Built; not yet played by a person |
 | Softer two-color palettes | Designed, not built |
 | Rendered at 640×360, two screen pixels to a world pixel, the world drawn exactly as at 320×180 and the text sharper | Built; not yet played by a person |
 
@@ -79,7 +80,8 @@ The camera follows the player’s interpolated display position each rendered fr
 | Down | S or Down. Reserved. No action is assigned. |
 | Imprint | Left mouse button, once Imprint is unlocked (for now only through the dev panel). Mouse only. |
 | Map | Hold Tab, or hold M. M exists because a browser may steal Tab for focus. While it is held, Up or W zooms in and Down or S zooms out. |
-| Palettes | P, once that is built. Cycles and remembers the choice. |
+| Pause | Esc or P. Opens the pause menu (Resume, Controls, Main menu), and closes it. |
+| Palettes | Not assigned. P pauses now, so the palette key is to be chosen when that is built. |
 | Frame rate | F3. Shows FPS and frame time. A development readout, not a player feature. |
 | Dev tools | F2 or DEV button. Editor/debug builds, or exports opted in with `?dev=1` / `--dev`. |
 | Room picker | F4, a room ID (including `s1`), Enter. Starts an isolated test. |
@@ -351,6 +353,8 @@ The panel waits for a busy animation or map to close; a second F2 cancels pendin
 opening. Map/panel pause ownership prevents one from unpausing the other. Gameplay
 input waits for held keys/buttons to be released, and panel clicks cannot place
 Imprints. The pointer is visible while editing. Panel styling stays monochrome.
+
+**Menus and overlays** are presentation and progression-neutral, so they have no dev control, by design. The title card replays in every room or dev test session (a fresh world each time). A power popup shows on a real pickup or 3TM grant in a test session and never on a dev panel edit. The `title:` flags are not read by `ExitRules` or the solver.
 
 ### Checking rooms
 
@@ -765,6 +769,20 @@ The solver answers "can a player get here, and get back", using `MovementSim` an
 
 `tools/pixel_check.sh` (not part of `check.sh`, because it needs a renderer) captures scripted scenarios with `--fixed-fps 90`, so frames fall between physics ticks: every room, the player idle, a jump, a run and landing, a death, room 7's lift, a door slide, Imprint (preview, blocked, shrinking, Classic), a shot, the save machine and a 3TM feed. `--baseline` records them at 320×180 on a commit that still draws that way; the default run draws them at 640×360 with the UI hidden and checks that every 2×2 block is one colour and that the frame, taken at the top-left pixel of each block, equals the baseline. It also saves the UI (toast, F3, the dev panel's tabs, the map at each zoom), checks that the text has blocks that are not one colour, and checks that the mouse lands on the right cell. The door-slide frames are compared with the camera rounded in both runs (see the decision log).
 
+### Menus, pause and overlays (`ui/main_menu.gd`, `pause_menu.gd`, `power_popup.gd`, `title_card.gd`, `core/controls.gd`)
+
+**Boot.** The main scene is `MainMenu`. It shows Start Game, or Continue and New Game when `Save.has_game()`, and Controls. A `--room` / `?room=` / `--dev` / `?dev=1` launch swaps straight to the world, so tests, `tools/snap.sh` and dev playtesting boot as before; `?new-game=1` erases the save and then shows the menu. A world the menu starts has `from_menu = true`: it reads no launch arguments and does not reconfigure `DevSession`. `Scenes.swap` replaces the running scene, as `DevSession._replace` does for a dev rebuild.
+
+**The look** is the dev panel's: `UiTheme.build()` (black, 1 px white border, white text) is shared by both. A menu item is a Button with the `MenuItem` variation, whose focused or hovered state is inverted. `MenuList` selects with the mouse (hover), the arrows and W / S (wrapping), and picks with a click, Enter or Space. Every menu layer is a `CanvasLayer` in 320×180 units scaled by `Display.RENDER_SCALE`, and the always-processing ones keep running while the tree is paused.
+
+**Modals.** The pause menu (owner `"pause"`, layer 25) and the power popup (`"power"`, layer 26) use `World.acquire_modal`, so they pause the tree, give way to the map and the dev panel, and release play input only when the keys are let go. Neither opens during an animation (`World.is_busy()`): the pause menu waits and opens when it ends, and the popup waits in `World._popups`. The title card (layer 5) is not a modal and does not process while paused.
+
+**Controls.** `data/controls.json` has one row per control, with the input actions it is drawn from and, for a power, the ability stat it `needs`. `Controls.key_groups` reads the keys from the InputMap, so a rebound key changes the page. The Controls page shows the rows the player owns (the main menu, with no game, shows the base rows); a popup shows the rows an upgrade names in its `controls` list.
+
+**Power popups** come from the `GameState.upgrade_granted` signal, which `grant()` emits for a pickup or a 3TM, and never for dev edits, loadouts or loads (`abilities_changed` fires for all of those). When a popup is coming the toast line is skipped.
+
+**Title cards.** A room entry in `world.json` may have a `title` (`text` and `hold`, the seconds between a 0.3 s fade in and a 0.5 s fade out). `World._maybe_title` shows it once per game and remembers it as the flag `title:<room id>`, which nothing else reads. A room or dev test session shows it once per world and sets no flag. Room 7's `hold` is 2.2 s: `title_card_test` measures the fall from the slide's start to landing as 2.983 s and checks the card lasts 3.0 s. The card is a fixed countdown, so a player who slows the fall (a double jump, an Imprint) sees it end early.
+
 ### Effects and small parts
 
 `ExitHalo` is a dithered half-disc of 12 pre-painted 64 px frames, played as a pulse. `Shatter` is 14 square shards that fly out and fall for 0.5 s; nothing fades. `Toast` (layer 15) shows a line for 2.5 s. `FlyingToken` arcs 16 px high with a trail of 6 recent positions, every other one drawn. `InventoryMarks` cuts black 2×1 token lines into the rear side of the body, filling rows 6, 4 and 2 in that order (columns 1–2 facing right, 7–8 facing left), and a line on row 8 from column 1 to 8 once Imprint is unlocked. `SaveMachine` draws a pixel ring (outer radius 13 px, the band from 8 px lit a segment at a time) around a hole of 4 px, on a 12 px base, with no antialiasing. `DebugOverlay` (layer 20) shows F3's readout and debug load errors. `DevPanel` (layer 30) owns F2/F4 and the paused playtest UI.
@@ -958,6 +976,18 @@ What was decided, in the order it came up, with the reason. Pull requests are na
 - **The map's open and close animation (a panel growing from 92% to 100% over 0.1 s) is drawn finer than before.** The one accepted difference.
 - **A door slide steps the camera onto whole world pixels.** At 320×180 a camera between pixels moved the polygon shapes and a player standing at a fractional position by a pixel from frame to frame during the half-second slide. The slide is rounded now, so the picture is steady. The pixel check rounds the camera in both runs for those frames.
 - **The engine's own interpolation of the squash is kept.** The squash of a landing or jump was a scale on a child of the interpolated player, so it lagged by up to a tick. It is reproduced, so the body is drawn pixel for pixel as before.
+
+**Menus, pause and overlays**
+- **Continue and New Game when there is a save, Start Game when there is not.** The user's choice, so a player can start over without the URL trick. New Game asks before it erases, with No selected.
+- **A launch with `--room` or `--dev` skips the menu.** Tests, `tools/snap.sh` and dev playtesting depend on booting straight in.
+- **Esc and P both pause.** The user's choice. A browser can swallow Esc (leaving fullscreen). It costs the palette key, which is unassigned until that is built.
+- **Pause menu: Resume, Controls, Main menu.** It reuses the world's modal, so it cannot open over the map or dev panel and waits out an animation.
+- **The Controls page shows only the powers the player owns.** The user's choice, so it does not give away what is still to find.
+- **A new power pauses the game on a popup until it is dismissed.** The user's choice. It shows once because a pickup or 3TM gives its upgrade once per save.
+- **The title card shows once per save, and ends on a fixed countdown.** The user's choices. The countdown is tuned to a straight fall; a player who stalls mid-air sees it end early.
+- **The look is the dev panel's, shared.** One theme, `UiTheme`. The theme variation is `MenuItem`: `MenuButton` is a built-in Godot class and cannot be one.
+- **The menus' fades are the exception to "nothing fades".** That rule is about the world's picture. The title card fades and the pause menu dims the game behind it, because they are UI over the picture, not part of it.
+- **Titles are in `world.json`, not the room files.** A title is presentation; the room file's header reaches the solver and its cache.
 
 **Process**
 - **One record.** `AGENTS.md` for how an agent works, `README.md` for the code and its rules, this file for the game and its decisions, `docs/testing-checklist.md` for what nobody has played. `docs/plans/` is history.

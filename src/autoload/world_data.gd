@@ -5,6 +5,9 @@ const ROOM_DIR := "res://data/rooms/"
 
 var start_room := ""
 var rooms := {}
+## Title cards by room id: {"text": String, "hold": float}. A room has one if
+## its entry in world.json has a `title`.
+var titles := {}
 ## Everything wrong with the world data. Empty means the world loaded clean.
 var errors: Array[String] = []
 var _by_pos := {}
@@ -55,11 +58,30 @@ func _read_entry(raw) -> Variant:
 		errors.append("Room %s has no file at %s" % [id, path])
 		return null
 	var pos: Array = raw["grid_pos"]
+	if raw.has("title"):
+		var title := read_title(raw["title"], id, errors)
+		if not title.is_empty():
+			titles[id] = title
 	return {
 		"id": id,
 		"grid_pos": Vector2i(int(pos[0]), int(pos[1])),
 		"text": FileAccess.get_file_as_string(path),
 	}
+
+
+## A room's `title` from world.json as {"text", "hold"}, or empty with the
+## problem added to `problems`.
+static func read_title(raw, id: String, problems: Array[String]) -> Dictionary:
+	if not raw is Dictionary:
+		problems.append("%s: room %s has a title that is not {\"text\", \"hold\"}" % [WORLD_PATH, id])
+		return {}
+	if not raw.get("text") is String or String(raw["text"]).is_empty():
+		problems.append("%s: room %s has a title with no text" % [WORLD_PATH, id])
+		return {}
+	if not (raw.get("hold") is float or raw.get("hold") is int) or float(raw["hold"]) <= 0.0:
+		problems.append("%s: room %s has a title whose hold is not a number above 0" % [WORLD_PATH, id])
+		return {}
+	return {"text": String(raw["text"]), "hold": float(raw["hold"])}
 
 
 func _report() -> void:

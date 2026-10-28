@@ -117,7 +117,7 @@ func close_panel() -> void:
 func _build() -> void:
 	_badge = Button.new()
 	_badge.text = "DEV [F2]"
-	_badge.theme = _theme()
+	_badge.theme = UiTheme.build()
 	_badge.position = Vector2(265, 0)
 	_badge.size = Vector2(55, 14)
 	_badge.add_theme_font_size_override("font_size", 8)
@@ -137,7 +137,7 @@ func _build() -> void:
 	_window = PanelContainer.new()
 	_window.position = Vector2(4, 16)
 	_window.size = Vector2(312, 160)
-	_window.theme = _theme()
+	_window.theme = UiTheme.build()
 	_window.hide()
 	add_child(_window)
 	var margin := MarginContainer.new()
@@ -163,39 +163,6 @@ func _build() -> void:
 	_button(footer, "Apply", _apply)
 	_button(footer, "Resume / Cancel", close_panel)
 	_button(footer, "End playtest", func() -> void: _report(DevSession.end(_world)))
-
-
-## A small monochrome theme keeps controls usable at the native pixel scale.
-func _theme() -> Theme:
-	var out := Theme.new()
-	out.default_font_size = 8
-	var box := StyleBoxFlat.new()
-	box.bg_color = Color.BLACK
-	box.border_color = Color.WHITE
-	box.set_border_width_all(1)
-	box.content_margin_left = 3
-	box.content_margin_right = 3
-	box.content_margin_top = 2
-	box.content_margin_bottom = 2
-	for type in ["PanelContainer", "TabContainer", "Button", "LineEdit", "ItemList"]:
-		for style in ["panel", "normal", "hover", "pressed", "focus", "selected", "selected_focus", "tab_selected", "tab_unselected"]:
-			out.set_stylebox(style, type, box)
-		for color in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_selected_color", "font_unselected_color", "font_outline_color"]:
-			out.set_color(color, type, Color.WHITE)
-	for style in ["scroll", "grabber", "grabber_highlight", "grabber_pressed"]:
-		out.set_stylebox(style, "VScrollBar", box)
-	for on in [false, true]:
-		var pixels := Image.create(12, 6, false, Image.FORMAT_RGBA8)
-		pixels.fill(Color.BLACK)
-		for x in 12:
-			pixels.set_pixel(x, 0, Color.WHITE)
-			pixels.set_pixel(x, 5, Color.WHITE)
-		for y in 6:
-			pixels.set_pixel(0, y, Color.WHITE)
-			pixels.set_pixel(11, y, Color.WHITE)
-		pixels.fill_rect(Rect2i(7 if on else 2, 2, 3, 2), Color.WHITE)
-		out.set_icon("checked" if on else "unchecked", "CheckButton", ImageTexture.create_from_image(pixels))
-	return out
 
 
 func _page(title: String) -> VBoxContainer:

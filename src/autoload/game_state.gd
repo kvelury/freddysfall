@@ -4,6 +4,8 @@ signal room_changed(room_id: String)
 signal visited_changed
 signal abilities_changed
 signal tokens_changed
+## An upgrade was given by a pickup or a 3TM. Not emitted for dev edits or loads.
+signal upgrade_granted(id: String)
 
 ## Most tokens the player can carry at once.
 const TOKEN_CAP := 3
@@ -58,6 +60,7 @@ func grant(id: String, text: String) -> String:
 	var value: Variant = Upgrades.parse_value(id, text)
 	if abilities.apply(upgrade, value):
 		abilities_changed.emit()
+	upgrade_granted.emit(id)
 	if upgrade.has("message"):
 		return String(upgrade["message"])
 	return "%s: %s" % [upgrade["name"], value]

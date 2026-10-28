@@ -38,6 +38,12 @@ func write(room_id: String, position: Vector2) -> bool:
 	return true
 
 
+## Whether there is a saved game to continue. A file that cannot be read
+## still counts: load_game sets it aside and the game starts fresh.
+func has_game() -> bool:
+	return enabled and not DevSession.isolated() and FileAccess.file_exists(path)
+
+
 ## Reads the save into GameState. Returns {"room": String, "position": Vector2}
 ## for where to put the player, or an empty dictionary if there is no save.
 ## A save for a room that no longer exists still restores abilities, flags and

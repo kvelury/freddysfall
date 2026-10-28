@@ -1,4 +1,4 @@
-[gd_scene load_steps=9 format=3]
+[gd_scene load_steps=12 format=3]
 
 [ext_resource type="Script" path="res://src/world/world.gd" id="1_world"]
 [ext_resource type="PackedScene" path="res://src/player/player.tscn" id="2_player"]
@@ -9,6 +9,9 @@
 [ext_resource type="Script" path="res://src/gun/gun.gd" id="8_gun"]
 
 [ext_resource type="Script" path="res://src/ui/dev_panel.gd" id="7_dev"]
+[ext_resource type="Script" path="res://src/ui/title_card.gd" id="9_title"]
+[ext_resource type="Script" path="res://src/ui/pause_menu.gd" id="10_pause"]
+[ext_resource type="Script" path="res://src/ui/power_popup.gd" id="11_popup"]
 
 [node name="World" type="Node2D"]
 script = ExtResource("1_world")
@@ -39,3 +42,12 @@ script = ExtResource("5_toast")
 [node name="DevPanel" type="CanvasLayer" parent="."]
 layer = 30
 script = ExtResource("7_dev")
+
+[node name="TitleCard" type="CanvasLayer" parent="."]
+script = ExtResource("9_title")
+
+[node name="PauseMenu" type="CanvasLayer" parent="."]
+script = ExtResource("10_pause")
+
+[node name="PowerPopup" type="CanvasLayer" parent="."]
+script = ExtResource("11_popup")

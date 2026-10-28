@@ -4,6 +4,7 @@
     "stat": "air_jumps",
     "kind": "max",
     "message": "Double jump. Press jump again in the air.",
+    "controls": ["double_jump"],
     "dev": {
       "type": "int",
       "min": 0,
@@ -17,6 +18,7 @@
     "stat": "gun_unlocked",
     "kind": "unlock",
     "message": "Gun. Space shoots the way you face.",
+    "controls": ["shoot"],
     "dev": {
       "type": "bool"
     }
@@ -50,6 +52,7 @@
     "stat": "imprint_unlocked",
     "kind": "unlock",
     "message": "Imprint. Left click puts a platform under the cursor.",
+    "controls": ["imprint"],
     "dev": {
       "type": "bool"
     }
