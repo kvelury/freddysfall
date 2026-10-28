@@ -85,7 +85,7 @@ func _start(room: String, setup := Callable()) -> void:
 	player.scripted = true
 	world.get_node("Imprint").scripted = true
 	world.get_node("Gun").scripted = true
-	for layer in ["Toast", "DebugOverlay", "DevPanel", "MapOverlay"]:
+	for layer in ["Toast", "DebugOverlay", "DevPanel", "MapOverlay", "TitleCard", "PauseMenu", "PowerPopup"]:
 		world.get_node(layer).visible = false
 
 
@@ -332,7 +332,7 @@ func _feed() -> void:
 func _text() -> void:
 	await _start("s1")
 	var layers := {}
-	for layer in ["Toast", "DebugOverlay", "DevPanel", "MapOverlay"]:
+	for layer in ["Toast", "DebugOverlay", "DevPanel", "MapOverlay", "TitleCard", "PauseMenu", "PowerPopup"]:
 		layers[layer] = world.get_node(layer)
 	layers["Toast"].visible = true
 	world.toast.show_text("Game saved")

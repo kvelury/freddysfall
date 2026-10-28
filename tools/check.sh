@@ -30,6 +30,8 @@ dev_ui_test.gd
 double_jump_test.gd
 display_test.gd
 gun_test.gd
+menu_test.gd
+title_card_test.gd
 "
 
 for test in $TESTS; do
@@ -109,4 +111,4 @@ for suffix in (".pck", ".wasm", ".audio.worklet.js", ".audio.position.worklet.js
 print(f"web export ok ({tag})")
 PY
 
-echo "CHECK pass: 24 tests, uncached world validation, and web export"
+echo "CHECK pass: 26 tests, uncached world validation, and web export"

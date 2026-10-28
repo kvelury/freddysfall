@@ -189,6 +189,20 @@ panel render is a layout check, not a completed human browser playthrough.
 - [ ] **Doors that are not level,** and a door with a wall right behind it.
 - [ ] **Every way into a door,** not only the one the validator tried: slow, fast, from above, from the side.
 
+## Menus, pause, popups and title cards
+
+Nobody has played these. Headless tests prove the logic, not how they look or feel. Use `tools/build_web.sh` and `tools/serve.sh`, then http://localhost:8060 (and the published site after the merge).
+
+- [ ] **The main menu.** It shows first, with "Freddy's Fall" and the items. Mouse hover selects (inverted box) and a click picks. Up / Down / W / S move and wrap, Enter and Space pick.
+- [ ] **Start Game, Continue, New Game.** With no save: Start Game and Controls. With a save: Continue (resumes at the last save machine), New Game (asks first, No is selected, Esc answers No; Yes starts over) and Controls.
+- [ ] **`?new-game=1`** erases the save and shows the menu with Start Game. `?room=7` and `?dev=1&room=4` skip the menu.
+- [ ] **Controls and Back.** The page lists Move, Jump, Map, Map zoom and Pause as key pictures with what they do (arrows drawn as arrows). Does it read well at 1280×720 and fullscreen?
+- [ ] **Pause.** Esc and P open the pause menu and close it; the game is frozen and dimmed behind it. Resume, then Space and a click do not shoot or place Imprint. During a door slide or a death the pause waits for it to end. It does not open over the map or the F2 panel.
+- [ ] **Pause, Controls.** The same page, plus a row for each power you own (double jump after room 4's 3TM, Shoot after room 9's). Esc or P goes back to the pause list.
+- [ ] **Pause, Main menu** then Continue: back at the last save machine with everything still collected.
+- [ ] **The power popups.** Room 4's 3TM (double jump) and room 9's 3TM (gun) pause the game on "NEW POWER" with the key picture. Enter, Space, a click, W or Esc dismisses it after a moment, and play resumes. F2 edits show no popup.
+- [ ] **The room 7 title card.** The first drop from room 6 shows "Freddy's Fall" as the slide starts and it is gone about as Freddy lands. It does not show again after a reload or a second drop. A new game shows it again. Does the timing feel right, including after a double jump?
+
 ## Published site
 
 - [ ] **After the first deploy and after any change to the deploy workflow,** open https://kvelury.github.io/freddysfall/ on your own machine. The game loads, a door takes you to the next room, a reload keeps the save, and `?new-game=1` starts over.

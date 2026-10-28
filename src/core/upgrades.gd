@@ -81,6 +81,15 @@ static func _load() -> void:
 		if def.has("message") and not def["message"] is String:
 			_problems.append("%s: upgrade \"%s\" has a message that is not text" % [PATH, id])
 			continue
+		if def.has("controls"):
+			var bad := not def["controls"] is Array
+			if not bad:
+				for row_id in def["controls"]:
+					if Controls.get_row(String(row_id)).is_empty():
+						bad = true
+			if bad:
+				_problems.append("%s: upgrade \"%s\" has controls that are not ids of rows in %s" % [PATH, id, Controls.PATH])
+				continue
 		if not Abilities.STATS.has(def["stat"]):
 			_problems.append("%s: upgrade \"%s\" changes \"%s\", which is not an ability (%s)" % [PATH, id, def["stat"], ", ".join(Abilities.STATS)])
 			continue

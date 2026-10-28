@@ -46,6 +46,20 @@ func configure(dev: bool, room_test: bool) -> void:
 	replacing = false
 
 
+## Back to a normal game, for the main menu. Unlike `configure` it keeps
+## `available`, so a `?dev=1` player still has F2 after Continue.
+func reset_to_normal() -> void:
+	mode = Mode.NORMAL
+	bypass = false
+	classic_imprint = false
+	wall_strength_override = 0
+	retry_on_death = false
+	baseline = {}
+	loadout = {}
+	target = ""
+	replacing = false
+
+
 func enter(world: Node) -> String:
 	if not available or replacing or world.is_busy():
 		return "Wait for the current animation to finish."

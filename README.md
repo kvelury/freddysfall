@@ -14,12 +14,12 @@ This file is the project: how it is laid out, how the code fits together, the ru
 
 ## Run
 
-Open the project in the editor and press Play. The main scene is `res://src/world/world.tscn`.
+Open the project in the editor and press Play. The main scene is the main menu, `res://src/ui/main_menu.tscn`, which starts the world (`res://src/world/world.tscn`). A launch with `--room`, `?room=`, `--dev` or `?dev=1` skips the menu and boots straight into the world.
 
 - **Start in a room:** `godot --path . -- --room=3`, or `?room=3` on the web, or F4, a room ID and Enter when dev tools are available. F4 enters an isolated playtest. A game started in a chosen room neither reads nor writes the save.
 - **Saving:** the game saves by itself when a room is entered, when a pickup or token is taken, when a 3TM finishes, when a save machine is used, and when the map is closed after its zoom changed. Whatever the player has done is kept, but a reload always starts at the save: the machine of the save room they last entered, or the start room's `P` before that. The file is `user://save.json` (the browser's IndexedDB on the web). A plain reload keeps the game.
 - **Start over:** `--new-game`, or `?new-game=1` on the web. It deletes the save and empties the game's state before anything is placed, so even a reload before the first autosave cannot bring the old game back. While `?new-game=1` stays in the address, every reload is a new game.
-- **Keys:** `move_left`, `move_right` (A/D, arrows), `jump` (W, Up), `shoot` (Space), `move_down` (S, Down; reserved, does nothing), `imprint` (left mouse button), `map` (hold Tab or M), `map_zoom_in` (Up or W while the map is held), `map_zoom_out` (Down or S), `debug` (F3). F2 opens dev tools, and F4 opens their room picker. The table with what each does is in the design doc.
+- **Keys:** `move_left`, `move_right` (A/D, arrows), `jump` (W, Up), `shoot` (Space), `move_down` (S, Down; reserved, does nothing), `imprint` (left mouse button), `map` (hold Tab or M), `map_zoom_in` (Up or W while the map is held), `map_zoom_out` (Down or S), `pause` (Esc or P; opens the pause menu), `debug` (F3). F2 opens dev tools, and F4 opens their room picker. The table with what each does is in the design doc.
 
 ## Dev playtesting
 
@@ -110,7 +110,7 @@ Limits: a 1 GB site, about 100 GB of bandwidth a month (soft), a 10-minute deplo
 
 ## Checking your work
 
-Run `tools/check.sh` before opening a pull request. It imports the project, runs all 23 headless tests, validates the whole world without the solver cache, builds the release web export, and checks that the room data and cache-tagged browser files are present. CI runs the same command. After it passes, serve that build and play the affected route yourself; the automated checks do not judge movement feel, room readability or visual feedback.
+Run `tools/check.sh` before opening a pull request. It imports the project, runs all 26 headless tests, validates the whole world without the solver cache, builds the release web export, and checks that the room data and cache-tagged browser files are present. CI runs the same command. After it passes, serve that build and play the affected route yourself; the automated checks do not judge movement feel, room readability or visual feedback.
 
 ```sh
 tools/check.sh                 # the complete automated gate and a fresh web build
@@ -146,6 +146,8 @@ After adding a script with a `class_name`, run `godot --headless --path . --impo
 | `tests/imprint_test.gd` | Where an Imprint platform may go (every refusal), when none may (the limit and the cooldown), whether the player can land on one, how a platform shrinks (the blocks left, the order set at the click from the player's centre with ties by facing, the nearest block lasting for widths 1 to 5, the blink of the next block, the warning cap), and, for Classic, the blink and the countdown lines. Prints `IMPRINT pass`. |
 | `tests/imprint_play_test.gd` | Imprint in room 5: locked until found, placed by the action, solid under the player, never replaced by another click while one stands (the cross shows), broken by time, shrinking one block at a time toward where the player placed it from (a player who placed it from the left stands on the left block to the end, from the right the left block goes first, ties by facing, the cooldown starting at the final break and not when a block goes, the cursor's refusal following the footing), Classic only in a dev test, the cooldown starting then and refusing until it ends, the limit of two, the platforms and cooldown cleared on leaving a room and on dying, facing turning with input and resetting on a warp, and automatic cursor updates deferring reachability without weakening placement or lockout. Prints `IMPRINTPLAY pass`. |
 | `tests/display_test.gd` | The 640×360 viewport and stretch settings, the camera zoom, the snapping rule, the pixel pictures, the player's body and marks, a moving platform and dust on whole world pixels, and the UI scale. Prints `DISPLAY pass`. `tests/pixel_grid.gd` (run by `tools/pixel_check.sh`, needs a renderer) checks the drawn frames. |
+| `tests/menu_test.gd` | The controls file (every row's actions and keys, the rows shown with and without powers), the main menu (Start Game or Continue and New Game, the confirmation, Controls and Back, starting the world), the pause menu (Esc and P, waiting for an animation, giving way to the dev panel, back to the main menu with a clean game) and the power popup (opens on a real grant, ignores early input, never shows for dev edits). Prints `MENU pass`. |
+| `tests/title_card_test.gd` | Room 7's title card: the `world.json` data and its errors, that it shows as the player drops in, lasts as long as the fall (it prints the measured fall), is gone within 6 ticks of landing, is remembered in the save, shows once, and freezes in a pause. Prints `TITLE pass`. |
 | `tests/dev_catalog_test.gd` | Dev-control coverage, validation, snapshot copies, and loadout persistence/failure handling. Prints `DEV CATALOG pass`. |
 | `tests/dev_session_test.gd` | Save isolation, exact editing, door collisions, cross-room retries and death, and ending a session. Prints `DEV SESSION pass`. |
 | `tests/dev_ui_test.gd` | Panel input/drafts, modal pause ownership, deferred opening, room selection, and a direction held through the panel not turning the player. Native runs also render panel screenshots to `build/dev-panel-*.png`. Prints `DEV UI pass`. |
@@ -164,10 +166,11 @@ Two kinds of test, and which to write:
 | Path | Role |
 | --- | --- |
 | `project.godot` | Application `Freddysfall` 0.1.0, autoloads (`DevSession`, `GameState`, `Save`, `WorldData`), display (640×360 viewport, the world drawn 2× so one world pixel is 2×2 screen pixels, integer scale, nearest filter), input actions, 60 Hz physics with interpolation. |
-| `data/world.json` | Start room, and each room's id and `grid_pos`. The room's file is `data/rooms/<id>.txt`. |
+| `data/world.json` | Start room, and each room's id and `grid_pos`, and optionally a `title` (`{"text", "hold"}`: a title card shown the first time the player enters it; `hold` is seconds between the fades). The room's file is `data/rooms/<id>.txt`. |
 | `data/rooms/` | One ASCII file per room: an optional header, then the grid. |
+| `data/controls.json` | The rows of the Controls page and the power popups: an id, a label, the input actions it is drawn from and, for a power, the ability stat it `needs`. Upgrades name rows in a `controls` list. |
 | `data/upgrades.json` | The upgrades a pickup or 3TM can give: a name, the ability stat it changes, a kind (`unlock`, `max`, `add`) an optional message, and dev-control metadata. |
-| `src/core/` | `Grid` (cell and screen sizes, the camera clamp), `Display` (the render scale, the pixel snapping), `PixelArt` and `PixelShapes` (shapes drawn as pixel pictures), `Abilities` (what the player can do), `Upgrades` (reads `upgrades.json`). No scene, no autoload. |
+| `src/core/` | `Grid` (cell and screen sizes, the camera clamp), `Display` (the render scale, the pixel snapping), `PixelArt` and `PixelShapes` (shapes drawn as pixel pictures), `Abilities` (what the player can do), `Upgrades` (reads `upgrades.json`), `Controls` (reads `controls.json` and finds the keys from the InputMap), `LaunchArgs` (`--name` / `?name` options), `Scenes` (swapping the running scene). No scene, no autoload. |
 | `src/autoload/` | `WorldData` (reads the world files, keeps the rooms and `errors`), `GameState` (current room, visited set, abilities, flags, tokens, machines, map zoom, save room, health), `Save` (reads and writes `user://save.json`). |
 | `src/world/room_parser.gd` | Pure text-to-`RoomInfo`: header, glyphs and walls, legend, merging `#` into rectangles, pairing and sealing doors. |
 | `src/world/room_info.gd`, `door.gd`, `entity_def.gd`, `tiles.gd` | A loaded room, one opening in its wall (and `Door.crossing`, where a body appears on the far side), one legend entry, and the glyph table. |
@@ -184,7 +187,7 @@ Two kinds of test, and which to write:
 | `src/imprint/` | `ImprintTool` (the cursor, placing, ageing, drawing), `ImprintPlatform` (one platform, its shrinking footing and its look), `ImprintRules` (where one may go), `ImprintReach` (whether the player can land on one from where they are). |
 | `src/player/` | `MovementConfig` (`movement.tres`), `MovementSim` (all of the movement), `Player` (a `Node2D` that advances a `MovementSim.State`), `InventoryMarks` (tokens, the Imprint line and the facing block cut into the body). |
 | `src/dev/` | `DevSession` (session boundary and retries), pure `DevCatalog` (generated controls, validation, coverage), `DevLoadouts` (separate named-loadout store). |
-| `src/ui/` | `MapOverlay` (the map, drawn into its own viewport) and `MapView` (its zoom and legend maths), `Toast` (a line of text), `DebugOverlay` (F3 and load errors), `DevPanel` (F2/F4 and playtest controls). |
+| `src/ui/` | `MapOverlay` (the map, drawn into its own viewport) and `MapView` (its zoom and legend maths), `Toast` (a line of text), `DebugOverlay` (F3 and load errors), `DevPanel` (F2/F4 and playtest controls), and the menus: `MainMenu` (the main scene), `PauseMenu`, `PowerPopup`, `TitleCard`, with `UiTheme` (the monochrome look the dev panel shares), `MenuList`, `KeyCap` and `ControlsView`. |
 | `tests/` | The tests above. |
 | `tools/` | `check.sh` (the complete automated gate), `validate.sh`, `render.sh`, `snap.sh`, `build_web.sh`, `serve.sh`. |
 | `AGENTS.md`, `CLAUDE.md` | How an agent works here. |
@@ -214,8 +217,9 @@ GameState (autoload) ◄──► Save (autoload, user://save.json)
 ### Boot
 
 1. `WorldData._ready` loads `world.json`, reads each room's file, and calls `RoomParser.build`. Every problem is appended to `WorldData.errors` (never stops at the first) and pushed as an error. A debug build lists them on screen.
-2. `DevSession` sets the normal/room-test/dev-test boundary before any save access. `World._ready` picks the start: `--room=`/`?room=` (no save), else `--new-game`/`?new-game=1` (erase the save, reset the state, start room), else the save, else the start room. It then `_place_in`s the player.
-3. `_place_in` frees the old room, builds the new `Room` from `RoomInfo` and `GameState` (flags and machine fills decide what is still in the world), puts the player on it, and calls `GameState.visit`.
+2. The main scene is `MainMenu`. A `--room`/`?room=`/`--dev`/`?dev=1` launch swaps straight to the world (which reads those itself). Otherwise it sets `DevSession` to normal, honours `?new-game=1` (erase, reset) and shows Start Game or Continue and New Game. Starting builds the world with `from_menu = true`: it reads no launch arguments and does not reconfigure `DevSession`.
+3. `DevSession` sets the normal/room-test/dev-test boundary before any save access. `World._ready` picks the start: `--room=`/`?room=` (no save), else `--new-game`/`?new-game=1` (erase the save, reset the state, start room), else the save, else the start room. It then `_place_in`s the player.
+4. `_place_in` frees the old room, builds the new `Room` from `RoomInfo` and `GameState` (flags and machine fills decide what is still in the world), puts the player on it, and calls `GameState.visit`.
 
 ### Each physics tick (`World._physics_process`)
 

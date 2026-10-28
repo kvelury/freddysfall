@@ -73,7 +73,12 @@ func _run() -> void:
 	ok = _check(machine.spent and machine.filled == 3 and state.tokens == 0, "the third token fills it") and ok
 	ok = _check(state.abilities.air_jumps == 1 and not state.abilities.imprint_unlocked, "and gives double jump, not Imprint") and ok
 	ok = _check(sparked, "with a spark that comes back to the player") and ok
-	ok = _check(toast.visible and "Double jump" in toast.text, "and a line says what it was (%s)" % toast.text) and ok
+	# The world is free for a tick and then shows the popup for the power.
+	await physics_frame
+	await physics_frame
+	var popup = world.power_popup
+	ok = _check(popup.opened and "Double jump" in popup._name.text, "and a popup says what it was (%s)" % popup._name.text) and ok
+	popup.dismiss()
 	ok = _check(player.input_enabled and not world.is_busy(), "the player is free again") and ok
 	ok = _check(FileAccess.file_exists(TEMP), "and the game saved") and ok
 

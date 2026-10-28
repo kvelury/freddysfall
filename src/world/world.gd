@@ -19,6 +19,9 @@ const SAFE_SPACING := 30.0
 @onready var toast: Toast = $Toast
 @onready var imprint: ImprintTool = $Imprint
 @onready var gun: Gun = $Gun
+@onready var title_card: TitleCard = $TitleCard
+@onready var pause_menu: PauseMenu = $PauseMenu
+@onready var power_popup: PowerPopup = $PowerPopup
 
 ## Set before the world enters the tree to start in this room. The command
 ## line (`-- --room=3`) and, on the web, `?room=3` fill it in when it is empty.
@@ -36,6 +39,14 @@ var modal_owner := ""
 var _modal_was_paused := false
 var _input_release := false
 var new_game := false
+## Built by the main menu: reads no launch arguments (the menu has already
+## handled them) and does not reconfigure DevSession.
+var from_menu := false
+## Upgrades just granted that have controls to show, waiting for the world to
+## be free for their popups.
+var _popups: Array[String] = []
+## Rooms whose title card this world has shown.
+var _titled := {}
 var current: Room
 var _pending: Room
 var _busy := false
@@ -62,11 +73,16 @@ func _ready() -> void:
 	camera.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 	camera.make_current()
 	GameState.abilities_changed.connect(func() -> void: player.air_jumps = GameState.abilities.air_jumps)
-	var requested := start_override if not start_override.is_empty() else _launch_arg("room")
+	GameState.upgrade_granted.connect(func(id: String) -> void:
+		if Upgrades.get_def(id).has("controls"):
+			_popups.append(id))
+	var requested := start_override
+	if requested.is_empty() and not from_menu:
+		requested = LaunchArgs.value("room")
 	var id := WorldData.start_room
 	var at := Vector2.INF
-	if not dev_rebuild:
-		DevSession.configure(_launch_arg("dev") == "1", not requested.is_empty())
+	if not dev_rebuild and not from_menu:
+		DevSession.configure(LaunchArgs.value("dev") == "1", not requested.is_empty())
 	if dev_rebuild and not dev_resume_normal:
 		id = DevSession.target
 	elif not dev_rebuild and DevSession.isolated():
@@ -80,7 +96,7 @@ func _ready() -> void:
 			push_error("There is no room \"%s\" to start in." % id)
 			id = WorldData.start_room
 	else:
-		if not dev_rebuild and (new_game or not _launch_arg("new-game").is_empty()):
+		if not dev_rebuild and (new_game or (not from_menu and not LaunchArgs.value("new-game").is_empty())):
 			Save.erase()
 			GameState.reset()
 		else:
@@ -133,26 +149,15 @@ func _place_in(id: String, world_position := Vector2.INF, respawn := false) -> v
 	if current.info.is_save_room():
 		GameState.save_room = id
 	GameState.visit(id)
-
-
-## A launch option: `--name=value` or `--name` on the command line, or
-## `?name=value` on the web page's address. Empty if it was not given.
-func _launch_arg(name: String) -> String:
-	for arg in OS.get_cmdline_user_args():
-		if arg == "--" + name:
-			return "1"
-		if arg.begins_with("--%s=" % name):
-			return arg.substr(name.length() + 3)
-	if OS.has_feature("web"):
-		var value = JavaScriptBridge.eval("new URLSearchParams(window.location.search).get('%s')" % name)
-		if value != null:
-			return String(value)
-	return ""
+	if not respawn:
+		_maybe_title(id)
 
 
 func _physics_process(_delta: float) -> void:
 	if current == null:
 		return
+	if not _busy and not _popups.is_empty() and modal_owner.is_empty():
+		power_popup.open(_popups.pop_front())
 	if not _busy:
 		var body := player.body_rect()
 		if current.touches_hazard(body) or current.is_outside(player.global_position) or player.crushed():
@@ -215,10 +220,16 @@ func _collect(thing: Node2D) -> void:
 		toast.show_text(GameState.take_health(thing.def))
 		thing.collect()
 	else:
-		toast.show_text(GameState.collect(thing.def))
+		_announce(GameState.collect(thing.def))
 		thing.collect()
 	current.recheck_exits(GameState.flags)
 	_autosave()
+
+
+## A power with controls gets the popup instead of the toast line.
+func _announce(line: String) -> void:
+	if _popups.is_empty():
+		toast.show_text(line)
 
 
 ## The player enters a save machine's zone. They hop into the middle, it closes
@@ -324,7 +335,7 @@ func _feed(machine: TokenMachine) -> void:
 		var burst := Shatter.new()
 		burst.position = player.global_position
 		add_child(burst)
-		toast.show_text(GameState.machine_prize(machine.def))
+		_announce(GameState.machine_prize(machine.def))
 		await get_tree().create_timer(FEED_PAUSE, true, true).timeout
 	player.input_enabled = true
 	_busy = false
@@ -444,6 +455,7 @@ func _on_exit(door: Door) -> void:
 	player.place(crossed["position"], _pending.world_rects())
 	player.room = _pending
 	GameState.visit(door.dest_id)
+	_maybe_title(door.dest_id)
 	var tween := create_tween()
 	tween.set_process_mode(Tween.TWEEN_PROCESS_PHYSICS)
 	tween.set_trans(Tween.TRANS_SINE)
@@ -470,6 +482,29 @@ func _finish_transition() -> void:
 		if current.info.is_save_room():
 			GameState.save_room = current.info.id
 		_autosave()
+
+
+## A room's title card, once per game: the flag is saved with the rest. A test
+## session shows it once per world and leaves the flags alone, so dev and room
+## launches start from clean progression.
+func _maybe_title(id: String) -> void:
+	var title: Dictionary = WorldData.titles.get(id, {})
+	var key := "title:" + id
+	if title.is_empty() or _titled.has(id) or GameState.has_flag(key):
+		return
+	_titled[id] = true
+	if not DevSession.isolated():
+		GameState.flags[key] = true
+	title_card.show_title(String(title["text"]), float(title["hold"]))
+
+
+## Back to the main menu. Everything collected was saved when it was taken;
+## this writes the resume point once more (skipped in a test session).
+func leave_to_menu() -> void:
+	save_now()
+	DevSession.reset_to_normal()
+	GameState.reset()
+	Scenes.swap.call_deferred(self, load("res://src/ui/main_menu.tscn").instantiate())
 
 
 func _camera_focus(room: Room, focus: Vector2) -> Vector2:
