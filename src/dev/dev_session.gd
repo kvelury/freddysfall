@@ -32,6 +32,19 @@ func isolated() -> bool:
 	return mode != Mode.NORMAL or replacing
 
 
+## The line the pause menu shows during a test: nothing is saved, and which
+## switches are on.
+func status_line() -> String:
+	var line := "Dev: not saving"
+	if bypass:
+		line += " · doors open"
+	if retry_on_death:
+		line += " · auto retry"
+	if classic_imprint:
+		line += " · classic imprint"
+	return line
+
+
 ## Called only for an initial boot, never by a retry or End playtest rebuild.
 func configure(dev: bool, room_test: bool) -> void:
 	available = OS.is_debug_build() or dev

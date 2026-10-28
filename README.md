@@ -25,10 +25,10 @@ Open the project in the editor and press Play. The main scene is the main menu, 
 
 Open `http://localhost:8060/?dev=1&room=7` after building and serving, or run
 `godot --path . -- --dev --room=7`. A direct launch starts fresh progression. Room 7 starts on its safe landing below the step and the moving platform; start in room 6 to test the long fall (enable Imprint in F2 to cross its wall). Rooms 8 to 11 continue from room 7's exit 1 and come back in at its exit 2.
-Editor/debug runs always offer F2 and a clickable DEV button; exports require
+Editor/debug runs always offer F2 and a Dev tools item in the pause menu; exports require
 `?dev=1` or `--dev`. These switches are an opt-in, not access control.
 
-- **F2 / DEV:** pause and edit powers or resources. **Apply** commits; **Resume / Cancel**
+- **F2 / pause menu → Dev tools:** pause and edit powers or resources. **Apply** commits; **Resume / Cancel**
   closes, discarding unapplied edits. F4 focuses the room picker. Escape closes.
 - **Player:** tokens (0–3), health, the gun (on/off, cooldown, shot speed), air jumps (0–3; 1 is double jump), Imprint on/off, width (the size a platform
   *starts* at; it shrinks, and 3 is the default), duration, active count, and
@@ -59,8 +59,8 @@ Editor/debug runs always offer F2 and a clickable DEV button; exports require
 
 Entering tools during normal play copies current progression. The session never
 reads, writes, erases, or migrates the normal save. Save machines affect only the
-session and say “Test checkpoint set.” Closing the panel keeps isolation active;
-`DEV · not saving` stays visible. A fresh browser reload with `?dev=1` starts another
+session and show no “Game saved” line. Closing the panel keeps isolation active;
+the pause menu shows `Dev: not saving`. A fresh browser reload with `?dev=1` starts another
 test. If combined with `new-game`, room/dev isolation wins and the save is not erased.
 
 Retries rebuild the gameplay scene: clocks, Imprints, effects, velocity and movement

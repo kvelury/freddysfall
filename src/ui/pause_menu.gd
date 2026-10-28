@@ -1,7 +1,8 @@
 class_name PauseMenu
 extends CanvasLayer
 
-## The pause menu: Resume, Controls and Main menu over a dimmed game. Esc or P
+## The pause menu: Resume, Controls, Dev tools (when dev is available) and
+## Main menu over a dimmed game. Esc or P
 ## opens and closes it. It takes the world's modal, so the game is paused
 ## while it is open, and it waits for an animation (a door slide, a death, a
 ## save) to finish before it opens, as the dev panel does.
@@ -17,6 +18,7 @@ var _on_controls := false
 var _mouse_before := Input.MOUSE_MODE_VISIBLE
 var _panel: PanelContainer
 var _heading: Label
+var _status: Label
 var _list: MenuList
 var _view: ControlsView
 var _back: MenuList
@@ -57,11 +59,12 @@ func _build() -> void:
 	_heading = Label.new()
 	_heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_column.add_child(_heading)
+	_status = Label.new()
+	_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_status.modulate = Color(1, 1, 1, 0.6)
+	_column.add_child(_status)
 	_list = MenuList.new()
 	_list.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	_list.add_item("Resume", close)
-	_list.add_item("Controls", _show_controls)
-	_list.add_item("Main menu", func() -> void: _world.leave_to_menu())
 	_column.add_child(_list)
 	_view = ControlsView.new()
 	_view.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
@@ -73,9 +76,29 @@ func _build() -> void:
 	_show_list()
 
 
+## The items are rebuilt each time, since Dev tools is there only when dev is
+## available.
+func _fill_list() -> void:
+	_list.clear()
+	_list.add_item("Resume", close)
+	_list.add_item("Controls", _show_controls)
+	if DevSession.available:
+		_list.add_item("Dev tools", _open_dev_tools)
+	_list.add_item("Main menu", func() -> void: _world.leave_to_menu())
+
+
+## Gives the game back and opens the dev panel, which closes to the game.
+func _open_dev_tools() -> void:
+	close()
+	_world.get_node("DevPanel").open_panel()
+
+
 func _show_list() -> void:
 	_on_controls = false
 	_heading.text = "Paused"
+	_status.text = DevSession.status_line()
+	_status.visible = DevSession.isolated()
+	_fill_list()
 	_column.custom_minimum_size.x = MENU_WIDTH
 	_list.show()
 	_view.hide()
@@ -86,6 +109,7 @@ func _show_list() -> void:
 func _show_controls() -> void:
 	_on_controls = true
 	_heading.text = "Controls"
+	_status.hide()
 	_column.custom_minimum_size.x = CONTROLS_WIDTH
 	_view.show_rows(Controls.visible_rows(GameState.abilities))
 	_list.hide()

@@ -8,8 +8,6 @@ var _pending := -1
 var _window: PanelContainer
 var _tabs: TabContainer
 var _status: Label
-var _badge: Button
-var _indicator: Label
 var _fields := {}
 var _original := {}
 var _full_draft := false
@@ -39,16 +37,6 @@ func _ready() -> void:
 
 
 func _process(_delta: float) -> void:
-	_badge.visible = DevSession.available
-	_indicator.visible = DevSession.isolated()
-	var suffix := ""
-	if DevSession.bypass:
-		suffix += " · doors open"
-	if DevSession.retry_on_death:
-		suffix += " · auto retry"
-	if DevSession.classic_imprint:
-		suffix += " · classic imprint"
-	_indicator.text = "DEV · not saving" + suffix
 	if _pending >= 0 and not _world.is_busy() and _world.modal_owner.is_empty():
 		var tab := _pending
 		_pending = -1
@@ -82,7 +70,6 @@ func open_panel(tab := 0) -> void:
 		return
 	if _world.is_busy() or (not _world.modal_owner.is_empty() and _world.modal_owner != "dev"):
 		_pending = tab
-		_world.toast.show_text("Dev panel opens when the animation or map closes. F2 cancels.")
 		return
 	if not opened:
 		var error := DevSession.enter(_world)
@@ -115,25 +102,6 @@ func close_panel() -> void:
 
 
 func _build() -> void:
-	_badge = Button.new()
-	_badge.text = "DEV [F2]"
-	_badge.theme = UiTheme.build()
-	_badge.position = Vector2(265, 0)
-	_badge.size = Vector2(55, 14)
-	_badge.add_theme_font_size_override("font_size", 8)
-	_badge.pressed.connect(func() -> void:
-		if opened:
-			close_panel()
-		else:
-			open_panel()
-	)
-	add_child(_badge)
-	_indicator = Label.new()
-	_indicator.position = Vector2(3, 1)
-	_indicator.add_theme_font_size_override("font_size", 8)
-	_indicator.add_theme_color_override("font_outline_color", Color.BLACK)
-	_indicator.add_theme_constant_override("outline_size", 2)
-	add_child(_indicator)
 	_window = PanelContainer.new()
 	_window.position = Vector2(4, 16)
 	_window.size = Vector2(312, 160)

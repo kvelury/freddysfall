@@ -410,13 +410,14 @@ func _mouse() -> void:
 			failures.append("mouse at %s is on cell %s, expected %s" % [screen, tool.cursor_cell(), want])
 		else:
 			print("mouse at %s is on cell %s" % [screen, want])
-	# A click on the DEV badge, which is UI in the scaled layer, opens the panel.
+	# A click on the pause menu's Dev tools item, which is UI in the scaled layer, opens the panel.
 	var panel: Node = world.get_node("DevPanel")
-	panel.visible = true
+	var menu: Node = world.pause_menu
+	menu.open()
 	await _frames(2)
-	var badge: Button = panel._badge
+	var item: Button = menu._list.get_child(menu._list.item_texts().find("Dev tools"))
 	var factor := float(DisplayServer.window_get_size().x) / root.get_visible_rect().size.x
-	var at := (badge.position + badge.size * 0.5) * float(Display.RENDER_SCALE)
+	var at := item.get_global_rect().get_center() * float(Display.RENDER_SCALE)
 	Input.warp_mouse(at * factor)
 	await _frames(2)
 	for pressed in [true, false]:
@@ -428,10 +429,11 @@ func _mouse() -> void:
 		root.push_input(click, true)
 		await _frames(2)
 	if panel.opened:
-		print("the DEV badge opens the panel")
+		print("the pause menu's Dev tools item opens the panel")
 		panel.close_panel()
 	else:
-		failures.append("a click on the DEV badge at %s did not open the panel" % at)
+		failures.append("a click on Dev tools at %s did not open the panel" % at)
+		menu.close()
 
 
 ## Draws each polygon shape with the code as it is, one per known spot on a

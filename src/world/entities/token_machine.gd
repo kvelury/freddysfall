@@ -19,8 +19,6 @@ const SLOTS: Array[Vector2] = [Vector2(-9, -20), Vector2(0, -20), Vector2(9, -20
 var def: EntityDef
 ## How many slots are filled.
 var filled := 0
-## Whether the player was already told how full it is, while touching it.
-var noted := false
 var _age := 0.0
 var _flash := 0.0
 var _dispensing := -1.0

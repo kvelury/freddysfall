@@ -6,8 +6,6 @@ extends Node2D
 ## flags, so the room builds without it from then on, even once it is spent.
 
 var def: EntityDef
-## Whether the player has already been told they are full while standing in it.
-var noted := false
 var _age := 0.0
 
 
