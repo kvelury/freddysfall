@@ -16,6 +16,7 @@ Run from the repo root.
 | `godot --headless --path . --script tests/<name>.gd` | Run one test; each file in `tests/` is one (`tools/check.sh` lists the 24 it runs). Prints a pass line and exits 0. |
 | `godot --path . -- --room=<id>` | Play starting in a room. In the browser, `?room=<id>`. Use `--dev --room=<id>` or `?dev=1&room=<id>` for tools; F2 opens the panel, F4 the protected room picker. |
 | `tools/build_web.sh` then `tools/serve.sh` | The browser build at http://localhost:8060. |
+| `tools/stage_site.sh` | Turns `build/web` into `build/site`, the folder published to GitHub Pages (real files instead of symlinks, no unused untagged copies). `deploy.yml` runs it after `tools/check.sh` on every merge to `main`. `tools/serve.sh site` serves it. |
 
 After adding a script with a `class_name`, run `godot --headless --path . --import` once. A headless script cannot see the new class until then. `validate.sh` and `render.sh` do this for you.
 

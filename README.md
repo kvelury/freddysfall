@@ -84,6 +84,30 @@ Room files are plain text. The preset's `include_filter` is `*.txt` so those fil
 
 `build_web.sh` imports the project, exports a release build to `build/web/index.html`, injects a listener that keeps Tab from leaving the canvas, and gives the `.pck` and `.wasm` a name that changes with the pack's hash (symlinks, `g<hash>.pck`) so a browser cannot play a cached old pack as the new game. `serve.sh` serves that directory at http://localhost:8060 and tries `open`. `build/` is gitignored.
 
+### Publishing
+
+The game is published as a static site on GitHub Pages: **https://kvelury.github.io/freddysfall/**. Every merge to `main` runs `.github/workflows/deploy.yml`, which runs `tools/check.sh` (a build that fails the gate is not published), stages the site with `tools/stage_site.sh`, and deploys it. To redeploy by hand: Actions, Deploy, Run workflow. Deep links work: `?room=3`, `?new-game=1`. Pull requests do not deploy.
+
+`tools/stage_site.sh` turns `build/web` into `build/site`: it copies the cache-tagged symlinks as real files, drops the untagged `index.pck`, `index.wasm` and worklets that `index.html` never loads, and checks that nothing is a symlink or over 100 MB. `tools/serve.sh site` serves that copy locally.
+
+One-time setting (already needed before the first deploy): repo Settings, Pages, Build and deployment, Source: **GitHub Actions**.
+
+Limits: a 1 GB site, about 100 GB of bandwidth a month (soft), a 10-minute deploy. A first visit downloads roughly 10 to 15 MB compressed. Cloudflare Pages was ruled out because it caps each file at 25 MiB and the Godot `.wasm` is larger.
+
+**Moving to a custom domain later**
+
+1. Buy a domain (Cloudflare Registrar or Porkbun sell at cost).
+2. Verify it in GitHub account Settings, Pages, so no one else can claim it.
+3. DNS: a `CNAME` from `play.example.com` to `kvelury.github.io`. For an apex domain use the four `A` records `185.199.108.153`, `185.199.109.153`, `185.199.110.153`, `185.199.111.153` plus the matching `AAAA` records.
+4. Repo Settings, Pages, Custom domain, then tick Enforce HTTPS once the certificate is issued. Actions deploys need no `CNAME` file in the repo.
+5. The old `github.io` address redirects to the new one, so shared links keep working.
+6. Saves live in the browser's IndexedDB, which belongs to one origin. Players who started on `github.io` start fresh on the new domain, so switch early.
+7. If traffic grows, put the domain behind Cloudflare's free proxy (SSL mode Full) so most downloads never reach GitHub.
+
+**Turning dev tools off in public builds**
+
+`?dev=1` currently works on the live site. To remove it from public builds: in `src/dev/dev_session.gd` change `available = OS.is_debug_build() or dev` to `available = OS.is_debug_build() or (dev and not OS.has_feature("public_release"))`; add `public_release` to `custom_features` in the Web preset (or add a second "Web (public)" preset that `deploy.yml` exports); add a `dev_session_test` case for the feature tag; and update the design doc's Dev playtesting section in the same pull request.
+
 ## Checking your work
 
 Run `tools/check.sh` before opening a pull request. It imports the project, runs all 23 headless tests, validates the whole world without the solver cache, builds the release web export, and checks that the room data and cache-tagged browser files are present. CI runs the same command. After it passes, serve that build and play the affected route yourself; the automated checks do not judge movement feel, room readability or visual feedback.
