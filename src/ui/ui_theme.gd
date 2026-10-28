@@ -4,12 +4,19 @@ extends RefCounted
 ## The monochrome look shared by the dev panel and the menus: black boxes with
 ## a one pixel white border and white text.
 
+## The one font for all text: Pixel Operator 8, drawn at 8 units (a whole multiple
+## of its pixel size, so each font pixel is a world pixel). The title font is
+## the bold cut for now; swap TITLE_FONT to change every title.
+const FONT: Font = preload("res://assets/fonts/PixelOperator8.ttf")
+const TITLE_FONT: Font = preload("res://assets/fonts/PixelOperator8-Bold.ttf")
+
 
 ## A small monochrome theme keeps controls usable at the native pixel scale.
 ## The "MenuItem" variation of Button is a menu item: the focused or hovered
 ## one is inverted (white box, black text).
 static func build() -> Theme:
 	var out := Theme.new()
+	out.default_font = FONT
 	out.default_font_size = 8
 	var box := StyleBoxFlat.new()
 	box.bg_color = Color.BLACK
@@ -55,11 +62,12 @@ static func build() -> Theme:
 	return out
 
 
-## Big centred text with a black outline, for the game's title and title cards.
-## It is 320 wide, the width of a screen in UI units.
+## Big centred bold text, all capitals, with a black outline, for the game's
+## title and title cards. It is 320 wide, the width of a screen in UI units.
 static func title_label(text: String, size := 24) -> Label:
 	var label := Label.new()
-	label.text = text
+	label.text = text.to_upper()
+	label.add_theme_font_override("font", TITLE_FONT)
 	label.custom_minimum_size.x = 320
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.add_theme_font_size_override("font_size", size)

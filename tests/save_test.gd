@@ -81,7 +81,7 @@ func _file() -> bool:
 	state.visit("1")
 	state.visit("3")
 	var line: String = state.collect(def)
-	ok = _check("4" in line and "Imprint width" in line, "taking a pickup says what it gave (%s)" % line) and ok
+	ok = _check(line == "Imprint Width +1", "taking a pickup says what it gave (%s)" % line) and ok
 	ok = _check(state.has_flag("pickup:p") and state.abilities.imprint_width == 4, "and sets its flag and the ability") and ok
 	ok = _check(save.write("3", Vector2(120.5, 80.0)), "the save is written") and ok
 

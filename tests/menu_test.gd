@@ -119,6 +119,7 @@ func _pause_menu() -> bool:
 	# Dev tools is in the list when dev is available (a debug build is), and the
 	# status line is there only during a test.
 	var session := root.get_node("DevSession")
+	session.mode = session.Mode.NORMAL
 	menu.open()
 	ok = _check(menu._list.item_texts() == ["Resume", "Controls", "Dev tools", "Main menu"], "dev available: Dev tools is in the list (%s)" % [menu._list.item_texts()]) and ok
 	ok = _check(not menu._status.visible, "and there is no status line in a normal game") and ok

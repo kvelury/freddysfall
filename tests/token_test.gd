@@ -83,7 +83,7 @@ func _run() -> void:
 	player.place(room.position + Grid.cell_center(Vector2i(18, 4)), room.world_rects())
 	await _frames(10)
 	ok = _check(state.tokens == 3 and not state.has_flag("token:r3_token") and _things(room, "Token").size() == 1, "a token touched with three already carried stays on the platform") and ok
-	ok = _check(world.get_node("Toast").get_child(0).visible and "3" in world.get_node("Toast").get_child(0).text, "and a line says why (%s)" % world.get_node("Toast").get_child(0).text) and ok
+	ok = _check(not world.get_node("Toast").get_child(0).visible, "and it says nothing") and ok
 	state.tokens = 1
 	state.tokens_changed.emit()
 	await _frames(20)

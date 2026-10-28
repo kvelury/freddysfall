@@ -65,6 +65,7 @@ The first power-up is double jump. Imprint, where the mouse cursor becomes a pla
 | Physics | 60 ticks per second. 2D physics interpolation on. At most 8 steps per frame. |
 | Display | `max_fps` 0, vsync on. Movement math uses `delta`, so the tick rate can change later without rewriting the feel. |
 | Filter | Nearest. Pixels stay pixels. |
+| Font | One font for all text: Pixel Operator 8 (CC0, `assets/fonts/`), set in `UiTheme.FONT` and as the project's default font. It is imported with no antialiasing, hinting or subpixel positioning, and drawn at sizes that are whole multiples of 8 (body 8, titles 24), so a font pixel is a world pixel. Titles use its bold cut, `UiTheme.TITLE_FONT`, in capitals: change that one constant to give titles their own font. Text that is drawn by hand (key caps, map room ids) uses `UiTheme.FONT` too. |
 
 The camera follows the player’s interpolated display position each rendered frame and snaps to whole world pixels. The player stays interpolated. A camera sitting between world pixels shimmers when the view is scaled up by a whole number.
 
@@ -803,6 +804,8 @@ The solver answers "can a player get here, and get back", using `MovementSim` an
 What was decided, in the order it came up, with the reason. Pull requests are named by number.
 
 **The world and the data**
+- **One pixel font, a bold capitals cut for titles.** The default sans did not look like the world. Pixel Operator 8 is CC0 and drawn at 8 units, so each of its pixels is a world pixel and it stays sharp at every window size. The title screen and title cards (room 7's) use its bold cut in capitals; `UiTheme.TITLE_FONT` is the single place to give titles a different font later.
+- **Fewer toasts, and the dev button is out of the way.** The checkpoint, token-cap, empty-3TM and dev-panel-waiting lines are gone (the world already shows those things). Health and stat upgrades read "Max Health +1" and "<Name> +1" (placeholders). The always-on DEV button and "not saving" label left the play screen: Dev tools is a pause-menu item when dev is available, with the "not saving" note under "Paused".
 - **Rooms are ASCII files, ids are numbers, rooms are whole screens.** Easy to write from a drawing, easy to diff, and a room is checked by the same code that plays it. Every rounding made when translating a drawing is reported to the user.
 - **`grid_pos` in `world.json`, doors inferred from facing openings.** No hand-written door table to disagree with the map. An opening with nothing beyond it is sealed until a room is placed there.
 - **Legend ids are written in the file and never derived.** The save remembers things by id, so a room can be redrawn without losing what the player did.

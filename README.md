@@ -71,6 +71,10 @@ attempt's starting count. With auto retry off, ordinary health/death rules apply
 The panel waits for a busy animation or the held map to close; a second F2 cancels
 the request. Map/panel pause ownership and an input-release gate prevent stray input.
 
+## Font
+
+All text is Pixel Operator 8 by Jayvee Enaguas (CC0; `assets/fonts/LICENSE.txt`). `UiTheme.FONT` and `UiTheme.TITLE_FONT` are the only places a font is chosen.
+
 ## Web
 
 The Web preset in `export_presets.cfg` turns thread support off, so the page does not need cross-origin isolation headers. A static server is enough.

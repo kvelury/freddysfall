@@ -327,8 +327,9 @@ func _feed() -> void:
 # --- the parts that need the UI (compare only) --------------------------
 
 
-## The UI, with its text: saved as PNGs to read, and the text must be finer than
-## the world (some 2 x 2 block inside it is not one colour).
+## The UI, with its text: saved as PNGs to read. The text is a pixel font drawn a
+## font pixel to a world pixel, so it is no finer than the world and nothing is
+## required of it here (`need` is 0); the PNGs are for reading.
 func _text() -> void:
 	await _start("s1")
 	var layers := {}
@@ -338,20 +339,20 @@ func _text() -> void:
 	world.toast.show_text("Game saved")
 	await _frames(3)
 	var label: Label = layers["Toast"].get_child(0)
-	await _grab_ui("ui_toast", label.get_global_rect(), 20)
+	await _grab_ui("ui_toast", label.get_global_rect(), 0)
 	layers["Toast"].visible = false
 	layers["DebugOverlay"].visible = true
 	layers["DebugOverlay"]._shown = true
 	layers["DebugOverlay"]._label.visible = true
 	await _frames(3)
-	await _grab_ui("ui_f3", layers["DebugOverlay"]._label.get_global_rect(), 40)
+	await _grab_ui("ui_f3", layers["DebugOverlay"]._label.get_global_rect(), 0)
 	layers["DebugOverlay"].visible = false
 	layers["DevPanel"].visible = true
 	var panel: Node = layers["DevPanel"]
 	for tab in 3:
 		panel.open_panel(tab)
 		await _frames(3)
-		await _grab_ui("ui_dev_panel_%d" % tab, Rect2(panel._window.get_global_rect()), 100)
+		await _grab_ui("ui_dev_panel_%d" % tab, Rect2(panel._window.get_global_rect()), 0)
 	panel.close_panel()
 	layers["DevPanel"].visible = false
 	layers["MapOverlay"].visible = true

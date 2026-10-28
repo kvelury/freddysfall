@@ -172,7 +172,7 @@ func _build_player(body: VBoxContainer) -> void:
 	var wall_row := HBoxContainer.new()
 	body.add_child(wall_row)
 	var wall_label := Label.new()
-	wall_label.text = "Wall strength (shots to break)"
+	wall_label.text = "Wall strength (shots)"
 	wall_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	wall_row.add_child(wall_label)
 	_wall = LineEdit.new()
@@ -392,7 +392,7 @@ func _build_loadouts(body: VBoxContainer) -> void:
 		_refresh_names()
 	)
 	var note := Label.new()
-	note.text = "Powers, tokens, health only. Select, then Apply."
+	note.text = "Powers, tokens, health only.\nSelect, then Apply."
 	body.add_child(note)
 
 
