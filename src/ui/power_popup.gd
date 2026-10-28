@@ -44,6 +44,7 @@ func _ready() -> void:
 	_name = _text("", 16)
 	column.add_child(_name)
 	_view = ControlsView.new()
+	_view.centered = true
 	_view.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	column.add_child(_view)
 	column.add_child(_text("Enter / click to continue", 8))
