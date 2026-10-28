@@ -65,6 +65,7 @@ The first power-up is double jump. Imprint, where the mouse cursor becomes a pla
 | Physics | 60 ticks per second. 2D physics interpolation on. At most 8 steps per frame. |
 | Display | `max_fps` 0, vsync on. Movement math uses `delta`, so the tick rate can change later without rewriting the feel. |
 | Filter | Nearest. Pixels stay pixels. |
+| Font | One font for all text: Pixel Operator 8 (CC0, `assets/fonts/`), set in `UiTheme.FONT` and as the project's default font. It is imported with no antialiasing, hinting or subpixel positioning, and drawn at sizes that are whole multiples of 8 (body 8, titles 24), so a font pixel is a world pixel. Titles use its bold cut, `UiTheme.TITLE_FONT`, in capitals: change that one constant to give titles their own font. Text that is drawn by hand (key caps, map room ids) uses `UiTheme.FONT` too. |
 
 The camera follows the player’s interpolated display position each rendered frame and snaps to whole world pixels. The player stays interpolated. A camera sitting between world pixels shimmers when the view is scaled up by a whole number.
 
@@ -83,7 +84,7 @@ The camera follows the player’s interpolated display position each rendered fr
 | Pause | Esc or P. Opens the pause menu (Resume, Controls, Main menu), and closes it. |
 | Palettes | Not assigned. P pauses now, so the palette key is to be chosen when that is built. |
 | Frame rate | F3. Shows FPS and frame time. A development readout, not a player feature. |
-| Dev tools | F2 or DEV button. Editor/debug builds, or exports opted in with `?dev=1` / `--dev`. |
+| Dev tools | F2, or Dev tools in the pause menu (no button on the play screen). Editor/debug builds, or exports opted in with `?dev=1` / `--dev`. |
 | Room picker | F4, a room ID (including `s1`), Enter. Starts an isolated test. |
 
 Letting go of jump early is a short hop. Holding it is the full leap. A running jump goes farther than a standing one, because air friction is low and the jump keeps the speed you had on the ground.
@@ -153,7 +154,7 @@ Solids are drawn in one chunk per screen, clipped to that screen, so a room seve
 
 ### Health and save rooms
 
-**Health** is a count of pips. The player starts with none. A pip is found as a **health pip** (kind `health`, no settings besides its `id`): a small plus sign that bobs. Touching it adds one pip, sets the flag `health:<id>`, shows "Health pip" with the new count, and saves; it is gone from then on, even once the pip is spent. There is no cap and nothing refills a pip. How many a player can hold, how pips show (nothing shows them yet, beyond that line), and whether a save room refills them are not decided (see Not decided). Dying uses the count:
+**Health** is a count of pips. The player starts with none. A pip is found as a **health pip** (kind `health`, no settings besides its `id`): a small plus sign that bobs. Touching it adds one pip, sets the flag `health:<id>`, shows "Max Health +1", and saves; it is gone from then on, even once the pip is spent. There is no cap and nothing refills a pip. How many a player can hold, how pips show (nothing shows them yet, beyond that line), and whether a save room refills them are not decided (see Not decided). Dying uses the count:
 
 - With one or more pips, dying spends one and puts the player on the last safe floor, as above.
 - With none, dying sends them to their **save room**: onto that room's machine, a plain placement with the old safe floors forgotten, because they may be in rooms the player will not reach again. Nothing is undone. Pickups, tokens and 3TM fills taken since stay taken, and only the player's place changes.
@@ -202,13 +203,13 @@ The glyph must be a letter or digit that `Tiles` does not use. Every legend prob
 
 The kinds are listed in `src/world/entities.gd`, with the settings each needs. There are seven: `pickup`, `token`, `health`, `machine`, `save`, `platform` and `breakable`. Adding a kind is a line there, a script in `src/world/entities/`, and a case in `Entities.create` (a platform is built by the room from its path instead; a breakable wall by the room from its cells). `Room.build` makes the things in a room and leaves out any that the player has already taken.
 
-A **pickup** is a small diamond. Touching it gives its upgrade, shows one line at the top of the screen, and saves. It is gone from then on. What it gives is looked up in `data/upgrades.json`: each upgrade is a name, the ability it changes (`stat`), and a `kind`. A `max` upgrade raises a number and never lowers it, so finding a smaller one late does nothing. An `add` upgrade gains a named effect, once.
+A **pickup** is a small diamond. Touching it gives its upgrade, shows one line at the top of the screen (a power with controls gets the power popup instead; any other upgrade reads its name and "+1", for example "Imprint Width +1"), and saves. It is gone from then on. What it gives is looked up in `data/upgrades.json`: each upgrade is a name, the ability it changes (`stat`), and a `kind`. A `max` upgrade raises a number and never lowers it, so finding a smaller one late does nothing. An `add` upgrade gains a named effect, once.
 
-A **token** is a solid white diamond that bobs, where a pickup is hollow. Touching it puts it in the player's pocket. The player carries at most three. Touching a token with three already carried leaves it where it is and shows "You can carry 3 tokens", once for each time the player steps onto it, and it can be taken once there is room. A token that has been taken stays gone, even after it has been spent. A token has no settings besides its `id`.
+A **token** is a solid white diamond that bobs, where a pickup is hollow. Touching it puts it in the player's pocket. The player carries at most three. Touching a token with three already carried leaves it where it is, with no message, and it can be taken once there is room. A token that has been taken stays gone, even after it has been spent. A token has no settings besides its `id`.
 
 A **3TM** (3 token machine, kind `machine`, settings `upgrade=` and `value=` like a pickup, or `prize=health` for a health pip instead; exactly one of the two) is a square with a rectangle on top. The rectangle has three diamond-shaped openings. It fills 3 x 3 cells and the legend glyph marks the middle of its bottom row, so a 3TM standing on the floor has its glyph in the cell above the floor. Its 3 x 3 cells have to be open air, and it is not solid: the player walks in front of it.
 
-- Touching it with no tokens shows how full it is ("2 of 3 tokens").
+- Touching it with no tokens does nothing; the openings show how full it is.
 - Touching it with tokens takes them all, one at a time. Each leaves the player's body, flies in an arc with a trail to the next empty opening, and fills it with a flash and a burst of pixels. The player cannot move meanwhile. An Imprint platform does not age meanwhile either.
 - Filled openings stay filled, and the count is saved, so a player can bring one token now and two later.
 - When the third opening fills, the machine shakes and flashes three times and a spark flies from its mouth to the player. The upgrade is then given, with the usual line of text at the top of the screen.
@@ -293,7 +294,7 @@ For testing, the game can begin in any room: `--room=<id>` on the command line, 
 
 ### Dev playtesting
 
-F2 or the DEV button opens a paused panel with Player, Rooms and Loadouts tabs.
+F2, or Dev tools in the pause menu, opens a paused panel with Player, Rooms and Loadouts tabs.
 Tools are always available in editor/debug runs. The browser release uses
 `?dev=1` (for example `?dev=1&room=7`), and native exports use `--dev`. Without the
 opt-in, exported gameplay has no cheat UI. F3 remains the performance readout;
@@ -304,7 +305,7 @@ Entering from normal play copies current progression and leaves the player where
 they are. The panel can set tokens (0–3), nonnegative health, the gun (on or off, shot cooldown and speed), air jumps (0–3; 1 is double jump, and changing it never clears placed Imprints), Imprint unlocked,
 width, seconds, active count and cooldown in either direction. Bounce says “Not implemented.”
 Apply commits a validated draft atomically. Resume / Cancel or Escape closes and
-discards unapplied edits. Closing keeps the test active, with `DEV · not saving`.
+discards unapplied edits. Closing keeps the test active, and the pause menu shows `Dev: not saving` (with the switches that are on).
 Imprint-setting changes clear placed Imprints and any running cooldown; resource-only changes do not.
 
 The room picker opens with every loaded room listed, visited or not, in natural ID
@@ -344,12 +345,12 @@ current defaults; removed abilities/effects are reported. Invalid or newer store
 remain untouched and failures are shown without stopping the current test.
 
 No test reads, writes, erases or migrates `save.json`, even after a save machine or
-with `new-game` also supplied. Save machines say “Test checkpoint set.” End playtest
+with `new-game` also supplied. Save machines show no “Game saved” line. End playtest
 destroys the test world before normal save access returns, then resumes the normal
 save or a fresh normal game if absent. Launch arguments are consumed for this
 in-app return; refreshing a URL still containing `dev=1` starts another test.
 
-The panel waits for a busy animation or map to close; a second F2 cancels pending
+The panel waits for a busy animation or map to close, saying nothing; a second F2 cancels pending
 opening. Map/panel pause ownership prevents one from unpausing the other. Gameplay
 input waits for held keys/buttons to be released, and panel clicks cannot place
 Imprints. The pointer is visible while editing. Panel styling stays monochrome.
@@ -803,6 +804,8 @@ The solver answers "can a player get here, and get back", using `MovementSim` an
 What was decided, in the order it came up, with the reason. Pull requests are named by number.
 
 **The world and the data**
+- **One pixel font, a bold capitals cut for titles.** The default sans did not look like the world. Pixel Operator 8 is CC0 and drawn at 8 units, so each of its pixels is a world pixel and it stays sharp at every window size. The title screen and title cards (room 7's) use its bold cut in capitals; `UiTheme.TITLE_FONT` is the single place to give titles a different font later.
+- **Fewer toasts, and the dev button is out of the way.** The checkpoint, token-cap, empty-3TM and dev-panel-waiting lines are gone (the world already shows those things). Health and stat upgrades read "Max Health +1" and "<Name> +1" (placeholders). The always-on DEV button and "not saving" label left the play screen: Dev tools is a pause-menu item when dev is available, with the "not saving" note under "Paused".
 - **Rooms are ASCII files, ids are numbers, rooms are whole screens.** Easy to write from a drawing, easy to diff, and a room is checked by the same code that plays it. Every rounding made when translating a drawing is reported to the user.
 - **`grid_pos` in `world.json`, doors inferred from facing openings.** No hand-written door table to disagree with the map. An opening with nothing beyond it is sealed until a room is placed there.
 - **Legend ids are written in the file and never derived.** The save remembers things by id, so a room can be redrawn without losing what the player did.
@@ -898,7 +901,7 @@ What was decided, in the order it came up, with the reason. Pull requests are na
 
 **Dev tools (2026-10-24)**
 - **Testing is isolated.** The user chose returning to their normal save over permanently granting cheats. F4 now shares that protection.
-- **F2 and an explicit export opt-in.** F2/DEV opens the panel; `?dev=1` / `--dev` enables exported tools, including the release browser build.
+- **F2, the pause menu, and an explicit export opt-in.** F2, or Dev tools in the pause menu, opens the panel (the old always-on DEV button is gone, so it never covers play; the "not saving" note moved into the pause menu too); `?dev=1` / `--dev` enables exported tools, including the release browser build.
 - **Fresh direct launches and reusable named loadouts.** Direct launches reset progression. Loadouts remember only powers and resources, usable in any room.
 - **Retry the original test, with the latest explicit tuning.** Cross-room attempts reset progression to their baseline, while duration/width/resource edits remain selected. This avoids replaying the game and avoids silently saving depleted resources as the next loadout.
 - **Door bypass and automatic death retry are optional, initially off.** They are separate from real room requirements and ordinary health behavior.

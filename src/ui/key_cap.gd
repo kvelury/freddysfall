@@ -38,7 +38,7 @@ func _init(text := "") -> void:
 		_picture = MOUSE
 	var width := float(HEIGHT)
 	if _picture.is_empty():
-		width = maxf(width, ThemeDB.fallback_font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_SIZE).x + 6.0)
+		width = maxf(width, UiTheme.FONT.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_SIZE).x + 6.0)
 	custom_minimum_size = Vector2(width, HEIGHT)
 
 
@@ -47,7 +47,7 @@ func _draw() -> void:
 	draw_rect(box, Color.BLACK)
 	draw_rect(box, Color.WHITE, false)
 	if _picture.is_empty():
-		var font := ThemeDB.fallback_font
+		var font := UiTheme.FONT
 		var text_size := font.get_string_size(key, HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_SIZE)
 		var at := Vector2((size.x - text_size.x) / 2.0, (size.y + font.get_ascent(FONT_SIZE) - font.get_descent(FONT_SIZE)) / 2.0)
 		draw_string(font, at.round(), key, HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_SIZE, Color.WHITE)

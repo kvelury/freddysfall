@@ -98,7 +98,7 @@ Nobody has played these yet. Headless tests prove the order, the timing and the 
 - [ ] **The order follows where you stood.** Click from the left of a platform: it shrinks toward the left. From the right: toward the right. Standing right under its middle, the block you face lasts. Moving after the click changes nothing.
 - [ ] **The facing block and the token lines.** A 2 x 2 block in the top right when you last went right, the top left when you last went left, and tokens as 2 x 1 lines stacked bottom to top opposite facing, one pixel inside the edge and one clear row apart; all read at a glance and none clash. Check with 0 to 3 tokens and with Imprint found (the line). A respawn or warp faces right. Use F2 to set 0–3 tokens and remove them; turn both ways, retry, and round-trip the count through a named loadout.
 - [ ] **Landing on a block that goes early feels fair.** The solver only counts the last block; in play the others help. Landing on one that is about to go should not feel like a trap.
-- [ ] **Classic switches cleanly both ways.** In F2, Player tab: Classic on gives full-width platforms with dashes, off gives shrinking, and toggling clears the platforms. The indicator says "classic imprint". End playtest turns it off.
+- [ ] **Classic switches cleanly both ways.** In F2, Player tab: Classic on gives full-width platforms with dashes, off gives shrinking, and toggling clears the platforms. The pause menu's dev line says "classic imprint". End playtest turns it off.
 - [ ] **Widths 1, 2 and 5 in F2.** Width 1 never shrinks; widths 2 and 5 keep the block nearest where you clicked from. The total time stays 1.5 s.
 
 ## Save rooms
@@ -141,7 +141,7 @@ Not yet played by a person. `tools/pixel_check.sh` passes (the world is on the g
 
 - [ ] **It looks the same.** At the default 1280×720 and fullscreen, the world is the same blocky picture it was: walls, the player, spikes, tokens, the save machine, halos. Nothing is smoother or thinner.
 - [ ] **It moves the same.** Jump, land, run, ride room 7's lift, cross a door: the same stepping, with no shimmer in the player or the walls. Compare a door slide: it is steadier than before, which is intended.
-- [ ] **The text is sharp.** The toast ("Game saved"), F3, the F2 panel on each tab, and the map's room ids (in dev mode) are crisp, with smooth edges, at the size they were.
+- [ ] **The text is sharp.** The toast ("Game saved"), F3, the F2 panel on each tab, and the map's room ids (in dev mode) are crisp pixel text in Pixel Operator 8, hard-edged with no blur at any window size, and nothing is clipped or overlapping.
 - [ ] **The map.** Open and close it: the panel grows a little finer than before, and that is expected. Zoom through all three levels.
 - [ ] **Imprint aims where the mouse is.** The cursor platform and the placed platform land on the cell under the pointer, at 1280×720 and fullscreen.
 - [ ] **Window fit.** A maximized browser window on a 1080p screen shows the game at 1280×720 with wider borders, and not at 1600×900 as before. Fullscreen fills the screen. Say if a window size you use now feels too small.
@@ -152,7 +152,7 @@ Not yet played by a person. `tools/pixel_check.sh` passes (the world is on the g
 Automated catalog/session/UI tests pass only after the full check gate. A native
 panel render is a layout check, not a completed human browser playthrough.
 
-- [ ] **Activation.** `?dev=1&room=7` in the release browser build and `--dev --room=7` natively; F2 and DEV open/close, Escape cancels, F4 finds ordinary and save rooms. Without `dev=1`, release tools stay unavailable.
+- [ ] **Activation.** `?dev=1&room=7` in the release browser build and `--dev --room=7` natively; F2 and the pause menu's Dev tools item open/close, Escape cancels, F4 finds ordinary and save rooms. Without `dev=1`, release tools stay unavailable.
 - [ ] **Save isolation.** Start with a known normal save, cheat, collect, feed a 3TM, use a save machine, warp, die and retry. End playtest/reload normally: the original save remains. Test `dev=1&new-game=1` without losing it.
 - [ ] **Powers.** Tokens add/fill/empty; health grants; Imprint on/off, width, duration and active count up/down. Invalid fields do not partly apply. Bounce is explicitly unavailable.
 - [ ] **The Tab map in dev mode.** Hold Tab: every room is drawn (all 12, with doors joined) with its id written in it, legible at each zoom level and over the grey current room, at all three zoom levels, even in a fresh test. Without dev tools (a release build with no `dev=1`), only visited rooms show.

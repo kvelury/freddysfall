@@ -106,6 +106,10 @@ common/physics_ticks_per_second=60
 common/physics_interpolation=true
 common/max_physics_steps_per_frame=8
 
+[gui]
+
+theme/custom_font="res://assets/fonts/PixelOperator8.ttf"
+
 [rendering]
 
 textures/canvas_textures/default_texture_filter=0

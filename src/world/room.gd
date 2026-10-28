@@ -142,8 +142,6 @@ func touched_things(body: Rect2) -> Array[Node2D]:
 			continue
 		if thing.rect().intersects(body):
 			out.append(thing)
-		elif thing is Token or thing is TokenMachine:
-			thing.noted = false
 	return out
 
 

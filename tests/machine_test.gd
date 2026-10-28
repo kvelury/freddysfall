@@ -35,10 +35,10 @@ func _run() -> void:
 	ok = _check(machine != null and machine.filled == 0 and not machine.spent, "room 4 shows an empty 3TM") and ok
 	ok = _check(machine.rect().size == Vector2(30, 30) and room.world_rects().size() == room.info.solids.size(), "it is a 3 x 3 cell thing and not solid") and ok
 
-	# With nothing to give, touching it says how full it is.
+	# With nothing to give, touching it does nothing, and says nothing.
 	await _touch(player, room)
 	var toast: Label = world.get_node("Toast").get_child(0)
-	ok = _check(toast.visible and "0 of 3" in toast.text and not world.is_busy(), "touched with no tokens it says how full it is, and nothing else happens (%s)" % toast.text) and ok
+	ok = _check(not toast.visible and not world.is_busy() and machine.filled == 0, "touched with no tokens nothing happens and no line is shown") and ok
 
 	# Two tokens go in, one at a time, with something flying to each slot.
 	state.tokens = 2
@@ -118,7 +118,7 @@ func _run() -> void:
 	var health_before: int = state.health
 	var abilities_before: Dictionary = state.abilities.to_dict()
 	var line: String = state.machine_prize(prize)
-	ok = _check(state.health == health_before + 1 and state.abilities.to_dict() == abilities_before and "Health pip" in line, "it gives a health pip and no ability (%s)" % line) and ok
+	ok = _check(state.health == health_before + 1 and state.abilities.to_dict() == abilities_before and line == "Max Health +1", "it gives a health pip and no ability (%s)" % line) and ok
 	var both := EntityDef.new()
 	both.type = "machine"
 	both.id = "bad"

@@ -104,8 +104,7 @@ func _run() -> void:
 	_check(panel._classic != null and not panel._classic.button_pressed and not session.classic_imprint, "the Classic Imprint switch is on the Player tab, off")
 	panel._classic.button_pressed = true
 	_check(session.classic_imprint, "turning it on reaches the session")
-	panel._process(0.0)
-	_check(panel._indicator.text.contains("classic imprint"), "and the indicator says so (%s)" % panel._indicator.text)
+	_check(session.status_line().contains("classic imprint"), "and the pause menu's status line says so (%s)" % session.status_line())
 	_check(not panel._draft().has("classic_imprint") and not panel._draft().get("abilities", {}).has("classic_imprint"), "it is not part of the draft")
 	panel._fields["imprint_cooldown"].text = "0"
 	_check(panel._apply() and session.classic_imprint, "Apply does not change it")
@@ -119,8 +118,7 @@ func _run() -> void:
 	_check(panel._classic.button_pressed, "the switch shows its state when the panel opens again")
 	panel._classic.button_pressed = false
 	_check(not session.classic_imprint, "and turns off again")
-	panel._process(0.0)
-	_check(not panel._indicator.text.contains("classic"), "with the indicator gone")
+	_check(not session.status_line().contains("classic"), "with the status line clear of it")
 	_check(panel._wall != null and panel._wall.text == "3", "the wall strength field is on the Player tab, at 3")
 	panel._wall.text_submitted.emit("4")
 	_check(session.wall_strength() == 4 and panel._wall.text == "4", "typing a number sets the strength")

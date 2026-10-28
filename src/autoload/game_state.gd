@@ -63,7 +63,7 @@ func grant(id: String, text: String) -> String:
 	upgrade_granted.emit(id)
 	if upgrade.has("message"):
 		return String(upgrade["message"])
-	return "%s: %s" % [upgrade["name"], value]
+	return "%s +1" % String(upgrade["name"]).capitalize()
 
 
 func tokens_full() -> bool:
@@ -86,7 +86,7 @@ func take_token(def: EntityDef) -> bool:
 func take_health(def: EntityDef) -> String:
 	flags[HealthPip.flag_for(def)] = true
 	health += 1
-	return "Health pip (%d)" % health
+	return "Max Health +1"
 
 
 ## What a 3TM gives when it is fed: its upgrade, or a health pip with
@@ -95,7 +95,7 @@ func take_health(def: EntityDef) -> String:
 func machine_prize(def: EntityDef) -> String:
 	if def.props.has("prize"):
 		health += 1
-		return "Health pip (%d)" % health
+		return "Max Health +1"
 	return grant(String(def.props["upgrade"]), String(def.props.get("value", "")))
 
 

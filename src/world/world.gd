@@ -211,9 +211,6 @@ func _collect(thing: Node2D) -> void:
 		return
 	if thing is Token:
 		if not GameState.take_token(thing.def):
-			if not thing.noted:
-				thing.noted = true
-				toast.show_text("You can carry %d tokens" % GameState.TOKEN_CAP)
 			return
 		thing.collect()
 	elif thing is HealthPip:
@@ -286,7 +283,8 @@ func _commit_save(machine: SaveMachine) -> void:
 	GameState.save_room = current.info.id
 	current.recheck_exits(GameState.flags)
 	_autosave()
-	toast.show_text("Test checkpoint set" if DevSession.isolated() else "Game saved")
+	if not DevSession.isolated():
+		toast.show_text("Game saved")
 
 
 ## Takes control from the player, and stops them where they are.
@@ -313,9 +311,6 @@ func _feed(machine: TokenMachine) -> void:
 	if machine.spent:
 		return
 	if GameState.tokens == 0:
-		if not machine.noted:
-			machine.noted = true
-			toast.show_text("%d of %d tokens" % [machine.filled, TokenMachine.COST])
 		return
 	_busy = true
 	player.input_enabled = false

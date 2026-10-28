@@ -32,7 +32,7 @@ static func total(hold: float) -> float:
 func show_title(text: String, hold: float) -> void:
 	if _tween != null:
 		_tween.kill()
-	label.text = text
+	label.text = text.to_upper()
 	label.modulate.a = 0.0
 	label.visible = true
 	_tween = create_tween()

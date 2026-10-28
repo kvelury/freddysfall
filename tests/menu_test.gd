@@ -116,9 +116,34 @@ func _pause_menu() -> bool:
 	ok = _check(panel.opened and not menu.opened, "P does not open over the dev panel") and ok
 	panel.close_panel()
 
+	# Dev tools is in the list when dev is available (a debug build is), and the
+	# status line is there only during a test.
+	var session := root.get_node("DevSession")
+	session.mode = session.Mode.NORMAL
+	menu.open()
+	ok = _check(menu._list.item_texts() == ["Resume", "Controls", "Dev tools", "Main menu"], "dev available: Dev tools is in the list (%s)" % [menu._list.item_texts()]) and ok
+	ok = _check(not menu._status.visible, "and there is no status line in a normal game") and ok
+	menu.close()
+	session.available = false
+	menu.open()
+	ok = _check(menu._list.item_texts() == ["Resume", "Controls", "Main menu"], "dev not available: no Dev tools (%s)" % [menu._list.item_texts()]) and ok
+	menu.close()
+	session.available = true
+	session.mode = session.Mode.DEV_TEST
+	session.bypass = true
+	menu.open()
+	ok = _check(menu._status.visible and menu._status.text == "Dev: not saving · doors open", "in a test the status line shows (%s)" % menu._status.text) and ok
+	menu._list.get_child(2).pressed.emit()
+	var dev_panel := world.get_node("DevPanel")
+	ok = _check(dev_panel.opened and not menu.opened and world.modal_owner == "dev", "Dev tools closes the menu and opens the dev panel") and ok
+	dev_panel.close_panel()
+	ok = _check(not paused and world.modal_owner.is_empty(), "and closing the panel gives the game back") and ok
+	session.mode = session.Mode.NORMAL
+	session.bypass = false
+
 	_gs().abilities.air_jumps = 1
 	menu.open()
-	menu._list.get_child(2).pressed.emit()
+	menu._list.get_child(menu._list.item_texts().find("Main menu")).pressed.emit()
 	await process_frame
 	await process_frame
 	var main_menu := _menu_node()
@@ -146,7 +171,7 @@ func _popup() -> bool:
 	world._announce(_gs().grant("gun_cooldown", "0.5"))
 	await physics_frame
 	await physics_frame
-	ok = _check(not popup.opened and world.toast._label.visible, "an upgrade with no controls is a toast") and ok
+	ok = _check(not popup.opened and world.toast._label.visible and world.toast._label.text == "Gun Cooldown +1", "an upgrade with no controls is a toast (%s)" % world.toast._label.text) and ok
 
 	var session := root.get_node("DevSession")
 	ok = _check(session.enter(world).is_empty(), "the dev session starts") and ok

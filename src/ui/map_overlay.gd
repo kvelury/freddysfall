@@ -259,7 +259,7 @@ class MapLayer extends Node2D:
 	## The id, small and centred in `box`, white on a black edge so it reads on
 	## the grey fill and across the outline.
 	func _label(text: String, box: Rect2) -> void:
-		var font := ThemeDB.fallback_font
+		var font := UiTheme.FONT
 		var size := 6
 		var width := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
 		var at := (box.get_center() + Vector2(-width * 0.5, font.get_ascent(size) * 0.5)).round()

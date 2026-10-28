@@ -20,6 +20,7 @@ func _initialize() -> void:
 
 func _run() -> void:
 	_settings()
+	await _fonts()
 	_snapping()
 	_pictures()
 	_body()
@@ -34,6 +35,25 @@ func _settings() -> void:
 	_check(ProjectSettings.get_setting("display/window/stretch/mode") == "viewport" and ProjectSettings.get_setting("display/window/stretch/scale_mode") == "integer" and ProjectSettings.get_setting("display/window/stretch/aspect") == "keep", "it still stretches as the viewport, by whole numbers, keeping the aspect")
 	_check(ProjectSettings.get_setting("rendering/textures/canvas_textures/default_texture_filter") == 0, "and still filters nearest")
 	_check(ProjectSettings.get_setting("display/window/size/window_width_override") == Display.VIEWPORT.x * 2, "the default window is twice the viewport")
+
+
+func _fonts() -> void:
+	var regular: FontFile = UiTheme.FONT
+	var bold: FontFile = UiTheme.TITLE_FONT
+	_check(regular.resource_path.ends_with("PixelOperator8.ttf") and bold.resource_path.ends_with("PixelOperator8-Bold.ttf"), "the body and title fonts are Pixel Operator 8, regular and bold")
+	_check(ProjectSettings.get_setting("gui/theme/custom_font") == "res://assets/fonts/PixelOperator8.ttf", "the project's default font is the body font")
+	_check(UiTheme.build().default_font == regular, "the UI theme uses the body font")
+	for font: FontFile in [regular, bold]:
+		_check(font.antialiasing == TextServer.FONT_ANTIALIASING_NONE and font.hinting == TextServer.HINTING_NONE and font.subpixel_positioning == TextServer.SUBPIXEL_POSITIONING_DISABLED and not font.multichannel_signed_distance_field, "%s is imported with no smoothing, hinting or subpixel positioning" % font.resource_path.get_file())
+	var title := UiTheme.title_label("Freddy's Fall")
+	_check(title.text == "FREDDY'S FALL" and title.get_theme_font("font") == bold, "a title is bold and all capitals")
+	title.free()
+	var card := TitleCard.new()
+	root.add_child(card)
+	await process_frame
+	card.show_title("The Fall", 1.0)
+	_check(card.label.text == "THE FALL" and card.label.get_theme_font("font") == bold, "a title card is bold and all capitals")
+	card.free()
 
 
 func _snapping() -> void:
