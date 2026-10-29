@@ -1,9 +1,9 @@
 #!/bin/sh
 # The pixel check: draws scripted scenarios with a renderer and checks every
 # world pixel is drawn as one block (the world-pixel grid) and that the frames
-# equal the ones the game drew at 320x180 (the baseline).
+# equal the baseline: frames recorded earlier, kept as world pixels (320x180).
 #
-#   tools/pixel_check.sh --baseline   capture the baseline (do this on a commit that still draws at 320x180)
+#   tools/pixel_check.sh --baseline   capture the baseline on a commit you trust (one pixel per world pixel)
 #   tools/pixel_check.sh --shapes     print the one-bit pictures of the polygon shapes
 #   tools/pixel_check.sh              compare against the baseline, and save UI frames
 #

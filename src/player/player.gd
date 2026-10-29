@@ -33,15 +33,14 @@ var facing := 1:
 		if _visual != null:
 			_visual.facing = value
 
+## Which picture the body shows (`PlayerAnimator`), from what the movement did.
+var animator := PlayerAnimator.new()
+
 ## Previous physics pose, shared with the frame-rate camera.
 var _previous_position := Vector2.ZERO
 var _state := MovementSim.State.new()
 var _was_on_floor := true
-var _squash := 0.0
 var _visual: PlayerBody
-## The body's squash when the last physics tick began, and as last drawn.
-var _squash_before := Vector2.ONE
-var _squash_now := Vector2.ONE
 
 
 func _ready() -> void:
@@ -103,7 +102,6 @@ func body_rect() -> Rect2:
 func _physics_process(delta: float) -> void:
 	# Held players can still move on a save-machine tween later in this tick.
 	_previous_position = global_position
-	_squash_before = _squash_now
 	if not input_enabled:
 		velocity = Vector2.ZERO
 		# Held still, the player is not carried, so they are not riding when let go.
@@ -131,12 +129,10 @@ func _physics_process(delta: float) -> void:
 	MovementSim.step(config, _state, solids, input_x, jump_pressed, jump_held, delta, movers, tick)
 	global_position = _state.position
 	velocity = _state.velocity
-	if _state.jumped:
-		_squash = 1.0
 	if _state.air_jumped:
 		_spawn_dust(true)
 	if _state.grounded and not _was_on_floor:
-		_squash = -1.0
+		animator.land()
 		_spawn_dust()
 	_was_on_floor = _state.grounded
 
@@ -144,18 +140,9 @@ func _physics_process(delta: float) -> void:
 func _process(delta: float) -> void:
 	if _visual == null:
 		return
-	var squash := Vector2.ONE
-	if _squash > 0.0:
-		squash = Vector2(0.9, 1.1).lerp(Vector2.ONE, 1.0 - _squash)
-		_squash = maxf(0.0, _squash - delta * 8.0)
-	elif _squash < 0.0:
-		squash = Vector2(1.1, 0.9).lerp(Vector2.ONE, 1.0 + _squash)
-		_squash = minf(0.0, _squash + delta * 8.0)
-	# The engine interpolated the squash as it did the position: from what it
-	# was when the tick began to what it was last set to.
-	_squash_now = squash
+	animator.advance(delta, _state.grounded, velocity.x)
 	var fraction := Engine.get_physics_interpolation_fraction() if is_physics_interpolated_and_enabled() else 1.0
-	_visual.show_at(render_position(fraction), _squash_before.lerp(squash, fraction))
+	_visual.show_at(render_position(fraction), animator.pose, animator.step)
 
 
 func _spawn_dust(downward := false) -> void:

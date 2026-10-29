@@ -8,6 +8,17 @@ Everything here passed its headless tests or was reported as unverified in a pul
 
 Played in the browser and found good, so these are not listed line by line any more: Imprint in the browser (placing, the preview, the cross, the blink), saving and resuming, the solver and the "needs" lines, movement and doors, the whole world map of PR #17 (rooms 1 to 7, the exit rules, the tokens on the body, the 3TM and its feeding, and the spent machine), and the Imprint look of PR #18 (the dotted cursor, placed platforms drawn over it, the countdown lines, and the blink), and the map zoom of PR #20 (the three levels, the legend, the level kept across reloads, a new game starting fresh, and the marker staying in its room), and the 2.5 second Imprint of PR #21 (the time, the four lines, and the blink on the last line; the duration is now 1.5 s, see "Imprint lockout" below). On 2026-10-22 the release export was also smoke-tested in Chrome: it loaded without console errors, sustained keyboard movement and running jumps worked, and the map opened while held and closed on release. The cloud test executor could not reliably observe and steer a whole platforming route, so that smoke did not replace the earlier full progression playthroughs. A new problem in any of them goes back on this list.
 
+## Freddy the frog
+
+The new player picture from the user's sprite sheets (the frog PR). Headless tests prove the pictures are whole pixels inside the 10×10 box and that the right one is chosen; whether he looks right and feels right is for a person. `?dev=1&room=s1` (or any room), and F2 to set tokens and Imprint.
+
+- [ ] **His colours.** Lime body and legs, white eyes, black pupils and marks, like option 1 of the colour sheet, in every pose. Does he read against white platforms and the save machine's lines?
+- [ ] **Standing, both ways.** The frog reads as a frog at 1x: eyes, notched front, two feet. Turning mirrors him at once.
+- [ ] **The walk.** Eight pictures at 6 px each: does it read as walking, not shimmering, at full speed and while speeding up and slowing? It starts from the first picture each time he stops.
+- [ ] **The jump and the landing.** Legs thrown wide for the whole time he is in the air (including a fall off a ledge and an air jump), then the low picture for about an eighth of a second. Nothing draws outside the box.
+- [ ] **Tokens and the Imprint line on him.** 0 to 3 tokens, with and without Imprint, both ways. Two stack on the rear; the third sits in the middle of the body, level with the gap between them, and reads as a token, not part of the eye or the Imprint line.
+- [ ] **Nothing else changed.** He lands on and walks off the same edges, fits the same gaps and shatters on spikes as before.
+
 ## Room 11
 
 The new room from the user's drawings. Start `?dev=1&room=11`, and in F2 turn the gun on and set Air jumps to 1 (or play from room 10).
@@ -46,7 +57,7 @@ Nobody has played this yet. Headless tests prove the rule (height, refill, prior
 - [ ] **A third press does nothing**, and a press just before landing still gives a jump on landing.
 - [ ] **Refill.** Land on a floor, on a moving platform (room 7, 8, 10) and, with Imprint on in F2, on an Imprint platform: the air jump comes back each time. Spawning, respawning and warping also refill; crossing a door keeps what is left.
 - [ ] **Walking off a ledge.** A press right after leaving is a normal jump and keeps the air jump; a press after a moment is the air jump.
-- [ ] **Feedback.** The 1 px stretch and a puff of dust downward from the feet on an air jump.
+- [ ] **Feedback.** The jump picture (legs thrown wide) from take-off to touch-down, the low landing picture for about an eighth of a second, and a puff of dust downward from the feet on an air jump.
 - [ ] **F2 field.** Air jumps 0, 1 and 3, Apply, retry and a named loadout round trip. Lowering it mid-air takes the extra jumps away at once. Changing it does not clear placed Imprints.
 - [ ] **Room 4's 3TM** gives double jump with the line "Double jump. Press jump again in the air.", and Imprint stays locked (no cursor platform, no line on the body).
 - [ ] **Room 9's 3TM** (reached with `?dev=1&room=9` and three tokens set in F2) now gives the gun; see "Gun and breakable walls". No room gives a health pip from a 3TM any more.
@@ -96,7 +107,7 @@ Nobody has played these yet. Headless tests prove the order, the timing and the 
 - [ ] **The dotted border.** A placed platform is a white block with a black dotted inner border, and it looks different from the white dotted cursor outline.
 - [ ] **Per-block shards.** A shatter at every block going is not too busy.
 - [ ] **The order follows where you stood.** Click from the left of a platform: it shrinks toward the left. From the right: toward the right. Standing right under its middle, the block you face lasts. Moving after the click changes nothing.
-- [ ] **The facing block and the token lines.** A 2 x 2 block in the top right when you last went right, the top left when you last went left, and tokens as 2 x 1 lines stacked bottom to top opposite facing, one pixel inside the edge and one clear row apart; all read at a glance and none clash. Check with 0 to 3 tokens and with Imprint found (the line). A respawn or warp faces right. Use F2 to set 0–3 tokens and remove them; turn both ways, retry, and round-trip the count through a named loadout.
+- [ ] **Freddy, the facing and the token lines.** The frog's notched front is the way you last went (right, left) and it mirrors at once; tokens as 2 x 1 lines, two stacked bottom to top opposite facing (one pixel inside the edge, one clear row apart) and the third in the middle beside them; all read at a glance and none clash. Check with 0 to 3 tokens and with Imprint found (the line). A respawn or warp faces right. Use F2 to set 0–3 tokens and remove them; turn both ways, retry, and round-trip the count through a named loadout.
 - [ ] **Landing on a block that goes early feels fair.** The solver only counts the last block; in play the others help. Landing on one that is about to go should not feel like a trap.
 - [ ] **Classic switches cleanly both ways.** In F2, Player tab: Classic on gives full-width platforms with dashes, off gives shrinking, and toggling clears the platforms. The pause menu's dev line says "classic imprint". End playtest turns it off.
 - [ ] **Widths 1, 2 and 5 in F2.** Width 1 never shrinks; widths 2 and 5 keep the block nearest where you clicked from. The total time stays 1.5 s.
