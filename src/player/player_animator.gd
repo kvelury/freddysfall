@@ -10,16 +10,16 @@ extends RefCounted
 const LAND_TIME := 0.125
 ## Slower than this on the ground, in px/s, and the body stands instead of walking.
 const WALK_SPEED := 1.0
-## How far the body runs, in px, for each walk picture.
-const STRIDE_PER_PICTURE := 6.0
 
-var pose := FreddySprites.Pose.STAND
-## The walk picture, while `pose` is WALK. 0 otherwise.
-var step := 0
+## What the body is doing. `FreddySprites` maps each to the pictures that play for it.
+enum Pose { STAND, WALK, JUMP, LAND }
+
+var pose := Pose.STAND
+## Seconds and ground px since `pose` began. Both start from 0 on every change of pose.
+var time_in_pose := 0.0
+var distance_in_pose := 0.0
 
 var _landing_left := 0.0
-## How far the body has run on the ground since it last stood, in px.
-var _stride := 0.0
 
 
 ## The body has just touched down.
@@ -28,23 +28,23 @@ func land() -> void:
 
 
 ## Moves on by `delta` seconds of a body that is `grounded` and moving at
-## `speed_x` px/s, and sets `pose` and `step`. In the air is the jump picture;
-## just landed is the landing picture; running walks, a picture every
-## `STRIDE_PER_PICTURE` px, from the first again each time it stops.
+## `speed_x` px/s, and sets `pose`, `time_in_pose` and `distance_in_pose`. In
+## the air is the jump; just landed is the landing; running walks. How many
+## pictures a pose has and how fast they play is not decided here.
 func advance(delta: float, grounded: bool, speed_x: float) -> void:
 	var landing := _landing_left > 0.0
 	_landing_left = maxf(0.0, _landing_left - delta)
-	step = 0
+	var next := Pose.STAND
 	if not grounded:
-		pose = FreddySprites.Pose.JUMP
-		_stride = 0.0
+		next = Pose.JUMP
 	elif landing:
-		pose = FreddySprites.Pose.LAND
-		_stride = 0.0
+		next = Pose.LAND
 	elif absf(speed_x) > WALK_SPEED:
-		pose = FreddySprites.Pose.WALK
-		_stride += absf(speed_x) * delta
-		step = int(_stride / STRIDE_PER_PICTURE) % FreddySprites.walk_length()
-	else:
-		pose = FreddySprites.Pose.STAND
-		_stride = 0.0
+		next = Pose.WALK
+	if next != pose:
+		pose = next
+		time_in_pose = 0.0
+		distance_in_pose = 0.0
+	time_in_pose += delta
+	if grounded:
+		distance_in_pose += absf(speed_x) * delta

@@ -111,16 +111,19 @@ func _run() -> void:
 	quit(0 if ok else 1)
 
 
-## What is cut out of the body for the tokens carried, and the Imprint line.
+## What is cut out of each picture for the tokens carried, and the Imprint line.
 func _marks() -> bool:
 	var ok := true
+	var stand: FreddySprites.Frame = FreddySprites.animation(PlayerAnimator.Pose.STAND).frames[0]
+	var land: FreddySprites.Frame = FreddySprites.animation(PlayerAnimator.Pose.LAND).frames[0]
+	ok = _check(InventoryMarks.MAX_TOKENS == root.get_node("GameState").TOKEN_CAP, "the marks hold as many tokens as the pocket does") and ok
 	var counts := []
 	for tokens in 4:
-		counts.append(InventoryMarks.pixels(tokens, false).size())
+		counts.append(InventoryMarks.pixels(stand, tokens, false).size())
 	ok = _check(counts == [0, 2, 4, 6], "each token cuts a 2 x 1 line, two pixels, out of the body (%s)" % [counts]) and ok
-	ok = _check(InventoryMarks.pixels(0, true).size() == 5, "the Imprint line is five pixels") and ok
-	var line := InventoryMarks.pixels(0, true)
-	var crowded := InventoryMarks.pixels(3, true)
+	var line := InventoryMarks.pixels(stand, 0, true)
+	var crowded := InventoryMarks.pixels(stand, 3, true)
+	ok = _check(line.size() == 5, "the Imprint line is five pixels") and ok
 	var overlap := 0
 	for p in crowded:
 		if crowded.count(p) > 1:
@@ -128,64 +131,96 @@ func _marks() -> bool:
 	ok = _check(crowded.size() == 11 and overlap == 0, "three tokens and the line never share a pixel (%d)" % crowded.size()) and ok
 	var inside := true
 	for p in crowded:
-		inside = inside and p.x >= 0 and p.y >= 0 and p.x < 10 and p.y < 10
+		inside = inside and p.x >= 0 and p.y >= 0 and p.x < FreddySprites.SIZE and p.y < FreddySprites.SIZE
 	ok = _check(inside, "and all of them are inside the 10 x 10 body") and ok
-	ok = _check(line.all(func(p: Vector2i) -> bool: return p.y == 7), "the line runs along the one row") and ok
-	ok = _check(InventoryMarks.pixels(7, false).size() == 6, "more than three tokens draws no more than three") and ok
-	# Exact approved marks: two one pixel inside the rear edge, bottom first, with
-	# one clear row between them, then the third in the middle level with the
-	# gap, and the line clear of all three. Test every count with and without
-	# Imprint, facing either way.
+	ok = _check(line.all(func(p: Vector2i) -> bool: return p.y == 7 and p.x >= 4 and p.x <= 8), "the line runs along row 7, from column 4 to 8") and ok
+	ok = _check(InventoryMarks.pixels(stand, 7, false).size() == 6, "more than three tokens draws no more than three") and ok
+	# Exact approved marks on the standing picture: two one pixel inside the rear
+	# edge, bottom first, with one clear row between them, then the third in the
+	# middle level with the gap, and the line clear of all three. Every count,
+	# with and without Imprint.
 	var slots := [Vector2i(1, 6), Vector2i(1, 4), Vector2i(4, 5)]
-	for face in [1, -1]:
-		for tokens in 4:
-			for imprint in [false, true]:
-				var expected: Array[Vector2i] = []
-				for i in tokens:
-					for dx in 2:
-						expected.append(slots[i] + Vector2i(dx, 0))
-				if imprint:
-					for x in range(4, 9):
-						expected.append(Vector2i(x, 7))
-				if face < 0:
-					for i in expected.size():
-						expected[i] = Vector2i(9 - expected[i].x, expected[i].y)
-				var actual := InventoryMarks.pixels(tokens, imprint, face)
-				ok = _check(actual.size() == expected.size() and expected.all(func(p: Vector2i) -> bool: return actual.count(p) == 1), "rear stack fills bottom to top with padding: face %d, tokens %d, Imprint %s" % [face, tokens, imprint]) and ok
-	# On the frog: the marks stack on the rear and the line is clear of them.
-	var right := InventoryMarks.pixels(3, true, 1)
-	var left := InventoryMarks.pixels(3, true, -1)
-	var rear_right := right.filter(func(p: Vector2i) -> bool: return p.x <= 2)
-	var rear_left := left.filter(func(p: Vector2i) -> bool: return p.x >= 7)
+	for tokens in 5:
+		for imprint in [false, true]:
+			var expected: Array[Vector2i] = []
+			for i in mini(tokens, 3):
+				for dx in 2:
+					expected.append(slots[i] + Vector2i(dx, 0))
+			if imprint:
+				for x in range(4, 9):
+					expected.append(Vector2i(x, 7))
+			var actual := InventoryMarks.pixels(stand, tokens, imprint)
+			ok = _check(actual == expected, "the standing marks, in order: tokens %d, Imprint %s" % [tokens, imprint]) and ok
+	# Landing is short: up to two token lines and never the line.
+	var landing_ok := true
+	for tokens in 5:
+		for imprint in [false, true]:
+			landing_ok = landing_ok and InventoryMarks.pixels(land, tokens, imprint).size() == 2 * mini(tokens, 2)
+	ok = _check(landing_ok and land.line.is_empty(), "landing shows at most two token lines and never the Imprint line") and ok
+	ok = _check(InventoryMarks.pixels(land, 3, true) == ([Vector2i(1, 8), Vector2i(2, 8), Vector2i(1, 6), Vector2i(2, 6)] as Array[Vector2i]), "and they are the two on the rows above the rear foot") and ok
+	# What is drawn: the pupils and the cuts, facing either way, the left being
+	# the right mirrored. Marks are cut before the picture is mirrored.
+	var right := _black(FreddySprites.rects(PlayerAnimator.Pose.STAND, 0, 1, 3, true))
+	var left := _black(FreddySprites.rects(PlayerAnimator.Pose.STAND, 0, -1, 3, true))
+	var mirrored := left.map(func(p: Vector2i) -> Vector2i: return Vector2i(9 - p.x, p.y))
+	ok = _check(_same(right, mirrored), "facing left draws the same marks mirrored") and ok
+	var rear_right := crowded.filter(func(p: Vector2i) -> bool: return p.x <= 2)
+	var rear_left := left.filter(func(p: Vector2i) -> bool: return p.x >= 7 and p.y >= 4)
 	ok = _check(rear_right.size() == 4 and rear_left.size() == 4, "facing right the stack of two is at the left edge and facing left the right (%d, %d)" % [rear_right.size(), rear_left.size()]) and ok
-	ok = _check(right.has(Vector2i(4, 5)) and right.has(Vector2i(5, 5)), "and the third token is in the middle of the body") and ok
-	# Marks are told apart by a clear pixel all round, corners included.
-	var marks: Array = []
-	for i in 3:
-		var one: Array[Vector2i] = []
-		for dx in InventoryMarks.WIDTH:
-			one.append(InventoryMarks.SLOTS[i] + Vector2i(dx, 0))
-		marks.append(one)
-	marks.append(line)
-	var touching := false
-	for i in marks.size():
-		for j in range(i + 1, marks.size()):
-			for a: Vector2i in marks[i]:
-				for b: Vector2i in marks[j]:
-					touching = touching or (absi(a.x - b.x) <= 1 and absi(a.y - b.y) <= 1)
-	ok = _check(not touching, "and no two marks touch, even at a corner") and ok
-	var clear_of_eyes := right.all(func(p: Vector2i) -> bool: return p.y >= 4)
-	ok = _check(clear_of_eyes, "and no mark is up by the eyes (all on row 4 or lower)") and ok
-	# Every mark lands on white on every picture the player can show, so
-	# none is lost: the landing picture is short, so its top row's mark is not shown.
+	ok = _check(crowded.has(Vector2i(4, 5)) and crowded.has(Vector2i(5, 5)), "and the third token is in the middle of the body") and ok
+	ok = _check(crowded.all(func(p: Vector2i) -> bool: return p.y >= 4), "and no mark is up by the eyes (all on row 4 or lower)") and ok
+	# On every picture the player can show, with all the marks: each is cut from
+	# the frog's lime body, and no black group (a token line, the Imprint line, a
+	# pupil) touches another, even at a corner.
 	var lands := true
-	for pose in [FreddySprites.Pose.STAND, FreddySprites.Pose.JUMP, FreddySprites.Pose.WALK]:
-		for step in FreddySprites.walk_length():
-			var rows := FreddySprites.frame(pose, step).rows
-			for p in crowded:
-				lands = lands and rows[p.y][p.x] == FreddySprites.BODY_PIXEL
-	ok = _check(lands, "every mark lands on the frog's lime body when it stands, walks or jumps") and ok
+	var touching := ""
+	var drawn_ok := true
+	for frame in FreddySprites.frames():
+		for p in InventoryMarks.pixels(frame, 3, true):
+			var y := p.y - frame.top
+			lands = lands and y >= 0 and y < frame.rows.size() and frame.rows[y][p.x] in FreddySprites.BODY_PIXELS
+		var groups: Array = []
+		for i in mini(3, frame.tokens.size()):
+			groups.append([frame.tokens[i], frame.tokens[i] + Vector2i(1, 0)])
+		if not frame.line.is_empty():
+			groups.append(frame.line)
+		for y in frame.rows.size():
+			for x in frame.rows[y].length():
+				if frame.rows[y][x] == FreddySprites.MARK_PIXEL:
+					groups.append([Vector2i(x, y + frame.top)])
+		for i in groups.size():
+			for j in range(i + 1, groups.size()):
+				for a: Vector2i in groups[i]:
+					for b: Vector2i in groups[j]:
+						if absi(a.x - b.x) <= 1 and absi(a.y - b.y) <= 1:
+							touching = "%s: %s next to %s" % [frame.rows, a, b]
+		var cells: Array[Vector2i] = []
+		for g: Array in groups:
+			cells.append_array(g)
+		for pose: PlayerAnimator.Pose in PlayerAnimator.Pose.values():
+			for i in FreddySprites.animation(pose).frames.size():
+				if FreddySprites.animation(pose).frames[i] != frame:
+					continue
+				drawn_ok = drawn_ok and _same(_black(FreddySprites.rects(pose, i, 1, 3, true)), cells)
+				drawn_ok = drawn_ok and _same(_black(FreddySprites.rects(pose, i, -1, 3, true)).map(func(p: Vector2i) -> Vector2i: return Vector2i(9 - p.x, p.y)), cells)
+	ok = _check(lands, "every mark lands on the frog's lime body when it stands, walks, jumps or lands") and ok
+	ok = _check(touching == "", "and no two marks touch, nor a mark and an eye, even at a corner, on any picture %s" % touching) and ok
+	ok = _check(drawn_ok, "and what is drawn, facing either way, is the pupils and those marks and nothing else") and ok
 	return ok
+
+
+## The black cells of a drawn picture.
+func _black(drawn: FreddySprites.Drawn) -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	for box in drawn.rects_in(Color.BLACK):
+		for y in int(box.size.y):
+			for x in int(box.size.x):
+				out.append(Vector2i(int(box.position.x) + x, int(box.position.y) + y))
+	return out
+
+
+func _same(a: Array, b: Array) -> bool:
+	return a.size() == b.size() and a.all(func(p: Variant) -> bool: return b.count(p) == 1)
 
 
 func _count(room: Room, type: String) -> int:

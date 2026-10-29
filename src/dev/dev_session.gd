@@ -5,12 +5,20 @@ extends Node
 
 enum Mode { NORMAL, ROOM_TEST, DEV_TEST }
 
+## The "show token marks" switch changed, so the body redraws.
+signal token_marks_changed
+
 var mode := Mode.NORMAL
 var available := false
 var bypass := false
 ## Imprint platforms keep their width and show the dash clock. A comparison
 ## switch for a dev test: not saved, not in a loadout.
 var classic_imprint := false
+## Freddy shows a black mark cut out of him for each token carried. Normal play
+## never does; a dev test can turn it on. A session setting like Classic
+## Imprint: it survives retries, is not saved and is not in a loadout, and End
+## playtest or a fresh boot turns it off.
+var token_marks := false
 ## How many shots break a breakable wall in a dev test, or 0 for the default
 ## (BreakableWall.DEFAULT_STRENGTH). World tuning and not an ability, so it is
 ## a session setting like Classic Imprint: it survives retries, is not saved
@@ -42,6 +50,8 @@ func status_line() -> String:
 		line += " · auto retry"
 	if classic_imprint:
 		line += " · classic imprint"
+	if token_marks_active():
+		line += " · token marks"
 	return line
 
 
@@ -51,6 +61,7 @@ func configure(dev: bool, room_test: bool) -> void:
 	mode = Mode.DEV_TEST if dev else (Mode.ROOM_TEST if room_test else Mode.NORMAL)
 	bypass = false
 	classic_imprint = false
+	token_marks = false
 	wall_strength_override = 0
 	retry_on_death = false
 	baseline = {}
@@ -65,6 +76,7 @@ func reset_to_normal() -> void:
 	mode = Mode.NORMAL
 	bypass = false
 	classic_imprint = false
+	token_marks = false
 	wall_strength_override = 0
 	retry_on_death = false
 	baseline = {}
@@ -176,6 +188,20 @@ func set_classic_imprint(world: Node, on: bool) -> String:
 	return ""
 
 
+## Whether Freddy shows a mark for each token. Only in a dev test, so normal
+## play can never see the switch.
+func token_marks_active() -> bool:
+	return mode == Mode.DEV_TEST and token_marks
+
+
+func set_token_marks(world: Node, on: bool) -> String:
+	if mode != Mode.DEV_TEST or replacing or world.is_busy():
+		return "Dev tools are not ready."
+	token_marks = on
+	token_marks_changed.emit()
+	return ""
+
+
 ## Shots a breakable wall takes to break: the dev test's setting if there is
 ## one, else the default.
 func wall_strength() -> int:
@@ -223,6 +249,7 @@ func _replace(world: Node, state: Dictionary, normal: bool) -> void:
 		mode = Mode.NORMAL
 		bypass = false
 		classic_imprint = false
+		token_marks = false
 		wall_strength_override = 0
 		retry_on_death = false
 		baseline = {}

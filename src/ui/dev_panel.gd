@@ -17,6 +17,7 @@ var _rooms: ItemList
 var _bypass: CheckButton
 var _retry: CheckButton
 var _classic: CheckButton
+var _token_marks: CheckButton
 var _wall: LineEdit
 var _names: ItemList
 var _name: LineEdit
@@ -83,6 +84,7 @@ func open_panel(tab := 0) -> void:
 		_bypass.set_pressed_no_signal(DevSession.bypass)
 		_retry.set_pressed_no_signal(DevSession.retry_on_death)
 		_classic.set_pressed_no_signal(DevSession.classic_imprint)
+		_token_marks.set_pressed_no_signal(DevSession.token_marks)
 		_wall.text = str(DevSession.wall_strength())
 		_status.text = _store.error
 	_tabs.current_tab = tab
@@ -169,6 +171,13 @@ func _build_player(body: VBoxContainer) -> void:
 		_classic.set_pressed_no_signal(DevSession.classic_imprint)
 	)
 	body.add_child(_classic)
+	_token_marks = CheckButton.new()
+	_token_marks.text = "Show token marks on Freddy"
+	_token_marks.toggled.connect(func(on: bool) -> void:
+		_report(DevSession.set_token_marks(_world, on))
+		_token_marks.set_pressed_no_signal(DevSession.token_marks)
+	)
+	body.add_child(_token_marks)
 	var wall_row := HBoxContainer.new()
 	body.add_child(wall_row)
 	var wall_label := Label.new()
@@ -179,7 +188,7 @@ func _build_player(body: VBoxContainer) -> void:
 	_wall.custom_minimum_size.x = 62
 	wall_row.add_child(_wall)
 	_wall.text_submitted.connect(func(text: String) -> void: _set_wall(text))
-	_button(wall_row, "−", func() -> void: _set_wall(str(DevSession.wall_strength() - 1)))
+	_button(wall_row, "-", func() -> void: _set_wall(str(DevSession.wall_strength() - 1)))
 	_button(wall_row, "+", func() -> void: _set_wall(str(DevSession.wall_strength() + 1)))
 	_wall.text = str(DevSession.wall_strength())
 
@@ -233,7 +242,7 @@ func _field(body: VBoxContainer, key: String, control: Dictionary) -> void:
 		row.add_child(edit)
 		edit.text_changed.connect(func(_text: String) -> void: _dirty[key] = true)
 		_fields[key] = edit
-		_button(row, "−", func() -> void: _nudge(key, -1, control))
+		_button(row, "-", func() -> void: _nudge(key, -1, control))
 		_button(row, "+", func() -> void: _nudge(key, 1, control))
 
 

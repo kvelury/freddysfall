@@ -12,11 +12,13 @@ Played in the browser and found good, so these are not listed line by line any m
 
 The new player picture from the user's sprite sheets (the frog PR). Headless tests prove the pictures are whole pixels inside the 10×10 box and that the right one is chosen; whether he looks right and feels right is for a person. `?dev=1&room=s1` (or any room), and F2 to set tokens and Imprint.
 
-- [ ] **His colours.** Lime body and legs, white eyes, black pupils and marks, like option 1 of the colour sheet, in every pose. Does he read against white platforms and the save machine's lines?
+- [ ] **His colours.** Lime body and legs, white eyes, black pupils and marks, like option 1 of the colour sheet, in every pose, and the yellow patch on his front flank (columns 6 to 9, rows 4 to 7) as in the user's drawing, in every pose including the landing, mirrored when he faces left. The yellow should read as the drawing's yellow on a Mac screen. Does he read against white platforms and the save machine's lines?
 - [ ] **Standing, both ways.** The frog reads as a frog at 1x: eyes, notched front, two feet. Turning mirrors him at once.
 - [ ] **The walk.** Eight pictures at 6 px each: does it read as walking, not shimmering, at full speed and while speeding up and slowing? It starts from the first picture each time he stops.
 - [ ] **The jump and the landing.** Legs thrown wide for the whole time he is in the air (including a fall off a ledge and an air jump), then the low picture for about an eighth of a second. Nothing draws outside the box.
-- [ ] **Tokens and the Imprint line on him.** 0 to 3 tokens, with and without Imprint, both ways. Two stack on the rear; the third sits in the middle of the body, level with the gap between them, and reads as a token, not part of the eye or the Imprint line.
+- [ ] **No token marks in normal play.** Carry 1 to 3 tokens in a normal game (and in `?dev=1`): the body shows no marks for them, and no Imprint line either, with or without Imprint (his belly is solid down to the gap between his legs). In F2, Player tab, "Show token marks on Freddy" turns them on at once and off again; it survives a retry, and End playtest turns it off.
+- [ ] **Token marks on him (switched on in F2).** 0 to 3 tokens, with and without Imprint, both ways. Two stack on the rear; the third sits in the middle of the body, level with the gap between them, and reads as a token, not part of the eye.
+- [ ] **Landing with tokens.** With 3 tokens and the marks switched on, the low landing picture shows at most two token lines (the bottom one just above the rear foot), for about an eighth of a second, and the marks are back on the standing picture. Facing either way.
 - [ ] **Nothing else changed.** He lands on and walks off the same edges, fits the same gaps and shatters on spikes as before.
 
 ## Room 11
@@ -59,7 +61,7 @@ Nobody has played this yet. Headless tests prove the rule (height, refill, prior
 - [ ] **Walking off a ledge.** A press right after leaving is a normal jump and keeps the air jump; a press after a moment is the air jump.
 - [ ] **Feedback.** The jump picture (legs thrown wide) from take-off to touch-down, the low landing picture for about an eighth of a second, and a puff of dust downward from the feet on an air jump.
 - [ ] **F2 field.** Air jumps 0, 1 and 3, Apply, retry and a named loadout round trip. Lowering it mid-air takes the extra jumps away at once. Changing it does not clear placed Imprints.
-- [ ] **Room 4's 3TM** gives double jump with the line "Double jump. Press jump again in the air.", and Imprint stays locked (no cursor platform, no line on the body).
+- [ ] **Room 4's 3TM** gives double jump with the line "Double jump. Press jump again in the air.", and Imprint stays locked (no cursor platform).
 - [ ] **Room 9's 3TM** (reached with `?dev=1&room=9` and three tokens set in F2) now gives the gun; see "Gun and breakable walls". No room gives a health pip from a 3TM any more.
 - [ ] **Rooms 5 and 6 without Imprint.** Cross room 5's pit with double jump from the token platform (the left floor is a one-way landing, so you cannot cross back; both rooms are `trap: allowed`). Then try the rest of the world to room 10 and the 3TM in room 9 without Imprint: the validator says all 56 ledges are reachable, but nobody has played it.
 
@@ -107,7 +109,7 @@ Nobody has played these yet. Headless tests prove the order, the timing and the 
 - [ ] **The dotted border.** A placed platform is a white block with a black dotted inner border, and it looks different from the white dotted cursor outline.
 - [ ] **Per-block shards.** A shatter at every block going is not too busy.
 - [ ] **The order follows where you stood.** Click from the left of a platform: it shrinks toward the left. From the right: toward the right. Standing right under its middle, the block you face lasts. Moving after the click changes nothing.
-- [ ] **Freddy, the facing and the token lines.** The frog's notched front is the way you last went (right, left) and it mirrors at once; tokens as 2 x 1 lines, two stacked bottom to top opposite facing (one pixel inside the edge, one clear row apart) and the third in the middle beside them; all read at a glance and none clash. Check with 0 to 3 tokens and with Imprint found (the line). A respawn or warp faces right. Use F2 to set 0–3 tokens and remove them; turn both ways, retry, and round-trip the count through a named loadout.
+- [ ] **Freddy, the facing and the token lines.** The frog's notched front is the way you last went (right, left) and it mirrors at once; tokens as 2 x 1 lines, two stacked bottom to top opposite facing (one pixel inside the edge, one clear row apart) and the third in the middle beside them; all read at a glance and none clash (with "Show token marks on Freddy" on in F2; they are off otherwise). Check with 0 to 3 tokens (the Imprint line is never drawn). A respawn or warp faces right. Use F2 to set 0–3 tokens and remove them; turn both ways, retry, and round-trip the count through a named loadout.
 - [ ] **Landing on a block that goes early feels fair.** The solver only counts the last block; in play the others help. Landing on one that is about to go should not feel like a trap.
 - [ ] **Classic switches cleanly both ways.** In F2, Player tab: Classic on gives full-width platforms with dashes, off gives shrinking, and toggling clears the platforms. The pause menu's dev line says "classic imprint". End playtest turns it off.
 - [ ] **Widths 1, 2 and 5 in F2.** Width 1 never shrinks; widths 2 and 5 keep the block nearest where you clicked from. The total time stays 1.5 s.
