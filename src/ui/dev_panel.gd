@@ -188,7 +188,7 @@ func _build_player(body: VBoxContainer) -> void:
 	_wall.custom_minimum_size.x = 62
 	wall_row.add_child(_wall)
 	_wall.text_submitted.connect(func(text: String) -> void: _set_wall(text))
-	_button(wall_row, "−", func() -> void: _set_wall(str(DevSession.wall_strength() - 1)))
+	_button(wall_row, "-", func() -> void: _set_wall(str(DevSession.wall_strength() - 1)))
 	_button(wall_row, "+", func() -> void: _set_wall(str(DevSession.wall_strength() + 1)))
 	_wall.text = str(DevSession.wall_strength())
 
@@ -242,7 +242,7 @@ func _field(body: VBoxContainer, key: String, control: Dictionary) -> void:
 		row.add_child(edit)
 		edit.text_changed.connect(func(_text: String) -> void: _dirty[key] = true)
 		_fields[key] = edit
-		_button(row, "−", func() -> void: _nudge(key, -1, control))
+		_button(row, "-", func() -> void: _nudge(key, -1, control))
 		_button(row, "+", func() -> void: _nudge(key, 1, control))
 
 

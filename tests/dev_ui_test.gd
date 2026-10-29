@@ -132,6 +132,18 @@ func _run() -> void:
 	panel._token_marks.button_pressed = true
 	panel._token_marks.button_pressed = false
 	_check(not session.token_marks, "and turns off again")
+	# The pixel font has ASCII only; anything else draws as a box with its code point in it (U+2212, the
+	# Unicode minus, showed as "2212" on the - buttons).
+	var odd: Array[String] = []
+	var pending: Array[Node] = [panel]
+	while not pending.is_empty():
+		var node: Node = pending.pop_back()
+		pending.append_array(node.get_children())
+		if node is Button or node is Label:
+			for ch in String(node.text):
+				if ch.unicode_at(0) > 126:
+					odd.append("%s in '%s'" % [ch, node.text])
+	_check(odd.is_empty(), "every button and label in the dev panel is in the pixel font's ASCII (%s)" % [odd])
 	_check(panel._wall != null and panel._wall.text == "3", "the wall strength field is on the Player tab, at 3")
 	panel._wall.text_submitted.emit("4")
 	_check(session.wall_strength() == 4 and panel._wall.text == "4", "typing a number sets the strength")
