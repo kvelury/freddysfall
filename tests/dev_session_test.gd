@@ -97,6 +97,9 @@ func _run() -> void:
 	_check(body.shown_tokens() == 3 and session.status_line().contains("token marks"), "and then the body shows all 3, and the status line says so (%s)" % session.status_line())
 	state.tokens = 1
 	_check(body.shown_tokens() == 1, "it follows the tokens carried")
+	state.abilities.imprint_unlocked = true
+	_check(not body.shown_imprint(), "the Imprint line is never drawn, with Imprint found and the token marks on")
+	state.abilities.imprint_unlocked = false
 	_check(not _dict_has_key(state.to_dict(), "token_marks") and not _dict_has_key(session.loadout, "token_marks") and not _dict_has_key(session.baseline, "token_marks"), "it is in no save, loadout or baseline")
 	session.mode = session.Mode.NORMAL
 	_check(not session.set_token_marks(_world, false).is_empty() and session.token_marks, "it is refused outside a dev test")

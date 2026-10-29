@@ -4,8 +4,8 @@ extends Node2D
 ## The player as it is drawn: Freddy the frog (`FreddySprites`), a picture of
 ## whole world pixels in his colours (`FreddySprites.COLOURS`) that fits the
 ## player's 10 x 10 box, with the inventory cut out of it in black
-## (`InventoryMarks`): the Imprint line always, and a mark for each token only
-## when the dev tools switch it on (`DevSession.token_marks_active`). It shows
+## (`InventoryMarks`): a mark for each token only when the dev tools switch it
+## on (`DevSession.token_marks_active`), and never the Imprint line. It shows
 ## the pose and picture the player gives it (`PlayerAnimator`,
 ## `FreddySprites.animation`): standing, one of the walk pictures, in the air, or
 ## landing. The node sits on the box's top-left corner, snapped to a whole world
@@ -38,7 +38,6 @@ func _ready() -> void:
 	_state = get_node_or_null("/root/GameState")
 	if _state != null:
 		_state.tokens_changed.connect(queue_redraw)
-		_state.abilities_changed.connect(queue_redraw)
 	var dev := get_node_or_null("/root/DevSession")
 	if dev != null:
 		dev.token_marks_changed.connect(queue_redraw)
@@ -55,8 +54,7 @@ func show_at(center: Vector2, pose: PlayerAnimator.Pose, index := 0) -> void:
 
 
 func _draw() -> void:
-	var imprint: bool = _state != null and _state.abilities.imprint_unlocked
-	var drawn := FreddySprites.rects(_pose, _index, facing, shown_tokens(), imprint)
+	var drawn := FreddySprites.rects(_pose, _index, facing, shown_tokens(), shown_imprint())
 	for layer in drawn.layers:
 		for box in layer.rects:
 			draw_rect(box, layer.colour)
@@ -68,6 +66,13 @@ func shown_tokens() -> int:
 	if _state == null or dev == null or not dev.token_marks_active():
 		return 0
 	return _state.tokens
+
+
+## Whether the Imprint line is drawn: never. It sat on the row above the gap
+## between his legs and read as a bite out of his belly. The pictures still carry
+## its place (`FreddySprites.Frame.line`), so showing it again is a change here.
+func shown_imprint() -> bool:
+	return false
 
 
 ## The top-left pixel of the 10 x 10 box of a body centred on `center`, on a

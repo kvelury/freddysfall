@@ -110,7 +110,7 @@ class Frame:
 	var rows: PackedStringArray
 	## Where the inventory is cut on this picture, facing right, in box pixels.
 	## `tokens`: the left pixel of each 2 x 1 token line, bottom first; fewer
-	## than three hides the rest. `line`: the Imprint line's pixels; empty hides it.
+	## than three hides the rest. `line`: the Imprint line's pixels; empty hides it. (`PlayerBody` does not draw it at present.)
 	var tokens: Array[Vector2i] = []
 	var line: Array[Vector2i] = []
 

@@ -43,7 +43,7 @@ Editor/debug runs always offer F2 and a Dev tools item in the pause menu; export
   not an ability, and End playtest or a fresh boot resets it. **Show token marks on
   Freddy** is off by default (normal play never shows them) and is the same kind of
   session switch: it takes effect at once, survives retries, is not saved, is not in
-  loadouts, and End playtest or a fresh boot turns it off. The Imprint line is always shown.
+  loadouts, and End playtest or a fresh boot turns it off. The Imprint line is never drawn on the body, and there is no switch for it.
 - **Rooms:** the picker initially lists every implemented room, including unvisited
   rooms and save rooms, with the current room selected. Click a room or type to
   filter. Lists grow with their contents and use only the tab’s outer scrollbar.
