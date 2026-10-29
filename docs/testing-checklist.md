@@ -12,7 +12,7 @@ Played in the browser and found good, so these are not listed line by line any m
 
 The new player picture from the user's sprite sheets (the frog PR). Headless tests prove the pictures are whole pixels inside the 10×10 box and that the right one is chosen; whether he looks right and feels right is for a person. `?dev=1&room=s1` (or any room), and F2 to set tokens and Imprint.
 
-- [ ] **His colours.** Lime body and legs, white eyes, black pupils and marks, like option 1 of the colour sheet, in every pose. Does he read against white platforms and the save machine's lines?
+- [ ] **His colours.** Lime body and legs, white eyes, black pupils and marks, like option 1 of the colour sheet, in every pose, and the yellow patch on his front flank (columns 6 to 9, rows 4 to 7) as in the user's drawing, in every pose including the landing, mirrored when he faces left. The yellow should read as the drawing's yellow on a Mac screen. Does he read against white platforms and the save machine's lines?
 - [ ] **Standing, both ways.** The frog reads as a frog at 1x: eyes, notched front, two feet. Turning mirrors him at once.
 - [ ] **The walk.** Eight pictures at 6 px each: does it read as walking, not shimmering, at full speed and while speeding up and slowing? It starts from the first picture each time he stops.
 - [ ] **The jump and the landing.** Legs thrown wide for the whole time he is in the air (including a fall off a ledge and an air jump), then the low picture for about an eighth of a second. Nothing draws outside the box.

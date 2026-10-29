@@ -4,14 +4,15 @@ extends RefCounted
 ## Freddy the frog, as the pictures `PlayerBody` draws. Every picture is 10
 ## pixels wide and sits in the player's 10 x 10 box, bottom to bottom, so none
 ## of it is wider than the collision box and the feet stand on the floor.
-## Rows are characters from `COLOURS` (`#` body, `=` legs, `+` eyes, `o` black)
+## Rows are characters from `COLOURS` (`#` body, `y` the yellow patch on his
+## front flank, `=` legs, `+` eyes, `o` black)
 ## or `EMPTY`, drawn facing right; facing left mirrors them. `top` is the box
 ## row of the picture's first row.
 ##
 ## Each pose (`PlayerAnimator.Pose`) has one animation, a `Clip`, in a table
 ## (`animation`): its pictures, and how they play. A picture says where the
 ## inventory marks (`InventoryMarks`) are cut from it, so a short picture keeps
-## its marks. They are cut from body only (`BODY_PIXEL`), never from the eyes or
+## its marks. They are cut from body only (`BODY_PIXELS`: the lime and the patch), never from the eyes or
 ## legs. Stalks are rows 0-1 with the pupils in row 1, the front (right) is
 ## notched on rows 3-4, and the rear is the left edge the marks are cut one
 ## pixel inside of.
@@ -29,14 +30,19 @@ const SIZE := Grid.CELL
 ## options recolour only them: one of those is a change to `=` here.
 const COLOURS: Dictionary[String, Color] = {
 	"#": Color("c6fb65"),
+	# The patch on his front flank, in the user's drawing. The drawing was a screen
+	# capture on a Display P3 screen (its lime read #D1FA7B for this #C6FB65), so
+	# this is the sRGB colour that shows as the drawing's yellow there.
+	"y": Color("f6ec00"),
 	"=": Color("c6fb65"),
 	"+": Color.WHITE,
 	"o": Color.BLACK,
 }
 ## A pixel that is not drawn.
 const EMPTY := "."
-## The pixels the inventory marks are cut from, and what a cut pixel becomes.
-const BODY_PIXEL := "#"
+## The pixels the inventory marks are cut from (body and patch), and what a cut
+## pixel becomes.
+const BODY_PIXELS := "#y"
 const MARK_PIXEL := "o"
 
 const BODY: Array[String] = [
@@ -44,10 +50,10 @@ const BODY: Array[String] = [
 	".+o+...+o+",
 	"##########",
 	"########..",
-	"########..",
-	"##########",
-	"##########",
-	"##########",
+	"######yyyy",
+	"######yyyy",
+	"######yyyy",
+	"######yyyy",
 ]
 
 const STAND_LEGS: Array[String] = [
@@ -81,8 +87,8 @@ const LAND: Array[String] = [
 	".+o+...+o+",
 	"##########",
 	"########..",
-	"##########",
-	"##########",
+	"######yyyy",
+	"######yyyy",
 	"===....===",
 ]
 
@@ -211,8 +217,9 @@ static func problems() -> PackedStringArray:
 	for c in COLOURS:
 		if c.length() != 1 or c == EMPTY:
 			out.append("COLOURS key '%s' must be one character and not '%s'" % [c, EMPTY])
-	if not COLOURS.has(BODY_PIXEL) or not COLOURS.has(MARK_PIXEL):
-		out.append("COLOURS needs the body '%s' and the mark '%s'" % [BODY_PIXEL, MARK_PIXEL])
+	for c in BODY_PIXELS + MARK_PIXEL:
+		if not COLOURS.has(c):
+			out.append("COLOURS needs the body pixels '%s' and the mark '%s', and has no '%s'" % [BODY_PIXELS, MARK_PIXEL, c])
 	for pose: PlayerAnimator.Pose in PlayerAnimator.Pose.values():
 		var pose_name: String = PlayerAnimator.Pose.keys()[pose]
 		var table := animation(pose)
@@ -254,7 +261,7 @@ static func _draw(picture: Frame, facing: int, tokens: int, imprint: bool) -> Dr
 	var rows := picture.rows.duplicate()
 	for p in InventoryMarks.pixels(picture, tokens, imprint):
 		var y := p.y - picture.top
-		if y < 0 or y >= rows.size() or rows[y][p.x] != BODY_PIXEL:
+		if y < 0 or y >= rows.size() or not rows[y][p.x] in BODY_PIXELS:
 			continue
 		rows[y] = rows[y].substr(0, p.x) + MARK_PIXEL + rows[y].substr(p.x + 1)
 	if facing < 0:

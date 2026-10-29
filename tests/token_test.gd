@@ -178,7 +178,7 @@ func _marks() -> bool:
 	for frame in FreddySprites.frames():
 		for p in InventoryMarks.pixels(frame, 3, true):
 			var y := p.y - frame.top
-			lands = lands and y >= 0 and y < frame.rows.size() and frame.rows[y][p.x] == FreddySprites.BODY_PIXEL
+			lands = lands and y >= 0 and y < frame.rows.size() and frame.rows[y][p.x] in FreddySprites.BODY_PIXELS
 		var groups: Array = []
 		for i in mini(3, frame.tokens.size()):
 			groups.append([frame.tokens[i], frame.tokens[i] + Vector2i(1, 0)])

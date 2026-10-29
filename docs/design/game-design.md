@@ -225,15 +225,15 @@ The player's body can show the inventory, but in normal play it does not: **the 
 .+o+...+o+     .+o+...+o+     .+o+...+o+
 ##########     ##########     ##########
 ########..     ########..     ########..
-#oo#####..     #oo#####..     ########..
-####oo####     ####oo####     ##########
-#oo#######     #oo#######     ##########
-##########     ####ooooo#     ####ooooo#
+#oo###yyyy     #oo###yyyy     ######yyyy
+####ooyyyy     ####ooyyyy     ######yyyy
+#oo###yyyy     #oo###yyyy     ######yyyy
+######yyyy     ####oooooy     ####oooooy
 .==....==.     .==....==.     .==....==.
 ===....===     ===....===     ===....===
 ```
 
-`#` is his lime body, `=` his legs (lime too), `+` white (the eyes), `o` black (the pupils, and the marks cut into him) and `.` nothing: Freddy standing and facing right, as `FreddySprites` draws him with the marks `InventoryMarks` gives.
+`#` is his lime body, `y` the yellow patch on his front flank, `=` his legs (lime too), `+` white (the eyes), `o` black (the pupils, and the marks cut into him) and `.` nothing: Freddy standing and facing right, as `FreddySprites` draws him with the marks `InventoryMarks` gives.
 
 Landing, the same three cases (up to two tokens, never the line):
 
@@ -243,14 +243,14 @@ Landing, the same three cases (up to two tokens, never the line):
 .+o+...+o+     .+o+...+o+     .+o+...+o+
 ##########     ##########     ##########
 #oo#####..     #oo#####..     ########..
-##########     ##########     ##########
-#oo#######     #oo#######     ##########
+######yyyy     ######yyyy     ######yyyy
+#oo###yyyy     #oo###yyyy     ######yyyy
 ===....===     ===....===     ===....===
 ```
 
 ### The player's picture
 
-The player is Freddy the frog (`src/player/freddy_sprites.gd`), drawn from the user's sprite sheets (`FREDDY THE FROG (OPTION 2)`). It is a picture of whole world pixels, 10 wide, inside the 10×10 box and standing on its bottom row. It is only a picture: the collision box, the movement, the jump and what the solver knows are unchanged. He is coloured as option 1 ("mono green") of the user's colour sheet: body and legs lime `#C6FB65` (sampled from the sheet), eye stalks white, pupils and the inventory marks black. `FreddySprites.COLOURS` (typed `Dictionary[String, Color]`) maps each row character to its colour; every pixel is one character, so layers never overlap and their order does not matter. The legs are their own character, `=`, lime like the body, because the user's colour sheet varied only the legs: any of its other options is a one-line change to `=`. Marks are cut only from body pixels (`BODY_PIXEL`, `#`) and become `MARK_PIXEL` (`o`), never from the eyes or legs. `problems()` rejects a character that is not in `COLOURS` or `EMPTY` (`.`), and a palette key that is not one character. Two eye stalks with a black pupil each stand on the head, the front is notched, and the rear is the side the inventory is cut into. Facing left mirrors the picture, once, after the marks are cut, so nothing else mirrors anything.
+The player is Freddy the frog (`src/player/freddy_sprites.gd`), drawn from the user's sprite sheets (`FREDDY THE FROG (OPTION 2)`). It is a picture of whole world pixels, 10 wide, inside the 10×10 box and standing on its bottom row. It is only a picture: the collision box, the movement, the jump and what the solver knows are unchanged. He is coloured as option 1 ("mono green") of the user's colour sheet: body and legs lime `#C6FB65` (sampled from the sheet), a yellow patch on his front flank (below), eye stalks white, pupils and the inventory marks black. `FreddySprites.COLOURS` (typed `Dictionary[String, Color]`) maps each row character to its colour; every pixel is one character, so layers never overlap and their order does not matter. The legs are their own character, `=`, lime like the body, because the user's colour sheet varied only the legs: any of its other options is a one-line change to `=`. Marks are cut only from body pixels (`BODY_PIXELS`: the lime `#` and the patch `y`) and become `MARK_PIXEL` (`o`), never from the eyes or legs. **The patch** is a yellow block, `y` in `FreddySprites.COLOURS` (`#F6EC00`), on columns 6–9 and rows 4–7 of the body facing right, so it is on his front and mirrors with him; it fills the lower of the two notch rows, leaving the notch on row 3 only. The landing picture has it on the same side, on its last two body rows. It is in every picture, since the body is shared. `problems()` rejects a character that is not in `COLOURS` or `EMPTY` (`.`), and a palette key that is not one character. Two eye stalks with a black pupil each stand on the head, the front is notched, and the rear is the side the inventory is cut into. Facing left mirrors the picture, once, after the marks are cut, so nothing else mirrors anything.
 
 Each pose (`PlayerAnimator.Pose`: `STAND`, `WALK`, `JUMP`, `LAND`) has one animation, a row of a table (`FreddySprites.animation(pose)`): its pictures (`frames`, each a `Frame` with its rows, the box row it starts on and where its marks go), and how they play: `every`, a ground run in px (`by_distance`) or a time in seconds for each picture, and whether it loops. `PlayerAnimator` only says which pose and how long (`time_in_pose`) and how far (`distance_in_pose`, ground px) the body has been in it, both from 0 whenever the pose changes; the animation turns those into a picture with `index(time, distance)`. Which pose is shown, and how long a state lasts (`LAND_TIME`, `WALK_SPEED`), belong to the animator; how many pictures a pose has and how fast they go belong to the sprite set, so a second sprite set can reuse the animator. **To add an animation** (a hurt pose, say): a value in `PlayerAnimator.Pose`, one rule for it in `PlayerAnimator.advance`, and one row in `FreddySprites._build`. Nothing else changes; `FreddySprites.problems()` and `display_test` catch a pose with no row, an animation with no pictures, a picture that is not 10 wide or leaves the box.
 
@@ -450,7 +450,7 @@ The map is redrawn at each scale and not stretched. Every corner is scaled and r
 
 ## Look, and the softer palettes
 
-Built today: pure black background and solid white geometry. The player, Freddy, is lime `#C6FB65` with white eyes and black pupils and marks. Glows and the map dim use ordered dithering or alpha. The map's current-room fill is an opaque gray, because a translucent white is premultiplied twice in the web build and disappears.
+Built today: pure black background and solid white geometry. The player, Freddy, is lime `#C6FB65` with a yellow patch, white eyes and black pupils and marks. Glows and the map dim use ordered dithering or alpha. The map's current-room fill is an opaque gray, because a translucent white is premultiplied twice in the web build and disappears.
 
 Designed, not built. Pure black and white stays the way art is drawn. One full-screen pass at the end of the frame remaps brightness onto a two-color palette: `mix(background, foreground, luma)`. No sprite is recolored by hand. The halo dither, the map dim, and any future sparkle or shatter pick up the palette because they are already shades of the same image.
 
@@ -864,7 +864,8 @@ What was decided, in the order it came up, with the reason. Pull requests are na
 - **A new animation is one table row, and the animator reports time and distance.** The frame count, the rate, the per-pose lookup, the landing's offset and the walk-step maths used to be in five places (an enum value, constants, a `match`, the animator's logic and its timing). Now `PlayerAnimator` only says which pose and for how long and how far (`time_in_pose`, `distance_in_pose`, both from 0 on every change of pose), and `FreddySprites.animation(pose)` turns those into a picture (`every`, `by_distance`, `loop`). `LAND_TIME` and `WALK_SPEED` stay in the animator, because they are how long a state lasts and when it starts, not how its pictures play. The enum `Pose` moved to `PlayerAnimator`, so naming a player state does not depend on one sprite set. The animation's class is `FreddySprites.Clip`, not `Animation`, because the engine has a class of that name that it would shadow. Behaviour did not change: the walk still starts from the first picture after a stand, a jump or a landing.
 - **Each picture places its own marks, and the mirroring is done once.** The marks' places were box coordinates in `InventoryMarks` that only worked because every picture shared the same body, and the short landing picture broke that (its third mark fell off the frog). They are now on each `Frame` and `InventoryMarks` is only the rule; the cuts are made facing right and the finished rows mirrored once in `FreddySprites`. The box size (`FreddySprites.SIZE`) is defined once. **Landing shows up to two tokens and no Imprint line** (rows 8 and 6; the user's choice over hiding all marks and over today's behaviour), for the 1/8 s it lasts.
 - **The token marks on Freddy are off, with a dev switch.** The user asked to remove the token indication from the sprite and keep it as a dev tool. **The Imprint line is hidden always, with no switch** (the user's choice, after the video showed it joining the gap between his legs so his belly looked cut away; options were hiding it, moving it up to row 6, or leaving it). The marks and the line are still in the pictures and tested (`FreddySprites.rects` takes `tokens`); `PlayerBody.shown_tokens()` passes it 0 unless `DevSession.token_marks_active()`, and `PlayerBody.shown_imprint()` is always false. The token switch is a session switch like Classic Imprint, for a dev test only, so a flag left set cannot show them in a normal game.
-- **Freddy is lime, the one thing in the world in colour.** The user chose option 1 ("mono green") of a ten-option colour sheet: lime `#C6FB65` body and legs, white eyes, black pupils and marks. It breaks the two-colour rule on purpose, for the player only; geometry, effects and the UI stay black and white.
+- **Freddy has a yellow patch on his front flank.** The user drew it on a screenshot of the standing picture and asked for the sprite to look like that exactly, with the walk and everything else unchanged. Judgements: the drawing's yellow rectangle was a few pixels off the grid (its left edge 4 px short of column 6, its top 3 px above row 4), so it is snapped to columns 6–9 and rows 4–7, which fills the second notch row and leaves the notch on row 3; the drawing's lime was `#D1FA7B` because the capture came from a Display P3 screen (the current lime `#C6FB65` converts to exactly that), so the lime is unchanged and the yellow is stored as the sRGB colour that converts to the drawing's `#F4EC4E`, which is `#F6EC00`; the landing picture was not drawn, so it has the patch on its last two body rows; marks may be cut from the patch as from the lime (`BODY_PIXELS`), so the dormant Imprint line and the token marks behave as before. `display_test` holds the standing picture to the drawing.
+- **Freddy is lime, the one thing in the world in colour.** The user chose option 1 ("mono green") of a ten-option colour sheet: lime `#C6FB65` body and legs, white eyes, black pupils and marks (the yellow patch came later, above). It breaks the two-colour rule on purpose, for the player only; geometry, effects and the UI stay black and white.
 
 **Save rooms and health (PR #26)**
 - **Dying with no health goes to the save room.** Health is a count of pips, none at the start. With a pip, a death spends it and keeps the old safe-floor respawn. (The pip pickup came later, in room 7; see Health pips below.)

@@ -160,14 +160,62 @@ func _body() -> void:
 	for layer in right.layers:
 		if layer.pixel == "=":
 			legs = layer.rects
-	_check(right.layers.size() == 4 and legs.has(Rect2(0, 9, 3, 1)) and legs.has(Rect2(7, 9, 3, 1)) and legs.all(func(r: Rect2) -> bool: return r.position.y >= 8), "his legs are their own layer, rows 8 and 9, so they can be recoloured alone")
+	_check(right.layers.size() == 5 and legs.has(Rect2(0, 9, 3, 1)) and legs.has(Rect2(7, 9, 3, 1)) and legs.all(func(r: Rect2) -> bool: return r.position.y >= 8), "his legs are their own layer, rows 8 and 9, so they can be recoloured alone")
 	var two_pupils: Array[Rect2] = [Rect2(2, 1, 1, 1), Rect2(8, 1, 1, 1)]
 	_check(eyes.has(Rect2(1, 0, 3, 1)) and eyes.has(Rect2(7, 0, 3, 1)) and pupils == two_pupils, "his eye stalks are white with a black pupil each (%s, %s)" % [eyes, pupils])
 	_check(body.has(Rect2(0, 2, 10, 1)) and body.has(Rect2(0, 9, 3, 1)) and body.has(Rect2(7, 9, 3, 1)), "and his head, body and feet are lime")
 	var palette_ok := true
 	for c in FreddySprites.COLOURS:
 		palette_ok = palette_ok and c.length() == 1 and c != FreddySprites.EMPTY
-	_check(palette_ok and FreddySprites.COLOURS.has(FreddySprites.BODY_PIXEL) and FreddySprites.COLOURS.has(FreddySprites.MARK_PIXEL), "every colour is one character, and the body and mark pixels have colours")
+	for c in FreddySprites.BODY_PIXELS + FreddySprites.MARK_PIXEL:
+		palette_ok = palette_ok and FreddySprites.COLOURS.has(c)
+	_check(palette_ok, "every colour is one character, and the body pixels and the mark pixel have colours")
+	# The user's drawing of him standing (a screen capture; its yellow patch was drawn a few pixels off the grid
+	# and is snapped to columns 6-9, rows 4-7). The legs, eyes and notch are as they were.
+	var drawing: Array[String] = [
+		".+++...+++",
+		".+o+...+o+",
+		"##########",
+		"########..",
+		"######yyyy",
+		"######yyyy",
+		"######yyyy",
+		"######yyyy",
+		".==....==.",
+		"===....===",
+	]
+	_check(Array(FreddySprites.animation(PlayerAnimator.Pose.STAND).frames[0].rows) == drawing, "Freddy standing is the user's drawing, with the yellow patch on his front flank")
+	var yellow := Color("f6ec00")
+	_check(FreddySprites.COLOURS["y"] == yellow and _cells(right.rects_in(yellow)) == _block(6, 4, 4, 4), "the patch is one yellow block, columns 6 to 9 and rows 4 to 7")
+	_check(_cells(left.rects_in(yellow)) == _block(0, 4, 4, 4), "and facing left it is on the left, the front")
+	var patched := true
+	for pose: PlayerAnimator.Pose in PlayerAnimator.Pose.values():
+		for index in FreddySprites.animation(pose).frames.size():
+			patched = patched and not FreddySprites.rects(pose, index, 1, 0, false).rects_in(yellow).is_empty()
+	_check(patched, "every picture has the patch: standing, each walk picture, the jump and the landing")
+	var cut_patch := FreddySprites.rects(PlayerAnimator.Pose.STAND, 0, 1, 0, true).rects_in(Color.BLACK)
+	_check(cut_patch.has(Rect2(4, 7, 5, 1)) and FreddySprites.rects(PlayerAnimator.Pose.STAND, 0, 1, 0, true).rects_in(yellow).has(Rect2(6, 4, 4, 1)), "marks are cut from the patch as they are from the lime body")
+
+
+## The cells of rects, sorted, for comparing pictures however the rects are cut up.
+func _cells(boxes: Array[Rect2]) -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	for box in boxes:
+		for y in int(box.size.y):
+			for x in int(box.size.x):
+				out.append(Vector2i(int(box.position.x) + x, int(box.position.y) + y))
+	out.sort()
+	return out
+
+
+## The cells of a block, sorted.
+func _block(x: int, y: int, w: int, h: int) -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	for j in h:
+		for i in w:
+			out.append(Vector2i(x + i, y + j))
+	out.sort()
+	return out
 
 
 ## Which picture the body is given: standing, the walk pictures in turn, the
