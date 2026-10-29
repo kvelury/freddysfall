@@ -17,6 +17,7 @@ The new player picture from the user's sprite sheets (the frog PR). Headless tes
 - [ ] **The walk.** Eight pictures at 6 px each: does it read as walking, not shimmering, at full speed and while speeding up and slowing? It starts from the first picture each time he stops.
 - [ ] **The jump and the landing.** Legs thrown wide for the whole time he is in the air (including a fall off a ledge and an air jump), then the low picture for about an eighth of a second. Nothing draws outside the box.
 - [ ] **Tokens and the Imprint line on him.** 0 to 3 tokens, with and without Imprint, both ways. Two stack on the rear; the third sits in the middle of the body, level with the gap between them, and reads as a token, not part of the eye or the Imprint line.
+- [ ] **Landing with tokens.** With 3 tokens and Imprint, the low landing picture shows at most two token lines (the bottom one just above the rear foot) and no Imprint line, for about an eighth of a second, and the marks are back on the standing picture. Facing either way.
 - [ ] **Nothing else changed.** He lands on and walks off the same edges, fits the same gaps and shatters on spikes as before.
 
 ## Room 11

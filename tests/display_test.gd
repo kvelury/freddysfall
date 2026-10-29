@@ -114,13 +114,21 @@ func _body() -> void:
 	_check(whole, "the body's corner is on a whole world pixel at any position")
 	_check(PlayerBody.corner(Vector2(25, 80)) == Vector2(20, 75), "a body on a whole centre has its corner half a box up and left")
 	_check(FreddySprites.problems().is_empty(), "Freddy's pictures are all 10 wide, of pixels, inside the box %s" % FreddySprites.problems())
-	_check(FreddySprites.walk_length() == FreddySprites.WALK_LEGS.size() and FreddySprites.frames().size() == 3 + FreddySprites.walk_length(), "the walk is as long as its legs, and every pose has its pictures")
+	var complete := true
+	var total := 0
+	for pose: PlayerAnimator.Pose in PlayerAnimator.Pose.values():
+		var table := FreddySprites.animation(pose)
+		complete = complete and table != null and not table.frames.is_empty()
+		total += table.frames.size() if table != null else 0
+	_check(complete and FreddySprites.frames().size() == total, "every pose has an animation with its pictures (%d)" % total)
+	_check(FreddySprites.animation(PlayerAnimator.Pose.WALK).frames.size() == FreddySprites.WALK_LEGS.size() and FreddySprites.animation(PlayerAnimator.Pose.STAND).frames.size() == 1, "and the walk is as long as its legs")
+	_check(FreddySprites.SIZE == Grid.CELL, "the pictures' box is the player's box")
 	var pictures := 0
 	var inside := true
-	for pose in FreddySprites.Pose.values():
-		for step in FreddySprites.walk_length():
+	for pose: PlayerAnimator.Pose in PlayerAnimator.Pose.values():
+		for index in FreddySprites.animation(pose).frames.size():
 			for facing in [1, -1]:
-				var drawn := FreddySprites.rects(pose, step, facing, InventoryMarks.pixels(3, true, facing))
+				var drawn := FreddySprites.rects(pose, index, facing, 3, true)
 				var boxes: Array[Rect2] = []
 				for layer in drawn.layers:
 					boxes.append_array(layer.rects)
@@ -129,16 +137,18 @@ func _body() -> void:
 					inside = inside and whole_box and Rect2(0, 0, 10, 10).encloses(box)
 				pictures += 1
 	_check(inside, "every picture of Freddy, mirrored or marked, is whole pixels inside the 10 x 10 box (%d drawn)" % pictures)
-	var right := FreddySprites.rects(FreddySprites.Pose.STAND, 0, 1, [] as Array[Vector2i])
-	var left := FreddySprites.rects(FreddySprites.Pose.STAND, 0, -1, [] as Array[Vector2i])
+	var right := FreddySprites.rects(PlayerAnimator.Pose.STAND, 0, 1, 0, false)
+	var left := FreddySprites.rects(PlayerAnimator.Pose.STAND, 0, -1, 0, false)
 	var mirrored := right.layers.size() == left.layers.size()
 	for i in right.layers.size():
 		mirrored = mirrored and right.layers[i].rects.size() == left.layers[i].rects.size()
 		for box in right.layers[i].rects:
 			mirrored = mirrored and left.layers[i].rects.has(Rect2(10.0 - box.end.x, box.position.y, box.size.x, box.size.y))
 	_check(mirrored, "facing left is facing right mirrored")
-	_check(FreddySprites.rects(FreddySprites.Pose.WALK, 3, 1, [] as Array[Vector2i]) == FreddySprites.rects(FreddySprites.Pose.WALK, 3 + FreddySprites.walk_length(), 1, [] as Array[Vector2i]), "a picture is drawn once and the walk wraps")
-	var marked := FreddySprites.rects(FreddySprites.Pose.STAND, 0, 1, InventoryMarks.pixels(1, false, 1))
+	var walk_length: int = FreddySprites.animation(PlayerAnimator.Pose.WALK).frames.size()
+	_check(FreddySprites.rects(PlayerAnimator.Pose.WALK, 3, 1, 0, false) == FreddySprites.rects(PlayerAnimator.Pose.WALK, 3 + walk_length, 1, 0, false), "a picture is drawn once and the walk wraps")
+	_check(FreddySprites.rects(PlayerAnimator.Pose.STAND, 0, 1, 3, true) == FreddySprites.rects(PlayerAnimator.Pose.STAND, 0, 1, 3, true) and FreddySprites.rects(PlayerAnimator.Pose.STAND, 0, 1, 3, true) != FreddySprites.rects(PlayerAnimator.Pose.STAND, 0, 1, 2, true), "and a repeat call returns the same picture, a different inventory another")
+	var marked := FreddySprites.rects(PlayerAnimator.Pose.STAND, 0, 1, 1, false)
 	_check(marked.rects_in(Color.BLACK).has(Rect2(1, 6, 2, 1)), "a token is cut black from the picture")
 	# Colour option 1 of the user's sheet: lime body and legs, white eyes, black pupils.
 	var lime := Color("c6fb65")
@@ -165,35 +175,52 @@ func _body() -> void:
 ## real player on the engine's ticks.
 func _poses() -> void:
 	var dt := 1.0 / 60.0
+	var walk: FreddySprites.Clip = FreddySprites.animation(PlayerAnimator.Pose.WALK)
 	var a := PlayerAnimator.new()
 	a.advance(dt, true, 0.0)
-	_check(a.pose == FreddySprites.Pose.STAND and a.step == 0, "standing still stands")
+	_check(a.pose == PlayerAnimator.Pose.STAND and _index(a) == 0, "standing still stands")
 	var steps: Array[int] = []
 	for i in 40:
 		a.advance(dt, true, 90.0)
-		steps.append(a.step)
-	_check(a.pose == FreddySprites.Pose.WALK, "running walks")
+		steps.append(_index(a))
+	_check(a.pose == PlayerAnimator.Pose.WALK, "running walks")
 	var seen := {}
 	for step in steps:
 		seen[step] = true
-	_check(seen.size() == FreddySprites.walk_length(), "and goes through all %d pictures (%d seen)" % [FreddySprites.walk_length(), seen.size()])
+	_check(seen.size() == walk.frames.size(), "and goes through all %d pictures (%d seen)" % [walk.frames.size(), seen.size()])
 	_check(steps[1] == 0 and steps[5] == 1 and steps[9] == 2, "a picture every 6 px: at 1.5 px a frame, 3 px is the first, 9 px the second and 15 px the third (%s)" % [steps.slice(0, 10)])
+	_check(walk.index(0.0, 3.0) == 0 and walk.index(0.0, 9.0) == 1 and walk.index(0.0, 15.0) == 2 and walk.index(99.0, 3.0) == 0, "the walk goes by the distance run, whatever the time: 3 px the first picture, 9 px the second, 15 px the third")
+	_check(walk.index(0.0, 6.0 * walk.frames.size() + 3.0) == 0, "and wraps")
+	_check(a.time_in_pose > 0.5 and a.distance_in_pose > 20.0, "and time and distance in the pose have been counting (%.2f s, %.1f px)" % [a.time_in_pose, a.distance_in_pose])
 	a.advance(dt, true, -90.0)
-	_check(a.pose == FreddySprites.Pose.WALK, "running left walks too")
+	_check(a.pose == PlayerAnimator.Pose.WALK, "running left walks too")
 	a.advance(dt, true, 0.5)
-	_check(a.pose == FreddySprites.Pose.STAND, "under 1 px/s stands")
+	_check(a.pose == PlayerAnimator.Pose.STAND and is_equal_approx(a.time_in_pose, dt) and a.distance_in_pose == 0.5 * dt, "under 1 px/s stands, and time and distance start again (%.4f s, %.4f px)" % [a.time_in_pose, a.distance_in_pose])
 	a.advance(dt, true, 90.0)
-	_check(a.step == 0, "and the walk starts from the first picture again")
+	_check(a.pose == PlayerAnimator.Pose.WALK and is_equal_approx(a.time_in_pose, dt) and is_equal_approx(a.distance_in_pose, 1.5) and _index(a) == 0, "and the walk starts from the first picture again, one frame's run in (%.4f s, %.4f px)" % [a.time_in_pose, a.distance_in_pose])
 	a.advance(dt, false, 90.0)
-	_check(a.pose == FreddySprites.Pose.JUMP and a.step == 0, "in the air is the jump picture")
+	_check(a.pose == PlayerAnimator.Pose.JUMP and _index(a) == 0 and is_equal_approx(a.time_in_pose, dt) and a.distance_in_pose == 0.0, "in the air is the jump picture, and the ground run does not count in the air")
+	a.advance(dt, false, 90.0)
+	_check(is_equal_approx(a.time_in_pose, 2.0 * dt) and a.distance_in_pose == 0.0, "and time carries on in the pose")
 	a.land()
 	var landing := 0
 	for i in 20:
 		a.advance(dt, true, 90.0)
-		if a.pose == FreddySprites.Pose.LAND:
+		if a.pose == PlayerAnimator.Pose.LAND:
 			landing += 1
+			if landing == 1:
+				_check(is_equal_approx(a.time_in_pose, dt) and is_equal_approx(a.distance_in_pose, 1.5), "landing starts the pose's time and distance from 0")
 	_check(landing == 8, "landing shows for an eighth of a second, 8 frames at 60 (%d)" % landing)
-	_check(a.pose == FreddySprites.Pose.WALK, "and then walks on")
+	_check(a.pose == PlayerAnimator.Pose.WALK and is_equal_approx(a.time_in_pose, 12.0 * dt) and is_equal_approx(a.distance_in_pose, 12.0 * 1.5), "and then walks on, counting from the end of the landing, not from before (%.4f s, %.2f px)" % [a.time_in_pose, a.distance_in_pose])
+	# An animation by time loops or holds its last picture.
+	var timed := FreddySprites.Clip.new()
+	timed.frames = [FreddySprites.Frame.new(0, [], [], []), FreddySprites.Frame.new(0, [], [], []), FreddySprites.Frame.new(0, [], [], [])]
+	timed.every = 0.1
+	_check(timed.index(0.05, 99.0) == 0 and timed.index(0.15, 0.0) == 1 and timed.index(0.25, 0.0) == 2 and timed.index(0.35, 0.0) == 0, "an animation by time changes picture every `every` seconds and loops")
+	timed.loop = false
+	_check(timed.index(0.35, 0.0) == 2 and timed.index(9.0, 0.0) == 2, "and one that does not loop holds the last")
+	timed.every = 0.0
+	_check(timed.index(9.0, 99.0) == 0, "and an `every` of 0 is the first picture only")
 
 	var player: Player = (load("res://src/player/player.tscn") as PackedScene).instantiate()
 	player.scripted = true
@@ -206,7 +233,7 @@ func _poses() -> void:
 	var walked := false
 	for i in 40:
 		await physics_frame
-		walked = walked or player.animator.pose == FreddySprites.Pose.WALK
+		walked = walked or player.animator.pose == PlayerAnimator.Pose.WALK
 	_check(walked, "a running player walks")
 	player.scripted_x = 0.0
 	player.scripted_jump_pressed = true
@@ -216,12 +243,17 @@ func _poses() -> void:
 	for i in 120:
 		await physics_frame
 		await process_frame
-		jumped = jumped or player.animator.pose == FreddySprites.Pose.JUMP
-		landed = landed or (jumped and player.animator.pose == FreddySprites.Pose.LAND)
+		jumped = jumped or player.animator.pose == PlayerAnimator.Pose.JUMP
+		landed = landed or (jumped and player.animator.pose == PlayerAnimator.Pose.LAND)
 		if i == 10:
 			player.scripted_jump_held = false
 	_check(jumped and landed, "a jumping player shows the jump, then lands (%s, %s)" % [jumped, landed])
 	holder.free()
+
+
+## The picture index the animator's time and distance give for its pose.
+func _index(a: PlayerAnimator) -> int:
+	return FreddySprites.animation(a.pose).index(a.time_in_pose, a.distance_in_pose)
 
 
 func _world() -> void:

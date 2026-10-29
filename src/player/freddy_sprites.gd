@@ -8,13 +8,19 @@ extends RefCounted
 ## or `EMPTY`, drawn facing right; facing left mirrors them. `top` is the box
 ## row of the picture's first row.
 ##
-## The body is the same in every picture, so the inventory marks
-## (`InventoryMarks`) land on body (`BODY_PIXEL`) wherever the legs are, and are
-## cut from body only, never from the eyes or legs. Stalks are rows 0-1
-## with the pupils in row 1, the front (right) is notched on rows 3-4, and the
-## rear is the left edge the marks are cut one pixel inside of.
+## Each pose (`PlayerAnimator.Pose`) has one animation, a `Clip`, in a table
+## (`animation`): its pictures, and how they play. A picture says where the
+## inventory marks (`InventoryMarks`) are cut from it, so a short picture keeps
+## its marks. They are cut from body only (`BODY_PIXEL`), never from the eyes or
+## legs. Stalks are rows 0-1 with the pupils in row 1, the front (right) is
+## notched on rows 3-4, and the rear is the left edge the marks are cut one
+## pixel inside of.
+##
+## To add an animation: a value in `PlayerAnimator.Pose`, one rule for it in
+## `PlayerAnimator.advance`, and one row in `_build`.
 
-enum Pose { STAND, WALK, JUMP, LAND }
+## The box every picture is drawn in, in pixels: the player's 10 x 10 collision box.
+const SIZE := Grid.CELL
 
 ## What each character of a picture is drawn in. Each pixel is one character,
 ## so the colours never overlap and their order does not matter. Freddy is
@@ -51,7 +57,7 @@ const STAND_LEGS: Array[String] = [
 
 ## The left leg lifts and swings forward and plants, then the right one does,
 ## while the planted foot slides back under the body. Two rows each, 8 -> 9.
-## The walk is as many pictures as there are entries here (`walk_length`).
+## The walk is as many pictures as there are entries here.
 const WALK_LEGS: Array[PackedStringArray] = [
 	[".==....==.", "===....==="],
 	[".==...==..", "===...===."],
@@ -70,7 +76,6 @@ const JUMP_LEGS: Array[String] = [
 ]
 
 ## Squashed on landing: a low, wide frog, seven rows from row 3 down.
-const LAND_TOP := 3
 const LAND: Array[String] = [
 	".+++...+++",
 	".+o+...+o+",
@@ -81,8 +86,21 @@ const LAND: Array[String] = [
 	"===....===",
 ]
 
-## Drawn pictures, by pose, step, facing and marks. They never change, so each
-## is worked out once.
+## Where the inventory is cut on the standing body, facing right, in box pixels:
+## the left pixel of each token's 2 x 1 line in the order they are filled (two
+## stacked on the rear, one clear row between, then the third in the middle level
+## with the gap, so no mark is up by the eyes), and the Imprint line along the
+## last row of the belly, one clear row under the third.
+const STAND_TOKENS: Array[Vector2i] = [Vector2i(1, 6), Vector2i(1, 4), Vector2i(4, 5)]
+const STAND_LINE: Array[Vector2i] = [Vector2i(4, 7), Vector2i(5, 7), Vector2i(6, 7), Vector2i(7, 7), Vector2i(8, 7)]
+## Landing is short: up to two tokens, the bottom one above the rear foot, and no line.
+const LAND_TOKENS: Array[Vector2i] = [Vector2i(1, 8), Vector2i(1, 6)]
+const LAND_LINE: Array[Vector2i] = []
+
+## The animation of each pose, built on first use. It never changes.
+static var _animations := {}
+## Drawn pictures, by pose, picture, facing, tokens and Imprint. They never
+## change, so each is worked out once.
 static var _drawn := {}
 
 
@@ -90,10 +108,33 @@ static var _drawn := {}
 class Frame:
 	var top: int
 	var rows: PackedStringArray
+	## Where the inventory is cut on this picture, facing right, in box pixels.
+	## `tokens`: the left pixel of each 2 x 1 token line, bottom first; fewer
+	## than three hides the rest. `line`: the Imprint line's pixels; empty hides it.
+	var tokens: Array[Vector2i] = []
+	var line: Array[Vector2i] = []
 
-	func _init(at: int, lines: Array) -> void:
+	func _init(at: int, lines: Array, token_slots: Array[Vector2i], line_pixels: Array[Vector2i]) -> void:
 		top = at
 		rows = PackedStringArray(lines)
+		tokens = token_slots
+		line = line_pixels
+
+
+## How one pose's pictures play: an animation (not named that, as the engine has a class of that name).
+class Clip:
+	var frames: Array[Frame] = []
+	## px of ground run per picture (`by_distance`), or seconds per picture. 0: the first picture only.
+	var every := 0.0
+	var by_distance := false
+	var loop := true
+
+	## The picture index for this long in the pose.
+	func index(time: float, distance: float) -> int:
+		if every <= 0.0 or frames.size() == 1:
+			return 0
+		var i := int((distance if by_distance else time) / every)
+		return posmod(i, frames.size()) if loop else mini(i, frames.size() - 1)
 
 
 ## A picture as rects from the box's top-left corner: one layer for each
@@ -117,35 +158,54 @@ class Layer:
 	var rects: Array[Rect2] = []
 
 
-## How many pictures the walk has.
-static func walk_length() -> int:
-	return WALK_LEGS.size()
+## How `pose` plays. The table is the one place that says how many pictures a
+## pose has and how fast they go.
+static func animation(pose: PlayerAnimator.Pose) -> Clip:
+	if _animations.is_empty():
+		_animations = _build()
+	return _animations.get(pose)
 
 
-## The picture for `pose`; `step` picks the walk picture and wraps.
-static func frame(pose: Pose, step := 0) -> Frame:
-	match pose:
-		Pose.WALK:
-			return Frame.new(0, _stack(WALK_LEGS[posmod(step, walk_length())]))
-		Pose.JUMP:
-			return Frame.new(0, _stack(JUMP_LEGS))
-		Pose.LAND:
-			return Frame.new(LAND_TOP, LAND)
-	return Frame.new(0, _stack(STAND_LEGS))
+static func _build() -> Dictionary:
+	var walk: Array[Frame] = []
+	for legs in WALK_LEGS:
+		walk.append(_standing(legs))
+	var table := {}
+	table[PlayerAnimator.Pose.STAND] = _animation([_standing(STAND_LEGS)])
+	table[PlayerAnimator.Pose.WALK] = _animation(walk, 6.0, true)
+	table[PlayerAnimator.Pose.JUMP] = _animation([_standing(JUMP_LEGS)])
+	table[PlayerAnimator.Pose.LAND] = _animation([Frame.new(3, LAND, LAND_TOKENS, LAND_LINE)])
+	return table
+
+
+static func _animation(frames: Array[Frame], every := 0.0, by_distance := false) -> Clip:
+	var out := Clip.new()
+	out.frames = frames
+	out.every = every
+	out.by_distance = by_distance
+	return out
+
+
+## The body with `legs` under it, and the standing marks.
+static func _standing(legs: Array) -> Frame:
+	return Frame.new(0, _stack(legs), STAND_TOKENS, STAND_LINE)
 
 
 ## Every picture the player can show, for checking them.
 static func frames() -> Array[Frame]:
 	var out: Array[Frame] = []
-	for pose: Pose in Pose.values():
-		for step in (walk_length() if pose == Pose.WALK else 1):
-			out.append(frame(pose, step))
+	for pose: PlayerAnimator.Pose in PlayerAnimator.Pose.values():
+		var table := animation(pose)
+		if table != null:
+			out.append_array(table.frames)
 	return out
 
 
-## What is wrong with the pictures: a row that is not the box's width, a
-## character that is not a pixel, or a picture that leaves the box. Empty when
-## they are right. `PlayerBody` reports these in a debug build.
+## What is wrong with the pictures: a pose with no animation, an animation with
+## no pictures, a row that is not the box's width, a character that is not a
+## pixel, or a picture that leaves the box. A line starting "warning:" is an
+## animation that is set to play but has one picture. Empty when they are right.
+## `PlayerBody` reports these in a debug build.
 static func problems() -> PackedStringArray:
 	var out := PackedStringArray()
 	for c in COLOURS:
@@ -153,46 +213,53 @@ static func problems() -> PackedStringArray:
 			out.append("COLOURS key '%s' must be one character and not '%s'" % [c, EMPTY])
 	if not COLOURS.has(BODY_PIXEL) or not COLOURS.has(MARK_PIXEL):
 		out.append("COLOURS needs the body '%s' and the mark '%s'" % [BODY_PIXEL, MARK_PIXEL])
-	var size := InventoryMarks.SIZE
-	for pose: Pose in Pose.values():
-		for step in (walk_length() if pose == Pose.WALK else 1):
-			var picture := frame(pose, step)
-			var name := "%s %d" % [Pose.keys()[pose], step]
-			if picture.top < 0 or picture.top + picture.rows.size() > size:
-				out.append("%s: rows %d to %d leave the %d-row box" % [name, picture.top, picture.top + picture.rows.size() - 1, size])
+	for pose: PlayerAnimator.Pose in PlayerAnimator.Pose.values():
+		var pose_name: String = PlayerAnimator.Pose.keys()[pose]
+		var table := animation(pose)
+		if table == null:
+			out.append("%s has no animation" % pose_name)
+			continue
+		if table.frames.is_empty():
+			out.append("%s has an animation with no pictures" % pose_name)
+		elif table.frames.size() == 1 and table.every != 0.0:
+			out.append("warning: %s has one picture but plays every %s" % [pose_name, table.every])
+		for i in table.frames.size():
+			var picture := table.frames[i]
+			var name := "%s %d" % [pose_name, i]
+			if picture.top < 0 or picture.top + picture.rows.size() > SIZE:
+				out.append("%s: rows %d to %d leave the %d-row box" % [name, picture.top, picture.top + picture.rows.size() - 1, SIZE])
 			for y in picture.rows.size():
 				var row := picture.rows[y]
-				if row.length() != size:
-					out.append("%s row %d is %d wide, not %d" % [name, y, row.length(), size])
+				if row.length() != SIZE:
+					out.append("%s row %d is %d wide, not %d" % [name, y, row.length(), SIZE])
 				for c in row:
 					if c != EMPTY and not COLOURS.has(c):
 						out.append("%s row %d has '%s', which is not %s or one of %s" % [name, y, c, EMPTY, COLOURS.keys()])
 	return out
 
 
-## The picture for `pose` and `step`, mirrored for `facing`, with `cut` (box
-## pixels from `InventoryMarks`, already mirrored for `facing`) turned to
-## `MARK_PIXEL` wherever the picture is `BODY_PIXEL`.
-static func rects(pose: Pose, step: int, facing: int, cut: Array[Vector2i]) -> Drawn:
-	if pose == Pose.WALK:
-		step = posmod(step, walk_length())
-	else:
-		step = 0
-	var key := "%d/%d/%d/%s" % [pose, step, signi(facing), cut]
+## Picture `index` of `pose` (it wraps), facing `facing`, with the inventory for
+## `tokens` carried and `imprint` found cut out of it in `MARK_PIXEL`. The
+## picture is cut facing right and mirrored once, afterwards.
+static func rects(pose: PlayerAnimator.Pose, index: int, facing: int, tokens: int, imprint: bool) -> Drawn:
+	var frames_of := animation(pose).frames
+	index = posmod(index, frames_of.size())
+	var key := "%d/%d/%d/%d/%s" % [pose, index, signi(facing), tokens, imprint]
 	if not _drawn.has(key):
-		_drawn[key] = _draw(frame(pose, step), facing, cut)
+		_drawn[key] = _draw(frames_of[index], facing, tokens, imprint)
 	return _drawn[key]
 
 
-static func _draw(picture: Frame, facing: int, cut: Array[Vector2i]) -> Drawn:
-	var rows := PackedStringArray()
-	for row in picture.rows:
-		rows.append(row.reverse() if facing < 0 else row)
-	for p in cut:
+static func _draw(picture: Frame, facing: int, tokens: int, imprint: bool) -> Drawn:
+	var rows := picture.rows.duplicate()
+	for p in InventoryMarks.pixels(picture, tokens, imprint):
 		var y := p.y - picture.top
 		if y < 0 or y >= rows.size() or rows[y][p.x] != BODY_PIXEL:
 			continue
 		rows[y] = rows[y].substr(0, p.x) + MARK_PIXEL + rows[y].substr(p.x + 1)
+	if facing < 0:
+		for y in rows.size():
+			rows[y] = rows[y].reverse()
 	var out := Drawn.new()
 	for c in COLOURS:
 		# PixelArt lights `#`, so each colour is drawn from rows with only its pixels lit.

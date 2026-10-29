@@ -142,7 +142,8 @@ func _process(delta: float) -> void:
 		return
 	animator.advance(delta, _state.grounded, velocity.x)
 	var fraction := Engine.get_physics_interpolation_fraction() if is_physics_interpolated_and_enabled() else 1.0
-	_visual.show_at(render_position(fraction), animator.pose, animator.step)
+	var index := FreddySprites.animation(animator.pose).index(animator.time_in_pose, animator.distance_in_pose)
+	_visual.show_at(render_position(fraction), animator.pose, index)
 
 
 func _spawn_dust(downward := false) -> void:
