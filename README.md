@@ -125,6 +125,7 @@ tools/serve.sh                 # serve that build at http://localhost:8060 for t
 tools/validate.sh              # the whole world, solved: a room is not done until this exits 0
 tools/validate.sh --no-cache   # the same, without the solver's cache
 tools/render.sh [ids]          # PNGs of rooms and the world map in build/renders/
+godot --headless --path . --script tools/make_icon.gd   # rewrite icon.svg (the favicon) from Freddy's standing picture
 tools/snap.sh <id>             # a real in-game frame of a room (opens a window; run on your own machine)
 tools/pixel_check.sh           # draws scenarios with a renderer: every world pixel on the grid, equal to the 320x180 baseline
 godot --headless --path . --script tests/<name>.gd
