@@ -87,6 +87,24 @@ func _run() -> void:
 	session.classic_imprint = false
 	session.mode = session.Mode.DEV_TEST
 
+	# The token marks switch: off unless a dev test turns it on.
+	var body: PlayerBody = _world.player._visual
+	state.tokens = 3
+	_check(not session.token_marks and not session.token_marks_active() and body.shown_tokens() == 0, "token marks start off: the body shows none of the 3 tokens carried")
+	var redraws := [0]
+	session.token_marks_changed.connect(func() -> void: redraws[0] += 1)
+	_check(session.set_token_marks(_world, true).is_empty() and session.token_marks_active() and redraws[0] == 1, "token marks can be turned on in a dev test, and tell the body")
+	_check(body.shown_tokens() == 3 and session.status_line().contains("token marks"), "and then the body shows all 3, and the status line says so (%s)" % session.status_line())
+	state.tokens = 1
+	_check(body.shown_tokens() == 1, "it follows the tokens carried")
+	_check(not _dict_has_key(state.to_dict(), "token_marks") and not _dict_has_key(session.loadout, "token_marks") and not _dict_has_key(session.baseline, "token_marks"), "it is in no save, loadout or baseline")
+	session.mode = session.Mode.NORMAL
+	_check(not session.set_token_marks(_world, false).is_empty() and session.token_marks, "it is refused outside a dev test")
+	_check(not session.token_marks_active() and body.shown_tokens() == 0 and not session.status_line().contains("token marks"), "and a flag left set shows nothing outside a dev test")
+	session.mode = session.Mode.DEV_TEST
+	_check(session.set_token_marks(_world, false).is_empty() and body.shown_tokens() == 0, "turning it off hides them again")
+	state.tokens = 0
+
 	state.flags["pickup:baseline"] = true
 	state.machines["baseline_machine"] = 1
 	_check(session.start(_world, "7").is_empty(), "start a repeatable test")
@@ -104,12 +122,14 @@ func _run() -> void:
 	_check(state.health == 1 and state.flags.has("health:later_pip"), "taking a health pip in a test adds one and sets its flag")
 	state.map_zoom = 2
 	_check(session.set_classic_imprint(_world, true).is_empty(), "turn Classic Imprint on before a retry")
+	_check(session.set_token_marks(_world, true).is_empty(), "and the token marks")
 	_check(session.wall_strength() == 3 and session.set_wall_strength(_world, 5).is_empty() and session.wall_strength() == 5, "wall strength starts at 3 and a dev test can set it")
 	_check(not state.to_dict().has("wall_strength") and not session.loadout.has("wall_strength"), "it is in no save or loadout")
 	_check(session.retry(_world).is_empty(), "retry after travelling across rooms")
 	await _replacement()
 	_check(session.wall_strength() == 5, "wall strength survives a retry")
 	_check(session.classic_imprint and session.classic_imprint_active(), "Classic Imprint survives a retry")
+	_check(session.token_marks_active() and _world.player._visual.shown_tokens() == state.tokens, "and so do the token marks, on the new body")
 	_check(_world.current.info.id == "7" and state.flags.has("pickup:baseline") and not state.flags.has("pickup:later") and state.machines["baseline_machine"] == 1 and not state.flags.has("health:later_pip"), "retry restores original room, flags (the pip is back), and machine fills")
 	_check(state.tokens == 3 and state.health == 6 and state.abilities.imprint_duration == 5.0, "retry uses latest explicitly applied powers and replenishes resources")
 	_check(is_equal_approx(state.abilities.imprint_cooldown, 0.2) and is_zero_approx(_world.imprint.cooldown_left), "retry keeps the applied cooldown setting, with no cooldown running")
@@ -141,6 +161,7 @@ func _run() -> void:
 	await _replacement()
 	_check(not session.classic_imprint and not session.classic_imprint_active(), "ending the playtest resets Classic Imprint")
 	_check(session.wall_strength() == 3 and session.wall_strength_override == 0, "and the wall strength")
+	_check(not session.token_marks and _world.player._visual.shown_tokens() == 0, "and the token marks")
 	_check(not session.isolated() and state.health == 7 and state.abilities.imprint_width == 4 and _world.current.info.id == "7", "ending restores normal saved progression")
 	_check(FileAccess.get_file_as_string(TEMP) == original, "ending does not save test state")
 	# The independent headless/test disable flag must survive ending a session.
@@ -162,6 +183,15 @@ func _dict_has_classic(value: Variant) -> bool:
 	if value is Dictionary:
 		for key in value:
 			if String(key).contains("classic") or _dict_has_classic(value[key]):
+				return true
+	return false
+
+
+## Whether a dictionary holds `name` as a key anywhere, however deep.
+func _dict_has_key(value: Variant, name: String) -> bool:
+	if value is Dictionary:
+		for key in value:
+			if String(key) == name or _dict_has_key(value[key], name):
 				return true
 	return false
 

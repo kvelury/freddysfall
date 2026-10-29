@@ -17,6 +17,7 @@ var _rooms: ItemList
 var _bypass: CheckButton
 var _retry: CheckButton
 var _classic: CheckButton
+var _token_marks: CheckButton
 var _wall: LineEdit
 var _names: ItemList
 var _name: LineEdit
@@ -83,6 +84,7 @@ func open_panel(tab := 0) -> void:
 		_bypass.set_pressed_no_signal(DevSession.bypass)
 		_retry.set_pressed_no_signal(DevSession.retry_on_death)
 		_classic.set_pressed_no_signal(DevSession.classic_imprint)
+		_token_marks.set_pressed_no_signal(DevSession.token_marks)
 		_wall.text = str(DevSession.wall_strength())
 		_status.text = _store.error
 	_tabs.current_tab = tab
@@ -169,6 +171,13 @@ func _build_player(body: VBoxContainer) -> void:
 		_classic.set_pressed_no_signal(DevSession.classic_imprint)
 	)
 	body.add_child(_classic)
+	_token_marks = CheckButton.new()
+	_token_marks.text = "Show token marks on Freddy"
+	_token_marks.toggled.connect(func(on: bool) -> void:
+		_report(DevSession.set_token_marks(_world, on))
+		_token_marks.set_pressed_no_signal(DevSession.token_marks)
+	)
+	body.add_child(_token_marks)
 	var wall_row := HBoxContainer.new()
 	body.add_child(wall_row)
 	var wall_label := Label.new()
