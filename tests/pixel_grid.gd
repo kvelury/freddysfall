@@ -108,14 +108,16 @@ func _grab(name: String) -> void:
 	var image := root.get_texture().get_image()
 	image.convert(Image.FORMAT_RGB8)
 	captured += 1
-	if mode == "baseline":
-		if image.get_size() != BASE:
-			failures.append("%s: baseline is %s, not %s (take it before the change)" % [name, image.get_size(), BASE])
-		image.save_png("%s/%s.png" % [BASELINE, name])
-		return
 	var scale := image.get_width() / BASE.x
 	if image.get_size() != BASE * scale:
 		failures.append("%s: frame is %s" % [name, image.get_size()])
+		return
+	if mode == "baseline":
+		# A baseline is world pixels: one per block, taken at its top-left.
+		var bad_baseline := _on_grid(image, scale)
+		if not bad_baseline.is_empty():
+			failures.append("%s: %s" % [name, bad_baseline])
+		_world_pixels(image, scale).save_png("%s/%s.png" % [BASELINE, name])
 		return
 	image.save_png("%s/%s.png" % [CHECK, name])
 	var bad := _on_grid(image, scale)
@@ -155,6 +157,15 @@ func _on_grid(image: Image, scale: int) -> String:
 						if first.is_empty():
 							first = "world pixel (%d, %d)" % [x / scale, y / scale]
 	return "" if count == 0 else "%d screen pixels are off the world-pixel grid, first at %s" % [count, first]
+
+
+## The frame as world pixels: the top-left screen pixel of each block.
+func _world_pixels(image: Image, scale: int) -> Image:
+	var out := Image.create(BASE.x, BASE.y, false, Image.FORMAT_RGB8)
+	for y in BASE.y:
+		for x in BASE.x:
+			out.set_pixel(x, y, image.get_pixel(x * scale, y * scale))
+	return out
 
 
 ## The frame, taken at its top-left pixel of each block, equals the baseline.

@@ -42,9 +42,9 @@ The first power-up is double jump. Imprint, where the mouse cursor becomes a pla
 
 **Movement is a specific feel, taken from one place.** The jump comes from the variable-jump, apex hang, fast fall, jump buffer, coyote time, rounded-ledge correction, and momentum described in section 4 of the Hollow Knight notes. That section is the whole of the borrowing. Combat, charms, art, map style, and anything else from that source are not part of this game.
 
-**The picture stays small on purpose.** Geometry is solid pixel blocks. The player is a square the size of one cell. Effects are few and they mean something: dust when you land, a halo on an exit, a shatter when a platform breaks. The drawing is one bit, black and white, so a block, a gap, and the player read instantly at 320×180 world pixels. The screen is drawn at twice that resolution so text is sharp, but the world is still drawn in those blocks (see "Frame and scale").
+**The picture stays small on purpose.** Geometry is solid pixel blocks. The player is Freddy the frog, a picture the size of one cell. Effects are few and they mean something: dust when you land, a halo on an exit, a shatter when a platform breaks. The world is drawn one bit, black and white, so a block, a gap, and the player read instantly; Freddy alone is in colour (see "The player's picture") at 320×180 world pixels. The screen is drawn at twice that resolution so text is sharp, but the world is still drawn in those blocks (see "Frame and scale").
 
-**Two colors, gentler in the dark.** Pure black and white is the authoring language and the default look. It is harsh for playing in a dark room. The softer version is still exactly two colors, remapped at the end of the frame. The world does not gain a third color.
+**Two colors, gentler in the dark.** Pure black and white is the authoring language and the default look. It is harsh for playing in a dark room. The softer version is still exactly two colors, remapped at the end of the frame. The world does not gain a third color. The one exception is Freddy, who the user chose to colour lime (2026-10-28); how the palette pass treats him is under Not decided.
 
 **Everything shares one grid.** The player, authored platforms, exits, and Imprint sit on the same 10 px cells. A jump you can see is a jump the movement numbers can make. Rooms are tested against the same simulator the player runs.
 
@@ -110,7 +110,7 @@ A full jump rises about 51 px (about 5 cells). A running jump on flat ground tra
 | Air jump (double jump) | `air_jump_speed` 267 px/s, one per landing | A press in the air, once double jump is found, with no ground or coyote jump to use, jumps again at the ground jump's speed. Made at the top of a jump it rises as far again: about 102 px (about 10 cells) in all, as high as a jump off an Imprint platform put down at the top of the first. Letting go early cuts it like any jump. Landing (on a floor, a lift or an Imprint platform), spawning, respawning and warping refill it; crossing a door does not. A coyote press is a ground jump and keeps the air jump. With none left, a press buffers a ground jump as before. |
 | Corner correction | 3 px | Feet clipping a ledge by 3 px or less get pushed up onto it. A head clipping a corner by 3 px or less while rising gets pushed sideways. Both use a movement test, not a teleport through the block. |
 
-Feedback on the body is small. The square squashes and stretches by 1 px on jump and landing. Landing kicks 2–3 dust pixels at the feet. Those pixels are not interpolated, so they appear at the feet and not halfway across the screen.
+Freddy is drawn as a frog, 10 px wide and no taller than the 10×10 box that is the player (see "The player's picture" under Things in rooms), so none of what he looks like changes where he collides. His picture follows what he is doing: standing, one of eight walk pictures, a jump (legs thrown wide) for as long as he is off the ground, and a low, squashed picture for about an eighth of a second after landing. Landing kicks 2–3 dust pixels at the feet. Those pixels are not interpolated, so they appear at the feet and not halfway across the screen.
 
 Authored jumps are checked with the same simulator. If a test says a running jump from one ledge lands on the next, that is the jump the room is asking for. Jumping straight up into a 10 px platform from underneath bonks. The approach is from the side.
 
@@ -217,21 +217,36 @@ A **3TM** (3 token machine, kind `machine`, settings `upgrade=` and `value=` lik
 
 A **save machine** (kind `save`, no settings besides its `id`) is described under Health and save rooms. Its 5 x 3 zone has to be open air and the five cells under it solid. A room with an id that is not `s` and a number cannot have one, and a save room has to have exactly one and nothing else but platforms.
 
-The player's body is the inventory. Each token carried cuts a small black line, two pixels wide and one tall, out of it. The lines stack on the side opposite the player's facing, from bottom to top, on rows 6, 4 and 2 (counting from zero). One pixel of body stays between the stack and the side edge, and one clear row stays between tokens. Facing right puts the stack in columns 1–2; facing left mirrors it into columns 7–8. Once the player has Imprint, a line is cut across row 8, columns 1–8, with one clear row between it and the bottom token.
+The player's body is the inventory. Each token carried cuts a small black line, two pixels wide and one tall, out of it. The first two stack on the side opposite the player's facing, from bottom to top, on rows 6 and 4 (counting from zero), with one pixel of body between them and the side edge and one clear row between them. The third sits in the middle of the body, columns 4–5, on row 5, level with the gap between the two, so no mark is up by the eyes. Facing right puts the stack in columns 1–2; facing left mirrors it into columns 7–8 (the third stays in 4–5). Once the player has Imprint, a line is cut along row 7, from the middle to the front (columns 4–8 facing right, 1–5 facing left), one clear row under the third token. No two marks touch, even at a corner. The marks are drawn on Freddy, below, so a mark is only seen where he has body: the landing picture is short, so the second token's line is not shown during a landing.
 
 ```
 3 tokens       Imprint+3      Imprint only
+.+++...+++     .+++...+++     .+++...+++
+.+o+...+o+     .+o+...+o+     .+o+...+o+
 ##########     ##########     ##########
 ########..     ########..     ########..
-#..#####..     #..#####..     ########..
-##########     ##########     ##########
-#..#######     #..#######     ##########
-##########     ##########     ##########
-#..#######     #..#######     ##########
-##########     ##########     ##########
-##########     #........#     #........#
-##########     ##########     ##########
+#oo#####..     #oo#####..     ########..
+####oo####     ####oo####     ##########
+#oo#######     #oo#######     ##########
+##########     ####ooooo#     ####ooooo#
+.==....==.     .==....==.     .==....==.
+===....===     ===....===     ===....===
 ```
+
+`#` is his lime body, `=` his legs (lime too), `+` white (the eyes), `o` black (the pupils, and the marks cut into him) and `.` nothing: Freddy standing and facing right, as `FreddySprites` draws him with the marks `InventoryMarks` gives.
+
+### The player's picture
+
+The player is Freddy the frog (`src/player/freddy_sprites.gd`), drawn from the user's sprite sheets (`FREDDY THE FROG (OPTION 2)`). It is a picture of whole world pixels, 10 wide, inside the 10×10 box and standing on its bottom row. It is only a picture: the collision box, the movement, the jump and what the solver knows are unchanged. He is coloured as option 1 ("mono green") of the user's colour sheet: body and legs lime `#C6FB65` (sampled from the sheet), eye stalks white, pupils and the inventory marks black. `FreddySprites.COLOURS` (typed `Dictionary[String, Color]`) maps each row character to its colour; every pixel is one character, so layers never overlap and their order does not matter. The legs are their own character, `=`, lime like the body, because the user's colour sheet varied only the legs: any of its other options is a one-line change to `=`. Marks are cut only from body pixels (`BODY_PIXEL`, `#`) and become `MARK_PIXEL` (`o`), never from the eyes or legs. `problems()` rejects a character that is not in `COLOURS` or `EMPTY` (`.`), and a palette key that is not one character. Two eye stalks with a black pupil each stand on the head, the front is notched, and the rear is the side the inventory is cut into. Facing left mirrors the picture.
+
+| Picture | When | Rows |
+| --- | --- | --- |
+| Standing | on the ground, not moving | 10 |
+| Walk, 8 pictures | on the ground, moving; one picture for each 6 px run, so the cycle is 48 px and starts again from the first when he stops | 10 |
+| Jump | off the ground, rising or falling, and after an air jump | 10 (legs thrown wide) |
+| Landing | for 1/8 s after touching down | 7, rows 3 to 9 |
+
+The pictures are made by hand from the sheets, each on a 10×10 grid, so they are an interpretation of the sheets rather than a trace: every choice is in `freddy_sprites.gd` and easy to change. Where this differs from the sheets: the jump is not drawn taller than the box (the sheet's is about 12 high), so it never draws into a ceiling; the landing is 7 rows and wide only as far as the box; and the sheet's facing is only the notch and the marks (the old 2×2 block is gone).
 
 ### Moving platforms
 
@@ -418,7 +433,7 @@ The map is redrawn at each scale and not stretched. Every corner is scaled and r
 
 ## Look, and the softer palettes
 
-Built today: pure black background, solid white geometry and player. Glows and the map dim use ordered dithering or alpha. The map's current-room fill is an opaque gray, because a translucent white is premultiplied twice in the web build and disappears.
+Built today: pure black background and solid white geometry. The player, Freddy, is lime `#C6FB65` with white eyes and black pupils and marks. Glows and the map dim use ordered dithering or alpha. The map's current-room fill is an opaque gray, because a translucent white is premultiplied twice in the web build and disappears.
 
 Designed, not built. Pure black and white stays the way art is drawn. One full-screen pass at the end of the frame remaps brightness onto a two-color palette: `mix(background, foreground, luma)`. No sprite is recolored by hand. The halo dither, the map dim, and any future sparkle or shatter pick up the palette because they are already shades of the same image.
 
@@ -766,9 +781,9 @@ The solver answers "can a player get here, and get back", using `MovementSim` an
 
 `project.godot` makes the viewport 640×360 (`Display.VIEWPORT`, which `display_test` holds equal to `Grid.SCREEN_SIZE × Display.RENDER_SCALE`), stretched as the viewport by whole numbers with nearest filtering. `World._ready` zooms the camera by `RENDER_SCALE` and sets the window's `oversampling_override` to it, which is what makes text sharp. The UI layers (`Toast`, `DebugOverlay`, `DevPanel`, `MapOverlay`) keep their 320×180 layout and have `scale = RENDER_SCALE`; the map's `SubViewport` is `VIEW_SIZE × RENDER_SCALE` with `size_2d_override` set to `VIEW_SIZE`, and its `TextureRect` ignores the texture's size.
 
-`Display.snapf(x)` is `ceil(x − 0.5)`, the pixel a coordinate lights when a screen pixel is lit if its centre is inside the shape and an edge belongs to the pixel after it. `snap_rect` snaps both corners, so a box that fell between pixels lights the pixels its centres cover, as it did at 320×180. The player body is a `top_level` `PlayerBody` placed each frame at the interpolated position and drawn with `snap_rect`, with the inventory marks cut from the same squashed box; the squash is interpolated from what it was when the tick began to what it was last set to, as the engine did when it was a child of the interpolated player. A moving platform, a dust speck, a shatter burst and a flying token are snapped the same way. Spikes, the token and pickup diamond, the flying token and the 3TM's empty slot are pictures baked from the polygons by `tools/pixel_check.sh --shapes`.
+`Display.snapf(x)` is `ceil(x − 0.5)`, the pixel a coordinate lights when a screen pixel is lit if its centre is inside the shape and an edge belongs to the pixel after it. `snap_rect` snaps both corners, so a box that fell between pixels lights the pixels its centres cover, as it did at 320×180. The player body is a `top_level` `PlayerBody` placed each frame at the interpolated position: its corner is `Display.snap`ped and Freddy (`FreddySprites`, rows of the characters in `COLOURS`) is drawn from it as whole pixels, one layer per colour, so nothing is ever between pixels. A moving platform, a dust speck, a shatter burst and a flying token are snapped the same way. Spikes, the token and pickup diamond, the flying token and the 3TM's empty slot are pictures baked from the polygons by `tools/pixel_check.sh --shapes`.
 
-`tools/pixel_check.sh` (not part of `check.sh`, because it needs a renderer) captures scripted scenarios with `--fixed-fps 90`, so frames fall between physics ticks: every room, the player idle, a jump, a run and landing, a death, room 7's lift, a door slide, Imprint (preview, blocked, shrinking, Classic), a shot, the save machine and a 3TM feed. `--baseline` records them at 320×180 on a commit that still draws that way; the default run draws them at 640×360 with the UI hidden and checks that every 2×2 block is one colour and that the frame, taken at the top-left pixel of each block, equals the baseline. It also saves the UI (toast, F3, the dev panel's tabs, the map at each zoom), checks that the text has blocks that are not one colour, and checks that the mouse lands on the right cell. The door-slide frames are compared with the camera rounded in both runs (see the decision log).
+`tools/pixel_check.sh` (not part of `check.sh`, because it needs a renderer) captures scripted scenarios with `--fixed-fps 90`, so frames fall between physics ticks: every room, the player idle, a jump, a run and landing, a death, room 7's lift, a door slide, Imprint (preview, blocked, shrinking, Classic), a shot, the save machine and a 3TM feed. `--baseline` records them as world pixels, the top-left screen pixel of each block (after checking each block is one colour), on a commit whose look you trust: it was first taken at 320×180, and is taken again when the look is meant to change (as for Freddy); the default run draws them at 640×360 with the UI hidden and checks that every 2×2 block is one colour and that the frame, taken at the top-left pixel of each block, equals the baseline. It also saves the UI (toast, F3, the dev panel's tabs, the map at each zoom), checks that the text has blocks that are not one colour, and checks that the mouse lands on the right cell. The door-slide frames are compared with the camera rounded in both runs (see the decision log).
 
 ### Menus, pause and overlays (`ui/main_menu.gd`, `pause_menu.gd`, `power_popup.gd`, `title_card.gd`, `core/controls.gd`)
 
@@ -786,7 +801,7 @@ The solver answers "can a player get here, and get back", using `MovementSim` an
 
 ### Effects and small parts
 
-`ExitHalo` is a dithered half-disc of 12 pre-painted 64 px frames, played as a pulse. `Shatter` is 14 square shards that fly out and fall for 0.5 s; nothing fades. `Toast` (layer 15) shows a line for 2.5 s. `FlyingToken` arcs 16 px high with a trail of 6 recent positions, every other one drawn. `InventoryMarks` cuts black 2×1 token lines into the rear side of the body, filling rows 6, 4 and 2 in that order (columns 1–2 facing right, 7–8 facing left), and a line on row 8 from column 1 to 8 once Imprint is unlocked. `SaveMachine` draws a pixel ring (outer radius 13 px, the band from 8 px lit a segment at a time) around a hole of 4 px, on a 12 px base, with no antialiasing. `DebugOverlay` (layer 20) shows F3's readout and debug load errors. `DevPanel` (layer 30) owns F2/F4 and the paused playtest UI.
+`ExitHalo` is a dithered half-disc of 12 pre-painted 64 px frames, played as a pulse. `Shatter` is 14 square shards that fly out and fall for 0.5 s; nothing fades. `Toast` (layer 15) shows a line for 2.5 s. `FlyingToken` arcs 16 px high with a trail of 6 recent positions, every other one drawn. `InventoryMarks` cuts black 2×1 token lines into the body, filling row 6 then row 4 on the rear side (columns 1–2 facing right, 7–8 facing left) and then row 5 in the middle (columns 4–5), and a line on row 7 from column 4 to 8 (1 to 5 facing left) once Imprint is unlocked. `FreddySprites.rects` turns a pose, a walk step, a facing and those marks into the layers of rects, one per colour, that `PlayerBody` draws; a mark only shows where the picture is body (`BODY_PIXEL`). `PlayerAnimator` picks the pose, with no node, so `display_test` drives it directly: in the air is the jump picture, `LAND_TIME` (0.125 s) after `land()` is the landing picture, a ground speed over `WALK_SPEED` (1 px/s) walks by `STRIDE_PER_PICTURE` (6 px) for each step, and anything else stands. `Player` calls `land()` when the body touches down and `advance()` each rendered frame. The walk is as long as `WALK_LEGS` (`walk_length()`). `FreddySprites.problems()` lists any picture whose rows are not 10 wide, hold a character that is not in `COLOURS` or `EMPTY`, or leave the box; `PlayerBody` pushes them as errors in a debug build and `display_test` fails on them. Drawn pictures are cached by pose, step, facing and marks, and the body node is moved to its snapped corner each frame, so it is redrawn only when the picture, the facing or the inventory changes. `SaveMachine` draws a pixel ring (outer radius 13 px, the band from 8 px lit a segment at a time) around a hole of 4 px, on a 12 px base, with no antialiasing. `DebugOverlay` (layer 20) shows F3's readout and debug load errors. `DevPanel` (layer 30) owns F2/F4 and the paused playtest UI.
 
 ### What the solver and the preview do not model
 
@@ -821,7 +836,15 @@ What was decided, in the order it came up, with the reason. Pull requests are na
 - **Double jump is the first power-up, and Imprint is dev-only for now.** The first 3TM (room 4) gives double jump; Imprint is unlocked only in the dev panel until the user decides where it comes in. The second 3TM (room 9) gives a health pip, a placeholder.
 - **Imprint is earned: three tokens at a 3TM.** Tokens are the currency, a 3TM the shop, one upgrade per machine. Partial deposits are saved; a spent machine does nothing; the pocket holds three.
 - **A room's exit rule blocks every door, including the one the player came in by,** with solid shaded blocks, not glows. `exits: pickups` is the first rule. A rule is a flag test, so a reload gives the same answer.
-- **The body is the inventory.** Tokens and the Imprint line are cut into the player's square, so no HUD is needed. So is the facing: a 2 x 2 block in the top right when facing right, the top left when facing left, one row down from the edge.
+- **The body is the inventory.** Tokens and the Imprint line are cut into the player's body, so no HUD is needed. The facing was a 2 x 2 block in the top corner of the square; Freddy shows it himself (notched front, marks on the rear, mirrored) and the block is gone (the frog PR).
+
+**Freddy the frog**
+- **The player is a picture of a frog on the same box.** Redrawn from the user's two sprite sheets; the 10×10 collision box, the movement and the solver are not touched, and a test holds every picture inside the box. A pose is picked from what the body does, and the old squash and stretch is gone, because a picture does not scale.
+- **The facing block is gone, and the Imprint line moved from row 8 to row 7 (columns 4–8).** Row 8 is the legs, so a line there would only have cut the two thighs. The frog shows facing by its notched front, and the line stops short of the stack so it never touches a token.
+- **The jump picture stays inside the box.** The sheet's jump is about two rows taller than the box. It would draw into a ceiling the body is touching, and tell the player the box is bigger than it is.
+- **The third token sits in the middle, not on top of the stack.** On row 2 (the old third slot) its line ran into the rear eye's pupil, which read as part of the eye. The user chose two stacked on the rear (rows 6 and 4) and the third to their right, centred: columns 4–5, row 5, level with the gap. It stays one clear pixel from every other mark and from the Imprint line.
+
+- **Freddy is lime, the one thing in the world in colour.** The user chose option 1 ("mono green") of a ten-option colour sheet: lime `#C6FB65` body and legs, white eyes, black pupils and marks. It breaks the two-colour rule on purpose, for the player only; geometry, effects and the UI stay black and white.
 
 **Save rooms and health (PR #26)**
 - **Dying with no health goes to the save room.** Health is a count of pips, none at the start. With a pip, a death spends it and keeps the old safe-floor respawn. (The pip pickup came later, in room 7; see Health pips below.)
@@ -933,7 +956,7 @@ What was decided, in the order it came up, with the reason. Pull requests are na
 - **No `Save.VERSION` change.** A missing field falls back to its default.
 
 **Rear token stack**
-- **Approved from mockups:** the existing 2 x 1 token lines fill bottom to top behind the facing direction. One pixel separates the stack from the body edge and one row separates each line. Turning mirrors the stack immediately; the facing block and Imprint line keep their positions.
+- **Approved from mockups:** the existing 2 x 1 token lines fill bottom to top behind the facing direction. One pixel separates the stack from the body edge and one row separates each line. For the frog the third moved off the stack into the middle (below). Turning mirrors the stack immediately, and the Imprint line with it (it moved to row 7 for the frog, below).
 - **Dev setup uses the existing token control:** F2 can set 0–3 tokens, clear them, retry, and save/reload their count in a named loadout. No new resource or ability is introduced.
 
 **Room 8 merges into the shaft**
@@ -978,7 +1001,7 @@ What was decided, in the order it came up, with the reason. Pull requests are na
 - **The built-in whole-number scaling is kept.** A window that showed the 320×180 picture at an odd multiple now drops a step: a maximized browser on a 1080p screen showed 1600×900 and shows 1280×720. Fullscreen 720p, 1080p, 1440p and 4K are unchanged. A scaler of our own, to keep today's size in those windows, was left out for the work and the risk.
 - **The map's open and close animation (a panel growing from 92% to 100% over 0.1 s) is drawn finer than before.** The one accepted difference.
 - **A door slide steps the camera onto whole world pixels.** At 320×180 a camera between pixels moved the polygon shapes and a player standing at a fractional position by a pixel from frame to frame during the half-second slide. The slide is rounded now, so the picture is steady. The pixel check rounds the camera in both runs for those frames.
-- **The engine's own interpolation of the squash is kept.** The squash of a landing or jump was a scale on a child of the interpolated player, so it lagged by up to a tick. It is reproduced, so the body is drawn pixel for pixel as before.
+- **The engine's own interpolation of the squash is kept.** Superseded by the frog: the squash was a scale and is gone, so there is nothing to interpolate. The body is a picture on a whole-pixel corner.
 
 **Menus, pause and overlays**
 - **Continue and New Game when there is a save, Start Game when there is not.** The user's choice, so a player can start over without the URL trick. New Game asks before it erases, with No selected.
@@ -1005,9 +1028,10 @@ Do not: draw anything in the world between world pixels (snap it with `Display.s
 
 ## Not decided
 
+- How the planned palette pass (`mix(background, foreground, luma)`) treats Freddy. As designed it would turn his lime into a shade of the palette's foreground; keeping him lime means drawing him after the pass or exempting him.
 - Whether the gun needs a mark on the body, as Imprint has its line, and whether a shot at 3 x 1 px reads at 1x.
 - Per-wall strength (`hits=` in the legend), and walls that stay broken for good.
-- Whether the facing block and the token lines read at 1x, and whether it should show before Imprint is found.
+- Whether Freddy and the token lines read at 1x, and whether the Imprint line should show before Imprint is found.
 - Whether Classic Imprint is removed once the user has played both.
 - Whether the shards of each block that goes are too busy.
 - What S / Down does.

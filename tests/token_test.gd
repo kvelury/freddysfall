@@ -118,52 +118,73 @@ func _marks() -> bool:
 	for tokens in 4:
 		counts.append(InventoryMarks.pixels(tokens, false).size())
 	ok = _check(counts == [0, 2, 4, 6], "each token cuts a 2 x 1 line, two pixels, out of the body (%s)" % [counts]) and ok
-	ok = _check(InventoryMarks.pixels(0, true).size() == 8, "the Imprint line is eight pixels") and ok
+	ok = _check(InventoryMarks.pixels(0, true).size() == 5, "the Imprint line is five pixels") and ok
 	var line := InventoryMarks.pixels(0, true)
 	var crowded := InventoryMarks.pixels(3, true)
 	var overlap := 0
 	for p in crowded:
 		if crowded.count(p) > 1:
 			overlap += 1
-	ok = _check(crowded.size() == 14 and overlap == 0, "three tokens and the line never share a pixel (%d)" % crowded.size()) and ok
+	ok = _check(crowded.size() == 11 and overlap == 0, "three tokens and the line never share a pixel (%d)" % crowded.size()) and ok
 	var inside := true
 	for p in crowded:
 		inside = inside and p.x >= 0 and p.y >= 0 and p.x < 10 and p.y < 10
 	ok = _check(inside, "and all of them are inside the 10 x 10 body") and ok
-	ok = _check(line.all(func(p: Vector2i) -> bool: return p.y == 8), "the line runs along the one row") and ok
+	ok = _check(line.all(func(p: Vector2i) -> bool: return p.y == 7), "the line runs along the one row") and ok
 	ok = _check(InventoryMarks.pixels(7, false).size() == 6, "more than three tokens draws no more than three") and ok
-	# Exact approved stack: one pixel inside the rear edge, bottom first,
-	# with one clear row between marks. Test every count with and without Imprint.
-	var slots := [Vector2i(1, 6), Vector2i(1, 4), Vector2i(1, 2)]
-	for face in [0, 1, -1]:
+	# Exact approved marks: two one pixel inside the rear edge, bottom first, with
+	# one clear row between them, then the third in the middle level with the
+	# gap, and the line clear of all three. Test every count with and without
+	# Imprint, facing either way.
+	var slots := [Vector2i(1, 6), Vector2i(1, 4), Vector2i(4, 5)]
+	for face in [1, -1]:
 		for tokens in 4:
 			for imprint in [false, true]:
 				var expected: Array[Vector2i] = []
 				for i in tokens:
 					for dx in 2:
-						var p: Vector2i = slots[i] + Vector2i(dx, 0)
-						expected.append(Vector2i(9 - p.x, p.y) if face < 0 else p)
+						expected.append(slots[i] + Vector2i(dx, 0))
 				if imprint:
-					for x in range(1, 9):
-						expected.append(Vector2i(x, 8))
-				if face != 0:
-					expected.append_array(InventoryMarks.FACE_RIGHT if face > 0 else InventoryMarks.FACE_LEFT)
+					for x in range(4, 9):
+						expected.append(Vector2i(x, 7))
+				if face < 0:
+					for i in expected.size():
+						expected[i] = Vector2i(9 - expected[i].x, expected[i].y)
 				var actual := InventoryMarks.pixels(tokens, imprint, face)
 				ok = _check(actual.size() == expected.size() and expected.all(func(p: Vector2i) -> bool: return actual.count(p) == 1), "rear stack fills bottom to top with padding: face %d, tokens %d, Imprint %s" % [face, tokens, imprint]) and ok
-	# The facing block: 2 x 2, one row down in the top right when facing right, the top left when facing left.
+	# On the frog: the marks stack on the rear and the line is clear of them.
 	var right := InventoryMarks.pixels(3, true, 1)
 	var left := InventoryMarks.pixels(3, true, -1)
-	var clear := true
-	for p in InventoryMarks.FACE_RIGHT + InventoryMarks.FACE_LEFT:
-		clear = clear and p.x >= 0 and p.y >= 0 and p.x < 10 and p.y < 10
-	for marks in [right, left]:
-		for p in marks:
-			clear = clear and marks.count(p) == 1
-	ok = _check(clear and right.size() == 18 and left.size() == 18, "the facing block adds four pixels inside the body, on none of the other marks") and ok
-	ok = _check(InventoryMarks.FACE_RIGHT.all(func(p: Vector2i) -> bool: return p.x >= 8 and p.y in [1, 2]) and InventoryMarks.FACE_RIGHT.size() == 4, "facing right it is the 2 x 2 block in the top right") and ok
-	ok = _check(InventoryMarks.FACE_LEFT.all(func(p: Vector2i) -> bool: return p.x <= 1 and p.y in [1, 2]) and InventoryMarks.FACE_LEFT.size() == 4, "facing left it is the 2 x 2 block in the top left") and ok
-	ok = _check(InventoryMarks.FACE_LEFT.all(func(p: Vector2i) -> bool: return InventoryMarks.FACE_RIGHT.has(Vector2i(9 - p.x, p.y))), "and the two are mirror images") and ok
-	ok = _check(InventoryMarks.pixels(0, false, 0).is_empty(), "no facing given draws no block") and ok
+	var rear_right := right.filter(func(p: Vector2i) -> bool: return p.x <= 2)
+	var rear_left := left.filter(func(p: Vector2i) -> bool: return p.x >= 7)
+	ok = _check(rear_right.size() == 4 and rear_left.size() == 4, "facing right the stack of two is at the left edge and facing left the right (%d, %d)" % [rear_right.size(), rear_left.size()]) and ok
+	ok = _check(right.has(Vector2i(4, 5)) and right.has(Vector2i(5, 5)), "and the third token is in the middle of the body") and ok
+	# Marks are told apart by a clear pixel all round, corners included.
+	var marks: Array = []
+	for i in 3:
+		var one: Array[Vector2i] = []
+		for dx in InventoryMarks.WIDTH:
+			one.append(InventoryMarks.SLOTS[i] + Vector2i(dx, 0))
+		marks.append(one)
+	marks.append(line)
+	var touching := false
+	for i in marks.size():
+		for j in range(i + 1, marks.size()):
+			for a: Vector2i in marks[i]:
+				for b: Vector2i in marks[j]:
+					touching = touching or (absi(a.x - b.x) <= 1 and absi(a.y - b.y) <= 1)
+	ok = _check(not touching, "and no two marks touch, even at a corner") and ok
+	var clear_of_eyes := right.all(func(p: Vector2i) -> bool: return p.y >= 4)
+	ok = _check(clear_of_eyes, "and no mark is up by the eyes (all on row 4 or lower)") and ok
+	# Every mark lands on white on every picture the player can show, so
+	# none is lost: the landing picture is short, so its top row's mark is not shown.
+	var lands := true
+	for pose in [FreddySprites.Pose.STAND, FreddySprites.Pose.JUMP, FreddySprites.Pose.WALK]:
+		for step in FreddySprites.walk_length():
+			var rows := FreddySprites.frame(pose, step).rows
+			for p in crowded:
+				lands = lands and rows[p.y][p.x] == FreddySprites.BODY_PIXEL
+	ok = _check(lands, "every mark lands on the frog's lime body when it stands, walks or jumps") and ok
 	return ok
 
 
