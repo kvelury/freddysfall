@@ -27,7 +27,7 @@ var _walls: Array[BreakableWall] = []
 
 ## Emitted when the exit rule becomes met and the doors open.
 signal exits_opened
-## Emitted when a breakable wall has been shot down and no longer collides.
+## Emitted when a breakable wall has been lashed down and no longer collides.
 signal wall_broken
 
 
@@ -245,7 +245,7 @@ func wall_at(box: Rect2) -> BreakableWall:
 	return null
 
 
-## A shot lands on `wall`. If that breaks it, it stops colliding and
+## A lash lands on `wall`. If that breaks it, it stops colliding and
 ## `wall_broken` is emitted. Returns whether it broke.
 func hit_wall(wall: BreakableWall, strength: int) -> bool:
 	if not wall.hit(strength):

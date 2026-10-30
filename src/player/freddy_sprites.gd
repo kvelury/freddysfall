@@ -14,8 +14,8 @@ extends RefCounted
 ## inventory marks (`InventoryMarks`) are cut from it, so a short picture keeps
 ## its marks. They are cut from body only (`BODY_PIXELS`: the lime and the patch), never from the eyes or
 ## legs. Stalks are rows 0-1 with the pupils in row 1, the front (right) is
-## notched on rows 3-4, and the rear is the left edge the marks are cut one
-## pixel inside of.
+## notched on row 3 (the mouth, where the tongue comes out; `Frame.mouth`), and
+## the rear is the left edge the marks are cut one pixel inside of.
 ##
 ## To add an animation: a value in `PlayerAnimator.Pose`, one rule for it in
 ## `PlayerAnimator.advance`, and one row in `_build`.
@@ -119,12 +119,20 @@ class Frame:
 	## than three hides the rest. `line`: the Imprint line's pixels; empty hides it. (`PlayerBody` does not draw it at present.)
 	var tokens: Array[Vector2i] = []
 	var line: Array[Vector2i] = []
+	## The box row of the mouth: the notch at the front of the body, which is
+	## the row whose last two pixels are empty under a body pixel. -1 if there is none.
+	var mouth := -1
 
 	func _init(at: int, lines: Array, token_slots: Array[Vector2i], line_pixels: Array[Vector2i]) -> void:
 		top = at
 		rows = PackedStringArray(lines)
 		tokens = token_slots
 		line = line_pixels
+		for y in rows.size():
+			var row := rows[y]
+			if row.length() == SIZE and row.ends_with("..") and row[SIZE - 3] in BODY_PIXELS:
+				mouth = at + y
+				break
 
 
 ## How one pose's pictures play: an animation (not named that, as the engine has a class of that name).

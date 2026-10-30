@@ -29,7 +29,7 @@ dev_session_test.gd
 dev_ui_test.gd
 double_jump_test.gd
 display_test.gd
-gun_test.gd
+tongue_lash_test.gd
 menu_test.gd
 title_card_test.gd
 hud_test.gd

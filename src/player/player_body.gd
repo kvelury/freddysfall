@@ -75,6 +75,19 @@ func shown_imprint() -> bool:
 	return false
 
 
+## The pixels the tongue fills when it reaches `extension` pixels past the front
+## of the body, in world pixels: one row, from inside the mouth notch out. The
+## picture on show says which row the mouth is on.
+func tongue_rect(extension: float) -> Rect2:
+	var frames_of := FreddySprites.animation(_pose).frames
+	var mouth := frames_of[posmod(_index, frames_of.size())].mouth
+	var reach := roundf(extension)
+	var size := float(FreddySprites.SIZE)
+	if facing < 0:
+		return Rect2(position + Vector2(-reach, float(mouth)), Vector2(reach + 2.0, 1.0))
+	return Rect2(position + Vector2(size - 2.0, float(mouth)), Vector2(reach + 2.0, 1.0))
+
+
 ## The top-left pixel of the 10 x 10 box of a body centred on `center`, on a
 ## whole world pixel.
 static func corner(center: Vector2) -> Vector2:

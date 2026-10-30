@@ -297,7 +297,7 @@ class Animation:
   - Phase 1 moves the marks only.
   - The `BODY`, legs and `LAND` rows stay pixel for pixel.
   - The walk stays 8 pictures at 6 px each, and the landing 0.125 s.
-- **`Player.facing`.** Imprint's tie-break and the gun read it (`tests/gun_test.gd`, `tests/imprint_play_test.gd`). Only how it is drawn moves.
+- **`Player.facing`.** Imprint's tie-break and Tongue Lash reads it (`tests/tongue_lash_test.gd`, `tests/imprint_play_test.gd`). Only how it is drawn moves.
 - **`PlayerBody.corner` snapping and `top_level`.** They keep the frog on whole world pixels between physics ticks (`tests/display_test.gd`, `tools/pixel_check.sh`).
 
 ## Decisions (do not undo these without asking)

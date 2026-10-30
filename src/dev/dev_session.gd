@@ -19,7 +19,7 @@ var classic_imprint := false
 ## Imprint: it survives retries, is not saved and is not in a loadout, and End
 ## playtest or a fresh boot turns it off.
 var token_marks := false
-## How many shots break a breakable wall in a dev test, or 0 for the default
+## How many lashes break a breakable wall in a dev test, or 0 for the default
 ## (BreakableWall.DEFAULT_STRENGTH). World tuning and not an ability, so it is
 ## a session setting like Classic Imprint: it survives retries, is not saved
 ## and is not in a loadout, and End playtest or a fresh boot resets it.
@@ -202,7 +202,7 @@ func set_token_marks(world: Node, on: bool) -> String:
 	return ""
 
 
-## Shots a breakable wall takes to break: the dev test's setting if there is
+## Lashes a breakable wall takes to break: the dev test's setting if there is
 ## one, else the default.
 func wall_strength() -> int:
 	if mode == Mode.DEV_TEST and wall_strength_override > 0:
@@ -210,12 +210,12 @@ func wall_strength() -> int:
 	return BreakableWall.DEFAULT_STRENGTH
 
 
-func set_wall_strength(world: Node, shots: int) -> String:
+func set_wall_strength(world: Node, lashes: int) -> String:
 	if mode != Mode.DEV_TEST or replacing or world.is_busy():
 		return "Dev tools are not ready."
-	if shots < 1 or shots > MAX_WALL_STRENGTH:
+	if lashes < 1 or lashes > MAX_WALL_STRENGTH:
 		return "Wall strength is a whole number from 1 to %d." % MAX_WALL_STRENGTH
-	wall_strength_override = shots
+	wall_strength_override = lashes
 	return ""
 
 

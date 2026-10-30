@@ -12,7 +12,7 @@ func _initialize() -> void:
 	var ok := true
 	ok = _gate() and ok
 	ok = _double_jump() and ok
-	ok = _gun() and ok
+	ok = _lash() and ok
 	ok = _progression() and ok
 	ok = _many_rounds() and ok
 	ok = _forbidden() and ok
@@ -102,12 +102,12 @@ func _double_jump() -> bool:
 	return ok
 
 
-## The gun: a pickup in a box whose left wall is breakable is out of reach until
-## the player has the gun, and then it is taken from the ledge in front of the
+## Tongue Lash: a pickup in a box whose left wall is breakable is out of reach until
+## the player has Tongue Lash, and then it is taken from the ledge in front of the
 ## wall. The wall is a state of one visit, so room 1 is still the same room
 ## in the report. A line of fire blocked by solid keeps it shut, a box with no
-## wall to shoot is shut, and the cap on states is an error.
-func _gun() -> bool:
+## wall to lash is shut, and the cap on states is an error.
+func _lash() -> bool:
 	var ok := true
 	var header := "legend:\n  U = pickup id=gem upgrade=imprint_width value=3\n  B = breakable id=wall\n---\n"
 	var marks := {}
@@ -123,21 +123,21 @@ func _gun() -> bool:
 	marks[Vector2i(24, 16)] = "U"
 	var rooms := _world(marks, header)
 	var without := ReachGraph.new(rooms, _cfg).analyze("1")
-	ok = _check(_has(without.errors, "pickup gem"), "without the gun, a pickup behind a breakable wall is out of reach %s" % [without.errors]) and ok
+	ok = _check(_has(without.errors, "pickup gem"), "without Tongue Lash, a pickup behind a breakable wall is out of reach %s" % [without.errors]) and ok
 	var armed := Abilities.new()
-	armed.gun_unlocked = true
+	armed.tongue_unlocked = true
 	var graph := ReachGraph.new(rooms, _cfg, armed)
-	var with_gun := graph.analyze("1")
-	ok = _check(with_gun.errors.is_empty(), "with the gun it is taken %s" % [with_gun.errors]) and ok
-	ok = _check(with_gun.pickups.any(func(p: Dictionary) -> bool: return p["id"] == "gem" and p["reached"]), "and the report lists it as reached") and ok
-	ok = _check(with_gun.reached_ledges == with_gun.total_ledges, "the ledge inside the box counts as reached, and no state counts as a place of its own (%d of %d)" % [with_gun.reached_ledges, with_gun.total_ledges]) and ok
+	var with_lash := graph.analyze("1")
+	ok = _check(with_lash.errors.is_empty(), "with Tongue Lash it is taken %s" % [with_lash.errors]) and ok
+	ok = _check(with_lash.pickups.any(func(p: Dictionary) -> bool: return p["id"] == "gem" and p["reached"]), "and the report lists it as reached") and ok
+	ok = _check(with_lash.reached_ledges == with_lash.total_ledges, "the ledge inside the box counts as reached, and no state counts as a place of its own (%d of %d)" % [with_lash.reached_ledges, with_lash.total_ledges]) and ok
 
-	# A progression: the gun is a pickup on the near side, and the pickup needs it.
-	var chain := _world(marks.merged({Vector2i(4, 16): "G"}), "legend:\n  U = pickup id=gem upgrade=imprint_width value=3\n  B = breakable id=wall\n  G = pickup id=gunpick upgrade=gun\n---\n")
+	# A progression: Tongue Lash is a pickup on the near side, and the pickup needs it.
+	var chain := _world(marks.merged({Vector2i(4, 16): "G"}), "legend:\n  U = pickup id=gem upgrade=imprint_width value=3\n  B = breakable id=wall\n  G = pickup id=lashpick upgrade=tongue_lash\n---\n")
 	var report := ReachGraph.new(chain, _cfg).solve("1")
-	ok = _check(report.errors.is_empty() and report.needs.get("pickup|gem") == ["gunpick"], "a pickup that gives the gun is what the one behind the wall needs (%s %s)" % [report.errors, report.needs.get("pickup|gem")]) and ok
+	ok = _check(report.errors.is_empty() and report.needs.get("pickup|gem") == ["lashpick"], "a pickup that gives Tongue Lash is what the one behind the wall needs (%s %s)" % [report.errors, report.needs.get("pickup|gem")]) and ok
 
-	# Solid in the line of fire keeps the wall out of reach, even with the gun.
+	# Solid in the line of fire keeps the wall out of reach, even with Tongue Lash.
 	var blocked := marks.duplicate()
 	for y in range(6, 17):
 		blocked[Vector2i(18, y)] = "#"
@@ -149,10 +149,10 @@ func _gun() -> bool:
 	for y in range(14, 17):
 		sealed[Vector2i(22, y)] = "#"
 	var solid := ReachGraph.new(_world(sealed, "legend:\n  U = pickup id=gem upgrade=imprint_width value=3\n---\n"), _cfg, armed).analyze("1")
-	ok = _check(_has(solid.errors, "pickup gem"), "a box of plain solid stays shut with the gun") and ok
+	ok = _check(_has(solid.errors, "pickup gem"), "a box of plain solid stays shut with Tongue Lash") and ok
 
 	# The copy of the room with the wall broken is cached under its own key.
-	var directory := "user://gun_cache_test"
+	var directory := "user://lash_cache_test"
 	var cache := SolverCache.new(directory)
 	var cold_graph := ReachGraph.new(rooms, _cfg, armed)
 	cold_graph.cache = cache

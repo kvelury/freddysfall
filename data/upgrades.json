@@ -13,19 +13,19 @@
       "unit": "air jumps"
     }
   },
-  "gun": {
-    "name": "Gun",
-    "stat": "gun_unlocked",
+  "tongue_lash": {
+    "name": "Tongue Lash",
+    "stat": "tongue_unlocked",
     "kind": "unlock",
-    "message": "Gun. Space shoots the way you face.",
-    "controls": ["shoot"],
+    "message": "Tongue Lash. Space lashes the way you face.",
+    "controls": ["lash"],
     "dev": {
       "type": "bool"
     }
   },
-  "gun_cooldown": {
-    "name": "Gun cooldown",
-    "stat": "gun_cooldown",
+  "tongue_cooldown": {
+    "name": "Lash cooldown",
+    "stat": "tongue_cooldown",
     "kind": "min",
     "dev": {
       "type": "float",
@@ -35,9 +35,9 @@
       "unit": "seconds"
     }
   },
-  "gun_shot_speed": {
-    "name": "Shot speed",
-    "stat": "gun_shot_speed",
+  "tongue_speed": {
+    "name": "Lash speed",
+    "stat": "tongue_speed",
     "kind": "max",
     "dev": {
       "type": "float",
@@ -45,6 +45,18 @@
       "max": 2000,
       "step": 20,
       "unit": "px/s"
+    }
+  },
+  "tongue_length": {
+    "name": "Tongue length",
+    "stat": "tongue_length",
+    "kind": "max",
+    "dev": {
+      "type": "float",
+      "min": 10,
+      "max": 1000,
+      "step": 10,
+      "unit": "px"
     }
   },
   "imprint": {
