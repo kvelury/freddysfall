@@ -17,7 +17,7 @@
     "name": "Tongue Lash",
     "stat": "tongue_unlocked",
     "kind": "unlock",
-    "message": "Tongue Lash. Space lashes the way you face.",
+    "message": "Tongue Lash. Lash your tongue.",
     "controls": ["lash"],
     "dev": {
       "type": "bool"

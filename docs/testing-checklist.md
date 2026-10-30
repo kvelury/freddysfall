@@ -54,7 +54,7 @@ Nobody has played these yet. Headless tests prove the rules, not the feel. Use `
 - [ ] **Standing on a wall.** An intact wall holds the player like any platform; once it breaks, they fall.
 - [ ] **A wall grows back.** Leave room 7 and come back, die and respawn in it, and retry from F2: the wall is whole each time.
 - [ ] **Room 7's pip.** Come in from room 11 (`?dev=1&room=11`), stand on the exit-2 ledge (the left two cells were removed), face left and lash the wall (three hits), then jump in for the pip. The roof is five rows higher than before, with the wall running floor to roof and the floor two rows lower than the original, flush with it. Walking off the ledge now drops past the box. The player cannot get in without the gun, by jumping or dropping.
-- [ ] **Room 9's 3TM** gives Tongue Lash with the "NEW POWER" popup, "Tongue Lash" and the row "Lash your tongue the way you face" (`?dev=1&room=9` with three tokens set in F2).
+- [ ] **Room 9's 3TM** gives Tongue Lash with the "NEW POWER" popup, "Tongue Lash" and the row "Lash your tongue" (`?dev=1&room=9` with three tokens set in F2).
 - [ ] **F2.** Tongue Lash on/off, cooldown, speed and length apply and survive a retry and a named loadout. Wall strength (Player tab, below Classic Imprint): 1 breaks in one lash, 5 in five, takes effect at once, survives a retry, and End playtest resets it to 3.
 - [ ] **The solver agrees.** `tools/validate.sh` lists room 7's pip as needing Tongue Lash (via room 9's 3TM and its tokens) and passes. Nobody has played the whole route to the pip without dev tools.
 - [ ] **Nothing odd:** lashing during a door slide, the map, the F2 panel or a save does nothing, and the tongue does not follow you into the next room.
