@@ -104,4 +104,37 @@ const SHAPES := {
 			"...##...",
 		],
 	},
+	# The HUD's heart: three token slots, two lobes and a point, outlined as one
+	# (UI units, top-left at the anchor). Slot centres are Hud.SLOTS.
+	"hud_heart": {
+		"offset": Vector2i(0, 0),
+		"rows": [
+			"....#.......#....",
+			"...#.#.....#.#...",
+			"..#...#...#...#..",
+			".#.....#.#.....#.",
+			"#.......#.......#",
+			".#.....#.#.....#.",
+			"..#...#...#...#..",
+			"...#.#.....#.#...",
+			"....#.......#....",
+			".....#.....#.....",
+			"......#...#......",
+			".......#.#.......",
+			"........#........",
+		],
+	},
+	# The inside of one heart slot, centred on the anchor.
+	"hud_slot": {
+		"offset": Vector2i(-3, -3),
+		"rows": [
+			"...#...",
+			"..###..",
+			".#####.",
+			"#######",
+			".#####.",
+			"..###..",
+			"...#...",
+		],
+	},
 }

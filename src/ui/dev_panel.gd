@@ -158,7 +158,16 @@ func _build_player(body: VBoxContainer) -> void:
 	_button(row, "+1 token", func() -> void: _nudge("tokens", 1, DevCatalog.RESOURCES["tokens"]))
 	_button(row, "Fill 3", func() -> void: _fields["tokens"].text = "3")
 	_button(row, "Empty", func() -> void: _fields["tokens"].text = "0")
-	_button(row, "Clear health", func() -> void: _fields["health"].text = "0")
+	var pips := HBoxContainer.new()
+	body.add_child(pips)
+	_button(pips, "+1 pip", func() -> void:
+		_nudge("max_health", 1, DevCatalog.RESOURCES["max_health"])
+		_nudge("health", 1, DevCatalog.RESOURCES["health"]))
+	_button(pips, "Refill", func() -> void: _fields["health"].text = _fields["max_health"].text)
+	_button(pips, "Empty pips", func() -> void: _fields["health"].text = "0")
+	_button(pips, "Clear health", func() -> void:
+		_fields["health"].text = "0"
+		_fields["max_health"].text = "0")
 	_button(body, "Reset loadout to defaults", func() -> void:
 		_set_fields(DevCatalog.defaults())
 		_full_draft = true

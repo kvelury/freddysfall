@@ -54,6 +54,7 @@ func _run() -> void:
 	await _feed()
 	if mode == "compare":
 		await _text()
+		await _hud()
 		await _mouse()
 	if failures.is_empty():
 		print("PIXEL pass (%d frames %s)" % [captured, "captured" if mode == "baseline" else "compared"])
@@ -85,7 +86,7 @@ func _start(room: String, setup := Callable()) -> void:
 	player.scripted = true
 	world.get_node("Imprint").scripted = true
 	world.get_node("Gun").scripted = true
-	for layer in ["Toast", "DebugOverlay", "DevPanel", "MapOverlay", "TitleCard", "PauseMenu", "PowerPopup"]:
+	for layer in ["Toast", "DebugOverlay", "DevPanel", "MapOverlay", "TitleCard", "PauseMenu", "PowerPopup", "Hud"]:
 		world.get_node(layer).visible = false
 
 
@@ -344,7 +345,7 @@ func _feed() -> void:
 func _text() -> void:
 	await _start("s1")
 	var layers := {}
-	for layer in ["Toast", "DebugOverlay", "DevPanel", "MapOverlay", "TitleCard", "PauseMenu", "PowerPopup"]:
+	for layer in ["Toast", "DebugOverlay", "DevPanel", "MapOverlay", "TitleCard", "PauseMenu", "PowerPopup", "Hud"]:
 		layers[layer] = world.get_node(layer)
 	layers["Toast"].visible = true
 	world.toast.show_text("Game saved")
@@ -376,6 +377,21 @@ func _text() -> void:
 		Input.action_release("map")
 		await _frames(20)
 
+
+## The health and token HUD in fixed states, saved as UI frames.
+func _hud() -> void:
+	var state: Node = root.get_node("GameState")
+	var cases := {"empty": [0, 0, 0], "one_pip": [0, 1, 1], "hit_once": [2, 4, 3], "full": [3, 6, 6]}
+	for name in cases:
+		await _start("7")
+		var hud: Node = world.get_node("Hud")
+		hud.visible = true
+		state.tokens = cases[name][0]
+		state.max_health = cases[name][1]
+		state.health = cases[name][2]
+		hud.sync()
+		await _frames(3)
+		await _grab_ui("ui_hud_%s" % name, hud.bounds(state.max_health), 0)
 
 ## A frame with the UI, saved as is. `need` is how many 2 x 2 blocks of `region`
 ## (in the UI's 320 x 180 units) must be mixed, which a world pixel never is.

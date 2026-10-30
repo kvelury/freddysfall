@@ -116,9 +116,10 @@ func _run() -> void:
 	prize.props = {"prize": "health"}
 	ok = _check(Entities.problems(prize).is_empty(), "a 3TM with prize=health is valid") and ok
 	var health_before: int = state.health
+	var bar_before: int = state.max_health
 	var abilities_before: Dictionary = state.abilities.to_dict()
 	var line: String = state.machine_prize(prize)
-	ok = _check(state.health == health_before + 1 and state.abilities.to_dict() == abilities_before and line == "Max Health +1", "it gives a health pip and no ability (%s)" % line) and ok
+	ok = _check(state.health == health_before + 1 and state.max_health == bar_before + 1 and state.abilities.to_dict() == abilities_before and line.is_empty(), "it gives a health pip, a longer bar, no ability and no line (%s)" % line) and ok
 	var both := EntityDef.new()
 	both.type = "machine"
 	both.id = "bad"

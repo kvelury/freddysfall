@@ -304,10 +304,10 @@ func _health() -> bool:
 	ok = _check(_has(errors, "value="), "a setting it does not use is an error (%s)" % [errors]) and ok
 	var state: Node = root.get_node("GameState")
 	state.reset()
-	var line: String = state.take_health(def)
-	ok = _check(state.health == 1 and state.has_flag("health:h1") and "1" in line, "taking it adds one pip and says so (%s)" % line) and ok
 	state.take_health(def)
-	ok = _check(state.health == 2, "pips add up") and ok
+	ok = _check(state.health == 1 and state.has_flag("health:h1"), "taking it adds one pip, and the HUD shows it with no line") and ok
+	state.take_health(def)
+	ok = _check(state.health == 2 and state.max_health == 2, "pips add up, and so does the bar") and ok
 	state.reset()
 	return ok
 

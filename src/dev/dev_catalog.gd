@@ -7,6 +7,8 @@ extends RefCounted
 const RESOURCES := {
 	"tokens": {"name": "Tokens", "type": "int", "min": 0, "max": 3, "step": 1},
 	"health": {"name": "Health pips", "type": "int", "min": 0, "step": 1},
+	# The bar's length. A loadout with more pips than this raises it to match.
+	"max_health": {"name": "Max pips", "type": "int", "min": 0, "step": 1},
 }
 ## Integers pass through cell rectangles and UI numbers. Keep them representable
 ## exactly, rather than accepting an overflowing float as a valid stat.
@@ -52,11 +54,16 @@ static func problems(definitions: Dictionary = {}, stats: Array = Abilities.STAT
 
 
 static func defaults() -> Dictionary:
-	return {"abilities": Abilities.new().to_dict(), "tokens": 0, "health": 0}
+	return {"abilities": Abilities.new().to_dict(), "tokens": 0, "health": 0, "max_health": 0}
 
 
 static func capture(state: Dictionary) -> Dictionary:
-	return {"abilities": state["abilities"].duplicate(true), "tokens": state["tokens"], "health": state["health"]}
+	return {
+		"abilities": state["abilities"].duplicate(true),
+		"tokens": state["tokens"],
+		"health": state["health"],
+		"max_health": maxi(int(state["health"]), int(state.get("max_health", 0))),
+	}
 
 
 ## Validate the entire candidate before any live state is changed.
@@ -108,7 +115,8 @@ static func with_loadout(state: Dictionary, loadout: Dictionary) -> Dictionary:
 	var out := state.duplicate(true)
 	out["abilities"] = loadout["abilities"].duplicate(true)
 	for key in RESOURCES:
-		out[key] = int(loadout[key])
+		out[key] = int(loadout.get(key, 0))
+	out["max_health"] = maxi(out["health"], out["max_health"])
 	return out
 
 

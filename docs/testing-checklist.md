@@ -104,8 +104,17 @@ Start `?dev=1&room=6` with Imprint on in F2 (or later rooms directly with `room=
 
 ## Health pips
 
-- [ ] **Room 11's way back.** Coming in from room 10 you land on the ledge under the door and can walk back into room 10; from room 11's floor the two steps climb back up to it.
-- [ ] **Room 7's pip.** Reached by dropping from exit 2, then shooting the wall that closes it in (see "Gun and breakable walls"). It reads as a plus that bobs, apart from tokens and pickups; taking it says "Health pip (1)". Then die on spikes: you come back on the last safe floor, not at s2, and the next death goes to s2. In F2, set health, clear it, retry (the pip comes back), and round-trip it through a loadout.
+- [ ] **Room 7's pip.** Reached by dropping from exit 2, then shooting the wall that closes it in (see "Gun and breakable walls"). It reads as a plus that bobs, apart from tokens and pickups; taking it shows no line of text and it flies to the HUD, where the bar grows its first square. Then die on spikes: you come back on the last safe floor, not at s2, the square empties, and the next death goes to s2, which fills it again. In F2, set health and max pips, use +1 pip, Refill, Empty pips and Clear health, retry (the pip comes back), and round-trip it through a loadout.
+
+## The HUD
+
+Nobody has played this yet. `?dev=1&room=2` (a token) or `?dev=1&room=7` (the pip; use F2 to give the gun), F2 to set tokens and pips.
+
+- [ ] **It stays put.** Top left, over every room, during door slides, deaths, a save, a 3TM feed and a title card; under the map, the pause menu and the dev panel. It reads over black space, and does not sit on a room's outer wall.
+- [ ] **Tokens.** Taking one sends it flying from where it was to the heart: left lobe, right lobe, then the point. The slot flashes red and fills white as it lands, and the heart jumps a pixel. With three, the next token stays in the room and nothing flies. Feeding a 3TM empties the slots from the point back, a blink each.
+- [ ] **Pips.** The first pip adds a square at the heart's tip; each next one grows the bar a square, then flashes white and fills red, and full pips are still told apart. A death empties the rightmost full pip with a blink; entering a save room (s1, s2, s3) fills the empty ones left to right. Dying inside a save room does not.
+- [ ] **Nothing fades and nothing is between pixels**, at 1280×720 and fullscreen. The flight is quick and reads as going *into* the HUD.
+- [ ] **A reload, a retry or End playtest** shows the right counts at once with nothing flying.
 
 ## Imprint shrinking
 
@@ -174,7 +183,7 @@ panel render is a layout check, not a completed human browser playthrough.
 
 - [ ] **Activation.** `?dev=1&room=7` in the release browser build and `--dev --room=7` natively; F2 and the pause menu's Dev tools item open/close, Escape cancels, F4 finds ordinary and save rooms. Without `dev=1`, release tools stay unavailable.
 - [ ] **Save isolation.** Start with a known normal save, cheat, collect, feed a 3TM, use a save machine, warp, die and retry. End playtest/reload normally: the original save remains. Test `dev=1&new-game=1` without losing it.
-- [ ] **Powers.** Tokens add/fill/empty; health grants; Imprint on/off, width, duration and active count up/down. Invalid fields do not partly apply. Bounce is explicitly unavailable.
+- [ ] **Powers.** Tokens add/fill/empty; health pips and max pips (+1 pip, Refill, Empty pips, Clear health), shown in the HUD at once; Imprint on/off, width, duration and active count up/down. Invalid fields do not partly apply. Bounce is explicitly unavailable.
 - [ ] **The Tab map in dev mode.** Hold Tab: every room is drawn (all 12, with doors joined) with its id written in it, legible at each zoom level and over the grey current room, at all three zoom levels, even in a fresh test. Without dev tools (a release build with no `dev=1`), only visited rooms show.
 - [ ] **Input and pause.** Edit while a platform moves or an Imprint ages: both stop. Close while holding movement/jump or clicking: no unintended input. Map and panel do not unpause each other. F2 during a save/3TM/door animation waits, and a second F2 cancels.
 - [ ] **Retries.** Start in one room, collect/spend things and walk elsewhere, then retry: original room/progression return, tuned powers persist, health/tokens refill, moving platforms restart. Try with retry-on-death both on and off.

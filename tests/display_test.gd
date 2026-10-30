@@ -77,7 +77,7 @@ func _snapping() -> void:
 
 
 func _pictures() -> void:
-	var counts := {"spikes_up": 34, "spikes_down": 34, "spikes_left": 34, "spikes_right": 34, "token": 32, "flying_token": 72, "slot": 16}
+	var counts := {"spikes_up": 34, "spikes_down": 34, "spikes_left": 34, "spikes_right": 34, "token": 32, "flying_token": 72, "slot": 16, "hud_heart": 38, "hud_slot": 25}
 	_check(PixelShapes.SHAPES.size() == counts.size(), "every shape that was a polygon has a picture")
 	for name in counts:
 		var shape: Dictionary = PixelShapes.SHAPES[name]
@@ -312,7 +312,7 @@ func _world() -> void:
 	await process_frame
 	_check(world.camera.zoom == Vector2.ONE * float(Display.RENDER_SCALE), "the world camera is zoomed by the render scale")
 	_check(root.oversampling_override == float(Display.RENDER_SCALE), "text is drawn at the render scale")
-	for layer in ["Toast", "DebugOverlay", "DevPanel", "MapOverlay"]:
+	for layer in ["Toast", "DebugOverlay", "DevPanel", "MapOverlay", "Hud"]:
 		_check(world.get_node(layer).scale == Vector2.ONE * float(Display.RENDER_SCALE), "%s is drawn at the render scale" % layer)
 	var room: Room = world.current
 	var platform: MovingPlatform = null
