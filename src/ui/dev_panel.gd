@@ -190,7 +190,7 @@ func _build_player(body: VBoxContainer) -> void:
 	var wall_row := HBoxContainer.new()
 	body.add_child(wall_row)
 	var wall_label := Label.new()
-	wall_label.text = "Wall strength (shots)"
+	wall_label.text = "Wall strength (lashes)"
 	wall_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	wall_row.add_child(wall_label)
 	_wall = LineEdit.new()

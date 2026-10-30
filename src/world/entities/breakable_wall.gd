@@ -1,7 +1,7 @@
 class_name BreakableWall
 extends Node2D
 
-## A cracked wall that only the gun destroys. It is solid, so a player can
+## A cracked wall that only the tongue lash destroys. It is solid, so a player can
 ## stand on it like any platform, until enough hits have landed: then it shatters
 ## and is gone until the room is built again. Nothing about it is saved.
 ##
@@ -48,7 +48,7 @@ func world_rects() -> Array[Rect2]:
 	return out
 
 
-## A shot lands. `strength` is how many it takes. Returns whether the wall
+## A lash lands. `strength` is how many it takes. Returns whether the wall
 ## broke, in which case it has already shattered and left the scene.
 func hit(strength: int) -> bool:
 	_strength = maxi(1, strength)

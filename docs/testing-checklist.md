@@ -30,31 +30,34 @@ The new player picture from the user's sprite sheets (the frog PR). Headless tes
 
 ## Room 11
 
-The new room from the user's drawings. Start `?dev=1&room=11`, and in F2 turn the gun on and set Air jumps to 1 (or play from room 10).
+The new room from the user's drawings. Start `?dev=1&room=11`, and in F2 turn Tongue Lash on and set Air jumps to 1 (or play from room 10).
 
 - [ ] **The stairs** from room 10's door down to the floor read as steps, and climb back up.
 - [ ] **`r11_lift`** rises to one cell under the ceiling spikes: does it feel fair, and is jumping off it at the top as dangerous as intended?
 - [ ] **`r11_slider`** over the floor spikes: its timing at 60 px/s, and getting on and off it.
 - [ ] **The pillar lift** above the pillar's top spikes: getting onto it from the slider, and its top, one column from the ceiling spikes.
-- [ ] **The door wall.** Shoot the L by the left door (three hits) and walk out into room 7's exit 2.
-- [ ] **Without the gun.** From room 10's bottom left platform a double jump reaches the door back to room 9 (the user found this in play), so room 10's token gets back to room 9's 3TM.
+- [ ] **The door wall.** Lash the L by the left door (three hits) and walk out into room 7's exit 2.
+- [ ] **Without Tongue Lash.** From room 10's bottom left platform a double jump reaches the door back to room 9 (the user found this in play), so room 10's token gets back to room 9's 3TM.
 
-## Gun and breakable walls
+## Tongue Lash and breakable walls
 
-Nobody has played these yet. Headless tests prove the rules, not the feel. Use `?dev=1&room=7`, open F2, turn the gun on and Apply (add Air jumps 1 if you want to climb), or play to room 9's 3TM, which gives it.
+Nobody has played these yet. Headless tests prove the rules, not the feel. Use `?dev=1&room=7`, open F2, turn Tongue Lash on and Apply (add Air jumps 1 if you want to climb), or play to room 9's 3TM, which gives it. This replaced the gun, so nothing here was tested as a tongue.
 
-- [ ] **The rate.** Mash Space: about three shots a second, and no faster. Is it spammable enough, or too much? Tuning knobs: Gun cooldown and Shot speed in F2 (the starting values are in `Abilities`).
-- [ ] **The shot reads.** A 3 x 1 world px white line: can you see it, and does it feel quick? Does it feel right leaving the body in the direction faced, and after turning mid-air?
-- [ ] **Shooting while jumping.** Jump and shoot to hit something higher. A shot stops at walls, moving platforms and Imprint platforms, and goes on past spikes.
-- [ ] **Space shoots, W and Up jump.** Space no longer jumps. Is it comfortable with a direction held?
+- [ ] **The tongue reads.** A pink line comes out of the notch at the front of the body, goes out and comes back in. Does it look like a tongue and not a laser? Does it feel quick, and right after turning mid-air? Is one pixel high enough at 1x?
+- [ ] **The rate.** Mash Space: about two and a half lashes a second, and no faster (the cooldown runs from the tongue being back in). Spammable enough, or too much? Tuning knobs in F2: Lash cooldown and Lash speed (the starting values are in `Abilities`).
+- [ ] **The length.** With the first 50 px, room 7's wall (from the exit-2 ledge) and room 11's door wall can both be broken, with room to spare. In F2, set Tongue length to 10 and see the tongue stop short and the wall hold; 50 again and it breaks.
+- [ ] **Lashing while jumping.** Jump and lash to hit something higher. The tip stops at walls, moving platforms and Imprint platforms, and goes on past spikes. Turning round mid-lash pulls it in.
+- [ ] **Landing.** The line comes from the mouth row of the squashed landing picture, a little lower. Does it look wrong for those few frames?
+- [ ] **Old saves.** A save made with the gun still has the power (Tongue Lash) and the F2 loadouts made with Gun values come back with the same cooldown and speed.
+- [ ] **Space lashes, W and Up jump.** Space no longer jumps. Is it comfortable with a direction held?
 - [ ] **The cracks.** A wall looks cracked and breakable from across a room. Each hit flashes it and adds cracks, and the third shatters it cell by cell.
 - [ ] **Standing on a wall.** An intact wall holds the player like any platform; once it breaks, they fall.
 - [ ] **A wall grows back.** Leave room 7 and come back, die and respawn in it, and retry from F2: the wall is whole each time.
-- [ ] **Room 7's pip.** Come in from room 11 (`?dev=1&room=11`), stand on the exit-2 ledge (the left two cells were removed), face left and shoot the wall (three hits), then jump in for the pip. The roof is five rows higher than before, with the wall running floor to roof and the floor two rows lower than the original, flush with it. Walking off the ledge now drops past the box. The player cannot get in without the gun, by jumping or dropping.
-- [ ] **Room 9's 3TM** gives the gun with "Gun. Space shoots the way you face." (`?dev=1&room=9` with three tokens set in F2).
-- [ ] **F2.** Gun on/off, cooldown and speed apply and survive a retry and a named loadout. Wall strength (Player tab, below Classic Imprint): 1 breaks in one shot, 5 in five, takes effect at once, survives a retry, and End playtest resets it to 3.
-- [ ] **The solver agrees.** `tools/validate.sh` lists room 7's pip as needing the gun (via room 9's 3TM and its tokens) and passes. Nobody has played the whole route to the pip without dev tools.
-- [ ] **Nothing odd:** shooting during a door slide, the map, the F2 panel or a save does nothing, and shots do not follow you into the next room.
+- [ ] **Room 7's pip.** Come in from room 11 (`?dev=1&room=11`), stand on the exit-2 ledge (the left two cells were removed), face left and lash the wall (three hits), then jump in for the pip. The roof is five rows higher than before, with the wall running floor to roof and the floor two rows lower than the original, flush with it. Walking off the ledge now drops past the box. The player cannot get in without the gun, by jumping or dropping.
+- [ ] **Room 9's 3TM** gives Tongue Lash with the "NEW POWER" popup, "Tongue Lash" and the row "Lash your tongue" (`?dev=1&room=9` with three tokens set in F2).
+- [ ] **F2.** Tongue Lash on/off, cooldown, speed and length apply and survive a retry and a named loadout. Wall strength (Player tab, below Classic Imprint): 1 breaks in one lash, 5 in five, takes effect at once, survives a retry, and End playtest resets it to 3.
+- [ ] **The solver agrees.** `tools/validate.sh` lists room 7's pip as needing Tongue Lash (via room 9's 3TM and its tokens) and passes. Nobody has played the whole route to the pip without dev tools.
+- [ ] **Nothing odd:** lashing during a door slide, the map, the F2 panel or a save does nothing, and the tongue does not follow you into the next room.
 
 ## Double jump
 
@@ -69,7 +72,7 @@ Nobody has played this yet. Headless tests prove the rule (height, refill, prior
 - [ ] **Feedback.** The jump picture (legs thrown wide) from take-off to touch-down, the low landing picture for about an eighth of a second, and a puff of dust downward from the feet on an air jump.
 - [ ] **F2 field.** Air jumps 0, 1 and 3, Apply, retry and a named loadout round trip. Lowering it mid-air takes the extra jumps away at once. Changing it does not clear placed Imprints.
 - [ ] **Room 4's 3TM** gives double jump with the line "Double jump. Press jump again in the air.", and Imprint stays locked (no cursor platform).
-- [ ] **Room 9's 3TM** (reached with `?dev=1&room=9` and three tokens set in F2) now gives the gun; see "Gun and breakable walls". No room gives a health pip from a 3TM any more.
+- [ ] **Room 9's 3TM** (reached with `?dev=1&room=9` and three tokens set in F2) now gives Tongue Lash; see "Tongue Lash and breakable walls". No room gives a health pip from a 3TM any more.
 - [ ] **Rooms 5 and 6 without Imprint.** Cross room 5's pit with double jump from the token platform (the left floor is a one-way landing, so you cannot cross back; both rooms are `trap: allowed`). Then try the rest of the world to room 10 and the 3TM in room 9 without Imprint: the validator says all 56 ledges are reachable, but nobody has played it.
 
 ## Fall presentation
@@ -100,15 +103,15 @@ Start `?dev=1&room=6` with Imprint on in F2 (or later rooms directly with `room=
 - [ ] **Room 8 at 100 px/s.** Tricky but fair; the upper platform to the exit ledge needs the Imprint.
 - [ ] **Room 9.** The lift, the Imprint across to the 3TM pillar, the Imprint up to the exit and the token.
 - [ ] **Room 10's lifts.** Lift 1, 2, 3 timing at 60 px/s, then the Imprint to the shelf.
-- [ ] **The loop.** 10 → 11 → 7's exit 2 → drop to the pip → exit 1 → 8 → 9, and feed the third token: the gun (and not Imprint 3 wide, as it was).
+- [ ] **The loop.** 10 → 11 → 7's exit 2 → drop to the pip → exit 1 → 8 → 9, and feed the third token: Tongue Lash (and not Imprint 3 wide, as it was).
 
 ## Health pips
 
-- [ ] **Room 7's pip.** Reached by dropping from exit 2, then shooting the wall that closes it in (see "Gun and breakable walls"). It reads as a plus that bobs, apart from tokens and pickups; taking it shows no line of text and it flies to the HUD, where the bar grows its first square. Then die on spikes: you come back on the last safe floor, not at s2, the square empties, and the next death goes to s2, which fills it again. In F2, set health and max pips, use +1 pip, Refill, Empty pips and Clear health, retry (the pip comes back), and round-trip it through a loadout.
+- [ ] **Room 7's pip.** Reached by dropping from exit 2, then lashing the wall that closes it in (see "Tongue Lash and breakable walls"). It reads as a plus that bobs, apart from tokens and pickups; taking it shows no line of text and it flies to the HUD, where the bar grows its first square. Then die on spikes: you come back on the last safe floor, not at s2, the square empties, and the next death goes to s2, which fills it again. In F2, set health and max pips, use +1 pip, Refill, Empty pips and Clear health, retry (the pip comes back), and round-trip it through a loadout.
 
 ## The HUD
 
-Nobody has played this yet. `?dev=1&room=2` (a token) or `?dev=1&room=7` (the pip; use F2 to give the gun), F2 to set tokens and pips.
+Nobody has played this yet. `?dev=1&room=2` (a token) or `?dev=1&room=7` (the pip; use F2 to give Tongue Lash), F2 to set tokens and pips.
 
 - [ ] **It stays put.** Top left, over every room, during door slides, deaths, a save, a 3TM feed and a title card; under the map, the pause menu and the dev panel. It reads over black space, and does not sit on a room's outer wall.
 - [ ] **Tokens.** Taking one sends it flying from where it was to the heart: left lobe, right lobe, then the point. The slot flashes red and fills white as it lands, and the heart jumps a pixel. With three, the next token stays in the room and nothing flies. Feeding a 3TM empties the slots from the point back, a blink each.
@@ -226,10 +229,10 @@ Nobody has played these. Headless tests prove the logic, not how they look or fe
 - [ ] **Start Game, Continue, New Game.** With no save: Start Game and Controls. With a save: Continue (resumes at the last save machine), New Game (asks first, No is selected, Esc answers No; Yes starts over) and Controls.
 - [ ] **`?new-game=1`** erases the save and shows the menu with Start Game. `?room=7` and `?dev=1&room=4` skip the menu.
 - [ ] **Controls and Back.** The page lists Move, Jump, Map, Map zoom and Pause as key pictures with what they do (arrows drawn as arrows). Does it read well at 1280×720 and fullscreen?
-- [ ] **Pause.** Esc and P open the pause menu and close it; the game is frozen and dimmed behind it. Resume, then Space and a click do not shoot or place Imprint. During a door slide or a death the pause waits for it to end. It does not open over the map or the F2 panel.
-- [ ] **Pause, Controls.** The same page, plus a row for each power you own (double jump after room 4's 3TM, Shoot after room 9's). Esc or P goes back to the pause list.
+- [ ] **Pause.** Esc and P open the pause menu and close it; the game is frozen and dimmed behind it. Resume, then Space and a click do not lash or place Imprint. During a door slide or a death the pause waits for it to end. It does not open over the map or the F2 panel.
+- [ ] **Pause, Controls.** The same page, plus a row for each power you own (double jump after room 4's 3TM, Lash after room 9's). Esc or P goes back to the pause list.
 - [ ] **Pause, Main menu** then Continue: back at the last save machine with everything still collected.
-- [ ] **The power popups.** Room 4's 3TM (double jump) and room 9's 3TM (gun) pause the game on "NEW POWER" with the key picture. Enter, Space, a click, W or Esc dismisses it after a moment, and play resumes. F2 edits show no popup.
+- [ ] **The power popups.** Room 4's 3TM (double jump) and room 9's 3TM (Tongue Lash) pause the game on "NEW POWER" with the key picture. Enter, Space, a click, W or Esc dismisses it after a moment, and play resumes. F2 edits show no popup.
 - [ ] **The room 7 title card.** The first drop from room 6 shows "Freddy's Fall" as the slide starts and it is gone about as Freddy lands. It does not show again after a reload or a second drop. A new game shows it again. Does the timing feel right, including after a double jump?
 
 ## Published site

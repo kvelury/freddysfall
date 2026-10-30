@@ -131,7 +131,7 @@ func open() -> void:
 
 ## Closes the menu and gives the game back. The world holds the play keys
 ## until they are let go, so the Space or click that picked Resume is not
-## also a shot or a platform.
+## also a lash or a platform.
 func close() -> void:
 	if not opened:
 		return

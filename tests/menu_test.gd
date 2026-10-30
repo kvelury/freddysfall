@@ -33,8 +33,8 @@ func _controls_data() -> bool:
 	ok = _check(_ids(Controls.visible_rows(null)) == ["move", "jump", "map", "map_zoom", "pause"], "with no game only the base rows show (%s)" % [_ids(Controls.visible_rows(null))]) and ok
 	var abilities := Abilities.new()
 	abilities.air_jumps = 1
-	abilities.gun_unlocked = true
-	ok = _check(_ids(Controls.visible_rows(abilities)) == ["move", "jump", "double_jump", "shoot", "map", "map_zoom", "pause"], "owned powers add their rows (%s)" % [_ids(Controls.visible_rows(abilities))]) and ok
+	abilities.tongue_unlocked = true
+	ok = _check(_ids(Controls.visible_rows(abilities)) == ["move", "jump", "double_jump", "lash", "map", "map_zoom", "pause"], "owned powers add their rows (%s)" % [_ids(Controls.visible_rows(abilities))]) and ok
 	return ok
 
 
@@ -168,10 +168,10 @@ func _popup() -> bool:
 	popup._input(_key(KEY_ENTER))
 	ok = _check(not popup.opened and not paused, "Enter dismisses it and the game runs") and ok
 
-	world._announce(_gs().grant("gun_cooldown", "0.5"))
+	world._announce(_gs().grant("tongue_cooldown", "0.1"))
 	await physics_frame
 	await physics_frame
-	ok = _check(not popup.opened and world.toast._label.visible and world.toast._label.text == "Gun Cooldown +1", "an upgrade with no controls is a toast (%s)" % world.toast._label.text) and ok
+	ok = _check(not popup.opened and world.toast._label.visible and world.toast._label.text == "Lash Cooldown +1", "an upgrade with no controls is a toast (%s)" % world.toast._label.text) and ok
 
 	var session := root.get_node("DevSession")
 	ok = _check(session.enter(world).is_empty(), "the dev session starts") and ok

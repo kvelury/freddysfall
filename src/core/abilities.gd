@@ -4,16 +4,19 @@ extends RefCounted
 ## What the player can do. The values here are the starting ones; upgrades
 ## raise them. Each name in STATS is a stat that data/upgrades.json may name.
 
-const STATS: Array[String] = ["air_jumps", "gun_unlocked", "gun_cooldown", "gun_shot_speed", "imprint_unlocked", "imprint_width", "imprint_duration", "imprint_max_active", "imprint_cooldown", "imprint_effects"]
+const STATS: Array[String] = ["air_jumps", "tongue_unlocked", "tongue_cooldown", "tongue_speed", "tongue_length", "imprint_unlocked", "imprint_width", "imprint_duration", "imprint_max_active", "imprint_cooldown", "imprint_effects"]
 
 ## Jumps the player can make in mid-air before landing. 0 until they find double jump.
 var air_jumps := 0
-## Whether the player has found the gun. Until they do, `shoot` does nothing.
-var gun_unlocked := false
-## Seconds between shots.
-var gun_cooldown := 0.2
-## How fast a shot flies, in pixels a second.
-var gun_shot_speed := 260.0
+## Whether the player has found Tongue Lash. Until they do, `lash` does nothing.
+var tongue_unlocked := false
+## Seconds between lashes, counted from the tongue being back in the mouth.
+var tongue_cooldown := 0.15
+## How fast the tongue goes out and comes back, in pixels a second.
+var tongue_speed := 400.0
+## How far the tongue reaches past the front of the body, in pixels. The first
+## 50 is enough for every breakable wall so far; upgrades lengthen it.
+var tongue_length := 50.0
 ## Whether the player has found Imprint. Until they do, the cursor is just a cursor.
 var imprint_unlocked := false
 ## Imprint platform width in cells.
@@ -64,9 +67,10 @@ func copy() -> Abilities:
 func to_dict() -> Dictionary:
 	return {
 		"air_jumps": air_jumps,
-		"gun_unlocked": gun_unlocked,
-		"gun_cooldown": gun_cooldown,
-		"gun_shot_speed": gun_shot_speed,
+		"tongue_unlocked": tongue_unlocked,
+		"tongue_cooldown": tongue_cooldown,
+		"tongue_speed": tongue_speed,
+		"tongue_length": tongue_length,
 		"imprint_unlocked": imprint_unlocked,
 		"imprint_width": imprint_width,
 		"imprint_duration": imprint_duration,
@@ -81,9 +85,12 @@ func to_dict() -> Dictionary:
 static func from_dict(data: Dictionary) -> Abilities:
 	var out := Abilities.new()
 	out.air_jumps = maxi(0, int(data.get("air_jumps", out.air_jumps)))
-	out.gun_unlocked = bool(data.get("gun_unlocked", out.gun_unlocked))
-	out.gun_cooldown = float(data.get("gun_cooldown", out.gun_cooldown))
-	out.gun_shot_speed = float(data.get("gun_shot_speed", out.gun_shot_speed))
+	# A save from the gun's days keeps the power it found. Its cooldown and shot
+	# speed are dropped: no upgrade ever changed them.
+	out.tongue_unlocked = bool(data.get("tongue_unlocked", data.get("gun_unlocked", out.tongue_unlocked)))
+	out.tongue_cooldown = float(data.get("tongue_cooldown", out.tongue_cooldown))
+	out.tongue_speed = float(data.get("tongue_speed", out.tongue_speed))
+	out.tongue_length = float(data.get("tongue_length", out.tongue_length))
 	out.imprint_unlocked = bool(data.get("imprint_unlocked", out.imprint_unlocked))
 	out.imprint_width = int(data.get("imprint_width", out.imprint_width))
 	out.imprint_duration = float(data.get("imprint_duration", out.imprint_duration))
@@ -98,8 +105,8 @@ static func from_dict(data: Dictionary) -> Abilities:
 
 func describe() -> String:
 	var jumps := "" if air_jumps <= 0 else ("double jump, " if air_jumps == 1 else "%d air jumps, " % air_jumps)
-	if gun_unlocked:
-		jumps += "gun, "
+	if tongue_unlocked:
+		jumps += "tongue lash, "
 	if not imprint_unlocked:
 		return jumps + "imprint locked"
 	var text := jumps + "imprint %d wide, %.1f s, %d at once" % [imprint_width, imprint_duration, imprint_max_active]

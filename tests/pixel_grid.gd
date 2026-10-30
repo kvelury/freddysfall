@@ -49,7 +49,7 @@ func _run() -> void:
 	await _lift()
 	await _door_slide()
 	await _imprint()
-	await _shot()
+	await _lash()
 	await _save_hop()
 	await _feed()
 	if mode == "compare":
@@ -85,7 +85,7 @@ func _start(room: String, setup := Callable()) -> void:
 	player = world.get_node("Player")
 	player.scripted = true
 	world.get_node("Imprint").scripted = true
-	world.get_node("Gun").scripted = true
+	world.get_node("TongueLash").scripted = true
 	for layer in ["Toast", "DebugOverlay", "DevPanel", "MapOverlay", "TitleCard", "PauseMenu", "PowerPopup", "Hud"]:
 		world.get_node(layer).visible = false
 
@@ -299,17 +299,17 @@ func _imprint() -> void:
 			await _grab("imprint_classic_%03d" % frame)
 
 
-func _shot() -> void:
+func _lash() -> void:
 	await _start("7", func() -> void:
-		root.get_node("GameState").abilities.gun_unlocked = true)
-	var gun: Node = world.get_node("Gun")
+		root.get_node("GameState").abilities.tongue_unlocked = true)
+	var tongue: Node = world.get_node("TongueLash")
 	await _frames(3)
 	_stand(Vector2i(24, 34), -1)
 	await _frames(3)
-	gun.fire()
+	tongue.lash()
 	for frame in 24:
 		await process_frame
-		await _grab("shot_%02d" % frame)
+		await _grab("lash_%02d" % frame)
 
 
 func _save_hop() -> void:

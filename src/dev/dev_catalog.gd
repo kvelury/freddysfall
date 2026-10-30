@@ -10,6 +10,8 @@ const RESOURCES := {
 	# The bar's length. A loadout with more pips than this raises it to match.
 	"max_health": {"name": "Max pips", "type": "int", "min": 0, "step": 1},
 }
+## Ability names a stored loadout may still use, and what they are now.
+const LEGACY_KEYS := {"gun_unlocked": "tongue_unlocked", "gun_cooldown": "tongue_cooldown", "gun_shot_speed": "tongue_speed"}
 ## Integers pass through cell rectangles and UI numbers. Keep them representable
 ## exactly, rather than accepting an overflowing float as a valid stat.
 const MAX_INTEGER := 2147483647
@@ -130,6 +132,10 @@ static func reconcile(saved: Dictionary) -> Dictionary:
 	if not abilities is Dictionary:
 		return {"error": "The stored abilities are invalid."}
 	for key in abilities:
+		# The gun became Tongue Lash. Its values were chosen on purpose, so they carry over.
+		if LEGACY_KEYS.has(key):
+			draft["abilities"][LEGACY_KEYS[key]] = abilities[key]
+			continue
 		if not known.has(key):
 			warnings.append("Removed ability: %s" % key)
 			continue

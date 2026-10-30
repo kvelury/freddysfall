@@ -75,7 +75,7 @@ var _air_solved := {}
 ## under its key, like any room's.
 var _variants := {}
 var _variant_keys := {}
-var _shots_cache := {}
+var _lash_cache := {}
 var _rise := {}
 var _state_errors: Array[String] = []
 var _landings := {}
@@ -385,23 +385,23 @@ func _analyze(start_room: String) -> Report:
 	return report
 
 
-## The ledges a body standing on `ledge` can get to by shooting a breakable
+## The ledges a body standing on `ledge` can get to by lashing a breakable
 ## wall: for each wall it has a clear line to, the ledge at the same spot in
 ## the copy of the room with that wall (and the ones already broken) broken.
 ## Walls grow back whenever the player re-enters a room, so a broken wall is a
 ## state of one visit: it is kept in the copy's key and never leaves the room.
-func _shot_ledges(ledge: Ledge, info: RoomInfo) -> Array[Ledge]:
+func _lash_ledges(ledge: Ledge, info: RoomInfo) -> Array[Ledge]:
 	var out: Array[Ledge] = []
 	if ledge.moving or info.breakables.is_empty():
 		return out
-	for shot in _shots_from(ledge, info):
+	for lash in _lashes_from(ledge, info):
 		var broken: Array[String] = []
 		broken.assign(info.broken)
-		broken.append(String(shot[0]))
+		broken.append(String(lash[0]))
 		var vinfo := _variant_for(ledge.base(), broken)
 		if vinfo == null:
 			continue
-		var target := _ledge_at_cell(vinfo, Vector2i(int(shot[1]), ledge.row))
+		var target := _ledge_at_cell(vinfo, Vector2i(int(lash[1]), ledge.row))
 		if target != null and not out.has(target):
 			out.append(target)
 	return out
@@ -410,13 +410,13 @@ func _shot_ledges(ledge: Ledge, info: RoomInfo) -> Array[Ledge]:
 ## [wall id, column] pairs: a wall that still stands with a straight line along
 ## a row from a column of `ledge`, the row being the one the body stands in or a
 ## row it can jump up to with nothing solid in the way (the most it rises is
-## `_rise_cells`). A shot flies along the row to the first solid, which has to be
-## the wall.
-func _shots_from(ledge: Ledge, info: RoomInfo) -> Array:
+## `_rise_cells`). The tongue goes along the row to the first solid, which has to be
+## the wall and no further than `Abilities.tongue_length` past the front of the body.
+func _lashes_from(ledge: Ledge, info: RoomInfo) -> Array:
 	var air := 1 if abilities.air_jumps > 0 else 0
-	var key := "%d|%d|%s" % [ledge.get_instance_id(), air, ",".join(info.broken)]
-	if _shots_cache.has(key):
-		return _shots_cache[key]
+	var key := "%d|%d|%s|%s" % [ledge.get_instance_id(), air, ",".join(info.broken), abilities.tongue_length]
+	if _lash_cache.has(key):
+		return _lash_cache[key]
 	var out := []
 	var width := info.cell_size.x
 	var rise := _rise_cells(air)
@@ -436,7 +436,7 @@ func _shots_from(ledge: Ledge, info: RoomInfo) -> Array:
 					if info.is_solid(x, row):
 						break
 					x += way
-	_shots_cache[key] = out
+	_lash_cache[key] = out
 	return out
 
 
@@ -468,8 +468,8 @@ func _flood(run: Run) -> void:
 		if air:
 			for index in ledge.air_to_ledges:
 				next.append(_ledges[ledge.room_id][index])
-		if abilities != null and abilities.gun_unlocked:
-			next.append_array(_shot_ledges(ledge, info))
+		if abilities != null and abilities.tongue_unlocked:
+			next.append_array(_lash_ledges(ledge, info))
 		next.append_array(run.extra_to.get(ledge, []))
 		var touches: Array[Touch] = []
 		touches.append_array(ledge.touches)

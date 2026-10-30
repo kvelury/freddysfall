@@ -2,7 +2,7 @@
   {"id": "move", "label": "Move", "actions": ["move_left", "move_right"]},
   {"id": "jump", "label": "Jump (hold to go higher)", "actions": ["jump"]},
   {"id": "double_jump", "label": "Jump again in the air", "actions": ["jump"], "needs": "air_jumps"},
-  {"id": "shoot", "label": "Shoot the way you face", "actions": ["shoot"], "needs": "gun_unlocked"},
+  {"id": "lash", "label": "Lash your tongue", "actions": ["lash"], "needs": "tongue_unlocked"},
   {"id": "imprint", "label": "Place a platform at the cursor", "actions": ["imprint"], "needs": "imprint_unlocked"},
   {"id": "map", "label": "Map (hold)", "actions": ["map"]},
   {"id": "map_zoom", "label": "Zoom the map (while held)", "actions": ["map_zoom_in", "map_zoom_out"]},
