@@ -140,7 +140,7 @@ Nobody has played these yet. Use `tools/build_web.sh`, `tools/serve.sh` and `?ne
 - [ ] **Room s1 on a new game.** The door in the right wall is blocked and the machine stands open, a split sphere on the middle platform. Jump up to the platform: as soon as you are in front of it you hop into the middle, it closes and spins, a "Game saved" line shows, the blocks shatter, and you are popped out on the far side, in about 1.2 s. Check the hop, the spin and the pop read well, the time feels right, and the close horizontal lines read as a shaded ball and not like a door's halo.
 - [ ] **Entering from the other side.** Leave by the door, come back in, and enter the zone from the right end of the platform: you pop out on the left.
 - [ ] **Once per visit.** After a save, walking back and forth in front of the machine does nothing, and the sphere stays closed. Leave s1 and come back: it is open again and works once more.
-- [ ] **Dying in room 5.** With no pips you come back in s1 inside the closed sphere, which spins as it does for a save, then opens and pops you out to the right, with no "Game saved" and the door open. The whole route to room 5 is walked again.
+- [ ] **Dying in room 5.** With no pips you come back in s1 inside the closed sphere, which spins as it does for a save, then opens and pops you out to the right, with no "Game Saved" text and the door open, after the Game Over screen below. The whole route to room 5 is walked again.
 - [ ] **Reload** (a plain reload, not `?new-game=1`) after getting as far as room 5 or past the 3TM: you start inside the machine in s1 (it opens and pops you out to the right) with Imprint and the tokens you had, and rooms you took things in still have them gone.
 - [ ] **An old save.** If you have a save from before this change, a plain reload carries it over: you start in s1 with the door open.
 - [ ] **F4, `s`, `1`, Enter** warps to s1 when dev tools are available, and `?room=s1` starts there with the door blocked.
@@ -173,7 +173,7 @@ Not yet played by a person. `tools/pixel_check.sh` passes (the world is on the g
 
 - [ ] **It looks the same.** At the default 1280×720 and fullscreen, the world is the same blocky picture it was: walls, the player, spikes, tokens, the save machine, halos. Nothing is smoother or thinner.
 - [ ] **It moves the same.** Jump, land, run, ride room 7's lift, cross a door: the same stepping, with no shimmer in the player or the walls. Compare a door slide: it is steadier than before, which is intended.
-- [ ] **The text is sharp.** The toast ("Game saved"), F3, the F2 panel on each tab, and the map's room ids (in dev mode) are crisp pixel text in Pixel Operator 8, hard-edged with no blur at any window size, and nothing is clipped or overlapping.
+- [ ] **The text is sharp.** The toast, "Game Saved", "Game over", F3, the F2 panel on each tab, and the map's room ids (in dev mode) are crisp pixel text in Pixel Operator 8, hard-edged with no blur at any window size, and nothing is clipped or overlapping.
 - [ ] **The map.** Open and close it: the panel grows a little finer than before, and that is expected. Zoom through all three levels.
 - [ ] **Imprint aims where the mouse is.** The cursor platform and the placed platform land on the cell under the pointer, at 1280×720 and fullscreen.
 - [ ] **Window fit.** A maximized browser window on a 1080p screen shows the game at 1280×720 with wider borders, and not at 1600×900 as before. Fullscreen fills the screen. Say if a window size you use now feels too small.
@@ -243,3 +243,15 @@ Nobody has played these. Headless tests prove the logic, not how they look or fe
 ## Things that were never built, so there is nothing to test yet
 
 Room 7's title card and its 3TM, gamepad and keyboard aiming, touch input, sound, the softer palettes, L-shaped rooms, the map panning, a second kind of token or a bigger pocket, and authored pickups/machines for Imprint numeric upgrades, plus bouncing. Width, duration, the cooldown and multiple active platforms already work and can be set through dev tools. Width and duration are read when a platform is placed, but no room gives either upgrade now (the width pickup went with the old room 5), so Imprint is the only upgrade you can get today.
+
+## Game Over and Game Saved
+
+Nobody has played these yet. Start a normal game (`http://localhost:8060`) for Game Saved, since test sessions hide it. For Game Over use `?dev=1&room=5`, or walk to room 5's spikes.
+
+- [ ] **Game Saved.** Walk into the sphere in s1: "Game Saved" fades in at the middle of the screen as it closes, holds a moment and fades out, without stopping the spin. Is it readable over the platforms and the sphere? Does it feel too big or too small?
+- [ ] **Game Over.** Touch room 5's spikes with no pips: after the shatter the screen fades to black, "GAME OVER" and "Press Escape or Enter to continue" come up. Does the fade feel too slow?
+- [ ] **The keys.** Space and clicks do nothing. Escape and Enter go on (Escape does not also open the pause menu). Mashing in the first moments does not skip it.
+- [ ] **Coming back.** The save room fades in from black, the sphere spins and pops you out to the right. The HUD pips are refilled.
+- [ ] **With a pip.** Set one pip in F2 and die: no screen, back on the safe floor. Die again with none: the screen.
+- [ ] **Early deaths.** Before room 7's pip, every death in rooms 3 to 6 shows the screen. Is that too much?
+- [ ] **Dev retry.** "Retry on death" in F2 skips the screen.

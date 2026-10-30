@@ -1,4 +1,4 @@
-[gd_scene load_steps=13 format=3]
+[gd_scene load_steps=14 format=3]
 
 [ext_resource type="Script" path="res://src/world/world.gd" id="1_world"]
 [ext_resource type="PackedScene" path="res://src/player/player.tscn" id="2_player"]
@@ -13,6 +13,7 @@
 [ext_resource type="Script" path="res://src/ui/pause_menu.gd" id="10_pause"]
 [ext_resource type="Script" path="res://src/ui/power_popup.gd" id="11_popup"]
 [ext_resource type="Script" path="res://src/ui/hud.gd" id="12_hud"]
+[ext_resource type="Script" path="res://src/ui/game_over.gd" id="13_gameover"]
 
 [node name="World" type="Node2D"]
 script = ExtResource("1_world")
@@ -55,3 +56,6 @@ script = ExtResource("10_pause")
 
 [node name="PowerPopup" type="CanvasLayer" parent="."]
 script = ExtResource("11_popup")
+
+[node name="GameOver" type="CanvasLayer" parent="."]
+script = ExtResource("13_gameover")

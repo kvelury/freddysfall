@@ -55,8 +55,8 @@ func _run() -> void:
 	ok = _check(player.visible and player.is_on_floor(), "the player is back, standing") and ok
 	ok = _check(player.global_position.distance_to(machine.global_position + Vector2(20, 0)) < 1.0, "popped out on the far side, to the right of where they came in from the left (%s)" % player.global_position) and ok
 	ok = _check(state.has_flag("save:s1_save"), "the save is remembered in the flags") and ok
-	var toast: Label = world.get_node("Toast").get_child(0)
-	ok = _check(toast.visible and toast.text == "Game saved", "a line says the game was saved (%s)" % toast.text) and ok
+	var toast: Label = world.get_node("Toast").get_child(1)
+	ok = _check(toast.visible and toast.text == "Game Saved", "a centred line says the game was saved (%s)" % toast.text) and ok
 	ok = _check(not room.locked and _blocks(room) == 0, "the door opens, as room 2's does for its token") and ok
 	ok = _check(player.solids.size() == door_rects - 1, "and the player no longer collides with the block (%d to %d)" % [door_rects, player.solids.size()]) and ok
 	ok = _check(FileAccess.file_exists(TEMP), "the game was written to the save file") and ok
@@ -238,6 +238,7 @@ func _world() -> Node:
 	var world := (load("res://src/world/world.tscn") as PackedScene).instantiate()
 	root.add_child(world)
 	await process_frame
+	world.game_over.scripted = true
 	return world
 
 
