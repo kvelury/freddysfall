@@ -324,7 +324,7 @@ class Animation:
 godot --headless --path . --import          # after adding or renaming any class_name
 godot --headless --path . --script tests/display_test.gd   # DISPLAY pass
 godot --headless --path . --script tests/token_test.gd     # TOKEN pass
-tools/check.sh                              # the full gate, ~16 min: 26 tests, validate, web export
+tools/check.sh                              # the full gate, ~16 min: 27 tests, validate, web export
 tools/pixel_check.sh --baseline && tools/pixel_check.sh    # look changed on purpose: re-baseline, then compare
 tools/build_web.sh && tools/serve.sh        # http://localhost:8060; hard-refresh (Cmd+Shift+R), the page caches
 ```

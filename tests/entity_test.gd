@@ -307,7 +307,7 @@ func _health() -> bool:
 	var line: String = state.take_health(def)
 	ok = _check(state.health == 1 and state.has_flag("health:h1") and "1" in line, "taking it adds one pip and says so (%s)" % line) and ok
 	state.take_health(def)
-	ok = _check(state.health == 2, "pips add up") and ok
+	ok = _check(state.health == 2 and state.max_health == 2, "pips add up, and so does the bar") and ok
 	state.reset()
 	return ok
 

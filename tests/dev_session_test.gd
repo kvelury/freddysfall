@@ -48,6 +48,8 @@ func _run() -> void:
 	_world.imprint.platforms.append(ImprintPlatform.new(Rect2(10, 10, 20, 10), 2.5))
 	state.tokens = 1
 	_check(session.apply(_world, {"health": 6}).is_empty() and _world.imprint.platforms.size() == 1, "resource edits leave Imprints alone")
+	_check(state.max_health == 6, "more pips than the bar holds lengthens the bar")
+	_check(session.apply(_world, {"max_health": 8}).is_empty() and state.max_health == 8 and state.health == 6 and session.loadout["max_health"] == 8, "the bar can be longer than the pips held")
 	_check(session.apply(_world, {"abilities": {"imprint_duration": 5.0}}).is_empty() and state.tokens == 1 and session.loadout["tokens"] == 3 and _world.imprint.platforms.is_empty(), "duration edit preserves consumed live tokens and selected retry tokens")
 	_check(session.apply(_world, {"abilities": {"imprint_width": 2}}).is_empty() and state.abilities.imprint_width == 2, "dev editing can lower a normally monotonic upgrade")
 	_world.imprint.platforms.append(ImprintPlatform.new(Rect2(10, 10, 20, 10), 1.5))
@@ -134,7 +136,7 @@ func _run() -> void:
 	_check(session.classic_imprint and session.classic_imprint_active(), "Classic Imprint survives a retry")
 	_check(session.token_marks_active() and _world.player._visual.shown_tokens() == state.tokens, "and so do the token marks, on the new body")
 	_check(_world.current.info.id == "7" and state.flags.has("pickup:baseline") and not state.flags.has("pickup:later") and state.machines["baseline_machine"] == 1 and not state.flags.has("health:later_pip"), "retry restores original room, flags (the pip is back), and machine fills")
-	_check(state.tokens == 3 and state.health == 6 and state.abilities.imprint_duration == 5.0, "retry uses latest explicitly applied powers and replenishes resources")
+	_check(state.tokens == 3 and state.health == 6 and state.max_health == 8 and state.abilities.imprint_duration == 5.0, "retry uses latest explicitly applied powers and replenishes resources")
 	_check(is_equal_approx(state.abilities.imprint_cooldown, 0.2) and is_zero_approx(_world.imprint.cooldown_left), "retry keeps the applied cooldown setting, with no cooldown running")
 	_check(_world.current.tick == 0 and _world.imprint.platforms.is_empty() and _world.player.velocity == Vector2.ZERO, "rebuild resets platform clock and transient player state")
 	_check(not state.visited.has("3") and state.map_zoom == 1, "retry restores visited rooms and map zoom")
@@ -147,7 +149,7 @@ func _run() -> void:
 	session.set_retry_on_death(_world, false)
 	_world._die()
 	await create_timer(0.8).timeout
-	_check(state.health == 5 and not _world.is_busy(), "with automatic retry off, death spends health normally")
+	_check(state.health == 5 and state.max_health == 8 and not _world.is_busy(), "with automatic retry off, death empties a pip and the bar keeps its length")
 	state.health = 0
 	session.set_retry_on_death(_world, true)
 	_world._die()

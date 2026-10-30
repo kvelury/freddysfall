@@ -17,6 +17,7 @@ const SAFE_SPACING := 30.0
 @onready var player: Player = $Player
 @onready var camera: Camera2D = $Camera2D
 @onready var toast: Toast = $Toast
+@onready var hud: Hud = $Hud
 @onready var imprint: ImprintTool = $Imprint
 @onready var gun: Gun = $Gun
 @onready var title_card: TitleCard = $TitleCard
@@ -148,6 +149,9 @@ func _place_in(id: String, world_position := Vector2.INF, respawn := false) -> v
 	current.set_exits_active(true)
 	if current.info.is_save_room():
 		GameState.save_room = id
+		# Dying in a save room puts the player back in it, but is not entering it.
+		if not respawn:
+			GameState.refill_health()
 	GameState.visit(id)
 	if not respawn:
 		_maybe_title(id)
@@ -212,9 +216,11 @@ func _collect(thing: Node2D) -> void:
 	if thing is Token:
 		if not GameState.take_token(thing.def):
 			return
+		hud.fly_in(&"token", thing.global_position)
 		thing.collect()
 	elif thing is HealthPip:
 		toast.show_text(GameState.take_health(thing.def))
+		hud.fly_in(&"pip", thing.global_position)
 		thing.collect()
 	else:
 		_announce(GameState.collect(thing.def))
@@ -331,6 +337,8 @@ func _feed(machine: TokenMachine) -> void:
 		burst.position = player.global_position
 		add_child(burst)
 		_announce(GameState.machine_prize(machine.def))
+		if machine.def.props.has("prize"):
+			hud.fly_in(&"pip", player.global_position)
 		await get_tree().create_timer(FEED_PAUSE, true, true).timeout
 	player.input_enabled = true
 	_busy = false
@@ -387,7 +395,7 @@ func _die() -> void:
 	var auto_retry := DevSession.mode == DevSession.Mode.DEV_TEST and DevSession.retry_on_death
 	var to_save := GameState.health <= 0
 	if not to_save and not auto_retry:
-		GameState.health -= 1
+		GameState.spend_health()
 		# Dying again without having stood anywhere since the last respawn
 		# means that spot was no good. Go back to the floor before it.
 		if not _stood_since_respawn and _safe.size() > 1:
@@ -476,6 +484,7 @@ func _finish_transition() -> void:
 	if current != null:
 		if current.info.is_save_room():
 			GameState.save_room = current.info.id
+			GameState.refill_health()
 		_autosave()
 
 

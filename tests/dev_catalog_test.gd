@@ -56,6 +56,13 @@ func _initialize() -> void:
 		_check(not DevCatalog.validate(sample).is_empty(), "reject invalid cooldown %s" % str(invalid))
 	var old_loadout := DevCatalog.reconcile({"abilities": {"imprint_width": 3, "imprint_duration": 2.5}})
 	_check(old_loadout["error"].is_empty() and old_loadout["loadout"]["abilities"]["imprint_cooldown"] == 0.0 and old_loadout["loadout"]["abilities"]["imprint_duration"] == 2.5, "an old loadout without a cooldown gets it off and keeps its own duration")
+	sample = DevCatalog.defaults()
+	sample["max_health"] = -1
+	_check(sample.has("max_health") and not DevCatalog.validate(sample).is_empty(), "the bar length is a resource and cannot go below zero")
+	var pre_bar := DevCatalog.reconcile({"abilities": {}, "tokens": 1, "health": 3})
+	_check(pre_bar["error"].is_empty() and pre_bar["loadout"]["max_health"] == 0, "a loadout from before the bar length still loads")
+	_check(DevCatalog.with_loadout({}, pre_bar["loadout"])["max_health"] == 3, "and its bar is as long as its pips")
+	_check(DevCatalog.capture({"abilities": {}, "tokens": 0, "health": 2, "max_health": 5})["max_health"] == 5, "a capture keeps the bar's empty pips")
 	var progression := {"flags": ["pickup:keep"], "machines": {"m": 2}}
 	var merged := DevCatalog.with_loadout(progression, restored["loadout"])
 	merged["machines"]["m"] = 3
