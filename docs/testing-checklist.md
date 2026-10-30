@@ -104,7 +104,7 @@ Start `?dev=1&room=6` with Imprint on in F2 (or later rooms directly with `room=
 
 ## Health pips
 
-- [ ] **Room 7's pip.** Reached by dropping from exit 2, then shooting the wall that closes it in (see "Gun and breakable walls"). It reads as a plus that bobs, apart from tokens and pickups; taking it says "Max Health +1" and it flies to the HUD, where the bar grows its first square. Then die on spikes: you come back on the last safe floor, not at s2, the square empties, and the next death goes to s2, which fills it again. In F2, set health and max pips, use +1 pip, Refill, Empty pips and Clear health, retry (the pip comes back), and round-trip it through a loadout.
+- [ ] **Room 7's pip.** Reached by dropping from exit 2, then shooting the wall that closes it in (see "Gun and breakable walls"). It reads as a plus that bobs, apart from tokens and pickups; taking it shows no line of text and it flies to the HUD, where the bar grows its first square. Then die on spikes: you come back on the last safe floor, not at s2, the square empties, and the next death goes to s2, which fills it again. In F2, set health and max pips, use +1 pip, Refill, Empty pips and Clear health, retry (the pip comes back), and round-trip it through a loadout.
 
 ## The HUD
 

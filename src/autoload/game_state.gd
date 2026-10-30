@@ -86,11 +86,10 @@ func take_token(def: EntityDef) -> bool:
 
 
 ## Takes a health pip: one more death that goes back to the last safe floor.
-## Returns a line to show the player.
-func take_health(def: EntityDef) -> String:
+## The HUD shows it, so there is no line.
+func take_health(def: EntityDef) -> void:
 	flags[HealthPip.flag_for(def)] = true
 	_add_pip()
-	return "Max Health +1"
 
 
 ## One more pip in the bar, and full.
@@ -115,12 +114,12 @@ func refill_health() -> void:
 
 
 ## What a 3TM gives when it is fed: its upgrade, or a health pip with
-## `prize=health`. Returns a line to show the player. A machine's fill count is
-## kept, so a spent one never gives it twice.
+## `prize=health`. Returns a line to show the player, or "" for a pip, which the
+## HUD shows. A machine's fill count is kept, so a spent one never gives it twice.
 func machine_prize(def: EntityDef) -> String:
 	if def.props.has("prize"):
 		_add_pip()
-		return "Max Health +1"
+		return ""
 	return grant(String(def.props["upgrade"]), String(def.props.get("value", "")))
 
 

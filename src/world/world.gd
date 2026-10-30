@@ -219,7 +219,7 @@ func _collect(thing: Node2D) -> void:
 		hud.fly_in(&"token", thing.global_position)
 		thing.collect()
 	elif thing is HealthPip:
-		toast.show_text(GameState.take_health(thing.def))
+		GameState.take_health(thing.def)
 		hud.fly_in(&"pip", thing.global_position)
 		thing.collect()
 	else:
@@ -231,7 +231,7 @@ func _collect(thing: Node2D) -> void:
 
 ## A power with controls gets the popup instead of the toast line.
 func _announce(line: String) -> void:
-	if _popups.is_empty():
+	if _popups.is_empty() and not line.is_empty():
 		toast.show_text(line)
 
 
