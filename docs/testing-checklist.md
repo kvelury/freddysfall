@@ -8,6 +8,13 @@ Everything here passed its headless tests or was reported as unverified in a pul
 
 Played in the browser and found good, so these are not listed line by line any more: Imprint in the browser (placing, the preview, the cross, the blink), saving and resuming, the solver and the "needs" lines, movement and doors, the whole world map of PR #17 (rooms 1 to 7, the exit rules, the tokens on the body, the 3TM and its feeding, and the spent machine), and the Imprint look of PR #18 (the dotted cursor, placed platforms drawn over it, the countdown lines, and the blink), and the map zoom of PR #20 (the three levels, the legend, the level kept across reloads, a new game starting fresh, and the marker staying in its room), and the 2.5 second Imprint of PR #21 (the time, the four lines, and the blink on the last line; the duration is now 1.5 s, see "Imprint lockout" below). On 2026-10-22 the release export was also smoke-tested in Chrome: it loaded without console errors, sustained keyboard movement and running jumps worked, and the map opened while held and closed on release. The cloud test executor could not reliably observe and steer a whole platforming route, so that smoke did not replace the earlier full progression playthroughs. A new problem in any of them goes back on this list.
 
+## Room 7 step, room 9 floor door and s3
+
+Nobody has played these yet. `?dev=1&room=7` and `?dev=1&room=9`.
+
+- [ ] **Room 7's step.** From the moving platform, the new stepped ledge under exit 1 makes the jump to the ledge easier.
+- [ ] **Room 9's floor door.** The strip beside it has no spikes. Drop through the door into s3, enter its save machine, then climb its platforms back up to room 9.
+
 ## Freddy the frog
 
 The new player picture from the user's sprite sheets (the frog PR). Headless tests prove the pictures are whole pixels inside the 10×10 box and that the right one is chosen; whether he looks right and feels right is for a person. `?dev=1&room=s1` (or any room), and F2 to set tokens and Imprint.
