@@ -187,16 +187,6 @@ func _build_player(body: VBoxContainer) -> void:
 		_token_marks.set_pressed_no_signal(DevSession.token_marks)
 	)
 	body.add_child(_token_marks)
-	# Until a HUD look is chosen: A is the white plate, B the black plate.
-	var hud_style := CheckButton.new()
-	hud_style.text = "HUD look B (black plate)"
-	hud_style.set_pressed_no_signal(Hud.style == Hud.Style.BLACK_PLATE)
-	hud_style.toggled.connect(func(on: bool) -> void:
-		Hud.style = Hud.Style.BLACK_PLATE if on else Hud.Style.WHITE_PLATE
-		_world.hud.sync()
-		_report("", "HUD look %s." % ("B" if on else "A"))
-	)
-	body.add_child(hud_style)
 	var wall_row := HBoxContainer.new()
 	body.add_child(wall_row)
 	var wall_label := Label.new()

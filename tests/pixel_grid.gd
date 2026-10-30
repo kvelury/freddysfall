@@ -378,25 +378,20 @@ func _text() -> void:
 		await _frames(20)
 
 
-## The health and token HUD in fixed states, in each look, saved as UI frames.
+## The health and token HUD in fixed states, saved as UI frames.
 func _hud() -> void:
 	var state: Node = root.get_node("GameState")
-	var looks := {"a": 0, "b": 1}
 	var cases := {"empty": [0, 0, 0], "one_pip": [0, 1, 1], "hit_once": [2, 4, 3], "full": [3, 6, 6]}
-	for look in looks:
-		world.hud.get_script().style = looks[look]
-		for name in cases:
-			await _start("7")
-			var hud: Node = world.get_node("Hud")
-			hud.visible = true
-			state.tokens = cases[name][0]
-			state.max_health = cases[name][1]
-			state.health = cases[name][2]
-			hud.sync()
-			await _frames(3)
-			await _grab_ui("ui_hud_%s_%s" % [look, name], hud.plate_rect(state.max_health), 0)
-	world.hud.get_script().style = 0
-
+	for name in cases:
+		await _start("7")
+		var hud: Node = world.get_node("Hud")
+		hud.visible = true
+		state.tokens = cases[name][0]
+		state.max_health = cases[name][1]
+		state.health = cases[name][2]
+		hud.sync()
+		await _frames(3)
+		await _grab_ui("ui_hud_%s" % name, hud.bounds(state.max_health), 0)
 
 ## A frame with the UI, saved as is. `need` is how many 2 x 2 blocks of `region`
 ## (in the UI's 320 x 180 units) must be mixed, which a world pixel never is.

@@ -30,7 +30,7 @@ Editor/debug runs always offer F2 and a Dev tools item in the pause menu; export
 
 - **F2 / pause menu → Dev tools:** pause and edit powers or resources. **Apply** commits; **Resume / Cancel**
   closes, discarding unapplied edits. F4 focuses the room picker. Escape closes.
-- **Player:** tokens (0–3), health pips held and max pips (the HUD bar's length), the HUD look (A white plate, B black plate, until one is chosen), the gun (on/off, cooldown, shot speed), air jumps (0–3; 1 is double jump), Imprint on/off, width (the size a platform
+- **Player:** tokens (0–3), health pips held and max pips (the HUD bar's length), the gun (on/off, cooldown, shot speed), air jumps (0–3; 1 is double jump), Imprint on/off, width (the size a platform
   *starts* at; it shrinks, and 3 is the default), duration, active count, and
   cooldown (0 is off, which is the default). Bounce is explicitly not implemented.
   Settings can be lowered as well as raised. Below the fields, **Classic Imprint (no

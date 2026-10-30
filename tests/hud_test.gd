@@ -126,9 +126,11 @@ func _layout(hud: Node) -> void:
 	_check(hud.pip_rect(0) == Rect2(H.ORIGIN + H.BAR + Vector2.ONE, Vector2(7, 7)), "the first pip starts at the heart's right tip")
 	_check(hud.pip_rect(1).position.x - hud.pip_rect(0).position.x == 8.0, "pips share their borders")
 	_check(hud.pip_rect(H.WRAP).position == hud.pip_rect(0).position + Vector2(0, 8), "the bar wraps under itself")
-	_check(hud.plate_rect(0) == Rect2(H.ORIGIN, Vector2(17, 13)).grow(H.MARGIN), "with no pips the plate holds only the heart")
-	_check(hud.plate_rect(4).end.x == H.ORIGIN.x + H.BAR.x + 33.0 + H.MARGIN, "four pips are 33 units long")
-	_check(hud.plate_rect(100).end.x < 320.0 and hud.plate_rect(100).end.y < 180.0, "a long bar stays on the screen")
+	_check(hud.bounds(0) == Rect2(H.ORIGIN, Vector2(17, 13)), "with no pips the HUD is only the heart")
+	_check(hud.bounds(4).end.x == H.ORIGIN.x + H.BAR.x + 33.0, "four pips are 33 units long")
+	_check(hud.bounds(100).end.x < 320.0 and hud.bounds(100).end.y < 180.0, "a long bar stays on the screen")
+	_check(hud._fill_colour("t0", true) == Color.WHITE and hud._fill_colour("p0", true) == H.RED, "a token fills white and a full pip red")
+	_check(hud._fill_colour("t0", false) == Color.BLACK and hud._fill_colour("p0", false) == Color.BLACK, "an empty slot or pip is black")
 	_check(hud.slot_centre(0).x < hud.slot_centre(1).x and hud.slot_centre(2).y > hud.slot_centre(0).y, "tokens fill the left lobe, the right lobe, then the point")
 
 

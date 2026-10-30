@@ -2,21 +2,21 @@ class_name Hud
 extends CanvasLayer
 
 ## The health and token bar, fixed in the top-left corner. A heart of three
-## slots fills with a diamond for each token carried; a bar of pips grows one
-## square for each health pip collected, and a pip shows filled while it is
-## held. Outlines are red, the HUD's one colour outside black and white.
+## slots fills with a white diamond for each token carried; a bar of pips grows
+## one square for each health pip collected, and a pip is filled red while it is
+## held. Outlines are red and empty slots are black, with nothing behind them.
 ##
 ## The HUD shows GameState, less what is still flying in: a pickup taken in a
 ## room flies to its slot and only counts when it lands. Every change animates
 ## in whole UI units, by switching pixels and never by fading.
 
-enum Style { WHITE_PLATE, BLACK_PLATE }
-
 const RED := Color("d22b2b")
-## Where the heart's top-left sits, in 320 x 180 UI units.
-const ORIGIN := Vector2(6, 6)
-## The plate reaches this far past the heart and bar.
-const MARGIN := 2.0
+## An empty slot or pip is black inside its red outline. There is no plate:
+## only the heart and the bar are drawn.
+const EMPTY := Color.BLACK
+## Where the heart's top-left sits, in 320 x 180 UI units: clear of a room's
+## one-cell outer wall, since nothing is drawn behind the HUD.
+const ORIGIN := Vector2(14, 14)
 ## Token slot centres in the heart, in the order they fill: left lobe, right
 ## lobe, point.
 const SLOTS: Array[Vector2] = [Vector2(4, 4), Vector2(12, 4), Vector2(8, 8)]
@@ -37,9 +37,6 @@ const SWEEP_STEP := 0.05
 const BUMP_TIME := 0.1
 ## A flying pickup is drawn again at these offsets in red, for its edge.
 const EDGE := [Vector2.LEFT, Vector2.RIGHT, Vector2.UP, Vector2.DOWN]
-
-## The look, until one is chosen. A dev switch flips it to compare.
-static var style := Style.WHITE_PLATE
 
 ## What the HUD shows now. They catch up with GameState through the animations.
 var shown_tokens := 0
@@ -107,14 +104,14 @@ func pip_centre(index: int) -> Vector2:
 	return pip_rect(maxi(0, index)).get_center().floor()
 
 
-## Everything the HUD covers, plate included, for a bar `pips` long.
-func plate_rect(pips: int) -> Rect2:
+## Everything the HUD covers, for a bar `pips` long.
+func bounds(pips: int) -> Rect2:
 	var box := Rect2(ORIGIN, Vector2(17, 13))
 	if pips > 0:
 		var columns := mini(pips, WRAP)
 		var rows := floori(float(pips - 1) / WRAP) + 1
 		box = box.merge(Rect2(ORIGIN + BAR, Vector2(PITCH * columns + 1.0, PITCH * rows + 1.0)))
-	return box.grow(MARGIN)
+	return box
 
 
 func busy() -> bool:
@@ -202,10 +199,14 @@ func _redraw() -> void:
 		_canvas.queue_redraw()
 
 
-func _colours() -> Dictionary:
-	if style == Style.BLACK_PLATE:
-		return {"plate": Color.BLACK, "full": Color.WHITE, "empty": Color.BLACK}
-	return {"plate": Color.WHITE, "full": Color.BLACK, "empty": Color.WHITE}
+## What a slot is filled with: white for a token, red for a pip. A pop
+## flashes the other one first.
+func _full(key: String) -> Color:
+	return Color.WHITE if key.begins_with("t") else RED
+
+
+func _flash(key: String) -> Color:
+	return RED if key.begins_with("t") else Color.WHITE
 
 
 ## Whether slot effect `key` shows the slot filled this frame, given `held`.
@@ -216,41 +217,43 @@ func _filled(key: String, held: bool) -> bool:
 	return int(floorf(_effects[key]["left"] / BLINK_STEP)) % 2 == 1
 
 
-func _fill_colour(key: String, held: bool, colours: Dictionary) -> Color:
+func _fill_colour(key: String, held: bool) -> Color:
 	if _effects.has(key) and _effects[key]["kind"] == &"pop":
-		return RED
-	return colours["full"] if _filled(key, held) else colours["empty"]
+		return _flash(key)
+	return _full(key) if _filled(key, held) else EMPTY
 
 
 func _draw_hud() -> void:
-	var colours := _colours()
-	var pips := shown_max + (1 if _grow >= 0.0 else 0)
-	_canvas.draw_rect(plate_rect(pips), colours["plate"])
 	var heart := ORIGIN + (Vector2(0, -1) if _bump > 0.0 else Vector2.ZERO)
 	PixelArt.draw(_canvas, "hud_heart", heart, RED)
 	for i in SLOTS.size():
-		PixelArt.draw(_canvas, "hud_slot", heart + SLOTS[i], _fill_colour("t%d" % i, i < shown_tokens, colours))
+		PixelArt.draw(_canvas, "hud_slot", heart + SLOTS[i], _fill_colour("t%d" % i, i < shown_tokens))
 	for i in shown_max:
-		_draw_pip(i, 1.0, colours)
+		_draw_pip(i, 1.0)
 	if _grow >= 0.0:
-		_draw_pip(shown_max, _grow, colours)
+		_draw_pip(shown_max, _grow)
 	for flight in flights:
 		_draw_flight(flight)
 
 
 ## Pip `index`, grown `amount` (0 to 1) along the bar from its left edge.
-func _draw_pip(index: int, amount: float, colours: Dictionary) -> void:
+func _draw_pip(index: int, amount: float) -> void:
 	var inside := pip_rect(index)
 	var width := roundf(PITCH * clampf(amount, 0.0, 1.0))
 	_canvas.draw_rect(Rect2(inside.position - Vector2.ONE, Vector2(width + 1.0, BAR_HEIGHT)), RED)
 	if width > 1.0:
 		var key := "p%d" % index
-		var fill: Color = _fill_colour(key, index < shown_health, colours) if amount >= 1.0 else colours["empty"]
-		_canvas.draw_rect(Rect2(inside.position, Vector2(width - 1.0, inside.size.y)), fill)
+		var fill := _fill_colour(key, index < shown_health) if amount >= 1.0 else EMPTY
+		_canvas.draw_rect(Rect2(inside.position, Vector2(width - 1.0, inside.size.y)), EMPTY)
+		# A red fill is inset a unit, so full pips stay apart from their red
+		# borders and from each other.
+		var core := Rect2(inside.position, Vector2(width - 1.0, inside.size.y)).grow(-1.0 if fill == RED else 0.0)
+		if fill != EMPTY:
+			_canvas.draw_rect(core, fill)
 
 
 ## A pickup on its way in: white, as it was in the room, with a red edge so it
-## reads over black space, white walls and the plate. It speeds up as it goes.
+## reads over black space and white walls. It speeds up as it goes.
 func _draw_flight(flight: Dictionary) -> void:
 	var t := clampf(flight["age"] / FLY_TIME, 0.0, 1.0)
 	var at: Vector2 = (flight["from"] as Vector2).lerp(flight["to"], t * t).round()
