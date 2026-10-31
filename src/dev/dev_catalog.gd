@@ -6,9 +6,10 @@ extends RefCounted
 
 const RESOURCES := {
 	"tokens": {"name": "Tokens", "type": "int", "min": 0, "max": 3, "step": 1},
-	"health": {"name": "Health pips", "type": "int", "min": 0, "step": 1},
-	# The bar's length. A loadout with more pips than this raises it to match.
-	"max_health": {"name": "Max pips", "type": "int", "min": 0, "step": 1},
+	"health": {"name": "Hearts", "type": "int", "min": 0, "step": 1},
+	# The frame's length, never below the base heart. A loadout with more hearts
+	# than this raises it to match.
+	"max_health": {"name": "Max hearts", "type": "int", "min": 1, "step": 1},
 }
 ## Ability names a stored loadout may still use, and what they are now.
 const LEGACY_KEYS := {"gun_unlocked": "tongue_unlocked", "gun_cooldown": "tongue_cooldown", "gun_shot_speed": "tongue_speed"}
@@ -56,7 +57,7 @@ static func problems(definitions: Dictionary = {}, stats: Array = Abilities.STAT
 
 
 static func defaults() -> Dictionary:
-	return {"abilities": Abilities.new().to_dict(), "tokens": 0, "health": 0, "max_health": 0}
+	return {"abilities": Abilities.new().to_dict(), "tokens": 0, "health": GameState.BASE_HEALTH, "max_health": GameState.BASE_HEALTH}
 
 
 static func capture(state: Dictionary) -> Dictionary:
@@ -64,7 +65,7 @@ static func capture(state: Dictionary) -> Dictionary:
 		"abilities": state["abilities"].duplicate(true),
 		"tokens": state["tokens"],
 		"health": state["health"],
-		"max_health": maxi(int(state["health"]), int(state.get("max_health", 0))),
+		"max_health": maxi(GameState.BASE_HEALTH, maxi(int(state["health"]), int(state.get("max_health", 0)))),
 	}
 
 
@@ -118,7 +119,7 @@ static func with_loadout(state: Dictionary, loadout: Dictionary) -> Dictionary:
 	out["abilities"] = loadout["abilities"].duplicate(true)
 	for key in RESOURCES:
 		out[key] = int(loadout.get(key, 0))
-	out["max_health"] = maxi(out["health"], out["max_health"])
+	out["max_health"] = maxi(GameState.BASE_HEALTH, maxi(out["health"], out["max_health"]))
 	return out
 
 
@@ -153,5 +154,8 @@ static func reconcile(saved: Dictionary) -> Dictionary:
 	for key in RESOURCES:
 		if saved.has(key):
 			draft[key] = saved[key]
+	# Loadouts stored before the base heart may have no frame at all.
+	if draft["max_health"] is int and draft["health"] is int:
+		draft["max_health"] = maxi(GameState.BASE_HEALTH, maxi(draft["health"], draft["max_health"]))
 	var error := validate(draft)
 	return {"error": error, "loadout": draft, "warnings": warnings}

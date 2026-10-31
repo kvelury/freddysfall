@@ -120,11 +120,11 @@ Start `?dev=1&room=6` with Imprint on in F2 (or later rooms directly with `room=
 
 ## The HUD
 
-Nobody has played this yet. `?dev=1&room=2` (a token) or `?dev=1&room=7` (the pip; use F2 to give Tongue Lash), F2 to set tokens and pips.
+Nobody has played this yet. `?dev=1&room=2` (a token) or `?dev=1&room=7` (the pip; use F2 to give Tongue Lash), F2 to set tokens and hearts. A new game is one full heart in a red hexagon frame and no diamonds.
 
 - [ ] **It stays put.** Top left, over every room, during door slides, deaths, a save, a 3TM feed and a title card; under the map, the pause menu and the dev panel. It reads over black space, and does not sit on a room's outer wall.
-- [ ] **Tokens.** Taking one sends it flying from where it was to the triangle: top, bottom left, then bottom right. The slot flashes red and fills white as it lands, and the triangle jumps a pixel. With three, the next token stays in the room and nothing flies. Feeding a 3TM empties the slots from the bottom right back, a blink each.
-- [ ] **Pips.** The first pip adds a square at the triangle's right tip; each next one grows the bar a square, then flashes white and fills red, and full pips are still told apart. A death empties the rightmost full pip with a blink; entering a save room (s1, s2, s3) fills the empty ones left to right. Dying inside a save room does not.
+- [ ] **Tokens.** A diamond is drawn only for a token held: nothing shows for the others. Taking one sends it flying to the next diamond down the left column (the top one sits over the frame's left point). It flashes red and shows white with a red outline as it lands, and the column jumps a pixel; the frame does not move. With three, the next token stays in the room and nothing flies. Feeding a 3TM blinks the lowest diamond out, and it is gone.
+- [ ] **Hearts.** A pip flies to the frame, which grows a heart, then the heart flashes white and fills solid red. An empty heart is a red outline, black inside. A death empties the rightmost full heart with a blink; on the last heart it blinks out, Game Over shows, and the save room (s1, s2, s3) fills every heart left to right. Dying inside a save room does not.
 - [ ] **Nothing fades and nothing is between pixels**, at 1280×720 and fullscreen. The flight is quick and reads as going *into* the HUD.
 - [ ] **A reload, a retry or End playtest** shows the right counts at once with nothing flying.
 
@@ -149,7 +149,7 @@ Nobody has played these yet. Use `tools/build_web.sh`, `tools/serve.sh` and `?ne
 - [ ] **Room s1 on a new game.** The door in the right wall is blocked and the machine stands open, a split sphere on the middle platform. Jump up to the platform: as soon as you are in front of it you hop into the middle, it closes and spins, a "Game saved" line shows, the blocks shatter, and you are popped out on the far side, in about 1.2 s. Check the hop, the spin and the pop read well, the time feels right, and the close horizontal lines read as a shaded ball and not like a door's halo.
 - [ ] **Entering from the other side.** Leave by the door, come back in, and enter the zone from the right end of the platform: you pop out on the left.
 - [ ] **Once per visit.** After a save, walking back and forth in front of the machine does nothing, and the sphere stays closed. Leave s1 and come back: it is open again and works once more.
-- [ ] **Dying in room 5.** With no pips you come back in s1 inside the closed sphere, which spins as it does for a save, then opens and pops you out to the right, with no "Game Saved" text and the door open, after the Game Over screen below. The whole route to room 5 is walked again.
+- [ ] **Dying in room 5.** On your last heart you come back in s1 inside the closed sphere, which spins as it does for a save, then opens and pops you out to the right, with no "Game Saved" text and the door open, after the Game Over screen below. The whole route to room 5 is walked again.
 - [ ] **Reload** (a plain reload, not `?new-game=1`) after getting as far as room 5 or past the 3TM: you start inside the machine in s1 (it opens and pops you out to the right) with Imprint and the tokens you had, and rooms you took things in still have them gone.
 - [ ] **An old save.** If you have a save from before this change, a plain reload carries it over: you start in s1 with the door open.
 - [ ] **F4, `s`, `1`, Enter** warps to s1 when dev tools are available, and `?room=s1` starts there with the door blocked.
@@ -164,11 +164,11 @@ Nobody has played these yet. `?room=7` starts on room 7’s safe landing beside 
 - [ ] **Jumping off it while it moves.** `inherit_platform_velocity` is off, so a jump or a step off the end keeps only your own speed: a jump straight up goes straight up and the platform goes on without you. Is it easy to land back on it, and to hop between the strip and the platform? Set it to true in `src/player/movement.tres` to compare (it was tried on and turned off).
 - [ ] **Getting off.** Step off its left end onto the clear floor as it gets back. With a 0.2 s wait this needs you to be at its left end when it arrives. Too tight? Try a longer `pause=` in `data/rooms/7.txt`.
 - [ ] **Its speed.** Try other `speed=` values in `data/rooms/7.txt` (it is 75 px/s now; the user first asked for a 1.5 s trip, 133 px/s).
-- [ ] **Dying.** Fall off into the spikes: with no health you go back to your save room (s2 if you saved there). Coming back, the platform has started over, waiting at the left.
+- [ ] **Dying.** Fall off into the spikes: on your last heart you go back to your save room (s2 if you saved there). Coming back, the platform has started over, waiting at the left.
 
 ## Respawn
 
-The safe-floor respawns below happen when the player has health. Use `?dev=1`, grant health in F2, and leave retry-on-death off to try these now, before a health pickup exists. `hazard_test` also covers them.
+The safe-floor respawns below happen when the player has a spare heart. Use `?dev=1`, set hearts to 2 or more in F2, and leave retry-on-death off to try these. `hazard_test` also covers them.
 
 - [ ] **Dying right after a door.** The respawn spot may be in the previous room. Check that it feels right, and that you do not die twice.
 - [ ] **A respawn that is not safe.** Make one by standing on an Imprint over spikes and then dying; you were shown this fixed. Also try standing half on a ledge and half on an Imprint.
@@ -195,7 +195,7 @@ panel render is a layout check, not a completed human browser playthrough.
 
 - [ ] **Activation.** `?dev=1&room=7` in the release browser build and `--dev --room=7` natively; F2 and the pause menu's Dev tools item open/close, Escape cancels, F4 finds ordinary and save rooms. Without `dev=1`, release tools stay unavailable.
 - [ ] **Save isolation.** Start with a known normal save, cheat, collect, feed a 3TM, use a save machine, warp, die and retry. End playtest/reload normally: the original save remains. Test `dev=1&new-game=1` without losing it.
-- [ ] **Powers.** Tokens add/fill/empty; health pips and max pips (+1 pip, Refill, Empty pips, Clear health), shown in the HUD at once; Imprint on/off, width, duration and active count up/down. Invalid fields do not partly apply. Bounce is explicitly unavailable.
+- [ ] **Powers.** Tokens add/fill/empty; hearts and max hearts (+1 heart, Refill, Empty hearts, Reset hearts; max hearts is at least 1), shown in the HUD at once; Imprint on/off, width, duration and active count up/down. Invalid fields do not partly apply. Bounce is explicitly unavailable.
 - [ ] **The Tab map in dev mode.** Hold Tab: every room is drawn (all 12, with doors joined) with its id written in it, legible at each zoom level and over the grey current room, at all three zoom levels, even in a fresh test. Without dev tools (a release build with no `dev=1`), only visited rooms show.
 - [ ] **Input and pause.** Edit while a platform moves or an Imprint ages: both stop. Close while holding movement/jump or clicking: no unintended input. Map and panel do not unpause each other. F2 during a save/3TM/door animation waits, and a second F2 cancels.
 - [ ] **Retries.** Start in one room, collect/spend things and walk elsewhere, then retry: original room/progression return, tuned powers persist, health/tokens refill, moving platforms restart. Try with retry-on-death both on and off.
@@ -258,9 +258,9 @@ Room 7's title card and its 3TM, gamepad and keyboard aiming, touch input, sound
 Nobody has played these yet. Start a normal game (`http://localhost:8060`) for Game Saved, since test sessions hide it. For Game Over use `?dev=1&room=5`, or walk to room 5's spikes.
 
 - [ ] **Game Saved.** Walk into the sphere in s1: "Game Saved" fades in at the middle of the screen as it closes, holds a moment and fades out, without stopping the spin. Is it readable over the platforms and the sphere? Does it feel too big or too small?
-- [ ] **Game Over.** Touch room 5's spikes with no pips: after the shatter the screen fades to black, "GAME OVER" and "Enter / click to continue" come up. Does the fade feel too slow?
+- [ ] **Game Over.** Touch room 5's spikes on your last heart (the heart blinks out first): after the shatter the screen fades to black, "GAME OVER" and "Enter / click to continue" come up. Does the fade feel too slow?
 - [ ] **The keys.** Enter, Space, W, Up, Escape and a left click go on, as on the new power screen (Escape does not also open the pause menu); other keys do nothing. Mashing in the first moments does not skip it.
-- [ ] **Coming back.** The save room fades in from black, the sphere spins and pops you out to the right. The HUD pips are refilled.
-- [ ] **With a pip.** Set one pip in F2 and die: no screen, back on the safe floor. Die again with none: the screen.
+- [ ] **Coming back.** The save room fades in from black, the sphere spins and pops you out to the right. The HUD hearts are refilled.
+- [ ] **With a spare heart.** Set two hearts in F2 and die: no screen, back on the safe floor with one. Die again: the screen.
 - [ ] **Early deaths.** Before room 7's pip, every death in rooms 3 to 6 shows the screen. Is that too much?
 - [ ] **Dev retry.** "Retry on death" in F2 skips the screen.

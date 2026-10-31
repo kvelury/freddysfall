@@ -1,6 +1,6 @@
 extends SceneTree
 
-## Game over: a death with no pips fades to black, shows "Game over" and waits
+## Game over: a death on the last heart fades to black, shows "Game over" and waits
 ## for the keys that dismiss the power popup (nothing counts in the first
 ## moments, other keys do nothing, and Escape does not also open the pause
 ## menu), then the save room appears. A death with a pip
@@ -37,12 +37,14 @@ func _run() -> void:
 	await create_timer(0.9).timeout
 	ok = _check(not over.visible and state.health == 1 and not world.is_busy(), "dying with a pip left shows no Game Over") and ok
 
-	# With none, the screen comes up and waits.
-	state.health = 0
+	# On the last heart, it blinks out, the screen comes up and waits.
+	state.health = 1
+	state.max_health = 2
 	world._die()
+	ok = _check(state.health == 0, "dying on the last heart spends it") and ok
 	ok = _check(not over.visible, "it waits for the shatter first") and ok
 	var up := await _until(func() -> bool: return over.visible and over._waiting, 4.0)
-	ok = _check(up, "dying with no pips fades to black and waits") and ok
+	ok = _check(up, "dying on the last heart fades to black and waits") and ok
 	ok = _check(over.active and world.is_busy() and not player.visible and world.current.info.id == "5", "the world is held in the room they died in") and ok
 	ok = _check(is_equal_approx(over._black.modulate.a, 1.0) and is_equal_approx(over._title.modulate.a, 1.0) and over._title.text == "GAME OVER", "the screen is black, with GAME OVER") and ok
 	ok = _check(over._prompt.text == "Enter / click to continue", "and tells them what to press") and ok

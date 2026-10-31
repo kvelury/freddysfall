@@ -11,6 +11,8 @@ signal upgrade_granted(id: String)
 
 ## Most tokens the player can carry at once.
 const TOKEN_CAP := 3
+## Hearts every player has from the start. Collected pips add to it.
+const BASE_HEALTH := 1
 
 var current_room_id := ""
 var visited := {}
@@ -27,14 +29,16 @@ var tokens := 0
 ## How many tokens each 3TM holds, by its id. At three it has given its upgrade.
 var machines := {}
 ## The save room the player last entered, or "" before they have entered one.
-## Dying with no health puts them back at its save machine.
+## Dying on the last heart puts them back at its save machine.
 var save_room := ""
-## Health pips held now. The player starts with none. Dying with one or more
-## empties one and puts them back on the last safe floor; dying with none sends
-## them to their save room. A save room fills them all again.
-var health := 0
-## Health pips collected: the length of the HUD's bar. Never below `health`.
-var max_health := 0
+## Full hearts now. The player starts with one. Dying with two or more empties
+## one and puts them back on the last safe floor; dying on the last heart
+## empties it too (it blinks out) and sends them to their save room, which fills
+## every heart again. So health is 0 only for that moment, or after a dev edit.
+var health := BASE_HEALTH
+## Hearts held, full or empty: the base heart plus the pips collected. This is
+## the length of the HUD's frame. Never below 1 and never below `health`.
+var max_health := BASE_HEALTH
 
 
 func visit(room_id: String) -> void:
@@ -92,20 +96,20 @@ func take_health(def: EntityDef) -> void:
 	_add_pip()
 
 
-## One more pip in the bar, and full.
+## One more heart in the frame, and full.
 func _add_pip() -> void:
 	max_health += 1
 	health += 1
 	health_changed.emit()
 
 
-## A death with health: one pip empties. The bar keeps its length.
+## A death: one heart empties, the last one included. The frame keeps its length.
 func spend_health() -> void:
 	health = maxi(0, health - 1)
 	health_changed.emit()
 
 
-## A save room fills every pip again.
+## A save room fills every heart again.
 func refill_health() -> void:
 	if health == max_health:
 		return
@@ -138,6 +142,7 @@ func to_dict() -> Dictionary:
 		"machines": machines.duplicate(),
 		"map_zoom": map_zoom,
 		"save_room": save_room,
+		"health_base": BASE_HEALTH,
 		"health": health,
 		"max_health": max_health,
 	}
@@ -162,8 +167,16 @@ func load_dict(data: Dictionary) -> void:
 	var saved_room = data.get("save_room", "")
 	save_room = String(saved_room) if saved_room is String else ""
 	health = maxi(0, int(data.get("health", 0)))
-	# A save from before the bar had a length: every pip held was collected.
-	max_health = maxi(health, int(data.get("max_health", 0)))
+	# A save from before the base heart counted pips only, so it gains the base
+	# heart. A save with the key already counts it. An empty dict is a new game.
+	var shift := 0 if data.has("health_base") or data.is_empty() else BASE_HEALTH
+	if data.is_empty():
+		health = BASE_HEALTH
+	health += shift
+	# A save from before the frame had a length: every heart held was collected.
+	max_health = maxi(health, int(data.get("max_health", 0)) + shift)
+	max_health = maxi(BASE_HEALTH, max_health)
+	health = mini(health, max_health)
 	tokens_changed.emit()
 	health_changed.emit()
 	var saved = data.get("abilities", {})
@@ -181,7 +194,7 @@ func set_loadout(loadout: Dictionary) -> void:
 	abilities = Abilities.from_dict(loadout["abilities"])
 	tokens = int(loadout["tokens"])
 	health = int(loadout["health"])
-	max_health = maxi(health, int(loadout.get("max_health", 0)))
+	max_health = maxi(BASE_HEALTH, maxi(health, int(loadout.get("max_health", 0))))
 	abilities_changed.emit()
 	tokens_changed.emit()
 	health_changed.emit()

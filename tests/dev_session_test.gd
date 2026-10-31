@@ -38,7 +38,7 @@ func _run() -> void:
 	root.add_child(_world)
 	await process_frame
 	_world.player.scripted = true
-	_check(state.health == 0 and state.abilities.imprint_width == 2, "direct room starts with fresh state, not the save")
+	_check(state.health == 1 and state.abilities.imprint_width == 2, "direct room starts with fresh state, not the save")
 	_check(session.enter(_world).is_empty() and session.isolated(), "enter protected dev mode")
 	_check(not save.write("7", Vector2.ZERO) and save.load_game().is_empty(), "normal save reads and writes are blocked")
 	save.erase()
@@ -239,7 +239,7 @@ func _boot_probe() -> void:
 	var world: Node = load("res://src/world/world.tscn").instantiate()
 	root.add_child(world)
 	await process_frame
-	_check(session.isolated() and world.current.info.id == "7" and state.health == 0 and state.flags.is_empty(), "direct dev boot resets progression")
+	_check(session.isolated() and world.current.info.id == "7" and state.health == 1 and state.flags.is_empty(), "direct dev boot resets progression")
 	_check(FileAccess.get_file_as_string(TEMP) == original, "new-game is ignored in isolated startup")
 	world.free()
 	quit(0 if _ok else 1)

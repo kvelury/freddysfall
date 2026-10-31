@@ -336,13 +336,14 @@ func _parity(room: Room, player: Player, cfg: MovementConfig) -> bool:
 	return ok
 
 
-## With one pip of health, a player who rides out over the spikes and steps
+## With a spare heart, a player who rides out over the spikes and steps
 ## off dies, and comes back on the room's own floor, not on the platform.
 func _dying_while_riding() -> bool:
 	var ok := true
 	var state: Node = root.get_node("GameState")
 	state.reset()
-	state.health = 1
+	state.health = 2
+	state.max_health = 2
 	var world := await _world()
 	var player: Player = world.get_node("Player")
 	player.scripted = true
@@ -366,14 +367,14 @@ func _dying_while_riding() -> bool:
 		if player.visible and player.input_enabled and player.is_on_floor():
 			break
 	var local: Vector2 = player.global_position - (world.current as Room).position
-	ok = _check(died and world.current.info.id == "7" and state.health == 0, "stepping off into the spikes spends the pip and stays in room 7") and ok
+	ok = _check(died and world.current.info.id == "7" and state.health == 1, "stepping off into the spikes spends the heart and stays in room 7") and ok
 	ok = _check(player.is_on_floor() and player.riding() == -1 and is_equal_approx(local.y, _floor_y(world.current)) and local.x < 150.0, "and they come back on the floor by the door (%s)" % local) and ok
 	# A crush is a death: the world checks it before the player's next step.
-	state.health = 1
+	state.health = 2
 	player._state.crushed = true
 	await physics_frame
 	await physics_frame
-	ok = _check(not player.visible and state.health == 0, "a player a platform crushes dies") and ok
+	ok = _check(not player.visible and state.health == 1, "a player a platform crushes dies") and ok
 	world.queue_free()
 	await process_frame
 	state.reset()
