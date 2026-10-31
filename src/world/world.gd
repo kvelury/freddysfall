@@ -23,6 +23,7 @@ const SAFE_SPACING := 30.0
 @onready var title_card: TitleCard = $TitleCard
 @onready var pause_menu: PauseMenu = $PauseMenu
 @onready var power_popup: PowerPopup = $PowerPopup
+@onready var game_over: GameOver = $GameOver
 
 ## Set before the world enters the tree to start in this room. The command
 ## line (`-- --room=3`) and, on the web, `?room=3` fill it in when it is empty.
@@ -73,6 +74,7 @@ func _ready() -> void:
 	# Automatic camera interpolation would interpolate that pose a second time.
 	camera.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 	camera.make_current()
+	game_over.continued.connect(func() -> void: _respawn(true))
 	GameState.abilities_changed.connect(func() -> void: player.air_jumps = GameState.abilities.air_jumps)
 	GameState.upgrade_granted.connect(func(id: String) -> void:
 		if Upgrades.get_def(id).has("controls"):
@@ -290,7 +292,7 @@ func _commit_save(machine: SaveMachine) -> void:
 	current.recheck_exits(GameState.flags)
 	_autosave()
 	if not DevSession.isolated():
-		toast.show_text("Game saved")
+		toast.show_centred("Game Saved")
 
 
 ## Takes control from the player, and stops them where they are.
@@ -414,8 +416,11 @@ func _die() -> void:
 	timer.tween_interval(DEATH_TIME)
 	if auto_retry:
 		timer.finished.connect(func() -> void: DevSession.retry(self, true))
+	elif to_save:
+		# No pips left: the screen goes black and waits, and the key sends them to the save room.
+		timer.finished.connect(game_over.open)
 	else:
-		timer.finished.connect(_respawn.bind(to_save))
+		timer.finished.connect(_respawn.bind(false))
 
 
 func _respawn(to_save: bool) -> void:
@@ -432,6 +437,7 @@ func _respawn(to_save: bool) -> void:
 	_follow = true
 	_busy = false
 	if to_save:
+		game_over.reveal()
 		var machine := current.save_machine_holding(player.body_rect())
 		if machine != null:
 			_emerge(machine)

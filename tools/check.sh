@@ -19,6 +19,7 @@ map_test.gd
 cache_test.gd
 token_test.gd
 save_room_test.gd
+game_over_test.gd
 machine_test.gd
 imprint_test.gd
 imprint_play_test.gd
@@ -112,4 +113,4 @@ for suffix in (".pck", ".wasm", ".audio.worklet.js", ".audio.position.worklet.js
 print(f"web export ok ({tag})")
 PY
 
-echo "CHECK pass: 27 tests, uncached world validation, and web export"
+echo "CHECK pass: 28 tests, uncached world validation, and web export"

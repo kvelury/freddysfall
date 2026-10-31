@@ -25,6 +25,8 @@ func _run() -> void:
 	var player: Player = world.get_node("Player")
 	var tool: Node = world.get_node("Imprint")
 	player.scripted = true
+	# Dying with no pips waits at the Game Over screen; this test goes on without a key.
+	world.game_over.scripted = true
 	tool.scripted = true
 	var room: Room = world.current
 	var base := room.world_rects().size()

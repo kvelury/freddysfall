@@ -349,6 +349,7 @@ func _text() -> void:
 		layers[layer] = world.get_node(layer)
 	layers["Toast"].visible = true
 	world.toast.show_text("Game saved")
+	world.toast.show_centred("Game Saved")
 	await _frames(3)
 	var label: Label = layers["Toast"].get_child(0)
 	await _grab_ui("ui_toast", label.get_global_rect(), 0)
