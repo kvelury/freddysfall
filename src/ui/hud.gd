@@ -1,7 +1,7 @@
 class_name Hud
 extends CanvasLayer
 
-## The health and token bar, fixed in the top-left corner. A heart of three
+## The health and token bar, fixed in the top-left corner. A triangle of three
 ## slots fills with a white diamond for each token carried; a bar of pips grows
 ## one square for each health pip collected, and a pip is filled red while it is
 ## held. Outlines are red and empty slots are black, with nothing behind them.
@@ -12,17 +12,17 @@ extends CanvasLayer
 
 const RED := Color("d22b2b")
 ## An empty slot or pip is black inside its red outline. There is no plate:
-## only the heart and the bar are drawn.
+## only the triangle and the bar are drawn.
 const EMPTY := Color.BLACK
-## Where the heart's top-left sits, in 320 x 180 UI units: clear of a room's
+## Where the triangle's top-left sits, in 320 x 180 UI units: clear of a room's
 ## one-cell outer wall, since nothing is drawn behind the HUD.
 const ORIGIN := Vector2(14, 14)
-## Token slot centres in the heart, in the order they fill: left lobe, right
-## lobe, point.
-const SLOTS: Array[Vector2] = [Vector2(4, 4), Vector2(12, 4), Vector2(8, 8)]
-## The bar starts at the heart's right tip. A pip is a 7 x 7 square; neighbours
+## Token slot centres in the triangle, in the order they fill: top, bottom
+## left, bottom right.
+const SLOTS: Array[Vector2] = [Vector2(8, 4), Vector2(4, 8), Vector2(12, 8)]
+## The bar starts at the triangle's right tip, which sits on its middle row. A pip is a 7 x 7 square; neighbours
 ## share their 1-unit red border, so each pip adds PITCH.
-const BAR := Vector2(16, 0)
+const BAR := Vector2(16, 4)
 const PITCH := 8.0
 const BAR_HEIGHT := 9.0
 ## Pips per row before the bar wraps under itself. There is no pip cap, so the
@@ -224,10 +224,10 @@ func _fill_colour(key: String, held: bool) -> Color:
 
 
 func _draw_hud() -> void:
-	var heart := ORIGIN + (Vector2(0, -1) if _bump > 0.0 else Vector2.ZERO)
-	PixelArt.draw(_canvas, "hud_heart", heart, RED)
+	var triangle := ORIGIN + (Vector2(0, -1) if _bump > 0.0 else Vector2.ZERO)
+	PixelArt.draw(_canvas, "hud_triangle", triangle, RED)
 	for i in SLOTS.size():
-		PixelArt.draw(_canvas, "hud_slot", heart + SLOTS[i], _fill_colour("t%d" % i, i < shown_tokens))
+		PixelArt.draw(_canvas, "hud_slot", triangle + SLOTS[i], _fill_colour("t%d" % i, i < shown_tokens))
 	for i in shown_max:
 		_draw_pip(i, 1.0)
 	if _grow >= 0.0:
