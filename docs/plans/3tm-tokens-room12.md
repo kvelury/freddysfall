@@ -21,7 +21,7 @@ Decisions the user made when asked (don't reopen them):
 | --- | --- |
 | `data/rooms/9.txt` | Removed the `T = token id=r9_token` legend line and its `T` (row 2, col 24 is now `.`). |
 | `data/rooms/s3.txt` | Legend `T = token id=r9_token`. `T` at row 8, col 12, standing on the row 9 platform. **The id stays `r9_token`**, so saves still count it. |
-| `data/rooms/10.txt` | `T` moved from row 5, col 11 to row 34, col 30 (on the floor, bottom right). |
+| `data/rooms/10.txt` | `T` moved from row 5, col 11 to row 34, col 27 (on the floor, bottom right; it was col 30 first and the user moved it 3 cells left). |
 | `data/rooms/s2.txt` | Left wall rows 14–16 are now `X`. Legend `W = breakable id=s2_doorwall`, with `W` at col 3, rows 14–16. Solid `#` roof on row 13, cols 1–3, so nobody jumps over. Cols 1–2 stay clear for the 2-cell door push. |
 | `data/rooms/12.txt` | New. `trap: allowed`, 32×18, empty, with right-wall door rows 14–16. `P` at row 16, col 26. |
 | `data/world.json` | Added `{"id": "12", "grid_pos": [-2, 5]}`. |
