@@ -15,7 +15,7 @@ Nobody has played these yet. `?dev=1&room=s3`, `?dev=1&room=10`, `?dev=1&room=s2
 - [ ] **s3's token.** It sits on the middle platform (row 9). Take it on the way up to room 9, and the save machine still works with it there.
 - [ ] **Room 10's corner token.** Drop to room 10's floor, take the token in the bottom right corner, and ride lift 1 back up.
 - [ ] **Room 9's 3TM.** With room 8's, s3's and room 10's tokens it gives Tongue Lash, and room 9 has no token of its own any more.
-- [ ] **s2's walled door.** Without Tongue Lash the left door cannot be reached (no jumping over the roof). With it (F2), three lashes from the floor break the wall and the door leads to room 12. Coming back, the wall has grown back and is lashed again from the doorway.
+- [ ] **s2's walled door.** Without Tongue Lash the left door cannot be reached (no jumping over the roof). With it (F2), two lashes from the floor break the wall and the door leads to room 12. Coming back, the wall has grown back and is lashed again from the doorway.
 
 ## Room 7 step, room 9 floor door and s3
 
@@ -45,7 +45,7 @@ The new room from the user's drawings. Start `?dev=1&room=11`, and in F2 turn To
 - [ ] **`r11_lift`** rises to one cell under the ceiling spikes: does it feel fair, and is jumping off it at the top as dangerous as intended?
 - [ ] **`r11_slider`** over the floor spikes: its timing at 60 px/s, and getting on and off it.
 - [ ] **The pillar lift** above the pillar's top spikes: getting onto it from the slider, and its top, one column from the ceiling spikes.
-- [ ] **The door wall.** Lash the L by the left door (three hits) and walk out into room 7's exit 2.
+- [ ] **The door wall.** Lash the L by the left door (two hits) and walk out into room 7's exit 2.
 - [ ] **Without Tongue Lash.** From room 10's bottom left platform a double jump reaches the door back to room 9 (the user found this in play), so room 10's corner token gets back to room 9's 3TM.
 
 ## Tongue Lash and breakable walls
@@ -62,9 +62,9 @@ Nobody has played these yet. Headless tests prove the rules, not the feel. Use `
 - [ ] **The cracks.** A wall looks cracked and breakable from across a room. Each hit flashes it and adds cracks, and the third shatters it cell by cell.
 - [ ] **Standing on a wall.** An intact wall holds the player like any platform; once it breaks, they fall.
 - [ ] **A wall grows back.** Leave room 7 and come back, die and respawn in it, and retry from F2: the wall is whole each time.
-- [ ] **Room 7's pip.** Come in from room 11 (`?dev=1&room=11`), stand on the exit-2 ledge (the left two cells were removed), face left and lash the wall (three hits), then jump in for the pip. The roof is five rows higher than before, with the wall running floor to roof and the floor two rows lower than the original, flush with it. Walking off the ledge now drops past the box. The player cannot get in without the gun, by jumping or dropping.
+- [ ] **Room 7's pip.** Come in from room 11 (`?dev=1&room=11`), stand on the exit-2 ledge (the left two cells were removed), face left and lash the wall (two hits), then jump in for the pip. The roof is five rows higher than before, with the wall running floor to roof and the floor two rows lower than the original, flush with it. Walking off the ledge now drops past the box. The player cannot get in without the gun, by jumping or dropping.
 - [ ] **Room 9's 3TM** gives Tongue Lash with the "NEW POWER" popup, "Tongue Lash" and the row "Lash your tongue" (`?dev=1&room=9` with three tokens set in F2).
-- [ ] **F2.** Tongue Lash on/off, cooldown, speed and length apply and survive a retry and a named loadout. Wall strength (Player tab, below Classic Imprint): 1 breaks in one lash, 5 in five, takes effect at once, survives a retry, and End playtest resets it to 3.
+- [ ] **F2.** Tongue Lash on/off, cooldown, speed and length apply and survive a retry and a named loadout. Wall strength (Player tab, below Classic Imprint): 1 breaks in one lash, 5 in five, takes effect at once, survives a retry, and End playtest resets it to 2.
 - [ ] **The solver agrees.** `tools/validate.sh` lists room 7's pip as needing Tongue Lash (via room 9's 3TM and its tokens) and passes. Nobody has played the whole route to the pip without dev tools.
 - [ ] **Nothing odd:** lashing during a door slide, the map, the F2 panel or a save does nothing, and the tongue does not follow you into the next room.
 

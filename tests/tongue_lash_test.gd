@@ -3,7 +3,7 @@ extends SceneTree
 ## Tongue Lash and breakable walls. In room 7, the walls around the health pip:
 ## no lash before Tongue Lash is found, the tongue goes the way the player faces
 ## from the mouth at the set speed as far as the set length, comes back in, the
-## cooldown limits the rate, a wall takes three hits (or the dev test's number),
+## cooldown limits the rate, a wall takes two hits (or the dev test's number),
 ## breaking it stops it colliding, and it is back when the room is built again. A string room checks that a player stands on an intact
 ## wall and not on a broken one. Space lashes and does not jump.
 
@@ -68,11 +68,9 @@ func _run() -> void:
 	ok = _check(_damage(room) == 1 and not room.info.broken.has(WALL), "the lash cracked the wall once (%d hits)" % _damage(room)) and ok
 	ok = _check(room.wall_at(Rect2(room.position + Grid.cell_to_world(Vector2i(20, 32)) + Vector2(2, 2), Vector2(2, 2))) != null, "while it stands, the wall is there to hit") and ok
 
-	# Lashed again after each cooldown: the third hit breaks it.
+	# Lashed again after the cooldown: the second hit breaks it.
 	await _lash_again(tongue)
-	ok = _check(_damage(room) == 2 and not room.info.broken.has(WALL), "a second hit cracks it more, and it holds (%d hits)" % _damage(room)) and ok
-	await _lash_again(tongue)
-	ok = _check(room.info.broken.has(WALL) and room.wall_at(Rect2(room.position + Grid.cell_to_world(Vector2i(20, 32)) + Vector2(2, 2), Vector2(2, 2))) == null, "the third hit breaks the whole wall") and ok
+	ok = _check(room.info.broken.has(WALL) and room.wall_at(Rect2(room.position + Grid.cell_to_world(Vector2i(20, 32)) + Vector2(2, 2), Vector2(2, 2))) == null, "the second hit breaks the whole wall") and ok
 	ok = _check(player.solids.size() == rects_before - 15, "and the player stops colliding with its fifteen cells (%d to %d)" % [rects_before, player.solids.size()]) and ok
 
 	# Out of reach: the tongue goes as far as its length and no further, and breaks nothing.
@@ -113,15 +111,15 @@ func _run() -> void:
 	player.facing = -1
 	await physics_frame
 	dev.mode = dev.Mode.DEV_TEST
-	ok = _check(dev.wall_strength() == 3, "the default wall strength is 3") and ok
-	ok = _check(dev.set_wall_strength(world, 0) != "" and dev.set_wall_strength(world, 100) != "" and dev.wall_strength() == 3, "a strength of 0 or 100 is refused") and ok
+	ok = _check(dev.wall_strength() == 2, "the default wall strength is 2") and ok
+	ok = _check(dev.set_wall_strength(world, 0) != "" and dev.set_wall_strength(world, 100) != "" and dev.wall_strength() == 2, "a strength of 0 or 100 is refused") and ok
 	ok = _check(dev.set_wall_strength(world, 1) == "" and dev.wall_strength() == 1, "a dev test can set it to 1") and ok
 	tongue.cooldown_left = 0.0
 	tongue.lash()
 	await _wait(tongue, 60)
 	ok = _check(room.info.broken.has(WALL), "and then one lash breaks the wall") and ok
 	dev.mode = dev.Mode.NORMAL
-	ok = _check(dev.wall_strength() == 3, "outside a dev test the strength is always 3") and ok
+	ok = _check(dev.wall_strength() == 2, "outside a dev test the strength is always 2") and ok
 	dev.wall_strength_override = 0
 
 	# Nothing lashes while the world is busy or input is blocked, and a busy world pulls it in.

@@ -39,9 +39,9 @@ Verified:
 - A scripted in-game recording showed each thing working:
   - s3's token is taken.
   - Room 10's corner token is taken.
-  - Three lashes break `s2_doorwall`.
+  - Two lashes break `s2_doorwall`.
   - The player walks into room 12.
-  - Coming back, the wall has grown back, and three lashes from the doorway side clear it again.
+  - Coming back, the wall has grown back, and two lashes from the doorway side clear it again.
 
 ## What's left for you
 

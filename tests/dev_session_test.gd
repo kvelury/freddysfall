@@ -128,7 +128,7 @@ func _run() -> void:
 	state.map_zoom = 2
 	_check(session.set_classic_imprint(_world, true).is_empty(), "turn Classic Imprint on before a retry")
 	_check(session.set_token_marks(_world, true).is_empty(), "and the token marks")
-	_check(session.wall_strength() == 3 and session.set_wall_strength(_world, 5).is_empty() and session.wall_strength() == 5, "wall strength starts at 3 and a dev test can set it")
+	_check(session.wall_strength() == 2 and session.set_wall_strength(_world, 5).is_empty() and session.wall_strength() == 5, "wall strength starts at 2 and a dev test can set it")
 	_check(not state.to_dict().has("wall_strength") and not session.loadout.has("wall_strength"), "it is in no save or loadout")
 	_check(session.retry(_world).is_empty(), "retry after travelling across rooms")
 	await _replacement()
@@ -165,7 +165,7 @@ func _run() -> void:
 	_check(session.end(_world).is_empty(), "end isolated playtest")
 	await _replacement()
 	_check(not session.classic_imprint and not session.classic_imprint_active(), "ending the playtest resets Classic Imprint")
-	_check(session.wall_strength() == 3 and session.wall_strength_override == 0, "and the wall strength")
+	_check(session.wall_strength() == 2 and session.wall_strength_override == 0, "and the wall strength")
 	_check(not session.token_marks and _world.player._visual.shown_tokens() == 0, "and the token marks")
 	_check(not session.isolated() and state.health == 7 and state.abilities.imprint_width == 4 and _world.current.info.id == "7", "ending restores normal saved progression")
 	_check(FileAccess.get_file_as_string(TEMP) == original, "ending does not save test state")

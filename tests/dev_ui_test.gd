@@ -144,7 +144,7 @@ func _run() -> void:
 				if ch.unicode_at(0) > 126:
 					odd.append("%s in '%s'" % [ch, node.text])
 	_check(odd.is_empty(), "every button and label in the dev panel is in the pixel font's ASCII (%s)" % [odd])
-	_check(panel._wall != null and panel._wall.text == "3", "the wall strength field is on the Player tab, at 3")
+	_check(panel._wall != null and panel._wall.text == "2", "the wall strength field is on the Player tab, at 2")
 	panel._wall.text_submitted.emit("4")
 	_check(session.wall_strength() == 4 and panel._wall.text == "4", "typing a number sets the strength")
 	panel._wall.text_submitted.emit("0")
