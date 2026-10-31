@@ -114,8 +114,8 @@ Start `?dev=1&room=6` with Imprint on in F2 (or later rooms directly with `room=
 Nobody has played this yet. `?dev=1&room=2` (a token) or `?dev=1&room=7` (the pip; use F2 to give Tongue Lash), F2 to set tokens and pips.
 
 - [ ] **It stays put.** Top left, over every room, during door slides, deaths, a save, a 3TM feed and a title card; under the map, the pause menu and the dev panel. It reads over black space, and does not sit on a room's outer wall.
-- [ ] **Tokens.** Taking one sends it flying from where it was to the heart: left lobe, right lobe, then the point. The slot flashes red and fills white as it lands, and the heart jumps a pixel. With three, the next token stays in the room and nothing flies. Feeding a 3TM empties the slots from the point back, a blink each.
-- [ ] **Pips.** The first pip adds a square at the heart's tip; each next one grows the bar a square, then flashes white and fills red, and full pips are still told apart. A death empties the rightmost full pip with a blink; entering a save room (s1, s2, s3) fills the empty ones left to right. Dying inside a save room does not.
+- [ ] **Tokens.** Taking one sends it flying from where it was to the triangle: top, bottom left, then bottom right. The slot flashes red and fills white as it lands, and the triangle jumps a pixel. With three, the next token stays in the room and nothing flies. Feeding a 3TM empties the slots from the bottom right back, a blink each.
+- [ ] **Pips.** The first pip adds a square at the triangle's right tip; each next one grows the bar a square, then flashes white and fills red, and full pips are still told apart. A death empties the rightmost full pip with a blink; entering a save room (s1, s2, s3) fills the empty ones left to right. Dying inside a save room does not.
 - [ ] **Nothing fades and nothing is between pixels**, at 1280×720 and fullscreen. The flight is quick and reads as going *into* the HUD.
 - [ ] **A reload, a retry or End playtest** shows the right counts at once with nothing flying.
 
