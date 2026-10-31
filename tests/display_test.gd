@@ -77,7 +77,7 @@ func _snapping() -> void:
 
 
 func _pictures() -> void:
-	var counts := {"spikes_up": 34, "spikes_down": 34, "spikes_left": 34, "spikes_right": 34, "token": 32, "flying_token": 72, "slot": 16, "hud_heart": 38, "hud_slot": 25}
+	var counts := {"spikes_up": 34, "spikes_down": 34, "spikes_left": 34, "spikes_right": 34, "token": 32, "flying_token": 72, "slot": 16, "hud_triangle": 38, "hud_slot": 25}
 	_check(PixelShapes.SHAPES.size() == counts.size(), "every shape that was a polygon has a picture")
 	for name in counts:
 		var shape: Dictionary = PixelShapes.SHAPES[name]
