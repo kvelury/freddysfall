@@ -33,7 +33,7 @@ func _run() -> void:
 	_layout(hud)
 
 	_check(hud.layer == 9 and hud.scale == Vector2.ONE * float(Display.RENDER_SCALE), "the HUD is a UI layer under the map, drawn at the render scale")
-	_check(hud.shown_tokens == 0 and hud.shown_max == 0 and not hud.busy(), "a new game shows an empty heart and no bar")
+	_check(hud.shown_tokens == 0 and hud.shown_max == 0 and not hud.busy(), "a new game shows an empty triangle and no bar")
 	_check(hud.to_ui(world.camera.position) == Vector2(160, 90), "the camera's centre is the middle of the UI (%s)" % hud.to_ui(world.camera.position))
 
 	# A token flies in, and only counts when it lands.
@@ -123,15 +123,17 @@ func _run() -> void:
 
 func _layout(hud: Node) -> void:
 	var H: GDScript = hud.get_script()
-	_check(hud.pip_rect(0) == Rect2(H.ORIGIN + H.BAR + Vector2.ONE, Vector2(7, 7)), "the first pip starts at the heart's right tip")
+	_check(hud.pip_rect(0) == Rect2(H.ORIGIN + H.BAR + Vector2.ONE, Vector2(7, 7)), "the first pip starts at the triangle's right tip")
 	_check(hud.pip_rect(1).position.x - hud.pip_rect(0).position.x == 8.0, "pips share their borders")
 	_check(hud.pip_rect(H.WRAP).position == hud.pip_rect(0).position + Vector2(0, 8), "the bar wraps under itself")
-	_check(hud.bounds(0) == Rect2(H.ORIGIN, Vector2(17, 13)), "with no pips the HUD is only the heart")
+	_check(hud.bounds(0) == Rect2(H.ORIGIN, Vector2(17, 13)), "with no pips the HUD is only the triangle")
 	_check(hud.bounds(4).end.x == H.ORIGIN.x + H.BAR.x + 33.0, "four pips are 33 units long")
 	_check(hud.bounds(100).end.x < 320.0 and hud.bounds(100).end.y < 180.0, "a long bar stays on the screen")
 	_check(hud._fill_colour("t0", true) == Color.WHITE and hud._fill_colour("p0", true) == H.RED, "a token fills white and a full pip red")
 	_check(hud._fill_colour("t0", false) == Color.BLACK and hud._fill_colour("p0", false) == Color.BLACK, "an empty slot or pip is black")
-	_check(hud.slot_centre(0).x < hud.slot_centre(1).x and hud.slot_centre(2).y > hud.slot_centre(0).y, "tokens fill the left lobe, the right lobe, then the point")
+	_check(hud.slot_centre(0).y < hud.slot_centre(1).y and hud.slot_centre(1).y == hud.slot_centre(2).y \
+			and hud.slot_centre(1).x < hud.slot_centre(0).x and hud.slot_centre(0).x < hud.slot_centre(2).x,
+			"tokens fill the top, the bottom left, then the bottom right")
 
 
 func _settle(hud: Node) -> void:
