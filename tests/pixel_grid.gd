@@ -382,7 +382,7 @@ func _text() -> void:
 ## The health and token HUD in fixed states, saved as UI frames.
 func _hud() -> void:
 	var state: Node = root.get_node("GameState")
-	var cases := {"empty": [0, 0, 0], "one_pip": [0, 1, 1], "hit_once": [2, 4, 3], "full": [3, 6, 6]}
+	var cases := {"empty": [0, 1, 1], "full": [3, 3, 3], "hit_once": [1, 4, 2], "wrapped": [2, 32, 20]}
 	for name in cases:
 		await _start("7")
 		var hud: Node = world.get_node("Hud")

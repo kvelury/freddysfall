@@ -122,17 +122,29 @@ func _file() -> bool:
 
 	# The save room and the health come back, and a damaged value cannot hurt.
 	state.reset()
-	ok = _check(state.save_room == "" and state.health == 0, "a new game has no save room and no health") and ok
+	ok = _check(state.save_room == "" and state.health == 1 and state.max_health == 1, "a new game has no save room and the base heart") and ok
 	state.save_room = "s1"
 	state.health = 3
+	state.max_health = 3
 	save.write("s1", Vector2(165, 85))
 	state.reset()
-	ok = _check(state.save_room == "" and state.health == 0, "resetting forgets them") and ok
+	ok = _check(state.save_room == "" and state.health == 1, "resetting forgets them") and ok
 	where = save.load_game()
 	ok = _check(state.save_room == "s1" and state.health == 3 and where.get("room") == "s1", "a save keeps the save room and the health (%s, %d)" % [state.save_room, state.health]) and ok
 	_write('{"version": 3, "room": "s1", "position": [10, 10], "save_room": 5, "health": -4}')
 	save.load_game()
-	ok = _check(state.save_room == "" and state.health == 0, "a save room that is not text, or health below zero, is dropped (%s, %d)" % [state.save_room, state.health]) and ok
+	ok = _check(state.save_room == "" and state.health == 1, "a save room that is not text, or health below zero, is dropped (%s, %d)" % [state.save_room, state.health]) and ok
+
+	# Saves from before the base heart count pips only, so they gain one heart.
+	state.load_dict({"health": 2, "max_health": 3})
+	ok = _check(state.health == 3 and state.max_health == 4, "an old save gains the base heart (%d/%d)" % [state.health, state.max_health]) and ok
+	state.load_dict({})
+	ok = _check(state.health == 1 and state.max_health == 1, "an empty save is a new game (%d/%d)" % [state.health, state.max_health]) and ok
+	state.health = 2
+	state.max_health = 4
+	var round_trip: Dictionary = state.to_dict()
+	state.load_dict(round_trip)
+	ok = _check(round_trip["health_base"] == 1 and state.health == 2 and state.max_health == 4, "a new save round-trips unshifted (%d/%d)" % [state.health, state.max_health]) and ok
 
 	# A game from before room 1 became the save room s1 carries over.
 	_write('{"version": 2, "room": "1", "position": [10, 10], "visited": ["1", "2"], "flags": ["token:r2_token"]}')
@@ -157,7 +169,7 @@ func _file() -> bool:
 
 	_write('{"version": 3, "room": "s2", "position": [165, 165], "save_room": "s2", "health": 2, "abilities": {"imprint_unlocked": true}, "visited": ["7", "8", "s2"]}')
 	where = save.load_game()
-	ok = _check(where.get("room") == "s2" and state.save_room == "s2" and state.health == 2 and state.abilities.imprint_unlocked and state.visited.has("8"), "a pre-merge save with room 8 visited still resumes at s2 with progression") and ok
+	ok = _check(where.get("room") == "s2" and state.save_room == "s2" and state.health == 3 and state.abilities.imprint_unlocked and state.visited.has("8"), "a pre-merge save with room 8 visited still resumes at s2 with progression") and ok
 
 	_write("this is not json")
 	ok = _check(save.load_game().is_empty() and FileAccess.file_exists(TEMP + ".bad") and not FileAccess.file_exists(TEMP), "a damaged file is set aside as .bad and the game starts fresh") and ok

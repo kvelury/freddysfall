@@ -5,7 +5,7 @@ extends SceneTree
 ## middle, it closes and spins, the game saves, a line says so, the door opens,
 ## and it pops them out on the far side in about 1.2 s. It works once each
 ## time the room is entered, and stays shut after. Put back inside it (by a
-## reload, or by dying with no health) it spins as it does for a save, and the
+## reload, or by dying on the last heart) it spins as it does for a save, and the
 ## player is popped out to the right without a save. Dying with a pip spends it and keeps today's safe-floor
 ## respawn; with no save room entered yet, death goes to the start room.
 
@@ -109,7 +109,7 @@ func _run() -> void:
 	room = world.current
 	machine = _machine(room)
 	await _frames(12)
-	ok = _check(room.info.id == "s1", "dying with no health sends the player to the save room (%s)" % room.info.id) and ok
+	ok = _check(room.info.id == "s1", "dying on the last heart sends the player to the save room (%s)" % room.info.id) and ok
 	ok = _check(player.global_position.distance_to(machine.global_position + Vector2(20, 0)) < 1.0, "popped out to the right of the machine (%s)" % player.global_position) and ok
 	ok = _check(machine.used and machine.openness == 0.0 and not room.locked, "which has been used already, so it stays shut and the door open") and ok
 	ok = _check(not FileAccess.file_exists(TEMP), "and nothing was saved again") and ok
@@ -122,10 +122,11 @@ func _run() -> void:
 	ok = _check(wait == 0, "and walking back through its zone does nothing") and ok
 
 	# Dying with a pip spends it and comes back on safe floor.
-	state.health = 1
+	state.health = 2
+	state.max_health = 3
 	world.warp_to("5")
 	ok = await _die_in_5(world, player) and ok
-	ok = _check(world.current.info.id == "5" and state.health == 0, "dying with a pip spends it and stays in the room (%s, %d health)" % [world.current.info.id, state.health]) and ok
+	ok = _check(world.current.info.id == "5" and state.health == 1, "dying with a spare heart spends it and stays in the room (%s, %d health)" % [world.current.info.id, state.health]) and ok
 
 	# No save room entered yet: the start room's start.
 	state.reset()

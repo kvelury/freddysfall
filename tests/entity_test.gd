@@ -311,9 +311,9 @@ func _health() -> bool:
 	var state: Node = root.get_node("GameState")
 	state.reset()
 	state.take_health(def)
-	ok = _check(state.health == 1 and state.has_flag("health:h1"), "taking it adds one pip, and the HUD shows it with no line") and ok
+	ok = _check(state.health == 2 and state.has_flag("health:h1"), "taking it adds a heart, and the HUD shows it with no line") and ok
 	state.take_health(def)
-	ok = _check(state.health == 2 and state.max_health == 2, "pips add up, and so does the bar") and ok
+	ok = _check(state.health == 3 and state.max_health == 3, "pips add up, and so does the frame") and ok
 	state.reset()
 	return ok
 

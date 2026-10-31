@@ -46,7 +46,7 @@ const EDGE := [Vector2.LEFT, Vector2.RIGHT, Vector2.UP, Vector2.DOWN]
 
 ## What the HUD shows now. They catch up with GameState through the animations.
 var shown_tokens := 0
-var shown_max := GameState.BASE_HEALTH
+var shown_max := 1
 var shown_health := 0
 ## Pickups on their way: {"kind": &"token" or &"pip", "from", "to", "age"}.
 var flights: Array[Dictionary] = []

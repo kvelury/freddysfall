@@ -33,7 +33,7 @@ func _run() -> void:
 	_layout(hud)
 
 	_check(hud.layer == 9 and hud.scale == Vector2.ONE * float(Display.RENDER_SCALE), "the HUD is a UI layer under the map, drawn at the render scale")
-	_check(hud.shown_tokens == 0 and hud.shown_max == 0 and not hud.busy(), "a new game shows an empty triangle and no bar")
+	_check(hud.shown_tokens == 0 and hud.shown_max == 1 and hud.shown_health == 1 and not hud.busy(), "a new game shows no diamonds and one full heart")
 	_check(hud.to_ui(world.camera.position) == Vector2(160, 90), "the camera's centre is the middle of the UI (%s)" % hud.to_ui(world.camera.position))
 
 	# A token flies in, and only counts when it lands.
@@ -43,11 +43,11 @@ func _run() -> void:
 	var token_at := token.position
 	world._collect(token)
 	_check(state.tokens == 1 and hud.flights.size() == 1, "taking a token starts one flight")
-	_check(hud.flights[0]["from"] == from and hud.flights[0]["to"] == hud.slot_centre(0), "it flies from the token to the first slot")
+	_check(hud.flights[0]["from"] == from and hud.flights[0]["to"] == hud.slot_centre(0), "it flies from the token to the first diamond")
 	await process_frame
-	_check(hud.shown_tokens == 0, "the slot stays empty while it flies")
+	_check(hud.shown_tokens == 0, "no diamond appears while it flies")
 	await _settle(hud)
-	_check(hud.shown_tokens == 1 and hud.flights.is_empty(), "it fills the slot when it lands")
+	_check(hud.shown_tokens == 1 and hud.flights.is_empty(), "the diamond appears when it lands")
 
 	# A full pocket leaves the token, so nothing flies.
 	state.tokens = state.TOKEN_CAP
@@ -63,24 +63,24 @@ func _run() -> void:
 	# Spending tokens empties slots from the last one.
 	state.spend_token()
 	await process_frame
-	_check(hud.shown_tokens == 2 and hud._effects.has("t2"), "a spent token empties the point slot with a blink")
+	_check(hud.shown_tokens == 2 and hud._effects.has("t2"), "a spent token blinks its diamond out")
 	await _settle(hud)
 
-	# A health pip flies to the end of the bar, which grows to take it.
+	# A health pip flies to a new heart at the end of the frame, which grows to take it.
 	world.warp_to("7")
 	await process_frame
 	var pip: Node2D = _things(world.current, "HealthPip")[0]
 	world._collect(pip)
-	_check(state.max_health == 1 and state.health == 1, "a pip makes the bar one long and full")
-	_check(hud.flights.size() == 1 and hud.flights[0]["kind"] == &"pip" and hud.flights[0]["to"] == hud.pip_centre(0), "it flies to the first pip")
-	_check(hud.shown_max == 0, "the bar waits for it")
+	_check(state.max_health == 2 and state.health == 2, "a pip makes the frame two hearts and full")
+	_check(hud.flights.size() == 1 and hud.flights[0]["kind"] == &"pip" and hud.flights[0]["to"] == hud.pip_centre(1), "it flies to the new heart")
+	_check(hud.shown_max == 1, "the frame waits for it")
 	var grew := false
 	for i in 2000:
 		await process_frame
 		grew = grew or hud._grow >= 0.0
 		if not hud.busy():
 			break
-	_check(grew and hud.shown_max == 1 and hud.shown_health == 1, "the bar grows a square and it fills")
+	_check(grew and hud.shown_max == 2 and hud.shown_health == 2, "the frame grows a heart and it fills")
 
 	# A death empties a pip; the bar keeps its length.
 	state.max_health = 4
@@ -108,13 +108,13 @@ func _run() -> void:
 	await _settle(hud)
 	_check(hud.shown_health == 4, "until the bar is full")
 
-	# Loads and dev edits keep the length at least the pips held.
+	# Loads and dev edits keep the length at least the hearts held.
 	state.load_dict({"health": 3})
-	_check(state.max_health == 3, "an old save without a bar length gets one as long as its pips")
-	state.load_dict({"health": 2, "max_health": 5})
+	_check(state.max_health == 4 and state.health == 4, "an old save without a base heart gets one, full")
+	state.load_dict({"health_base": 1, "health": 2, "max_health": 5})
 	_check(state.max_health == 5 and state.health == 2, "a save keeps its length and its fill")
 	state.set_loadout({"abilities": state.abilities.to_dict(), "tokens": 0, "health": 6, "max_health": 2})
-	_check(state.max_health == 6, "a loadout with more pips than its bar lengthens it")
+	_check(state.max_health == 6, "a loadout with more hearts than its frame lengthens it")
 
 	world.free()
 	print("HUD pass" if ok else "HUD fail")
@@ -123,17 +123,18 @@ func _run() -> void:
 
 func _layout(hud: Node) -> void:
 	var H: GDScript = hud.get_script()
-	_check(hud.pip_rect(0) == Rect2(H.ORIGIN + H.BAR + Vector2.ONE, Vector2(7, 7)), "the first pip starts at the triangle's right tip")
-	_check(hud.pip_rect(1).position.x - hud.pip_rect(0).position.x == 8.0, "pips share their borders")
-	_check(hud.pip_rect(H.WRAP).position == hud.pip_rect(0).position + Vector2(0, 8), "the bar wraps under itself")
-	_check(hud.bounds(0) == Rect2(H.ORIGIN, Vector2(17, 13)), "with no pips the HUD is only the triangle")
-	_check(hud.bounds(4).end.x == H.ORIGIN.x + H.BAR.x + 33.0, "four pips are 33 units long")
-	_check(hud.bounds(100).end.x < 320.0 and hud.bounds(100).end.y < 180.0, "a long bar stays on the screen")
-	_check(hud._fill_colour("t0", true) == Color.WHITE and hud._fill_colour("p0", true) == H.RED, "a token fills white and a full pip red")
-	_check(hud._fill_colour("t0", false) == Color.BLACK and hud._fill_colour("p0", false) == Color.BLACK, "an empty slot or pip is black")
-	_check(hud.slot_centre(0).y < hud.slot_centre(1).y and hud.slot_centre(1).y == hud.slot_centre(2).y \
-			and hud.slot_centre(1).x < hud.slot_centre(0).x and hud.slot_centre(0).x < hud.slot_centre(2).x,
-			"tokens fill the top, the bottom left, then the bottom right")
+	var left: Vector2 = H.ORIGIN + H.COLUMN
+	_check(hud.pip_rect(0) == Rect2(left + Vector2(H.HEART_GAP, -3), Vector2(7, 6)), "the first heart starts a gap right of the frame's left point")
+	_check(hud.pip_rect(1).position.x - hud.pip_rect(0).position.x == 9.0, "hearts are 9 units apart")
+	_check(hud.pip_rect(H.WRAP).position == hud.pip_rect(0).position + Vector2(0, H.ROW_STEP), "the frame wraps under itself")
+	_check(hud.slot_centre(0) == left, "the top diamond sits over the frame's left point")
+	_check(hud.slot_centre(1) - hud.slot_centre(0) == Vector2(0, 8), "diamonds step down, touching tip to tip")
+	_check(hud.bounds(0) == hud.bounds(1) and hud.bounds(0).size.y >= 25.0, "the bounds cover the diamond column with no hearts or tokens")
+	_check(hud.bounds(4).end.x == H.ORIGIN.x + H.COLUMN.x + 9.0 * 4 + H.HEART_GAP + H.POINT + 1.0, "four hearts make the frame 9 units longer each")
+	_check(hud.bounds(100).end.x < 320.0 and hud.bounds(100).end.y < 180.0, "a long frame stays on the screen")
+	_check(hud._fill_colour("t0", true) == Color.WHITE and hud._fill_colour("p0", true) == H.RED, "a token fills white and a full heart red")
+	_check(hud._fill_colour("p0", false) == Color.BLACK, "an empty heart is black inside")
+	_check(hud.shown_tokens == 0 and hud.slot_centre(2).y > hud.slot_centre(1).y and hud.slot_centre(1).y > hud.slot_centre(0).y, "with no token held nothing is drawn, and diamonds fill top first, going down")
 
 
 func _settle(hud: Node) -> void:
