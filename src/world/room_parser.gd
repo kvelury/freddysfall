@@ -326,8 +326,9 @@ static func _check_platform_doors(info: RoomInfo, errors: Array[String]) -> void
 				break
 
 
-## A save room has exactly one save machine and nothing else (no pickup, token,
-## 3TM or spikes, though platforms are fine), and no other room has a machine.
+## A save room has exactly one save machine and nothing else but tokens,
+## breakable walls and still platforms (no pickup, health pip, 3TM, spikes or
+## moving platform), and no other room has a machine.
 static func _check_save_things(info: RoomInfo, errors: Array[String]) -> void:
 	var saves := info.entities.filter(func(def: EntityDef) -> bool: return def.type == "save").size()
 	if info.is_save_room() and saves != 1:
@@ -335,13 +336,14 @@ static func _check_save_things(info: RoomInfo, errors: Array[String]) -> void:
 	elif not info.is_save_room() and saves > 0:
 		errors.append("Room %s has a save machine, but only a room whose id is s and a number (like s1) can be a save room" % info.id)
 	if info.is_save_room() and saves == 1:
-		var others := info.entities.size() - saves - info.platforms.size()
+		var allowed := ["save", "token", "breakable", "platform"]
+		var others := info.entities.filter(func(def: EntityDef) -> bool: return not allowed.has(def.type)).size()
 		if others > 0:
-			errors.append("Room %s is a save room, and a save room holds nothing but its save machine and platforms, but its legend has %d other thing(s)" % [info.id, others])
+			errors.append("Room %s is a save room, and a save room holds nothing but its save machine, tokens, breakable walls and platforms, but its legend has %d other thing(s)" % [info.id, others])
 		if not info.platforms.is_empty():
 			errors.append("Room %s is a save room, and a save room's platforms stand still, but it has a moving platform (%s)" % [info.id, info.platforms[0].id])
 		if not info.hazards.is_empty():
-			errors.append("Room %s is a save room, and a save room holds nothing but its save machine and platforms, but it has spikes" % info.id)
+			errors.append("Room %s is a save room, and a save room holds nothing but its save machine, tokens, breakable walls and platforms, but it has spikes" % info.id)
 
 
 ## A save machine pops the player out onto the floor on either side of it, so

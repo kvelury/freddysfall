@@ -161,7 +161,13 @@ func _save_rooms() -> bool:
 	ok = _check(_has(errors, "save machine s2_save") and _has(errors, "open air") and _has(errors, "cell 7,15"), "a wall in the zone, beside the 3 x 3 the machine fills, is an error (%s)" % [errors]) and ok
 	errors.clear()
 	RoomParser.parse_room("s2", Vector2i.ZERO, _room(["legend:", "  S = save id=s2_save", "  T = token id=s2_token"], {Vector2i(5, 16): "S", Vector2i(20, 16): "T"}), errors)
-	ok = _check(_has(errors, "holds nothing but its save machine") and _has(errors, "1 other thing"), "a save room with a token in it is an error (%s)" % [errors]) and ok
+	ok = _check(errors.is_empty(), "a save room may hold a token (%s)" % [errors]) and ok
+	errors.clear()
+	RoomParser.parse_room("s2", Vector2i.ZERO, _room(["legend:", "  S = save id=s2_save", "  U = pickup id=s2_pickup upgrade=imprint"], {Vector2i(5, 16): "S", Vector2i(20, 16): "U"}), errors)
+	ok = _check(_has(errors, "holds nothing but its save machine") and _has(errors, "1 other thing"), "a save room with a pickup in it is an error (%s)" % [errors]) and ok
+	errors.clear()
+	RoomParser.parse_room("s2", Vector2i.ZERO, _room(["legend:", "  S = save id=s2_save", "  H = health id=s2_health"], {Vector2i(5, 16): "S", Vector2i(20, 16): "H"}), errors)
+	ok = _check(_has(errors, "holds nothing but its save machine") and _has(errors, "1 other thing"), "a save room with a health pip in it is an error (%s)" % [errors]) and ok
 	errors.clear()
 	RoomParser.parse_room("s2", Vector2i.ZERO, _room(legend, {Vector2i(5, 16): "S", Vector2i(20, 16): "^"}), errors)
 	ok = _check(_has(errors, "holds nothing but its save machine") and _has(errors, "spikes"), "and so is one with spikes (%s)" % [errors]) and ok
@@ -387,8 +393,8 @@ func _breakable() -> bool:
 	ok = _check(_has(errors, "does not use"), "and takes no other setting yet %s" % [errors]) and ok
 
 	errors = []
-	RoomParser.parse_room("s1", Vector2i.ZERO, _room(["legend:", "  B = breakable id=w1", "  S = save id=s1_save"], {Vector2i(10, 5): "B", Vector2i(16, 15): "S"}), errors)
-	ok = _check(_has(errors, "holds nothing but"), "a save room cannot hold one %s" % [errors]) and ok
+	RoomParser.parse_room("s1", Vector2i.ZERO, _room(["legend:", "  B = breakable id=w1", "  S = save id=s1_save"], {Vector2i(10, 5): "B", Vector2i(16, 16): "S"}), errors)
+	ok = _check(errors.is_empty(), "a save room may hold one %s" % [errors]) and ok
 
 	errors = []
 	var pickups := RoomParser.parse_room("7", Vector2i.ZERO, _room(["exits: pickups", "legend:", "  B = breakable id=w1"], {Vector2i(10, 5): "B"}), errors)
