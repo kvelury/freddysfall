@@ -104,27 +104,46 @@ const SHAPES := {
 			"...##...",
 		],
 	},
-	# The HUD's triangle: three token slots, one on top and two below, outlined as
-	# one (UI units, top-left at the anchor). Slot centres are Hud.SLOTS.
-	"hud_triangle": {
+	# The HUD's hearts (UI units, top-left at the anchor): a full one and the
+	# same outline hollow.
+	"hud_heart": {
 		"offset": Vector2i(0, 0),
 		"rows": [
-			"........#........",
-			".......#.#.......",
-			"......#...#......",
-			".....#.....#.....",
-			"....#.......#....",
-			"...#.#.....#.#...",
-			"..#...#...#...#..",
-			".#.....#.#.....#.",
-			"#.......#.......#",
-			".#.....#.#.....#.",
-			"..#...#...#...#..",
-			"...#.#.....#.#...",
-			"....#.......#....",
+			".##.##.",
+			"#######",
+			"#######",
+			".#####.",
+			"..###..",
+			"...#...",
 		],
 	},
-	# The inside of one triangle slot, centred on the anchor.
+	"hud_heart_empty": {
+		"offset": Vector2i(0, 0),
+		"rows": [
+			".##.##.",
+			"#..#..#",
+			"#.....#",
+			".#...#.",
+			"..#.#..",
+			"...#...",
+		],
+	},
+	# A held token's outline, centred on the anchor. Its inside is hud_slot.
+	"hud_diamond": {
+		"offset": Vector2i(-4, -4),
+		"rows": [
+			"....#....",
+			"...#.#...",
+			"..#...#..",
+			".#.....#.",
+			"#.......#",
+			".#.....#.",
+			"..#...#..",
+			"...#.#...",
+			"....#....",
+		],
+	},
+	# The inside of a token diamond, centred on the anchor.
 	"hud_slot": {
 		"offset": Vector2i(-3, -3),
 		"rows": [

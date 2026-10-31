@@ -255,7 +255,7 @@ func _save_at(machine: SaveMachine) -> void:
 	await _pop(machine, side)
 
 
-## A player put back inside a save machine, by dying with no health or by a
+## A player put back inside a save machine, by dying on the last heart or by a
 ## reload: it is shut round them, spins as it does for a save, and opens to pop
 ## them out on the right. If it was never used it saves first, as it does when
 ## walked into.
@@ -366,7 +366,7 @@ func _autosave() -> void:
 	Save.write(point["room"], point["position"])
 
 
-## Where the player comes back with no health left, and where a reloaded game
+## Where the player comes back on the last heart, and where a reloaded game
 ## starts: the machine of the save room they last entered, or else the start
 ## room's start. Returns {"room": id, "position": room pixels}.
 func _resume_point() -> Dictionary:
@@ -392,15 +392,15 @@ func _record_safe(room_id: String, at: Vector2) -> void:
 
 
 func _die() -> void:
-	# With health, a pip is spent and the player comes back on the last safe
-	# floor. With none they go back to their save room.
+	# A heart is spent. With another left the player comes back on the last safe
+	# floor. On the last heart it blinks out and they go back to their save room.
 	var auto_retry := DevSession.mode == DevSession.Mode.DEV_TEST and DevSession.retry_on_death
-	var to_save := GameState.health <= 0
-	if not to_save and not auto_retry:
+	var to_save := GameState.health <= 1
+	if not auto_retry:
 		GameState.spend_health()
 		# Dying again without having stood anywhere since the last respawn
 		# means that spot was no good. Go back to the floor before it.
-		if not _stood_since_respawn and _safe.size() > 1:
+		if not to_save and not _stood_since_respawn and _safe.size() > 1:
 			_safe.pop_back()
 	_busy = true
 	imprint.clear(true)
@@ -417,7 +417,7 @@ func _die() -> void:
 	if auto_retry:
 		timer.finished.connect(func() -> void: DevSession.retry(self, true))
 	elif to_save:
-		# No pips left: the screen goes black and waits, and the key sends them to the save room.
+		# The last heart is gone: the screen goes black and waits, and the key sends them to the save room.
 		timer.finished.connect(game_over.open)
 	else:
 		timer.finished.connect(_respawn.bind(false))

@@ -42,8 +42,8 @@ var _wall_at := {}
 var base_id := ""
 
 
-## Whether this is a save room: its id is `s` and a number (`s1`). Dying with no
-## health sends the player back to the save room they last entered.
+## Whether this is a save room: its id is `s` and a number (`s1`). Dying on the
+## last heart sends the player back to the save room they last entered.
 func is_save_room() -> bool:
 	return is_save_id(id)
 
