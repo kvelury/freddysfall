@@ -11,7 +11,7 @@ extends Node2D
 ## stands.
 
 ## Hits that break a wall unless a dev test says otherwise.
-const DEFAULT_STRENGTH := 3
+const DEFAULT_STRENGTH := 2
 ## How many steps of cracking are drawn between whole and broken.
 const STAGES := 3
 
