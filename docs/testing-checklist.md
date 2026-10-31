@@ -249,8 +249,8 @@ Room 7's title card and its 3TM, gamepad and keyboard aiming, touch input, sound
 Nobody has played these yet. Start a normal game (`http://localhost:8060`) for Game Saved, since test sessions hide it. For Game Over use `?dev=1&room=5`, or walk to room 5's spikes.
 
 - [ ] **Game Saved.** Walk into the sphere in s1: "Game Saved" fades in at the middle of the screen as it closes, holds a moment and fades out, without stopping the spin. Is it readable over the platforms and the sphere? Does it feel too big or too small?
-- [ ] **Game Over.** Touch room 5's spikes with no pips: after the shatter the screen fades to black, "GAME OVER" and "Press Escape or Enter to continue" come up. Does the fade feel too slow?
-- [ ] **The keys.** Space and clicks do nothing. Escape and Enter go on (Escape does not also open the pause menu). Mashing in the first moments does not skip it.
+- [ ] **Game Over.** Touch room 5's spikes with no pips: after the shatter the screen fades to black, "GAME OVER" and "Enter / click to continue" come up. Does the fade feel too slow?
+- [ ] **The keys.** Enter, Space, W, Up, Escape and a left click go on, as on the new power screen (Escape does not also open the pause menu); other keys do nothing. Mashing in the first moments does not skip it.
 - [ ] **Coming back.** The save room fades in from black, the sphere spins and pops you out to the right. The HUD pips are refilled.
 - [ ] **With a pip.** Set one pip in F2 and die: no screen, back on the safe floor. Die again with none: the screen.
 - [ ] **Early deaths.** Before room 7's pip, every death in rooms 3 to 6 shows the screen. Is that too much?

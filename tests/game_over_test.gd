@@ -1,8 +1,9 @@
 extends SceneTree
 
 ## Game over: a death with no pips fades to black, shows "Game over" and waits
-## for Escape or Enter (Space and the first moments do nothing, and Escape does
-## not also open the pause menu), then the save room appears. A death with a pip
+## for the keys that dismiss the power popup (nothing counts in the first
+## moments, other keys do nothing, and Escape does not also open the pause
+## menu), then the save room appears. A death with a pip
 ## left shows nothing. The centred "Game Saved" line is checked in
 ## save_room_test.
 
@@ -44,16 +45,17 @@ func _run() -> void:
 	ok = _check(up, "dying with no pips fades to black and waits") and ok
 	ok = _check(over.active and world.is_busy() and not player.visible and world.current.info.id == "5", "the world is held in the room they died in") and ok
 	ok = _check(is_equal_approx(over._black.modulate.a, 1.0) and is_equal_approx(over._title.modulate.a, 1.0) and over._title.text == "GAME OVER", "the screen is black, with GAME OVER") and ok
-	ok = _check(over._prompt.text == "Press Escape or Enter to continue", "and tells them what to press") and ok
+	ok = _check(over._prompt.text == "Enter / click to continue", "and tells them what to press") and ok
 
-	# Space does nothing, and Escape in the first moments does not skip it.
+	# Nothing counts in the first moments, and a key that is not a dismissal never does.
 	over._input(_key(KEY_SPACE))
 	over._input(_key(KEY_ESCAPE))
-	ok = _check(over.visible and over._waiting and world.current.info.id == "5", "Space does nothing, and Escape is ignored in the first moments") and ok
+	ok = _check(over.visible and over._waiting and world.current.info.id == "5", "Space and Escape are ignored in the first moments") and ok
 	ok = _check(not world.pause_menu.opened and not world.pause_menu._pending, "and that Escape did not reach the pause menu") and ok
 	await create_timer(GameOver.MIN_SHOW + 0.1).timeout
-	over._input(_key(KEY_SPACE))
-	ok = _check(over._waiting, "Space still does nothing later") and ok
+	over._input(_key(KEY_A))
+	over._input(_key(KEY_TAB))
+	ok = _check(over._waiting, "other keys do nothing, later or not") and ok
 	over._input(_key(KEY_ESCAPE))
 	ok = _check(not over._waiting and not over.active, "Escape continues") and ok
 	await create_timer(0.1).timeout
@@ -63,7 +65,7 @@ func _run() -> void:
 	ok = _check(gone and player.input_enabled and player.visible, "the black fades away and the player has control") and ok
 
 	# Enter continues too, and so does the keypad's.
-	for key in [KEY_ENTER, KEY_KP_ENTER]:
+	for key in [KEY_ENTER, KEY_KP_ENTER, KEY_SPACE, KEY_W, KEY_UP]:
 		world.warp_to("5")
 		await process_frame
 		state.health = 0
@@ -74,6 +76,20 @@ func _run() -> void:
 		await create_timer(0.1).timeout
 		ok = _check(world.current.info.id == "s1", "key %s continues" % OS.get_keycode_string(key)) and ok
 		await _until(func() -> bool: return not over.visible and not world.is_busy(), 4.0)
+
+	# A left click does too, and a right click does not.
+	world.warp_to("5")
+	await process_frame
+	state.health = 0
+	world._die()
+	await _until(func() -> bool: return over.visible and over._waiting, 4.0)
+	await create_timer(GameOver.MIN_SHOW + 0.1).timeout
+	over._input(_click(MOUSE_BUTTON_RIGHT))
+	ok = _check(over._waiting, "a right click does nothing") and ok
+	over._input(_click(MOUSE_BUTTON_LEFT))
+	await create_timer(0.1).timeout
+	ok = _check(world.current.info.id == "s1", "a left click continues") and ok
+	await _until(func() -> bool: return not over.visible and not world.is_busy(), 4.0)
 
 	# The tests' hook continues at once.
 	over.scripted = true
@@ -101,6 +117,13 @@ func _key(code: Key) -> InputEventKey:
 	var event := InputEventKey.new()
 	event.keycode = code
 	event.physical_keycode = code
+	event.pressed = true
+	return event
+
+
+func _click(button: MouseButton) -> InputEventMouseButton:
+	var event := InputEventMouseButton.new()
+	event.button_index = button
 	event.pressed = true
 	return event
 

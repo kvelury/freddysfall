@@ -3,7 +3,8 @@ extends CanvasLayer
 
 ## The screen after a death that sends the player back to their save room:
 ## the picture fades to black, "GAME OVER" comes up with a line telling the
-## player to press Escape or Enter, and `continued` is emitted when they do. The
+## player to continue, and `continued` is emitted when they press what dismisses
+## the power popup (Enter, Space, a click, W, Up or Escape). The
 ## world then builds the save room behind the black and calls `reveal`, which
 ## fades it away. It is over the HUD and under the dev panel, and it is not
 ## "always" processing, so an open dev panel freezes it.
@@ -28,6 +29,8 @@ var _prompt: Label
 var _tween: Tween
 var _waiting := false
 var _shown_at := 0
+var _mouse_before := Input.MOUSE_MODE_VISIBLE
+var _mouse_held := false
 
 
 func _ready() -> void:
@@ -43,7 +46,7 @@ func _ready() -> void:
 	_title.position = Vector2(0, 62)
 	add_child(_title)
 	_prompt = Label.new()
-	_prompt.text = "Press Escape or Enter to continue"
+	_prompt.text = "Enter / click to continue"
 	_prompt.position = Vector2(0, 104)
 	_prompt.custom_minimum_size = Vector2(320, 0)
 	_prompt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -61,6 +64,7 @@ func shown() -> bool:
 ## Fades to black and shows the text. `continued` follows a key.
 func open() -> void:
 	_stop()
+	_hold_mouse()
 	active = true
 	_waiting = false
 	_black.modulate.a = 0.0
@@ -92,9 +96,27 @@ func reveal() -> void:
 ## Drops the screen at once.
 func clear() -> void:
 	_stop()
+	_release_mouse()
 	active = false
 	_waiting = false
 	hide()
+
+
+## The cursor shows while the screen is up, so a click can dismiss it, as it does
+## for the power popup.
+func _hold_mouse() -> void:
+	if _mouse_held:
+		return
+	_mouse_held = true
+	_mouse_before = Input.mouse_mode
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+
+
+func _release_mouse() -> void:
+	if not _mouse_held:
+		return
+	_mouse_held = false
+	Input.mouse_mode = _mouse_before
 
 
 func _stop() -> void:
@@ -115,19 +137,19 @@ func _continue() -> void:
 		return
 	_waiting = false
 	active = false
+	_release_mouse()
 	continued.emit()
 
 
 func _input(event: InputEvent) -> void:
 	if not active or not event.is_pressed() or event.is_echo():
 		return
-	# The pause key is Escape: it must not also open the pause menu afterwards.
-	if event.is_action_pressed("pause"):
-		get_viewport().set_input_as_handled()
-	if not event is InputEventKey:
-		return
-	var key := (event as InputEventKey).keycode
-	if key != KEY_ESCAPE and key != KEY_ENTER and key != KEY_KP_ENTER:
+	# The same keys as the power popup. Escape is the pause key, so it is taken
+	# here and does not also open the pause menu afterwards.
+	var wanted := event.is_action_pressed("ui_accept") or event.is_action_pressed("pause") or event.is_action_pressed("jump")
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		wanted = true
+	if not wanted:
 		return
 	get_viewport().set_input_as_handled()
 	if _waiting and float(Time.get_ticks_msec() - _shown_at) / 1000.0 >= MIN_SHOW:
