@@ -21,10 +21,10 @@ const EMPTY := Color.BLACK
 ## one-cell outer wall, since nothing is drawn behind the HUD.
 const ORIGIN := Vector2(14, 14)
 ## The token column's centre line, and the first diamond's centre, which is also
-## the frame's left point. Diamonds are 9 units tall and step down by DIAMOND_STEP,
+## the frame's left point. Diamonds are 5 units tall and step down by DIAMOND_STEP,
 ## so they touch tip to tip.
 const COLUMN := Vector2(4, 5)
-const DIAMOND_STEP := 8.0
+const DIAMOND_STEP := 4.0
 ## The frame is a hexagon FRAME_HEIGHT tall with 45 degree end points.
 const FRAME_HEIGHT := 11
 const POINT := 5
@@ -118,7 +118,7 @@ func bounds(pips: int) -> Rect2:
 	var hearts := maxi(pips, 1)
 	var columns := mini(hearts, WRAP)
 	var rows := floori(float(hearts - 1) / WRAP) + 1
-	var box := Rect2(ORIGIN, Vector2(9, DIAMOND_STEP * (GameState.TOKEN_CAP - 1) + 10.0))
+	var box := Rect2(ORIGIN, Vector2(5, DIAMOND_STEP * (GameState.TOKEN_CAP - 1) + 6.0))
 	var frame := Rect2(ORIGIN + Vector2(COLUMN.x, 0), Vector2(PITCH * columns + HEART_GAP + POINT + 1.0, ROW_STEP * (rows - 1) + FRAME_HEIGHT))
 	return box.merge(frame)
 
