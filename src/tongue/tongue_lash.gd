@@ -8,7 +8,9 @@ extends Node2D
 ## same speed and speeding up, `Abilities.tongue_snap` times faster on average.
 ## What the tip meets is dealt with as the gun's shot was: a breakable wall takes a hit
 ## (see BreakableWall), anything else stops it. One lash hits at most one thing.
-## There is no aiming, so a player who wants to reach higher jumps first.
+## There is no aiming, so a player who wants to reach higher jumps first. With
+## the jump key (Up or W) held when `lash` is pressed, the tongue goes straight
+## up out of the top of his head instead, for a wall or platform above him.
 ##
 ## It is a child of the world and uses its `current` room, `player` and
 ## `imprint`. A lash belongs to the room it was made in: leaving, dying and
@@ -24,16 +26,22 @@ const FRONT := 5.0
 const MOUTH_RISE := 1.5
 ## The size of the tip's box, in pixels.
 const TIP := Vector2(3.0, 1.0)
+## The tip's box going up, in pixels.
+const TIP_UP := Vector2(1.0, 3.0)
 const PINK := Color("ff6fa8")
 
 ## The headless tests set `scripted` and lash with `scripted_lash`.
 var scripted := false
 var scripted_lash := false
+## The tests' stand-in for holding the jump key when a lash is made.
+var scripted_up := false
 
 ## Whether a tongue is out, going or coming back.
 var active := false
 ## 1 right, -1 left: the way the tongue was sent.
 var direction := 1
+## Whether the tongue was sent straight up.
+var up := false
 ## Pixels from the front of the body to the tip.
 var extension := 0.0
 ## Whether the tongue is coming back in.
@@ -63,10 +71,12 @@ func can_lash() -> bool:
 
 
 ## Lashes if it may. Returns whether it did.
-func lash() -> bool:
+func lash(upward := false) -> bool:
 	if not can_lash():
 		return false
 	active = true
+	up = upward
+	_player.lashing_up = upward
 	direction = _player.facing
 	extension = 0.0
 	retracting = false
@@ -82,6 +92,8 @@ func end() -> void:
 	if active:
 		cooldown_left = GameState.abilities.tongue_cooldown
 	active = false
+	up = false
+	_player.lashing_up = false
 	extension = 0.0
 	retracting = false
 	queue_redraw()
@@ -90,6 +102,9 @@ func end() -> void:
 ## Removes the tongue and the wait for the next lash.
 func clear() -> void:
 	active = false
+	up = false
+	if _player != null:
+		_player.lashing_up = false
 	extension = 0.0
 	retracting = false
 	cooldown_left = 0.0
@@ -98,6 +113,8 @@ func clear() -> void:
 
 ## The world position of the tip.
 func tip() -> Vector2:
+	if up:
+		return _player.global_position + Vector2(0.0, -(FRONT + extension))
 	return _player.global_position + Vector2(float(direction) * (FRONT + extension), -MOUTH_RISE)
 
 
@@ -105,16 +122,17 @@ func _physics_process(delta: float) -> void:
 	if _world.current == null or _world.is_busy():
 		end()
 		return
-	if active and _player.facing != direction:
+	if active and not up and _player.facing != direction:
 		end()
 	if not active:
 		cooldown_left = maxf(cooldown_left - delta, 0.0)
 	else:
 		_move(delta)
 	var pressed := scripted_lash if scripted else Input.is_action_just_pressed("lash")
+	var upward := scripted_up if scripted else Input.is_action_pressed("jump")
 	scripted_lash = false
 	if pressed:
-		lash()
+		lash(upward)
 
 
 func _process(_delta: float) -> void:
@@ -125,7 +143,7 @@ func _draw() -> void:
 	if not active:
 		return
 	var body := _player.get_node("Visual") as PlayerBody
-	draw_rect(body.tongue_rect(extension), PINK)
+	draw_rect(body.tongue_rect_up(extension) if up else body.tongue_rect(extension), PINK)
 
 
 ## Turns the tongue round and sets up the snap. It starts back at `tongue_speed`
@@ -165,7 +183,8 @@ func _move(delta: float) -> void:
 func _hit() -> bool:
 	var room: Room = _world.current
 	var at := tip()
-	var box := Rect2(at - TIP * 0.5, TIP)
+	var size := TIP_UP if up else TIP
+	var box := Rect2(at - size * 0.5, size)
 	var wall := room.wall_at(box)
 	if wall != null:
 		room.hit_wall(wall, DevSession.wall_strength())
@@ -197,6 +216,9 @@ func _puff(at: Vector2) -> void:
 	for _i in 2:
 		var dust := Player.Dust.new()
 		dust.position = at
-		dust.velocity = Vector2(-float(direction) * randf_range(10.0, 30.0), randf_range(-25.0, 5.0))
+		if up:
+			dust.velocity = Vector2(randf_range(-20.0, 20.0), randf_range(5.0, 25.0))
+		else:
+			dust.velocity = Vector2(-float(direction) * randf_range(10.0, 30.0), randf_range(-25.0, 5.0))
 		dust.life = 0.15
 		_world.add_child(dust)

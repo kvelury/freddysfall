@@ -92,6 +92,21 @@ const LAND: Array[String] = [
 	"===....===",
 ]
 
+## Looking up with the mouth open on top, for the tongue going up: the pupils
+## are in the top row, and the notch (cols 4 and 5 of row 2) is the mouth.
+const LASH_UP_BODY: Array[String] = [
+	".+o+...+o+",
+	".+++...+++",
+	"####..####",
+	"##########",
+	"######yyyy",
+	"######yyyy",
+	"######yyyy",
+	"######yyyy",
+]
+## The tongue comes out of the notch in that picture: its left column and its row.
+const LASH_UP_MOUTH := Vector2i(4, 2)
+
 ## Where the inventory is cut on the standing body, facing right, in box pixels:
 ## the left pixel of each token's 2 x 1 line in the order they are filled (two
 ## stacked on the rear, one clear row between, then the third in the middle level
@@ -122,9 +137,13 @@ class Frame:
 	## The box row of the mouth: the notch at the front of the body, which is
 	## the row whose last two pixels are empty under a body pixel. -1 if there is none.
 	var mouth := -1
+	## For a picture with the mouth on top: the notch's left column and its row,
+	## where the tongue goes up from. (-1, -1) if there is none.
+	var mouth_up := Vector2i(-1, -1)
 
-	func _init(at: int, lines: Array, token_slots: Array[Vector2i], line_pixels: Array[Vector2i]) -> void:
+	func _init(at: int, lines: Array, token_slots: Array[Vector2i], line_pixels: Array[Vector2i], up_mouth := Vector2i(-1, -1)) -> void:
 		top = at
+		mouth_up = up_mouth
 		rows = PackedStringArray(lines)
 		tokens = token_slots
 		line = line_pixels
@@ -189,6 +208,9 @@ static func _build() -> Dictionary:
 	table[PlayerAnimator.Pose.WALK] = _animation(walk, 6.0, true)
 	table[PlayerAnimator.Pose.JUMP] = _animation([_standing(JUMP_LEGS)])
 	table[PlayerAnimator.Pose.LAND] = _animation([Frame.new(3, LAND, LAND_TOKENS, LAND_LINE)])
+	var lash_up_rows: Array = LASH_UP_BODY.duplicate()
+	lash_up_rows.append_array(STAND_LEGS)
+	table[PlayerAnimator.Pose.LASH_UP] = _animation([Frame.new(0, lash_up_rows, STAND_TOKENS, STAND_LINE, LASH_UP_MOUTH)])
 	return table
 
 

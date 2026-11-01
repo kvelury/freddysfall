@@ -35,6 +35,8 @@ var facing := 1:
 
 ## Which picture the body shows (`PlayerAnimator`), from what the movement did.
 var animator := PlayerAnimator.new()
+## Set by the tongue while it is out going up, for the picture that shows it.
+var lashing_up := false
 
 ## Previous physics pose, shared with the frame-rate camera.
 var _previous_position := Vector2.ZERO
@@ -140,7 +142,7 @@ func _physics_process(delta: float) -> void:
 func _process(delta: float) -> void:
 	if _visual == null:
 		return
-	animator.advance(delta, _state.grounded, velocity.x)
+	animator.advance(delta, _state.grounded, velocity.x, lashing_up)
 	var fraction := Engine.get_physics_interpolation_fraction() if is_physics_interpolated_and_enabled() else 1.0
 	var index := FreddySprites.animation(animator.pose).index(animator.time_in_pose, animator.distance_in_pose)
 	_visual.show_at(render_position(fraction), animator.pose, index)

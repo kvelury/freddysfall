@@ -19,6 +19,8 @@ const TYPES := {
 	"save": {"required": [], "optional": []},
 	"platform": {"required": ["speed"], "optional": ["pause"]},
 	"breakable": {"required": [], "optional": []},
+	"emitter": {"required": ["speed", "every"], "optional": []},
+	"spinner": {"required": ["period"], "optional": ["dir", "spikes"]},
 }
 
 
@@ -79,7 +81,21 @@ static func problems(def: EntityDef) -> Array[String]:
 		var message := Upgrades.check(String(def.props["upgrade"]), String(def.props.get("value", "")))
 		if not message.is_empty():
 			out.append("%s %s: %s" % [def.type, def.id, message])
-	if out.is_empty() and def.type == "platform":
+	if out.is_empty() and def.type == "emitter":
+		var every := String(def.props["every"])
+		if not every.is_valid_float() or every.to_float() <= 0.0:
+			out.append("emitter %s: every= is seconds between platforms and has to be a number above 0, not \"%s\"" % [def.id, every])
+	if out.is_empty() and def.type == "spinner":
+		var period := String(def.props["period"])
+		if not period.is_valid_float() or period.to_float() <= 0.0:
+			out.append("spinner %s: period= is seconds for one turn and has to be a number above 0, not \"%s\"" % [def.id, period])
+		var dir := String(def.props.get("dir", "ccw"))
+		if dir != "ccw" and dir != "cw":
+			out.append("spinner %s: dir= is ccw (the default) or cw, not \"%s\"" % [def.id, dir])
+		for part in String(def.props.get("spikes", "")).split("+", false):
+			if not SpinnerPath.SPIKE_NAMES.has(part):
+				out.append("spinner %s: spikes= names parts of the bar joined by +, from %s, not \"%s\"" % [def.id, ", ".join(SpinnerPath.SPIKE_NAMES), part])
+	if out.is_empty() and (def.type == "platform" or def.type == "emitter"):
 		var speed := String(def.props["speed"])
 		if not speed.is_valid_float() or speed.to_float() <= 0.0:
 			out.append("platform %s: speed= is pixels a second and has to be a number above 0, not \"%s\"" % [def.id, speed])

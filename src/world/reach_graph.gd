@@ -392,7 +392,22 @@ func _analyze(start_room: String) -> Report:
 ## state of one visit: it is kept in the copy's key and never leaves the room.
 func _lash_ledges(ledge: Ledge, info: RoomInfo) -> Array[Ledge]:
 	var out: Array[Ledge] = []
-	if ledge.moving or info.breakables.is_empty():
+	if info.breakables.is_empty():
+		return out
+	if ledge.moving:
+		# A rider on a platform that goes side to side lashes up at a wall over
+		# any column the platform goes through, and the rider in the room with
+		# that wall broken is on the same mover.
+		for wall in _lashes_up_from_rider(ledge, info):
+			var broken_walls: Array[String] = []
+			broken_walls.assign(info.broken)
+			broken_walls.append(wall)
+			var vinfo := _variant_for(ledge.base(), broken_walls)
+			if vinfo == null:
+				continue
+			for other: Ledge in _ledges[vinfo.id]:
+				if other.moving and other.path == ledge.path and not out.has(other):
+					out.append(other)
 		return out
 	for lash in _lashes_from(ledge, info):
 		var broken: Array[String] = []
@@ -407,6 +422,50 @@ func _lash_ledges(ledge: Ledge, info: RoomInfo) -> Array[Ledge]:
 	return out
 
 
+## The cells above a body standing in cell (`cx`, `row`) that its tongue reaches
+## going straight up, from the one above the head to `tongue_length` past the
+## top of the body.
+func _up_reach_cells() -> int:
+	return maxi(1, ceili(abilities.tongue_length / float(Grid.CELL)))
+
+
+## The id of the wall that stands in the way going straight up from cell
+## (`cx`, `row`), within the tongue's reach, or "" if the first solid is not a
+## wall, or there is none.
+func _wall_above(info: RoomInfo, cx: int, row: int) -> String:
+	for dy in range(1, _up_reach_cells() + 1):
+		var y := row - dy
+		if y < 0:
+			return ""
+		var wall := info.standing_wall_at(Vector2i(cx, y))
+		if not wall.is_empty():
+			return wall
+		if info.is_solid(cx, y):
+			return ""
+	return ""
+
+
+## The walls a rider on side-to-side mover `ledge` can lash up at: over every
+## column it goes through, from the row it stands in or any row it can jump up to
+## with nothing solid between.
+func _lashes_up_from_rider(ledge: Ledge, info: RoomInfo) -> Array[String]:
+	var out: Array[String] = []
+	var mover := info.movers[ledge.path]
+	if not mover is PlatformPath or (mover as PlatformPath).direction.y != 0:
+		return out
+	var swept := mover.swept_cells()
+	var rise := _rise_cells(1 if abilities.air_jumps > 0 else 0)
+	for cx in range(swept.position.x, swept.end.x):
+		for height in rise + 1:
+			var row := ledge.row - height
+			if row < 0 or info.is_solid(cx, row):
+				break
+			var wall := _wall_above(info, cx, row)
+			if not wall.is_empty() and not out.has(wall):
+				out.append(wall)
+	return out
+
+
 ## [wall id, column] pairs: a wall that still stands with a straight line along
 ## a row from a column of `ledge`, the row being the one the body stands in or a
 ## row it can jump up to with nothing solid in the way (the most it rises is
@@ -414,7 +473,7 @@ func _lash_ledges(ledge: Ledge, info: RoomInfo) -> Array[Ledge]:
 ## the wall and no further than `Abilities.tongue_length` past the front of the body.
 func _lashes_from(ledge: Ledge, info: RoomInfo) -> Array:
 	var air := 1 if abilities.air_jumps > 0 else 0
-	var key := "%d|%d|%s|%s" % [ledge.get_instance_id(), air, ",".join(info.broken), abilities.tongue_length]
+	var key := "%d|%d|%s|%s|up" % [ledge.get_instance_id(), air, ",".join(info.broken), abilities.tongue_length]
 	if _lash_cache.has(key):
 		return _lash_cache[key]
 	var out := []
@@ -425,6 +484,9 @@ func _lashes_from(ledge: Ledge, info: RoomInfo) -> Array:
 			var row := ledge.row - height
 			if row < 0 or info.is_solid(cx, row):
 				break
+			var above := _wall_above(info, cx, row)
+			if not above.is_empty() and not out.any(func(s: Array) -> bool: return s[0] == above and s[1] == cx):
+				out.append([above, cx])
 			for way in [-1, 1]:
 				var x: int = cx + way
 				while x >= 0 and x < width:
@@ -711,22 +773,33 @@ func _find_ledges(info: RoomInfo) -> Array[Ledge]:
 			ledge.lo = float(ledge.x0) * cell + (cell * 0.5 if wall_left else -cell * 0.5 + 0.01)
 			ledge.hi = float(ledge.x1 + 1) * cell + (-cell * 0.5 if wall_right else cell * 0.5 - 0.01)
 			out.append(ledge)
-	for i in info.platforms.size():
-		var path := info.platforms[i]
-		var start := path.rect_at(0)
+	for i in info.movers.size():
+		var mover := info.movers[i]
 		var ledge := Ledge.new()
 		ledge.room_id = info.id
 		ledge.base_id = info.base()
 		ledge.index = out.size()
 		ledge.moving = true
 		ledge.path = i
-		ledge.platform_id = path.id
-		ledge.row = path.start_cells.position.y - 1
-		ledge.x0 = path.start_cells.position.x
-		ledge.x1 = path.start_cells.end.x - 1
-		ledge.top = start.position.y
-		ledge.lo = start.position.x - float(Grid.CELL) * 0.5 + 0.01
-		ledge.hi = start.end.x + float(Grid.CELL) * 0.5 - 0.01
+		ledge.platform_id = mover.id
+		if mover is SpinnerPath:
+			# A spinner stands for the safe block that is highest where it starts.
+			var spin: SpinnerPath = mover
+			ledge.row = spin.start_cells.position.y - 1
+			ledge.x0 = spin.start_cells.position.x
+			ledge.x1 = spin.start_cells.end.x - 1
+			ledge.top = Grid.cell_rect(spin.start_cells).position.y
+			ledge.lo = Grid.cell_rect(spin.start_cells).position.x
+			ledge.hi = Grid.cell_rect(spin.start_cells).end.x
+		else:
+			var path: PlatformPath = mover
+			var start := path.rect_at(0)
+			ledge.row = path.start_cells.position.y - 1
+			ledge.x0 = path.start_cells.position.x
+			ledge.x1 = path.start_cells.end.x - 1
+			ledge.top = start.position.y
+			ledge.lo = start.position.x - float(Grid.CELL) * 0.5 + 0.01
+			ledge.hi = start.end.x + float(Grid.CELL) * 0.5 - 0.01
 		out.append(ledge)
 	return out
 
@@ -833,9 +906,9 @@ func geometry_of(info: RoomInfo) -> Geometry:
 			else:
 				var centre := Grid.cell_center(def.cell)
 				geo.things.append(Rect2(centre - Vector2(Pickup.HALF, Pickup.HALF), Vector2(Pickup.HALF, Pickup.HALF) * 2.0))
-		geo.movers = Movers.new(info.platforms)
-		for path in info.platforms:
-			geo.keep_outs.append(path.keep_out())
+		geo.movers = Movers.new(info.movers)
+		for mover in info.movers:
+			geo.keep_outs.append(mover.keep_out())
 		geo.bounds = Rect2(Vector2(-40.0, -120.0), info.pixel_size + Vector2(80.0, 160.0))
 		_geometry[info.id] = geo
 	return _geometry[info.id]
@@ -1057,7 +1130,7 @@ func try_plan(info: RoomInfo, geo: Geometry, ledge: Ledge, near: Array[Rect2], x
 	elif result["landed"]:
 		var target: Ledge = null
 		if int(result["riding"]) >= 0:
-			target = mover_ledge(info, int(result["riding"]))
+			target = mover_ledge(info, geo, int(result["riding"]))
 		else:
 			target = ledge_at_position(info, result["position"])
 		if target != null and target != ledge:
@@ -1069,17 +1142,25 @@ func try_plan(info: RoomInfo, geo: Geometry, ledge: Ledge, near: Array[Rect2], x
 func phases(info: RoomInfo) -> Array[int]:
 	var period := 1
 	var step := MAX_PHASE_STEP
-	for path in info.platforms:
-		period = maxi(period, path.period())
-		step = mini(step, maxi(1, floori(float(Grid.CELL) * float(PlatformPath.TICKS_PER_SECOND) / path.speed)))
+	for mover in info.movers:
+		period = maxi(period, mover.period())
+		if mover is SpinnerPath:
+			var spin: SpinnerPath = mover
+			var tip := maxf(0.01, spin.radius * TAU / float(spin.period_ticks))
+			step = mini(step, maxi(1, floori(float(Grid.CELL) * 0.6 / tip)))
+		elif mover is PlatformPath:
+			var path: PlatformPath = mover
+			step = mini(step, maxi(1, floori(float(Grid.CELL) * float(Mover.TICKS_PER_SECOND) / path.speed)))
 	var out: Array[int] = []
 	for tick in range(0, period, step):
 		out.append(tick)
 	return out
 
 
-## The ledge that stands for moving platform `index` in `info`.
-func mover_ledge(info: RoomInfo, index: int) -> Ledge:
+## The ledge that stands for the mover that body `body` of the room's movers
+## belongs to.
+func mover_ledge(info: RoomInfo, geo: Geometry, body: int) -> Ledge:
+	var index := geo.movers.mover_of(body)
 	for ledge: Ledge in _ledges[info.id]:
 		if ledge.moving and ledge.path == index:
 			return ledge
@@ -1095,65 +1176,82 @@ func _near_a_track(geo: Geometry, ledge: Ledge) -> bool:
 	return false
 
 
-## What a rider on a moving platform can get to. They can wait on it for any
-## moment of its trip and stand anywhere on it, so from every moment and every
-## spot it tries the jumps and the walks off either end. Riding sweeps the row
-## above the track, so it takes whatever pickups stand there.
-func _ride(info: RoomInfo, geo: Geometry, ledge: Ledge) -> void:
-	var path := info.platforms[ledge.path]
+## The spots a rider can stand at on one body of a mover at `tick`: the left
+## and right ends (where a body hangs on) and the middle of each cell.
+func _riding_spots(rect: Rect2) -> Array[float]:
 	var cell := float(Grid.CELL)
-	var band := Grid.cell_rect(path.band_cells())
+	var xs: Array[float] = [rect.position.x - cell * 0.5 + 0.01]
+	for x in range(roundi(rect.size.x / cell)):
+		xs.append(rect.position.x + (float(x) + 0.5) * cell)
+	xs.append(rect.end.x + cell * 0.5 - 0.01)
+	return xs
+
+
+## The bodies of mover `m` a rider can stand on at `tick`: there, and holding
+## up. A spiked block is not one.
+func _rideable(geo: Geometry, m: int, tick: int) -> Array[int]:
+	var out: Array[int] = []
+	var first := geo.movers.first_body(m)
+	for b in geo.movers.paths[m].body_count():
+		if not geo.movers.hazard(first + b) and geo.movers.alive(first + b, tick):
+			out.append(first + b)
+	return out
+
+
+## What a rider on a moving platform (or an emitted one, or a spinner's safe
+## block) can get to. They can wait on it for any moment of its life and stand
+## anywhere on it, so from every moment and every spot it tries the jumps and
+## the walks off either end. Riding sweeps the row above the track, so it takes
+## whatever pickups stand there.
+func _ride(info: RoomInfo, geo: Geometry, ledge: Ledge) -> void:
+	var mover := info.movers[ledge.path]
+	var cell := float(Grid.CELL)
+	var band := Grid.cell_rect(mover.band_cells())
 	for i in geo.things.size():
 		if band.intersects(geo.things[i]):
 			ledge.add_pickup(i)
-	var near := _within(geo.rects, path.keep_out().grow_individual(REACH_X, REACH_UP, REACH_X, REACH_DOWN))
+	var near := _within(geo.rects, mover.keep_out().grow_individual(REACH_X, REACH_UP, REACH_X, REACH_DOWN))
 	for tick in phases(info):
-		var rect := path.rect_at(tick)
-		var lo := rect.position.x - cell * 0.5 + 0.01
-		var hi := rect.end.x + cell * 0.5 - 0.01
-		var xs: Array[float] = [lo]
-		for x in range(path.start_cells.size.x):
-			xs.append(rect.position.x + (float(x) + 0.5) * cell)
-		xs.append(hi)
-		for x in xs:
-			for input in [-1.0, 0.0, 1.0]:
-				var speed := 0.0
-				if input > 0.0 and x - lo >= RUN_UP:
-					speed = _cfg.run_speed
-				elif input < 0.0 and hi - x >= RUN_UP:
-					speed = -_cfg.run_speed
-				for hold in HOLDS:
-					try_plan(info, geo, ledge, near, x, speed, input, hold, true, -1, tick, rect.position.y, ledge.path)
-		for side in [-1.0, 1.0]:
-			var edge := rect.end.x - 1.0 if side > 0.0 else rect.position.x + 1.0
-			try_plan(info, geo, ledge, near, edge, side * _cfg.run_speed, side, 0, false, -1, tick, rect.position.y, ledge.path)
-			try_plan(info, geo, ledge, near, edge, side * _cfg.run_speed, 0.0, 0, false, -1, tick, rect.position.y, ledge.path)
+		for body in _rideable(geo, ledge.path, tick):
+			var rect := geo.movers.rect(body, tick)
+			var lo := rect.position.x - cell * 0.5 + 0.01
+			var hi := rect.end.x + cell * 0.5 - 0.01
+			for x in _riding_spots(rect):
+				for input in [-1.0, 0.0, 1.0]:
+					var speed := 0.0
+					if input > 0.0 and x - lo >= RUN_UP:
+						speed = _cfg.run_speed
+					elif input < 0.0 and hi - x >= RUN_UP:
+						speed = -_cfg.run_speed
+					for hold in HOLDS:
+						try_plan(info, geo, ledge, near, x, speed, input, hold, true, -1, tick, rect.position.y, body)
+			for side in [-1.0, 1.0]:
+				var edge := rect.end.x - 1.0 if side > 0.0 else rect.position.x + 1.0
+				try_plan(info, geo, ledge, near, edge, side * _cfg.run_speed, side, 0, false, -1, tick, rect.position.y, body)
+				try_plan(info, geo, ledge, near, edge, side * _cfg.run_speed, 0.0, 0, false, -1, tick, rect.position.y, body)
 
 
 ## `_ride` with a second press in the air, from every moment and spot, at the
 ## thinned AIR_RIDE_FRAMES.
 func _ride_air(info: RoomInfo, geo: Geometry, ledge: Ledge) -> void:
-	var path := info.platforms[ledge.path]
+	var mover := info.movers[ledge.path]
 	var cell := float(Grid.CELL)
-	var near := _within(geo.rects, path.keep_out().grow_individual(REACH_X, REACH_UP, REACH_X, REACH_DOWN))
+	var near := _within(geo.rects, mover.keep_out().grow_individual(REACH_X, REACH_UP, REACH_X, REACH_DOWN))
 	for tick in phases(info):
-		var rect := path.rect_at(tick)
-		var lo := rect.position.x - cell * 0.5 + 0.01
-		var hi := rect.end.x + cell * 0.5 - 0.01
-		var xs: Array[float] = [lo]
-		for x in range(path.start_cells.size.x):
-			xs.append(rect.position.x + (float(x) + 0.5) * cell)
-		xs.append(hi)
-		for x in xs:
-			for input in [-1.0, 0.0, 1.0]:
-				var speed := 0.0
-				if input > 0.0 and x - lo >= RUN_UP:
-					speed = _cfg.run_speed
-				elif input < 0.0 and hi - x >= RUN_UP:
-					speed = -_cfg.run_speed
-				for hold in AIR_FIRST_HOLDS:
-					for frame in AIR_RIDE_FRAMES:
-						try_plan(info, geo, ledge, near, x, speed, input, hold, true, -1, tick, rect.position.y, ledge.path, frame, 90)
+		for body in _rideable(geo, ledge.path, tick):
+			var rect := geo.movers.rect(body, tick)
+			var lo := rect.position.x - cell * 0.5 + 0.01
+			var hi := rect.end.x + cell * 0.5 - 0.01
+			for x in _riding_spots(rect):
+				for input in [-1.0, 0.0, 1.0]:
+					var speed := 0.0
+					if input > 0.0 and x - lo >= RUN_UP:
+						speed = _cfg.run_speed
+					elif input < 0.0 and hi - x >= RUN_UP:
+						speed = -_cfg.run_speed
+					for hold in AIR_FIRST_HOLDS:
+						for frame in AIR_RIDE_FRAMES:
+							try_plan(info, geo, ledge, near, x, speed, input, hold, true, -1, tick, rect.position.y, body, frame, 90)
 
 
 ## The state of one solve: what has been reached and how.

@@ -25,6 +25,13 @@ var legend := {}
 var entities: Array[EntityDef] = []
 ## The room's moving platforms, in legend order. Each is also in `entities`.
 var platforms: Array[PlatformPath] = []
+## Every moving thing in the room, in legend order: the platforms above, then any
+## emitters and spinners. This is what a body's `Movers` is built from.
+var movers: Array[Mover] = []
+## The emitters among them.
+var emitters: Array[EmitterPath] = []
+## And the spinners.
+var spinners: Array[SpinnerPath] = []
 ## What has to be true before the room's doors work, a key of ExitRules.RULES.
 var exit_rule := "open"
 ## Whether the room is meant to be a dead end the player cannot climb out of yet
@@ -128,6 +135,9 @@ func variant(broken_ids: Array[String]) -> RoomInfo:
 	out.legend = legend
 	out.entities = entities
 	out.platforms = platforms
+	out.movers = movers
+	out.emitters = emitters
+	out.spinners = spinners
 	out.exit_rule = exit_rule
 	out.traps_allowed = traps_allowed
 	out.breakables = breakables

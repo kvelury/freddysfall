@@ -88,6 +88,17 @@ func tongue_rect(extension: float) -> Rect2:
 	return Rect2(position + Vector2(size - 2.0, float(mouth)), Vector2(reach + 2.0, 1.0))
 
 
+## The pixels the tongue fills going up, in world pixels: one column, from inside
+## the mouth on top of the head to `extension` pixels above the top of the body.
+func tongue_rect_up(extension: float) -> Rect2:
+	var frames_of := FreddySprites.animation(_pose).frames
+	var frame := frames_of[posmod(_index, frames_of.size())]
+	var mouth := frame.mouth_up if frame.mouth_up.x >= 0 else FreddySprites.LASH_UP_MOUTH
+	var column := mouth.x if facing > 0 else FreddySprites.SIZE - 1 - mouth.x
+	var reach := roundf(extension)
+	return Rect2(position + Vector2(float(column), -reach), Vector2(1.0, reach + float(mouth.y) + 1.0))
+
+
 ## The top-left pixel of the 10 x 10 box of a body centred on `center`, on a
 ## whole world pixel.
 static func corner(center: Vector2) -> Vector2:

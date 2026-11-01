@@ -320,7 +320,7 @@ func _arcs_of(ledge: ReachGraph.Ledge, info: RoomInfo, geo: ReachGraph.Geometry)
 func _near_of(ledge: ReachGraph.Ledge, info: RoomInfo, geo: ReachGraph.Geometry) -> Array[Rect2]:
 	if not ledge.moving:
 		return _graph.near_solids(geo.rects, ledge)
-	var path := info.platforms[ledge.path]
+	var path := info.movers[ledge.path]
 	return _graph._within(geo.rects, path.keep_out().grow_individual(ReachGraph.REACH_X, ReachGraph.REACH_UP, ReachGraph.REACH_X, ReachGraph.REACH_DOWN))
 
 
@@ -331,7 +331,11 @@ func _near_of(ledge: ReachGraph.Ledge, info: RoomInfo, geo: ReachGraph.Geometry)
 ## over the trip, with the platforms moving.
 func _riding_arcs(ledge: ReachGraph.Ledge, info: RoomInfo, geo: ReachGraph.Geometry, near: Array[Rect2]) -> Array[Arc]:
 	var out: Array[Arc] = []
-	var path := info.platforms[ledge.path]
+	# An Imprint is not tried from an emitted platform or a spinner (see the
+	# design doc's list of what the solver does not model).
+	if not info.movers[ledge.path] is PlatformPath or info.movers[ledge.path] is EmitterPath:
+		return out
+	var path: PlatformPath = info.movers[ledge.path]
 	var cell := float(Grid.CELL)
 	var run := _graph.movement().run_speed
 	var moments := _graph.phases(info)
@@ -366,7 +370,7 @@ func _arc(near: Array[Rect2], geo: ReachGraph.Geometry, ledge: ReachGraph.Ledge,
 	arc.hold = hold
 	arc.jump = jump
 	arc.tick = tick
-	arc.riding = ledge.path if tick >= 0 else -1
+	arc.riding = geo.movers.first_body(ledge.path) if tick >= 0 else -1
 	var movers: Movers = geo.movers if tick >= 0 else null
 	var result := MovementSim.simulate_jump(_graph.movement(), near, arc.start, Vector2(speed, 0.0), input, hold, true, jump, geo.triggers, geo.bounds, geo.hazards, [], NAN, 0, 180, true, movers, maxi(tick, 0), arc.riding)
 	arc.path = result["path"]

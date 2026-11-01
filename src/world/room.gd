@@ -22,6 +22,8 @@ var tick := 0
 ## The moving platforms as a body sees them, in world pixels.
 var movers := Movers.new()
 var _platforms: Array[MovingPlatform] = []
+var _emitters: Array[EmitterView] = []
+var _spinners: Array[SpinnerView] = []
 ## The breakable walls that still stand.
 var _walls: Array[BreakableWall] = []
 
@@ -70,13 +72,21 @@ func build(room_info: RoomInfo, flags := {}, fills := {}, door_override := false
 			_add_block(ex)
 		else:
 			_add_halo(ex)
-	movers = Movers.new(info.platforms, position)
+	movers = Movers.new(info.movers, position)
 	for path in info.platforms:
 		var platform := MovingPlatform.new(path)
 		add_child(platform)
 		_platforms.append(platform)
+	for path in info.emitters:
+		var view := EmitterView.new(path)
+		add_child(view)
+		_emitters.append(view)
+	for path in info.spinners:
+		var spinner := SpinnerView.new(path)
+		add_child(spinner)
+		_spinners.append(spinner)
 	for def in info.entities:
-		if def.type == "platform" or not Entities.present(def, flags):
+		if def.type == "platform" or def.type == "emitter" or def.type == "spinner" or not Entities.present(def, flags):
 			continue
 		if def.type == "breakable":
 			var wall := BreakableWall.new(def)
@@ -91,11 +101,15 @@ func build(room_info: RoomInfo, flags := {}, fills := {}, door_override := false
 
 
 func _physics_process(_delta: float) -> void:
-	if _platforms.is_empty():
+	if _platforms.is_empty() and _emitters.is_empty() and _spinners.is_empty():
 		return
 	tick += 1
+	for spinner in _spinners:
+		spinner.move_to(tick)
 	for platform in _platforms:
 		platform.move_to(tick)
+	for view in _emitters:
+		view.move_to(tick)
 
 
 ## The moving platforms where they are now, in world pixels.

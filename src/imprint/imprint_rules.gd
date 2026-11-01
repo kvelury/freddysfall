@@ -47,7 +47,7 @@ static func check(info: RoomInfo, cell: Vector2i, width: int, player_body: Rect2
 	for i in width:
 		if info.is_no_imprint(cell.x + i, cell.y):
 			return "no_imprint"
-	for path in info.platforms:
+	for path in info.movers:
 		if pixels.intersects(path.keep_out()):
 			return "platform"
 	if pixels.intersects(player_body):
