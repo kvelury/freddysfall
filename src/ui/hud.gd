@@ -25,8 +25,9 @@ const ORIGIN := Vector2(14, 14)
 ## so they touch tip to tip.
 const COLUMN := Vector2(4, 5)
 const DIAMOND_STEP := 4.0
-## The frame is a hexagon FRAME_HEIGHT tall with 45 degree end points.
-const FRAME_HEIGHT := 11
+## The frame is a hexagon FRAME_HEIGHT tall with 45 degree ends that come to a
+## 2 unit flat tip (rows y-1 and y of the left point).
+const FRAME_HEIGHT := 10
 const POINT := 5
 ## Hearts start this far right of the left point, and are 7 x 6, PITCH apart.
 const HEART_GAP := 6
@@ -35,7 +36,8 @@ const PITCH := 9.0
 ## Hearts per row before the frame wraps: each further row is its own frame
 ## under the first. There is no heart cap, so the frame never runs off the screen.
 const WRAP := 30
-const ROW_STEP := 12.0
+## One more than FRAME_HEIGHT, so wrapped frames have one clear row between them.
+const ROW_STEP := 11.0
 const FLY_TIME := 0.35
 const GROW_TIME := 0.15
 const POP_TIME := 0.08
@@ -258,18 +260,23 @@ func _draw_hud() -> void:
 		_draw_flight(flight)
 
 
-## One hexagon row, `length` units of hearts long: the left point sits under the
-## first diamond's centre, 45 degree edges rise to the top and bottom lines,
-## and the right end mirrors the left.
+## One hexagon row, `length` units of hearts long: the left tip (2 units tall,
+## rows y-1 and y) sits under the first diamond's centre, 45 degree edges rise
+## and fall to the top and bottom lines, and the right end mirrors the left.
 func _draw_frame(row: int, length: int) -> void:
 	var left := ORIGIN + COLUMN + Vector2(0, ROW_STEP * row)
 	var top := left.y - float(POINT)
 	var edge := left.x + HEART_GAP - 1.0
 	var end := left.x + HEART_GAP - 2.0 + float(length)
-	for k in POINT + 1:
-		for dir in [-1.0, 1.0]:
-			_canvas.draw_rect(Rect2(Vector2(left.x + k, left.y + dir * k), Vector2.ONE), RED)
-			_canvas.draw_rect(Rect2(Vector2(end + POINT - k, left.y + dir * k), Vector2.ONE), RED)
+	for dy in [-1.0, 0.0]:
+		_canvas.draw_rect(Rect2(Vector2(left.x, left.y + dy), Vector2.ONE), RED)
+		_canvas.draw_rect(Rect2(Vector2(end + POINT, left.y + dy), Vector2.ONE), RED)
+	for k in POINT - 1:
+		var up := left.y - 2.0 - k
+		var down := left.y + 1.0 + k
+		for y in [up, down]:
+			_canvas.draw_rect(Rect2(Vector2(left.x + 1.0 + k, y), Vector2.ONE), RED)
+			_canvas.draw_rect(Rect2(Vector2(end + POINT - 1.0 - k, y), Vector2.ONE), RED)
 	_canvas.draw_rect(Rect2(Vector2(edge, top), Vector2(end - edge + 1.0, 1.0)), RED)
 	_canvas.draw_rect(Rect2(Vector2(edge, top + FRAME_HEIGHT - 1.0), Vector2(end - edge + 1.0, 1.0)), RED)
 
