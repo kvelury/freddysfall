@@ -4,7 +4,7 @@ extends RefCounted
 ## What the player can do. The values here are the starting ones; upgrades
 ## raise them. Each name in STATS is a stat that data/upgrades.json may name.
 
-const STATS: Array[String] = ["air_jumps", "tongue_unlocked", "tongue_cooldown", "tongue_speed", "tongue_length", "imprint_unlocked", "imprint_width", "imprint_duration", "imprint_max_active", "imprint_cooldown", "imprint_effects"]
+const STATS: Array[String] = ["air_jumps", "tongue_unlocked", "tongue_cooldown", "tongue_speed", "tongue_snap", "tongue_length", "imprint_unlocked", "imprint_width", "imprint_duration", "imprint_max_active", "imprint_cooldown", "imprint_effects"]
 
 ## Jumps the player can make in mid-air before landing. 0 until they find double jump.
 var air_jumps := 0
@@ -12,8 +12,12 @@ var air_jumps := 0
 var tongue_unlocked := false
 ## Seconds between lashes, counted from the tongue being back in the mouth.
 var tongue_cooldown := 0.15
-## How fast the tongue goes out and comes back, in pixels a second.
-var tongue_speed := 400.0
+## How fast the tongue goes out, in pixels a second. The snap back is worked out
+## from it too, so a faster tongue also snaps back faster.
+var tongue_speed := 220.0
+## How many times faster than `tongue_speed` the tongue comes back, on average.
+## It starts back at `tongue_speed` and speeds up. 1 is a steady return.
+var tongue_snap := 3.5
 ## How far the tongue reaches past the front of the body, in pixels. The first
 ## 50 is enough for every breakable wall so far; upgrades lengthen it.
 var tongue_length := 50.0
@@ -70,6 +74,7 @@ func to_dict() -> Dictionary:
 		"tongue_unlocked": tongue_unlocked,
 		"tongue_cooldown": tongue_cooldown,
 		"tongue_speed": tongue_speed,
+		"tongue_snap": tongue_snap,
 		"tongue_length": tongue_length,
 		"imprint_unlocked": imprint_unlocked,
 		"imprint_width": imprint_width,
@@ -90,6 +95,7 @@ static func from_dict(data: Dictionary) -> Abilities:
 	out.tongue_unlocked = bool(data.get("tongue_unlocked", data.get("gun_unlocked", out.tongue_unlocked)))
 	out.tongue_cooldown = float(data.get("tongue_cooldown", out.tongue_cooldown))
 	out.tongue_speed = float(data.get("tongue_speed", out.tongue_speed))
+	out.tongue_snap = maxf(1.0, float(data.get("tongue_snap", out.tongue_snap)))
 	out.tongue_length = float(data.get("tongue_length", out.tongue_length))
 	out.imprint_unlocked = bool(data.get("imprint_unlocked", out.imprint_unlocked))
 	out.imprint_width = int(data.get("imprint_width", out.imprint_width))

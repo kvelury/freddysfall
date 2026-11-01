@@ -4,7 +4,8 @@ extends Node2D
 ## Tongue Lash. Once it is found, `lash` sends Freddy's tongue out of the notch
 ## in the front of his body, the way he faces, and pulls it back in. The tip
 ## goes out until it meets something solid or runs out of length
-## (`Abilities.tongue_length`), and then the tongue returns at the same speed.
+## (`Abilities.tongue_length`), and then the tongue snaps back, starting at the
+## same speed and speeding up, `Abilities.tongue_snap` times faster on average.
 ## What the tip meets is dealt with as the gun's shot was: a breakable wall takes a hit
 ## (see BreakableWall), anything else stops it. One lash hits at most one thing.
 ## There is no aiming, so a player who wants to reach higher jumps first.
@@ -37,6 +38,10 @@ var direction := 1
 var extension := 0.0
 ## Whether the tongue is coming back in.
 var retracting := false
+## How fast the tongue is coming back, in pixels a second, and how fast that
+## grows. Set by `_begin_return`.
+var _return_speed := 0.0
+var _return_accel := 0.0
 ## Seconds before another lash may be made. It runs only while the tongue is in.
 var cooldown_left := 0.0
 
@@ -67,7 +72,7 @@ func lash() -> bool:
 	retracting = false
 	# A lash against a wall the player is pressed to hits it at once.
 	if _hit():
-		retracting = true
+		_begin_return()
 	queue_redraw()
 	return true
 
@@ -123,20 +128,34 @@ func _draw() -> void:
 	draw_rect(body.tongue_rect(extension), PINK)
 
 
+## Turns the tongue round and sets up the snap. It starts back at `tongue_speed`
+## and speeds up steadily, so that the return averages `tongue_snap` times
+## `tongue_speed` and takes `extension / (tongue_snap * tongue_speed)` seconds.
+## That makes the peak `(2 * snap - 1) * tongue_speed`, and a faster tongue
+## snaps back faster too. A snap of 1 is a steady return.
+func _begin_return() -> void:
+	retracting = true
+	var speed := GameState.abilities.tongue_speed
+	var snap := maxf(GameState.abilities.tongue_snap, 1.0)
+	_return_speed = speed
+	_return_accel = 2.0 * snap * (snap - 1.0) * speed * speed / extension if extension > 0.0 else 0.0
+
+
 func _move(delta: float) -> void:
+	if retracting:
+		# The exact distance of a steady acceleration over this tick. The return
+		# hits nothing, so it needs no steps.
+		extension -= _return_speed * delta + 0.5 * _return_accel * delta * delta
+		_return_speed += _return_accel * delta
+		if extension <= 0.0:
+			end()
+		return
 	var distance := GameState.abilities.tongue_speed * delta
 	var steps := maxi(1, ceili(distance / STEP))
 	for i in steps:
-		var move := distance / float(steps)
-		if retracting:
-			extension -= move
-			if extension <= 0.0:
-				end()
-				return
-			continue
-		extension = minf(extension + move, GameState.abilities.tongue_length)
+		extension = minf(extension + distance / float(steps), GameState.abilities.tongue_length)
 		if _hit() or extension >= GameState.abilities.tongue_length:
-			retracting = true
+			_begin_return()
 			return
 
 
