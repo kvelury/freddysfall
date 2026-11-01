@@ -123,16 +123,19 @@ func _run() -> void:
 
 func _layout(hud: Node) -> void:
 	var H: GDScript = hud.get_script()
-	var left: Vector2 = H.ORIGIN + H.COLUMN
+	var left: Vector2 = H.ORIGIN + H.LEFT
 	_check(hud.pip_rect(0) == Rect2(left + Vector2(H.HEART_GAP, -3), Vector2(7, 6)), "the first heart starts a gap right of the frame's left point")
 	_check(hud.pip_rect(1).position.x - hud.pip_rect(0).position.x == 9.0, "hearts are 9 units apart")
 	_check(hud.pip_rect(H.WRAP).position == hud.pip_rect(0).position + Vector2(0, H.ROW_STEP), "the frame wraps under itself")
-	_check(hud.slot_centre(0) == left, "the top diamond sits over the frame's left point")
-	_check(hud.slot_centre(1) - hud.slot_centre(0) == Vector2(0, 4), "diamonds step down, touching tip to tip")
-	_check(hud.bounds(0) == hud.bounds(1) and hud.bounds(0).size.y >= 13.0, "the bounds cover the diamond column with no hearts or tokens")
-	_check(hud.bounds(4).end.x == H.ORIGIN.x + H.COLUMN.x + 9.0 * 4 + H.HEART_GAP + H.POINT + 1.0, "four hearts make the frame 9 units longer each")
+	_check(left == H.ORIGIN + Vector2(5, 6), "the frame's left point is 5 right and 6 down from the origin")
+	_check(hud.slot_centre(0).y == left.y, "slot 0 is the middle, level with the frame's tip")
+	_check(hud.slot_centre(0).x + 2.0 + 1.0 == left.x, "slot 0's right point is directly left of the tip")
+	_check(hud.slot_centre(1) - hud.slot_centre(0) == Vector2(0, -4) and hud.slot_centre(2) - hud.slot_centre(0) == Vector2(0, 4), "slot 1 is the top and slot 2 the bottom, touching tip to tip")
+	_check(hud.slot_centre(1).y - 2.0 == H.ORIGIN.y and hud.slot_centre(1).x - 2.0 == H.ORIGIN.x, "the top diamond's top pixel is at the origin row")
+	_check(hud.bounds(0) == hud.bounds(1) and hud.bounds(0).size.y >= 14.0 and hud.bounds(0).position.y == H.ORIGIN.y - 1.0, "the bounds cover the diamond column with no hearts or tokens")
+	_check(hud.bounds(4).end.x == H.ORIGIN.x + H.LEFT.x + 9.0 * 4 + H.HEART_GAP + H.POINT + 1.0, "four hearts make the frame 9 units longer each")
 	_check(H.FRAME_HEIGHT == 10 and H.ROW_STEP == H.FRAME_HEIGHT + 1.0, "the frame is 10 units tall and wrapped frames leave one clear row")
-	_check(hud.bounds(31).size.y == H.ROW_STEP + H.FRAME_HEIGHT, "a wrapped frame's bounds reach the second frame's bottom line")
+	_check(hud.bounds(31).end.y == H.ORIGIN.y + H.LEFT.y - H.POINT + H.ROW_STEP + H.FRAME_HEIGHT, "a wrapped frame's bounds reach the second frame's bottom line")
 	_check(hud.bounds(100).end.x < 320.0 and hud.bounds(100).end.y < 180.0, "a long frame stays on the screen")
 	_check(hud._fill_colour("t0", true) == H.GOLD and hud._fill_colour("p0", true) == H.RED, "a token fills gold and a full heart red")
 	hud._effects["t0"] = {"kind": &"pop", "left": 1.0}
@@ -140,7 +143,7 @@ func _layout(hud: Node) -> void:
 	_check(hud._fill_colour("t0", true) == Color.WHITE and hud._fill_colour("p0", true) == Color.WHITE, "a landing token or heart flashes white first")
 	hud._effects.clear()
 	_check(hud._fill_colour("p0", false) == Color.BLACK, "an empty heart is black inside")
-	_check(hud.shown_tokens == 0 and hud.slot_centre(2).y > hud.slot_centre(1).y and hud.slot_centre(1).y > hud.slot_centre(0).y, "with no token held nothing is drawn, and diamonds fill top first, going down")
+	_check(hud.shown_tokens == 0 and hud.slot_centre(1).y < hud.slot_centre(0).y and hud.slot_centre(0).y < hud.slot_centre(2).y, "with no token held nothing is drawn, and diamonds fill middle, then top, then bottom")
 
 
 func _settle(hud: Node) -> void:

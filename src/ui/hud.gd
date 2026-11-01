@@ -4,9 +4,9 @@ extends CanvasLayer
 ## The hearts and token HUD, fixed in the top-left corner, from the user's
 ## drawing. A red hexagon frame holds one heart for each hit point: a full heart
 ## is solid red and an empty one is a red outline with black inside. A column of
-## diamonds runs down the left, the top one over the frame's left point, and a
-## diamond is drawn only for a token carried: solid gold with no outline, filling
-## top first. Nothing is drawn for a token not held, and the frame never moves.
+## diamonds runs down the left, centred on the frame, the middle one touching the
+## frame's left tip, and a diamond is drawn only for a token carried: solid gold
+## with no outline, filling the middle first, then the top, then the bottom. Nothing is drawn for a token not held, and the frame never moves.
 ##
 ## The HUD shows GameState, less what is still flying in: a pickup taken in a
 ## room flies to its slot and only counts when it lands. Every change animates
@@ -20,10 +20,14 @@ const EMPTY := Color.BLACK
 ## Where the HUD's top-left sits, in 320 x 180 UI units: clear of a room's
 ## one-cell outer wall, since nothing is drawn behind the HUD.
 const ORIGIN := Vector2(14, 14)
-## The token column's centre line, and the first diamond's centre, which is also
-## the frame's left point. Diamonds are 5 units tall and step down by DIAMOND_STEP,
-## so they touch tip to tip.
-const COLUMN := Vector2(4, 5)
+## The frame's left point (the lower row of its 2 unit tip), from ORIGIN. The
+## frame and hearts are measured from here.
+const LEFT := Vector2(5, 6)
+## The token column's centre line, from ORIGIN.x. A diamond spans ORIGIN.x to
+## ORIGIN.x + 4, so its right point sits directly left of the frame's tip.
+const COLUMN_X := 2.0
+## Diamonds are 5 units tall and step by DIAMOND_STEP, so they touch tip to tip.
+## Slot 0 is the middle (level with the tip), 1 the top, 2 the bottom.
 const DIAMOND_STEP := 4.0
 ## The frame is a hexagon FRAME_HEIGHT tall with 45 degree ends that come to a
 ## 2 unit flat tip (rows y-1 and y of the left point).
@@ -98,15 +102,18 @@ func to_ui(world_position: Vector2) -> Vector2:
 	return (get_viewport().canvas_transform * world_position) / float(Display.RENDER_SCALE)
 
 
-## Diamond `index`'s centre, in UI units.
+## Diamond slot `index`'s centre, in UI units. Slots fill middle (0), top (1),
+## then bottom (2).
 func slot_centre(index: int) -> Vector2:
-	return ORIGIN + COLUMN + Vector2(0, DIAMOND_STEP * float(clampi(index, 0, GameState.TOKEN_CAP - 1)))
+	var offsets := [0.0, -DIAMOND_STEP, DIAMOND_STEP]
+	var slot := clampi(index, 0, GameState.TOKEN_CAP - 1)
+	return Vector2(ORIGIN.x + COLUMN_X, ORIGIN.y + LEFT.y + offsets[slot])
 
 
 ## The rect of heart `index`, in UI units.
 func pip_rect(index: int) -> Rect2:
 	var row := floori(float(index) / WRAP)
-	var at := ORIGIN + COLUMN + Vector2(HEART_GAP + PITCH * float(index % WRAP), ROW_STEP * row - 3.0)
+	var at := ORIGIN + LEFT + Vector2(HEART_GAP + PITCH * float(index % WRAP), ROW_STEP * row - 3.0)
 	return Rect2(at, HEART_SIZE)
 
 
@@ -115,13 +122,14 @@ func pip_centre(index: int) -> Vector2:
 
 
 ## Everything the HUD covers, for a frame of `pips` hearts. The diamonds' column
-## counts even when no token is held, so the area never changes size.
+## counts even when no token is held, so the area never changes size, and so
+## does the one unit the column bumps up.
 func bounds(pips: int) -> Rect2:
 	var hearts := maxi(pips, 1)
 	var columns := mini(hearts, WRAP)
 	var rows := floori(float(hearts - 1) / WRAP) + 1
-	var box := Rect2(ORIGIN, Vector2(5, DIAMOND_STEP * (GameState.TOKEN_CAP - 1) + 6.0))
-	var frame := Rect2(ORIGIN + Vector2(COLUMN.x, 0), Vector2(PITCH * columns + HEART_GAP + POINT + 1.0, ROW_STEP * (rows - 1) + FRAME_HEIGHT))
+	var box := Rect2(ORIGIN + Vector2(0, -1), Vector2(5, 2.0 * DIAMOND_STEP + 5.0 + 1.0))
+	var frame := Rect2(ORIGIN + Vector2(LEFT.x, LEFT.y - POINT), Vector2(PITCH * columns + HEART_GAP + POINT + 1.0, ROW_STEP * (rows - 1) + FRAME_HEIGHT))
 	return box.merge(frame)
 
 
@@ -245,7 +253,7 @@ func _draw_hud() -> void:
 		row += 1
 	for i in shown_max:
 		_draw_heart(i)
-	# Diamonds last, over the frame's left point. A spent token blinks its whole
+	# Diamonds last, beside the frame's left point. A spent token blinks its whole
 	# diamond and is gone; there is no empty one.
 	var bump := Vector2(0, -1) if _bump > 0.0 else Vector2.ZERO
 	for i in GameState.TOKEN_CAP:
@@ -261,10 +269,10 @@ func _draw_hud() -> void:
 
 
 ## One hexagon row, `length` units of hearts long: the left tip (2 units tall,
-## rows y-1 and y) sits under the first diamond's centre, 45 degree edges rise
+## rows y-1 and y) sits right of the middle diamond's point, 45 degree edges rise
 ## and fall to the top and bottom lines, and the right end mirrors the left.
 func _draw_frame(row: int, length: int) -> void:
-	var left := ORIGIN + COLUMN + Vector2(0, ROW_STEP * row)
+	var left := ORIGIN + LEFT + Vector2(0, ROW_STEP * row)
 	var top := left.y - float(POINT)
 	var edge := left.x + HEART_GAP - 1.0
 	var end := left.x + HEART_GAP - 2.0 + float(length)
