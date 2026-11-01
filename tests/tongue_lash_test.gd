@@ -56,7 +56,7 @@ func _run() -> void:
 	ok = _check(tongue.direction == -1 and is_equal_approx(tip.y, player.global_position.y - 1.5) and tip.x < player.global_position.x, "the tip starts at the front of the body, on the mouth row") and ok
 	await physics_frame
 	await physics_frame
-	ok = _check(is_equal_approx(tongue.extension, 2.0 * 400.0 / 60.0), "and goes out at the lash speed (%.1f px in two ticks)" % tongue.extension) and ok
+	ok = _check(is_equal_approx(tongue.extension, 2.0 * 280.0 / 60.0), "and goes out at the lash speed (%.1f px in two ticks)" % tongue.extension) and ok
 	var body := player.get_node("Visual") as PlayerBody
 	var drawn := body.tongue_rect(tongue.extension)
 	ok = _check(drawn.size.y == 1.0 and drawn.position.x < body.position.x and drawn.end.x > body.position.x, "the pink line is one pixel high and leaves the front of the body (%s)" % drawn) and ok
@@ -140,6 +140,55 @@ func _run() -> void:
 	ok = _check(not tongue.active, "a tongue out when the world goes busy is pulled in") and ok
 	world._busy = false
 
+	# The snap back: the tongue goes out at tongue_speed and comes back faster,
+	# speeding up, and a faster tongue snaps back faster too.
+	world.warp_to("7")
+	await process_frame
+	_stand(world, player, Vector2i(24, 34))
+	player.facing = 1
+	tongue.cooldown_left = 0.0
+	tongue.lash()
+	var base := await _trace(tongue, 90)
+	ok = _check(base["out"] == 11 and base["back"] == 4, "at 280 px/s a full lash takes 11 ticks out and 4 back (%d, %d)" % [base["out"], base["back"]]) and ok
+	var legs: Array = base["legs"]
+	ok = _check(legs.size() >= 3 and legs[0] < legs[1] and legs[1] < legs[2], "the snap speeds up as it comes in (%s px a tick)" % str(legs)) and ok
+	ok = _check(legs[0] > 280.0 / 60.0 and legs[2] > 3.0 * 280.0 / 60.0, "it starts faster than the way out and ends well over three times it") and ok
+	state.abilities.tongue_speed = 560.0
+	tongue.cooldown_left = 0.0
+	tongue.lash()
+	var fast := await _trace(tongue, 90)
+	ok = _check(fast["out"] < base["out"] and fast["back"] < base["back"] and fast["back"] == 2, "doubling the lash speed shortens the snap as well as the reach (%d out, %d back)" % [fast["out"], fast["back"]]) and ok
+	state.abilities.tongue_speed = 280.0
+	state.abilities.tongue_snap = 6.0
+	tongue.cooldown_left = 0.0
+	tongue.lash()
+	var sharp := await _trace(tongue, 90)
+	ok = _check(sharp["out"] == 11 and sharp["back"] < base["back"], "a bigger snap shortens only the way back (%d out, %d back)" % [sharp["out"], sharp["back"]]) and ok
+	state.abilities.tongue_snap = 1.0
+	tongue.cooldown_left = 0.0
+	tongue.lash()
+	var steady := await _trace(tongue, 90)
+	var even := true
+	var steady_legs: Array = steady["legs"]
+	for leg in steady_legs:
+		even = even and is_equal_approx(leg, 280.0 / 60.0)
+	ok = _check(even and steady["back"] == 11, "a snap of 1 comes back at the speed it went out (%d ticks)" % steady["back"]) and ok
+	state.abilities.tongue_snap = 3.0
+	# A short lash against the wall keeps the same proportion.
+	player.facing = -1
+	tongue.cooldown_left = 0.0
+	tongue.lash()
+	var hit := await _trace(tongue, 90)
+	var reach: float = hit["reach"]
+	var expected := ceili(reach / (3.0 * 280.0) * 60.0 - 0.0001)
+	ok = _check(reach < 50.0 and hit["back"] == expected, "a lash that hits at %.1f px snaps back in proportion (%d ticks, expected %d)" % [reach, hit["back"], expected]) and ok
+	# Turned round at no length, the return has nothing to speed up.
+	tongue.clear()
+	tongue.extension = 0.0
+	tongue._begin_return()
+	ok = _check(tongue._return_accel == 0.0 and is_equal_approx(tongue._return_speed, 280.0), "a lash that hits at once has no acceleration to work out") and ok
+	tongue.clear()
+
 	world.queue_free()
 	await process_frame
 	state.reset()
@@ -168,17 +217,20 @@ func _keycodes(action: String) -> Array:
 func _abilities() -> bool:
 	var ok := true
 	var abilities := Abilities.new()
-	ok = _check(not abilities.tongue_unlocked and is_equal_approx(abilities.tongue_cooldown, 0.15) and is_equal_approx(abilities.tongue_speed, 400.0) and is_equal_approx(abilities.tongue_length, 50.0), "Tongue Lash starts locked, with a 0.15 s cooldown, 400 px/s and 50 px of reach") and ok
+	ok = _check(not abilities.tongue_unlocked and is_equal_approx(abilities.tongue_cooldown, 0.15) and is_equal_approx(abilities.tongue_speed, 280.0) and is_equal_approx(abilities.tongue_snap, 3.0) and is_equal_approx(abilities.tongue_length, 50.0), "Tongue Lash starts locked, with a 0.15 s cooldown, 280 px/s out, a 3x snap back and 50 px of reach") and ok
 	ok = _check(abilities.apply(Upgrades.get_def("tongue_lash"), true) and abilities.tongue_unlocked and not abilities.apply(Upgrades.get_def("tongue_lash"), true), "the Tongue Lash upgrade unlocks it once") and ok
 	ok = _check(abilities.apply(Upgrades.get_def("tongue_cooldown"), 0.1) and not abilities.apply(Upgrades.get_def("tongue_cooldown"), 0.15) and is_equal_approx(abilities.tongue_cooldown, 0.1), "a cooldown upgrade only lowers it") and ok
 	ok = _check(abilities.apply(Upgrades.get_def("tongue_speed"), 500.0) and not abilities.apply(Upgrades.get_def("tongue_speed"), 100.0) and is_equal_approx(abilities.tongue_speed, 500.0), "a speed upgrade only raises it") and ok
 	ok = _check(abilities.apply(Upgrades.get_def("tongue_length"), 80.0) and not abilities.apply(Upgrades.get_def("tongue_length"), 60.0) and is_equal_approx(abilities.tongue_length, 80.0), "a length upgrade only raises it") and ok
+	ok = _check(abilities.apply(Upgrades.get_def("tongue_snap"), 5.0) and not abilities.apply(Upgrades.get_def("tongue_snap"), 2.0) and is_equal_approx(abilities.tongue_snap, 5.0), "a snap upgrade only raises it") and ok
 	var back := Abilities.from_dict(abilities.to_dict())
 	ok = _check(back.tongue_unlocked and is_equal_approx(back.tongue_cooldown, 0.1) and is_equal_approx(back.tongue_speed, 500.0) and is_equal_approx(back.tongue_length, 80.0), "Tongue Lash round-trips through a save") and ok
+	ok = _check(is_equal_approx(back.tongue_snap, 5.0) and is_equal_approx(Abilities.from_dict({"tongue_snap": 0.2}).tongue_snap, 1.0), "the snap round-trips too, and a save cannot make it slower than a steady return") and ok
+	ok = _check(is_equal_approx(Abilities.from_dict({"tongue_speed": 400.0}).tongue_speed, 400.0) and is_equal_approx(Abilities.from_dict({"tongue_speed": 400.0}).tongue_snap, 3.0), "a save holding the old 400 px/s keeps it, and takes the 3x snap") and ok
 	var old := Abilities.from_dict({})
 	ok = _check(not old.tongue_unlocked and is_equal_approx(old.tongue_cooldown, 0.15), "and a new save loads it locked") and ok
 	var gun_save := Abilities.from_dict({"gun_unlocked": true, "gun_cooldown": 0.5, "gun_shot_speed": 900.0})
-	ok = _check(gun_save.tongue_unlocked and is_equal_approx(gun_save.tongue_cooldown, 0.15) and is_equal_approx(gun_save.tongue_speed, 400.0), "a save from the gun keeps the power and takes the new tuning")  and ok
+	ok = _check(gun_save.tongue_unlocked and is_equal_approx(gun_save.tongue_cooldown, 0.15) and is_equal_approx(gun_save.tongue_speed, 280.0) and is_equal_approx(gun_save.tongue_snap, 3.0), "a save from the gun keeps the power and takes the new tuning")  and ok
 	var loadout := DevCatalog.reconcile({"abilities": {"gun_unlocked": true, "gun_cooldown": 0.5, "gun_shot_speed": 900.0}})
 	ok = _check(loadout["error"] == "" and loadout["warnings"].is_empty() and loadout["loadout"]["abilities"]["tongue_unlocked"] and is_equal_approx(loadout["loadout"]["abilities"]["tongue_cooldown"], 0.5) and is_equal_approx(loadout["loadout"]["abilities"]["tongue_speed"], 900.0), "a stored loadout from the gun keeps its chosen values") and ok
 	return ok
@@ -240,6 +292,33 @@ func _wait(tongue: Node, limit: int) -> float:
 		if not tongue.active:
 			break
 	return farthest
+
+
+## Plays on until the tongue is back in, and says how many ticks it took out
+## (`out`) and back (`back`), how far it reached (`reach`), and how far it came
+## in on each tick but the last (`legs`).
+func _trace(tongue: Node, limit: int) -> Dictionary:
+	var out := 0
+	var back := 0
+	var reach := 0.0
+	var legs: Array = []
+	var last: float = tongue.extension
+	for i in limit:
+		await physics_frame
+		if not tongue.active:
+			back += 1
+			break
+		if tongue.extension == last and not tongue.retracting:
+			# The frame ran before the tongue's own tick.
+			continue
+		if tongue.extension > last:
+			out += 1
+		else:
+			back += 1
+			legs.append(last - tongue.extension)
+		reach = maxf(reach, tongue.extension)
+		last = tongue.extension
+	return {"out": out, "back": back, "reach": reach, "legs": legs}
 
 
 ## Waits out the cooldown, lashes, and waits for the tongue to come back.
