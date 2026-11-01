@@ -165,6 +165,36 @@ func _run() -> void:
 	await process_frame
 	_check(panel.opened, "pending panel opens after the animation")
 	panel.close_panel()
+
+	# F7 slows the game, in a dev test with the panel shut.
+	var toast: Toast = world.toast
+	_check(session.mode == session.Mode.DEV_TEST and not session.slow_motion, "a dev test starts at normal speed")
+	_press(panel, KEY_F7)
+	_check(session.slow_motion and is_equal_approx(Engine.time_scale, 0.25) and toast._label.visible and toast._label.text == "Slow motion: 1/4 speed", "F7 slows the game to a quarter speed and says so")
+	_press(panel, KEY_F7)
+	_check(not session.slow_motion and Engine.time_scale == 1.0 and toast._label.text == "Slow motion: off", "and again puts it back")
+	panel.open_panel()
+	_press(panel, KEY_F7)
+	_check(not session.slow_motion, "with the panel open, F7 does nothing")
+	_check(panel._slow != null and not panel._slow.button_pressed, "the panel offers slow motion, off")
+	panel._slow.button_pressed = true
+	_check(session.slow_motion and Engine.time_scale < 1.0, "and its switch slows the game")
+	panel._slow.button_pressed = false
+	_check(not session.slow_motion and Engine.time_scale == 1.0, "and puts it back")
+	panel.close_panel()
+	world.modal_owner = "pause"
+	_press(panel, KEY_F7)
+	_check(not session.slow_motion, "while something else holds the input, it does nothing")
+	world.modal_owner = ""
+	world._busy = true
+	_press(panel, KEY_F7)
+	_check(not session.slow_motion, "and during an animation")
+	world._busy = false
+	for mode in [session.Mode.NORMAL, session.Mode.ROOM_TEST]:
+		session.mode = mode
+		_press(panel, KEY_F7)
+		_check(not session.slow_motion and Engine.time_scale == 1.0, "outside a dev test (mode %d), it does nothing" % mode)
+	session.mode = session.Mode.DEV_TEST
 	var map: Node = world.get_node("MapOverlay")
 	map._set_open(true)
 	panel.open_panel()

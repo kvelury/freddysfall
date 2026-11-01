@@ -4,7 +4,7 @@ extends RefCounted
 ## What the player can do. The values here are the starting ones; upgrades
 ## raise them. Each name in STATS is a stat that data/upgrades.json may name.
 
-const STATS: Array[String] = ["air_jumps", "tongue_unlocked", "tongue_cooldown", "tongue_speed", "tongue_snap", "tongue_length", "imprint_unlocked", "imprint_width", "imprint_duration", "imprint_max_active", "imprint_cooldown", "imprint_effects"]
+const STATS: Array[String] = ["air_jumps", "tongue_unlocked", "tongue_cooldown", "tongue_speed", "tongue_snap", "tongue_length", "tongue_creep", "tongue_creep_reach", "tongue_ramp", "tongue_strike", "tongue_settle", "tongue_stick", "tongue_pad", "imprint_unlocked", "imprint_width", "imprint_duration", "imprint_max_active", "imprint_cooldown", "imprint_effects"]
 
 ## Jumps the player can make in mid-air before landing. 0 until they find double jump.
 var air_jumps := 0
@@ -17,10 +17,27 @@ var tongue_cooldown := 0.15
 var tongue_speed := 220.0
 ## How many times faster than `tongue_speed` the tongue comes back, on average.
 ## It starts back at `tongue_speed` and speeds up. 1 is a steady return.
-var tongue_snap := 3.5
+var tongue_snap := 2.5
 ## How far the tongue reaches past the front of the body, in pixels. The first
 ## 50 is enough for every breakable wall so far; upgrades lengthen it.
 var tongue_length := 50.0
+## The shape of a lash is `TongueMotion`'s. These seven tune it, and the dev
+## tools can change them; no room awards them. The starting values are a frog's:
+## a creep, a snap, a stick on what it hit and a spring return.
+## Seconds the tongue creeps at the start, and the pixels it covers doing so.
+var tongue_creep := 0.065
+var tongue_creep_reach := 4.0
+## Seconds the speed takes to climb from the creep to the snap.
+var tongue_ramp := 0.05
+## How many times `tongue_speed` the tongue goes at the top of the snap.
+var tongue_strike := 3.9
+## 0 is the accelerating return; 1 is a spring that is fastest at once and
+## eases into the mouth.
+var tongue_settle := 1.0
+## Seconds the tip stays on what it hit before it comes back.
+var tongue_stick := 0.05
+## Whether the tip is drawn as a pad (3 pixels tall) while it is stuck.
+var tongue_pad := true
 ## Whether the player has found Imprint. Until they do, the cursor is just a cursor.
 var imprint_unlocked := false
 ## Imprint platform width in cells.
@@ -76,6 +93,13 @@ func to_dict() -> Dictionary:
 		"tongue_speed": tongue_speed,
 		"tongue_snap": tongue_snap,
 		"tongue_length": tongue_length,
+		"tongue_creep": tongue_creep,
+		"tongue_creep_reach": tongue_creep_reach,
+		"tongue_ramp": tongue_ramp,
+		"tongue_strike": tongue_strike,
+		"tongue_settle": tongue_settle,
+		"tongue_stick": tongue_stick,
+		"tongue_pad": tongue_pad,
 		"imprint_unlocked": imprint_unlocked,
 		"imprint_width": imprint_width,
 		"imprint_duration": imprint_duration,
@@ -97,6 +121,14 @@ static func from_dict(data: Dictionary) -> Abilities:
 	out.tongue_speed = float(data.get("tongue_speed", out.tongue_speed))
 	out.tongue_snap = maxf(1.0, float(data.get("tongue_snap", out.tongue_snap)))
 	out.tongue_length = float(data.get("tongue_length", out.tongue_length))
+	# Only the floor is held here; the dev controls hold the top of each range.
+	out.tongue_creep = maxf(0.0, float(data.get("tongue_creep", out.tongue_creep)))
+	out.tongue_creep_reach = maxf(0.0, float(data.get("tongue_creep_reach", out.tongue_creep_reach)))
+	out.tongue_ramp = maxf(0.0, float(data.get("tongue_ramp", out.tongue_ramp)))
+	out.tongue_strike = maxf(1.0, float(data.get("tongue_strike", out.tongue_strike)))
+	out.tongue_settle = maxf(0.0, float(data.get("tongue_settle", out.tongue_settle)))
+	out.tongue_stick = maxf(0.0, float(data.get("tongue_stick", out.tongue_stick)))
+	out.tongue_pad = bool(data.get("tongue_pad", out.tongue_pad))
 	out.imprint_unlocked = bool(data.get("imprint_unlocked", out.imprint_unlocked))
 	out.imprint_width = int(data.get("imprint_width", out.imprint_width))
 	out.imprint_duration = float(data.get("imprint_duration", out.imprint_duration))

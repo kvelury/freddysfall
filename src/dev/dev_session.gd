@@ -25,6 +25,12 @@ var token_marks := false
 ## and is not in a loadout, and End playtest or a fresh boot resets it.
 var wall_strength_override := 0
 const MAX_WALL_STRENGTH := 99
+## Whether the game runs at `SLOW_SCALE` of its speed, to watch a motion tick by
+## tick. A session setting like Classic Imprint, but shorter lived: it is not
+## saved and not in a loadout, and it is switched off (the clock back to normal
+## speed) by a retry, a replaced world, End playtest, the main menu and a fresh boot.
+var slow_motion := false
+const SLOW_SCALE := 0.25
 var retry_on_death := false
 var target := ""
 var baseline := {}
@@ -52,6 +58,8 @@ func status_line() -> String:
 		line += " · classic imprint"
 	if token_marks_active():
 		line += " · token marks"
+	if slow_motion:
+		line += " · slow motion"
 	return line
 
 
@@ -63,6 +71,7 @@ func configure(dev: bool, room_test: bool) -> void:
 	classic_imprint = false
 	token_marks = false
 	wall_strength_override = 0
+	_normal_speed()
 	retry_on_death = false
 	baseline = {}
 	loadout = {}
@@ -78,6 +87,7 @@ func reset_to_normal() -> void:
 	classic_imprint = false
 	token_marks = false
 	wall_strength_override = 0
+	_normal_speed()
 	retry_on_death = false
 	baseline = {}
 	loadout = {}
@@ -219,6 +229,20 @@ func set_wall_strength(world: Node, lashes: int) -> String:
 	return ""
 
 
+func set_slow_motion(world: Node, on: bool) -> String:
+	if mode != Mode.DEV_TEST or replacing or world.is_busy():
+		return "Dev tools are not ready."
+	slow_motion = on
+	Engine.time_scale = SLOW_SCALE if on else 1.0
+	return ""
+
+
+## Switches slow motion off and puts the clock back at normal speed.
+func _normal_speed() -> void:
+	slow_motion = false
+	Engine.time_scale = 1.0
+
+
 func set_retry_on_death(world: Node, on: bool) -> String:
 	if mode != Mode.DEV_TEST or replacing or world.is_busy():
 		return "Dev tools are not ready."
@@ -243,6 +267,7 @@ func _replace(world: Node, state: Dictionary, normal: bool) -> void:
 	var parent := world.get_parent()
 	var was_main := get_tree().current_scene == world
 	# Free the world (including its timers/tweens) before restoring normal access.
+	_normal_speed()
 	world.free()
 	get_tree().paused = false
 	if normal:
