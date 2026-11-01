@@ -5,14 +5,16 @@ extends CanvasLayer
 ## drawing. A red hexagon frame holds one heart for each hit point: a full heart
 ## is solid red and an empty one is a red outline with black inside. A column of
 ## diamonds runs down the left, the top one over the frame's left point, and a
-## diamond is drawn only for a token carried: white with a red outline, filling
+## diamond is drawn only for a token carried: solid gold with no outline, filling
 ## top first. Nothing is drawn for a token not held, and the frame never moves.
 ##
 ## The HUD shows GameState, less what is still flying in: a pickup taken in a
 ## room flies to its slot and only counts when it lands. Every change animates
 ## in whole UI units, by switching pixels and never by fading.
 
-const RED := Color("d22b2b")
+const RED := Palette.RED
+## Tokens are gold everywhere: in a room, flying, in a 3TM and here.
+const GOLD := Palette.GOLD
 ## An empty heart is black inside its red outline. There is no plate.
 const EMPTY := Color.BLACK
 ## Where the HUD's top-left sits, in 320 x 180 UI units: clear of a room's
@@ -41,8 +43,6 @@ const BLINK_TIME := 0.36
 const BLINK_STEP := 0.06
 const SWEEP_STEP := 0.05
 const BUMP_TIME := 0.1
-## A flying pickup is drawn again at these offsets in red, for its edge.
-const EDGE := [Vector2.LEFT, Vector2.RIGHT, Vector2.UP, Vector2.DOWN]
 
 ## What the HUD shows now. They catch up with GameState through the animations.
 var shown_tokens := 0
@@ -208,14 +208,14 @@ func _redraw() -> void:
 		_canvas.queue_redraw()
 
 
-## What a slot is filled with: white for a token, red for a pip. A pop
-## flashes the other one first.
+## What a slot is filled with: gold for a token, red for a pip. A pop flashes
+## white first, for both.
 func _full(key: String) -> Color:
-	return Color.WHITE if key.begins_with("t") else RED
+	return GOLD if key.begins_with("t") else RED
 
 
-func _flash(key: String) -> Color:
-	return RED if key.begins_with("t") else Color.WHITE
+func _flash(_key: String) -> Color:
+	return Color.WHITE
 
 
 ## Whether slot effect `key` shows the slot filled this frame, given `held`.
@@ -253,8 +253,7 @@ func _draw_hud() -> void:
 		if not held and not (blinking and _filled(key, false)):
 			continue
 		var at := slot_centre(i) + bump
-		PixelArt.draw(_canvas, "hud_slot", at, _fill_colour(key, true) if held else Color.WHITE)
-		PixelArt.draw(_canvas, "hud_diamond", at, RED)
+		PixelArt.draw(_canvas, "hud_token", at, _fill_colour(key, true) if held else GOLD)
 	for flight in flights:
 		_draw_flight(flight)
 
@@ -285,17 +284,13 @@ func _draw_heart(index: int) -> void:
 		PixelArt.draw(_canvas, "hud_heart", at, colour)
 
 
-## A pickup on its way in: white, as it was in the room, with a red edge so it
-## reads over black space and white walls. It speeds up as it goes.
+## A pickup on its way in: gold for a token, red for a pip, with no edge. It
+## speeds up as it goes.
 func _draw_flight(flight: Dictionary) -> void:
 	var t := clampf(flight["age"] / FLY_TIME, 0.0, 1.0)
 	var at: Vector2 = (flight["from"] as Vector2).lerp(flight["to"], t * t).round()
-	for colour: Color in [RED, Color.WHITE]:
-		var offsets := EDGE if colour == RED else [Vector2.ZERO]
-		for offset: Vector2 in offsets:
-			if flight["kind"] == &"token":
-				PixelArt.draw(_canvas, "token", at + offset, colour)
-			else:
-				# The pip's plus sign, as HealthPip draws it.
-				_canvas.draw_rect(Rect2(at + offset + Vector2(-1, -4), Vector2(2, 8)), colour)
-				_canvas.draw_rect(Rect2(at + offset + Vector2(-4, -1), Vector2(8, 2)), colour)
+	if flight["kind"] == &"token":
+		# Drawn with PixelArt directly: Token and HealthPip read this file's colours.
+		PixelArt.draw(_canvas, "token", at, GOLD)
+	else:
+		PixelArt.draw(_canvas, "hud_heart", at + Vector2(-3, -3), RED)

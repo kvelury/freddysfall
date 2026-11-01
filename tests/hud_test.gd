@@ -132,7 +132,11 @@ func _layout(hud: Node) -> void:
 	_check(hud.bounds(0) == hud.bounds(1) and hud.bounds(0).size.y >= 25.0, "the bounds cover the diamond column with no hearts or tokens")
 	_check(hud.bounds(4).end.x == H.ORIGIN.x + H.COLUMN.x + 9.0 * 4 + H.HEART_GAP + H.POINT + 1.0, "four hearts make the frame 9 units longer each")
 	_check(hud.bounds(100).end.x < 320.0 and hud.bounds(100).end.y < 180.0, "a long frame stays on the screen")
-	_check(hud._fill_colour("t0", true) == Color.WHITE and hud._fill_colour("p0", true) == H.RED, "a token fills white and a full heart red")
+	_check(hud._fill_colour("t0", true) == H.GOLD and hud._fill_colour("p0", true) == H.RED, "a token fills gold and a full heart red")
+	hud._effects["t0"] = {"kind": &"pop", "left": 1.0}
+	hud._effects["p0"] = {"kind": &"pop", "left": 1.0}
+	_check(hud._fill_colour("t0", true) == Color.WHITE and hud._fill_colour("p0", true) == Color.WHITE, "a landing token or heart flashes white first")
+	hud._effects.clear()
 	_check(hud._fill_colour("p0", false) == Color.BLACK, "an empty heart is black inside")
 	_check(hud.shown_tokens == 0 and hud.slot_centre(2).y > hud.slot_centre(1).y and hud.slot_centre(1).y > hud.slot_centre(0).y, "with no token held nothing is drawn, and diamonds fill top first, going down")
 

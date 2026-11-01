@@ -54,9 +54,9 @@ func _draw() -> void:
 	for i in _trail.size():
 		var dot := to_local(_trail[i])
 		if i % 2 == 0:
-			draw_rect(Display.snap_rect(Rect2(dot.round() - Vector2.ONE * 0.5, Vector2.ONE)), Color.WHITE)
+			draw_rect(Display.snap_rect(Rect2(dot.round() - Vector2.ONE * 0.5, Vector2.ONE)), Color.WHITE if _spark else Palette.GOLD)
 	if _spark:
 		draw_rect(Display.snap_rect(Rect2(-1.5, -1.5, 3, 3)), Color.WHITE)
 	else:
 		# A little bigger than the token in the world, so it reads as leaving the body.
-		PixelArt.draw(self, "flying_token", Vector2.ZERO)
+		PixelArt.draw(self, "flying_token", Vector2.ZERO, Palette.GOLD)
