@@ -37,8 +37,14 @@ func _process(delta: float) -> void:
 	queue_redraw()
 
 
-## A plus sign that bobs, so it reads apart from the diamond pickup and token.
+## The HUD's red heart, bobbing, centred on the bob point, so it reads as the
+## heart it becomes.
 func _draw() -> void:
 	var c := Vector2(0.0, roundf(sin(_age * 3.0) * 1.5))
-	draw_rect(Rect2(c + Vector2(-1, -4), Vector2(2, 8)), Color.WHITE)
-	draw_rect(Rect2(c + Vector2(-4, -1), Vector2(8, 2)), Color.WHITE)
+	draw_heart(self, c + Vector2(-3, -3))
+
+
+## The heart shape, with its top-left at `at`, drawn onto `canvas`. The HUD's
+## flying pip uses it too, so every pip looks the same.
+static func draw_heart(canvas: CanvasItem, at: Vector2, color := Palette.RED) -> void:
+	PixelArt.draw(canvas, "hud_heart", at, color)

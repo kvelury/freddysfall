@@ -104,7 +104,7 @@ func _draw() -> void:
 		var at := origin + SLOTS[i]
 		var ink := Color.BLACK if flashing else Color.WHITE
 		if i < filled:
-			Token.draw_token(self, at, ink)
+			Token.draw_token(self, at, Color.BLACK if flashing else Palette.GOLD)
 		else:
 			PixelArt.draw(self, "slot", at, ink)
 	# The square body, with a dithered face and a dark dispenser mouth.

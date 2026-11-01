@@ -128,32 +128,15 @@ const SHAPES := {
 			"...#...",
 		],
 	},
-	# A held token's outline, centred on the anchor. Its inside is hud_slot.
-	"hud_diamond": {
-		"offset": Vector2i(-4, -4),
+	# A held token in the HUD: a small solid 5x5 diamond, centred on the anchor.
+	"hud_token": {
+		"offset": Vector2i(-2, -2),
 		"rows": [
-			"....#....",
-			"...#.#...",
-			"..#...#..",
-			".#.....#.",
-			"#.......#",
-			".#.....#.",
-			"..#...#..",
-			"...#.#...",
-			"....#....",
-		],
-	},
-	# The inside of a token diamond, centred on the anchor.
-	"hud_slot": {
-		"offset": Vector2i(-3, -3),
-		"rows": [
-			"...#...",
-			"..###..",
-			".#####.",
-			"#######",
-			".#####.",
-			"..###..",
-			"...#...",
+			"..#..",
+			".###.",
+			"#####",
+			".###.",
+			"..#..",
 		],
 	},
 }

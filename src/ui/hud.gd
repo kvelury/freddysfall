@@ -4,27 +4,34 @@ extends CanvasLayer
 ## The hearts and token HUD, fixed in the top-left corner, from the user's
 ## drawing. A red hexagon frame holds one heart for each hit point: a full heart
 ## is solid red and an empty one is a red outline with black inside. A column of
-## diamonds runs down the left, the top one over the frame's left point, and a
-## diamond is drawn only for a token carried: white with a red outline, filling
-## top first. Nothing is drawn for a token not held, and the frame never moves.
+## diamonds runs down the left, centred on the frame, the middle one touching the
+## frame's left tip, and a diamond is drawn only for a token carried: solid gold
+## with no outline, filling the middle first, then the top, then the bottom. Nothing is drawn for a token not held, and the frame never moves.
 ##
 ## The HUD shows GameState, less what is still flying in: a pickup taken in a
 ## room flies to its slot and only counts when it lands. Every change animates
 ## in whole UI units, by switching pixels and never by fading.
 
-const RED := Color("d22b2b")
+const RED := Palette.RED
+## Tokens are gold everywhere: in a room, flying, in a 3TM and here.
+const GOLD := Palette.GOLD
 ## An empty heart is black inside its red outline. There is no plate.
 const EMPTY := Color.BLACK
 ## Where the HUD's top-left sits, in 320 x 180 UI units: clear of a room's
 ## one-cell outer wall, since nothing is drawn behind the HUD.
 const ORIGIN := Vector2(14, 14)
-## The token column's centre line, and the first diamond's centre, which is also
-## the frame's left point. Diamonds are 9 units tall and step down by DIAMOND_STEP,
-## so they touch tip to tip.
-const COLUMN := Vector2(4, 5)
-const DIAMOND_STEP := 8.0
-## The frame is a hexagon FRAME_HEIGHT tall with 45 degree end points.
-const FRAME_HEIGHT := 11
+## The frame's left point (the lower row of its 2 unit tip), from ORIGIN. The
+## frame and hearts are measured from here.
+const LEFT := Vector2(5, 6)
+## The token column's centre line, from ORIGIN.x. A diamond spans ORIGIN.x to
+## ORIGIN.x + 4, so its right point sits directly left of the frame's tip.
+const COLUMN_X := 2.0
+## Diamonds are 5 units tall and step by DIAMOND_STEP, so they touch tip to tip.
+## Slot 0 is the middle (level with the tip), 1 the top, 2 the bottom.
+const DIAMOND_STEP := 4.0
+## The frame is a hexagon FRAME_HEIGHT tall with 45 degree ends that come to a
+## 2 unit flat tip (rows y-1 and y of the left point).
+const FRAME_HEIGHT := 10
 const POINT := 5
 ## Hearts start this far right of the left point, and are 7 x 6, PITCH apart.
 const HEART_GAP := 6
@@ -33,7 +40,8 @@ const PITCH := 9.0
 ## Hearts per row before the frame wraps: each further row is its own frame
 ## under the first. There is no heart cap, so the frame never runs off the screen.
 const WRAP := 30
-const ROW_STEP := 12.0
+## One more than FRAME_HEIGHT, so wrapped frames have one clear row between them.
+const ROW_STEP := 11.0
 const FLY_TIME := 0.35
 const GROW_TIME := 0.15
 const POP_TIME := 0.08
@@ -41,8 +49,6 @@ const BLINK_TIME := 0.36
 const BLINK_STEP := 0.06
 const SWEEP_STEP := 0.05
 const BUMP_TIME := 0.1
-## A flying pickup is drawn again at these offsets in red, for its edge.
-const EDGE := [Vector2.LEFT, Vector2.RIGHT, Vector2.UP, Vector2.DOWN]
 
 ## What the HUD shows now. They catch up with GameState through the animations.
 var shown_tokens := 0
@@ -96,15 +102,18 @@ func to_ui(world_position: Vector2) -> Vector2:
 	return (get_viewport().canvas_transform * world_position) / float(Display.RENDER_SCALE)
 
 
-## Diamond `index`'s centre, in UI units.
+## Diamond slot `index`'s centre, in UI units. Slots fill middle (0), top (1),
+## then bottom (2).
 func slot_centre(index: int) -> Vector2:
-	return ORIGIN + COLUMN + Vector2(0, DIAMOND_STEP * float(clampi(index, 0, GameState.TOKEN_CAP - 1)))
+	var offsets := [0.0, -DIAMOND_STEP, DIAMOND_STEP]
+	var slot := clampi(index, 0, GameState.TOKEN_CAP - 1)
+	return Vector2(ORIGIN.x + COLUMN_X, ORIGIN.y + LEFT.y + offsets[slot])
 
 
 ## The rect of heart `index`, in UI units.
 func pip_rect(index: int) -> Rect2:
 	var row := floori(float(index) / WRAP)
-	var at := ORIGIN + COLUMN + Vector2(HEART_GAP + PITCH * float(index % WRAP), ROW_STEP * row - 3.0)
+	var at := ORIGIN + LEFT + Vector2(HEART_GAP + PITCH * float(index % WRAP), ROW_STEP * row - 3.0)
 	return Rect2(at, HEART_SIZE)
 
 
@@ -113,13 +122,14 @@ func pip_centre(index: int) -> Vector2:
 
 
 ## Everything the HUD covers, for a frame of `pips` hearts. The diamonds' column
-## counts even when no token is held, so the area never changes size.
+## counts even when no token is held, so the area never changes size, and so
+## does the one unit the column bumps up.
 func bounds(pips: int) -> Rect2:
 	var hearts := maxi(pips, 1)
 	var columns := mini(hearts, WRAP)
 	var rows := floori(float(hearts - 1) / WRAP) + 1
-	var box := Rect2(ORIGIN, Vector2(9, DIAMOND_STEP * (GameState.TOKEN_CAP - 1) + 10.0))
-	var frame := Rect2(ORIGIN + Vector2(COLUMN.x, 0), Vector2(PITCH * columns + HEART_GAP + POINT + 1.0, ROW_STEP * (rows - 1) + FRAME_HEIGHT))
+	var box := Rect2(ORIGIN + Vector2(0, -1), Vector2(5, 2.0 * DIAMOND_STEP + 5.0 + 1.0))
+	var frame := Rect2(ORIGIN + Vector2(LEFT.x, LEFT.y - POINT), Vector2(PITCH * columns + HEART_GAP + POINT + 1.0, ROW_STEP * (rows - 1) + FRAME_HEIGHT))
 	return box.merge(frame)
 
 
@@ -208,14 +218,14 @@ func _redraw() -> void:
 		_canvas.queue_redraw()
 
 
-## What a slot is filled with: white for a token, red for a pip. A pop
-## flashes the other one first.
+## What a slot is filled with: gold for a token, red for a pip. A pop flashes
+## white first, for both.
 func _full(key: String) -> Color:
-	return Color.WHITE if key.begins_with("t") else RED
+	return GOLD if key.begins_with("t") else RED
 
 
-func _flash(key: String) -> Color:
-	return RED if key.begins_with("t") else Color.WHITE
+func _flash(_key: String) -> Color:
+	return Color.WHITE
 
 
 ## Whether slot effect `key` shows the slot filled this frame, given `held`.
@@ -243,7 +253,7 @@ func _draw_hud() -> void:
 		row += 1
 	for i in shown_max:
 		_draw_heart(i)
-	# Diamonds last, over the frame's left point. A spent token blinks its whole
+	# Diamonds last, beside the frame's left point. A spent token blinks its whole
 	# diamond and is gone; there is no empty one.
 	var bump := Vector2(0, -1) if _bump > 0.0 else Vector2.ZERO
 	for i in GameState.TOKEN_CAP:
@@ -253,24 +263,28 @@ func _draw_hud() -> void:
 		if not held and not (blinking and _filled(key, false)):
 			continue
 		var at := slot_centre(i) + bump
-		PixelArt.draw(_canvas, "hud_slot", at, _fill_colour(key, true) if held else Color.WHITE)
-		PixelArt.draw(_canvas, "hud_diamond", at, RED)
+		PixelArt.draw(_canvas, "hud_token", at, _fill_colour(key, true) if held else GOLD)
 	for flight in flights:
 		_draw_flight(flight)
 
 
-## One hexagon row, `length` units of hearts long: the left point sits under the
-## first diamond's centre, 45 degree edges rise to the top and bottom lines,
-## and the right end mirrors the left.
+## One hexagon row, `length` units of hearts long: the left tip (2 units tall,
+## rows y-1 and y) sits right of the middle diamond's point, 45 degree edges rise
+## and fall to the top and bottom lines, and the right end mirrors the left.
 func _draw_frame(row: int, length: int) -> void:
-	var left := ORIGIN + COLUMN + Vector2(0, ROW_STEP * row)
+	var left := ORIGIN + LEFT + Vector2(0, ROW_STEP * row)
 	var top := left.y - float(POINT)
 	var edge := left.x + HEART_GAP - 1.0
 	var end := left.x + HEART_GAP - 2.0 + float(length)
-	for k in POINT + 1:
-		for dir in [-1.0, 1.0]:
-			_canvas.draw_rect(Rect2(Vector2(left.x + k, left.y + dir * k), Vector2.ONE), RED)
-			_canvas.draw_rect(Rect2(Vector2(end + POINT - k, left.y + dir * k), Vector2.ONE), RED)
+	for dy in [-1.0, 0.0]:
+		_canvas.draw_rect(Rect2(Vector2(left.x, left.y + dy), Vector2.ONE), RED)
+		_canvas.draw_rect(Rect2(Vector2(end + POINT, left.y + dy), Vector2.ONE), RED)
+	for k in POINT - 1:
+		var up := left.y - 2.0 - k
+		var down := left.y + 1.0 + k
+		for y in [up, down]:
+			_canvas.draw_rect(Rect2(Vector2(left.x + 1.0 + k, y), Vector2.ONE), RED)
+			_canvas.draw_rect(Rect2(Vector2(end + POINT - 1.0 - k, y), Vector2.ONE), RED)
 	_canvas.draw_rect(Rect2(Vector2(edge, top), Vector2(end - edge + 1.0, 1.0)), RED)
 	_canvas.draw_rect(Rect2(Vector2(edge, top + FRAME_HEIGHT - 1.0), Vector2(end - edge + 1.0, 1.0)), RED)
 
@@ -285,17 +299,13 @@ func _draw_heart(index: int) -> void:
 		PixelArt.draw(_canvas, "hud_heart", at, colour)
 
 
-## A pickup on its way in: white, as it was in the room, with a red edge so it
-## reads over black space and white walls. It speeds up as it goes.
+## A pickup on its way in: gold for a token, red for a pip, with no edge. It
+## speeds up as it goes.
 func _draw_flight(flight: Dictionary) -> void:
 	var t := clampf(flight["age"] / FLY_TIME, 0.0, 1.0)
 	var at: Vector2 = (flight["from"] as Vector2).lerp(flight["to"], t * t).round()
-	for colour: Color in [RED, Color.WHITE]:
-		var offsets := EDGE if colour == RED else [Vector2.ZERO]
-		for offset: Vector2 in offsets:
-			if flight["kind"] == &"token":
-				PixelArt.draw(_canvas, "token", at + offset, colour)
-			else:
-				# The pip's plus sign, as HealthPip draws it.
-				_canvas.draw_rect(Rect2(at + offset + Vector2(-1, -4), Vector2(2, 8)), colour)
-				_canvas.draw_rect(Rect2(at + offset + Vector2(-4, -1), Vector2(8, 2)), colour)
+	if flight["kind"] == &"token":
+		# Drawn with PixelArt directly: Token and HealthPip read this file's colours.
+		PixelArt.draw(_canvas, "token", at, GOLD)
+	else:
+		PixelArt.draw(_canvas, "hud_heart", at + Vector2(-3, -3), RED)

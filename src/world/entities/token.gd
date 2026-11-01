@@ -36,12 +36,12 @@ func _process(delta: float) -> void:
 	queue_redraw()
 
 
-## A solid diamond that bobs, so it reads apart from the hollow upgrade pickup.
+## A solid gold diamond that bobs, so it reads apart from the hollow upgrade pickup.
 func _draw() -> void:
 	draw_token(self, Vector2(0.0, roundf(sin(_age * 3.0) * 1.5)))
 
 
 ## The token shape, centred on `at`, drawn onto `canvas`. The 3TM and the
 ## flying token use it too, so every token looks the same.
-static func draw_token(canvas: CanvasItem, at: Vector2, color := Color.WHITE) -> void:
+static func draw_token(canvas: CanvasItem, at: Vector2, color := Palette.GOLD) -> void:
 	PixelArt.draw(canvas, "token", at, color)
