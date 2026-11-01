@@ -71,6 +71,98 @@
       "unit": "px"
     }
   },
+  "tongue_creep": {
+    "name": "Lash creep",
+    "stat": "tongue_creep",
+    "kind": "max",
+    "dev": {
+      "type": "float",
+      "min": 0,
+      "max": 0.5,
+      "step": 0.005,
+      "unit": "seconds"
+    }
+  },
+  "tongue_creep_reach": {
+    "name": "Creep reach",
+    "stat": "tongue_creep_reach",
+    "kind": "max",
+    "dev": {
+      "type": "float",
+      "min": 0,
+      "max": 20,
+      "step": 0.5,
+      "unit": "px"
+    }
+  },
+  "tongue_ramp": {
+    "name": "Snap ramp",
+    "stat": "tongue_ramp",
+    "kind": "max",
+    "dev": {
+      "type": "float",
+      "min": 0,
+      "max": 0.5,
+      "step": 0.005,
+      "unit": "seconds"
+    }
+  },
+  "tongue_strike": {
+    "name": "Strike speed",
+    "stat": "tongue_strike",
+    "kind": "max",
+    "dev": {
+      "type": "float",
+      "min": 1,
+      "max": 10,
+      "step": 0.1,
+      "unit": "x lash speed"
+    }
+  },
+  "tongue_settle": {
+    "name": "Return spring",
+    "stat": "tongue_settle",
+    "kind": "max",
+    "dev": {
+      "type": "float",
+      "min": 0,
+      "max": 1,
+      "step": 0.1,
+      "unit": "0 to 1"
+    }
+  },
+  "tongue_stick": {
+    "name": "Stick time",
+    "stat": "tongue_stick",
+    "kind": "max",
+    "dev": {
+      "type": "float",
+      "min": 0,
+      "max": 0.5,
+      "step": 0.005,
+      "unit": "seconds"
+    }
+  },
+  "tongue_wobble": {
+    "name": "Seat wobble",
+    "stat": "tongue_wobble",
+    "kind": "max",
+    "dev": {
+      "type": "float",
+      "min": 0,
+      "max": 8,
+      "step": 0.5,
+      "unit": "px"
+    }
+  },
+  "tongue_pad": {
+    "name": "Sticky tip pad",
+    "stat": "tongue_pad",
+    "kind": "unlock",
+    "dev": {
+      "type": "bool"
+    }
+  },
   "imprint": {
     "name": "Imprint",
     "stat": "imprint_unlocked",

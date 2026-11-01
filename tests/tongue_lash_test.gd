@@ -186,7 +186,7 @@ func _run() -> void:
 	tongue.clear()
 	tongue.extension = 0.0
 	tongue._begin_return()
-	ok = _check(tongue._return_accel == 0.0 and is_equal_approx(tongue._return_speed, 220.0), "a lash that hits at once has no acceleration to work out") and ok
+	ok = _check(tongue.phase == tongue.Phase.BACK and tongue._back_duration == 0.0, "a lash that hits at once has no return to work out") and ok
 	tongue.clear()
 
 	world.queue_free()

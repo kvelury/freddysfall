@@ -70,6 +70,19 @@ func _initialize() -> void:
 	var merged := DevCatalog.with_loadout(progression, restored["loadout"])
 	merged["machines"]["m"] = 3
 	_check(progression["machines"]["m"] == 2 and merged["flags"] == ["pickup:keep"], "snapshot overlays deep-copy progression")
+	# The tongue's shape stats: bounded, and loadouts carry them.
+	sample = DevCatalog.defaults()
+	for bad in [["tongue_creep", -0.01], ["tongue_creep", 0.6], ["tongue_creep_reach", 21.0], ["tongue_ramp", -1], ["tongue_strike", 0.5], ["tongue_strike", 11], ["tongue_settle", 1.1], ["tongue_settle", -0.1], ["tongue_stick", 0.6], ["tongue_wobble", 9.0], ["tongue_wobble", NAN], ["tongue_pad", 1], ["tongue_pad", "true"]]:
+		sample = DevCatalog.defaults()
+		sample["abilities"][bad[0]] = bad[1]
+		_check(not DevCatalog.validate(sample).is_empty(), "reject %s = %s" % [bad[0], str(bad[1])])
+	for i in TongueMotion.preset_count():
+		sample = DevCatalog.defaults()
+		sample["abilities"].merge(TongueMotion.preset_values(i), true)
+		var round_trip := DevCatalog.reconcile(sample)
+		_check(round_trip["error"].is_empty() and round_trip["warnings"].is_empty() and round_trip["loadout"]["abilities"] == sample["abilities"], "a loadout holding the %s tongue comes back as it was" % TongueMotion.preset_name(i))
+	var old_tongue := DevCatalog.reconcile({"abilities": {"tongue_unlocked": true, "tongue_speed": 300.0}})
+	_check(old_tongue["error"].is_empty() and old_tongue["loadout"]["abilities"]["tongue_strike"] == 1.0 and old_tongue["loadout"]["abilities"]["tongue_pad"] == false and old_tongue["loadout"]["abilities"]["tongue_speed"] == 300.0, "a loadout from before the shape stats gets the starting values and keeps its own speed")
 	_store()
 	for path in [TEMP, TEMP + ".tmp"]:
 		DirAccess.remove_absolute(path)
