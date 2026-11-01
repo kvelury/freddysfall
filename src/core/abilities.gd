@@ -14,10 +14,10 @@ var tongue_unlocked := false
 var tongue_cooldown := 0.15
 ## How fast the tongue goes out, in pixels a second. The snap back is worked out
 ## from it too, so a faster tongue also snaps back faster.
-var tongue_speed := 280.0
+var tongue_speed := 220.0
 ## How many times faster than `tongue_speed` the tongue comes back, on average.
 ## It starts back at `tongue_speed` and speeds up. 1 is a steady return.
-var tongue_snap := 3.0
+var tongue_snap := 3.5
 ## How far the tongue reaches past the front of the body, in pixels. The first
 ## 50 is enough for every breakable wall so far; upgrades lengthen it.
 var tongue_length := 50.0

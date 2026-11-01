@@ -56,7 +56,7 @@ func _run() -> void:
 	ok = _check(tongue.direction == -1 and is_equal_approx(tip.y, player.global_position.y - 1.5) and tip.x < player.global_position.x, "the tip starts at the front of the body, on the mouth row") and ok
 	await physics_frame
 	await physics_frame
-	ok = _check(is_equal_approx(tongue.extension, 2.0 * 280.0 / 60.0), "and goes out at the lash speed (%.1f px in two ticks)" % tongue.extension) and ok
+	ok = _check(is_equal_approx(tongue.extension, 2.0 * 220.0 / 60.0), "and goes out at the lash speed (%.1f px in two ticks)" % tongue.extension) and ok
 	var body := player.get_node("Visual") as PlayerBody
 	var drawn := body.tongue_rect(tongue.extension)
 	ok = _check(drawn.size.y == 1.0 and drawn.position.x < body.position.x and drawn.end.x > body.position.x, "the pink line is one pixel high and leaves the front of the body (%s)" % drawn) and ok
@@ -149,21 +149,21 @@ func _run() -> void:
 	tongue.cooldown_left = 0.0
 	tongue.lash()
 	var base := await _trace(tongue, 90)
-	ok = _check(base["out"] == 11 and base["back"] == 4, "at 280 px/s a full lash takes 11 ticks out and 4 back (%d, %d)" % [base["out"], base["back"]]) and ok
+	ok = _check(base["out"] == 14 and base["back"] == 4, "at 220 px/s a full lash takes 14 ticks out and 4 back (%d, %d)" % [base["out"], base["back"]]) and ok
 	var legs: Array = base["legs"]
 	ok = _check(legs.size() >= 3 and legs[0] < legs[1] and legs[1] < legs[2], "the snap speeds up as it comes in (%s px a tick)" % str(legs)) and ok
-	ok = _check(legs[0] > 280.0 / 60.0 and legs[2] > 3.0 * 280.0 / 60.0, "it starts faster than the way out and ends well over three times it") and ok
+	ok = _check(legs[0] > 220.0 / 60.0 and legs[2] > 3.0 * 220.0 / 60.0, "it starts faster than the way out and ends well over three times it") and ok
 	state.abilities.tongue_speed = 560.0
 	tongue.cooldown_left = 0.0
 	tongue.lash()
 	var fast := await _trace(tongue, 90)
 	ok = _check(fast["out"] < base["out"] and fast["back"] < base["back"] and fast["back"] == 2, "doubling the lash speed shortens the snap as well as the reach (%d out, %d back)" % [fast["out"], fast["back"]]) and ok
-	state.abilities.tongue_speed = 280.0
+	state.abilities.tongue_speed = 220.0
 	state.abilities.tongue_snap = 6.0
 	tongue.cooldown_left = 0.0
 	tongue.lash()
 	var sharp := await _trace(tongue, 90)
-	ok = _check(sharp["out"] == 11 and sharp["back"] < base["back"], "a bigger snap shortens only the way back (%d out, %d back)" % [sharp["out"], sharp["back"]]) and ok
+	ok = _check(sharp["out"] == 14 and sharp["back"] < base["back"], "a bigger snap shortens only the way back (%d out, %d back)" % [sharp["out"], sharp["back"]]) and ok
 	state.abilities.tongue_snap = 1.0
 	tongue.cooldown_left = 0.0
 	tongue.lash()
@@ -171,22 +171,22 @@ func _run() -> void:
 	var even := true
 	var steady_legs: Array = steady["legs"]
 	for leg in steady_legs:
-		even = even and is_equal_approx(leg, 280.0 / 60.0)
-	ok = _check(even and steady["back"] == 11, "a snap of 1 comes back at the speed it went out (%d ticks)" % steady["back"]) and ok
-	state.abilities.tongue_snap = 3.0
+		even = even and is_equal_approx(leg, 220.0 / 60.0)
+	ok = _check(even and steady["back"] == 14, "a snap of 1 comes back at the speed it went out (%d ticks)" % steady["back"]) and ok
+	state.abilities.tongue_snap = 3.5
 	# A short lash against the wall keeps the same proportion.
 	player.facing = -1
 	tongue.cooldown_left = 0.0
 	tongue.lash()
 	var hit := await _trace(tongue, 90)
 	var reach: float = hit["reach"]
-	var expected := ceili(reach / (3.0 * 280.0) * 60.0 - 0.0001)
+	var expected := ceili(reach / (3.5 * 220.0) * 60.0 - 0.0001)
 	ok = _check(reach < 50.0 and hit["back"] == expected, "a lash that hits at %.1f px snaps back in proportion (%d ticks, expected %d)" % [reach, hit["back"], expected]) and ok
 	# Turned round at no length, the return has nothing to speed up.
 	tongue.clear()
 	tongue.extension = 0.0
 	tongue._begin_return()
-	ok = _check(tongue._return_accel == 0.0 and is_equal_approx(tongue._return_speed, 280.0), "a lash that hits at once has no acceleration to work out") and ok
+	ok = _check(tongue._return_accel == 0.0 and is_equal_approx(tongue._return_speed, 220.0), "a lash that hits at once has no acceleration to work out") and ok
 	tongue.clear()
 
 	world.queue_free()
@@ -217,7 +217,7 @@ func _keycodes(action: String) -> Array:
 func _abilities() -> bool:
 	var ok := true
 	var abilities := Abilities.new()
-	ok = _check(not abilities.tongue_unlocked and is_equal_approx(abilities.tongue_cooldown, 0.15) and is_equal_approx(abilities.tongue_speed, 280.0) and is_equal_approx(abilities.tongue_snap, 3.0) and is_equal_approx(abilities.tongue_length, 50.0), "Tongue Lash starts locked, with a 0.15 s cooldown, 280 px/s out, a 3x snap back and 50 px of reach") and ok
+	ok = _check(not abilities.tongue_unlocked and is_equal_approx(abilities.tongue_cooldown, 0.15) and is_equal_approx(abilities.tongue_speed, 220.0) and is_equal_approx(abilities.tongue_snap, 3.5) and is_equal_approx(abilities.tongue_length, 50.0), "Tongue Lash starts locked, with a 0.15 s cooldown, 220 px/s out, a 3.5x snap back and 50 px of reach") and ok
 	ok = _check(abilities.apply(Upgrades.get_def("tongue_lash"), true) and abilities.tongue_unlocked and not abilities.apply(Upgrades.get_def("tongue_lash"), true), "the Tongue Lash upgrade unlocks it once") and ok
 	ok = _check(abilities.apply(Upgrades.get_def("tongue_cooldown"), 0.1) and not abilities.apply(Upgrades.get_def("tongue_cooldown"), 0.15) and is_equal_approx(abilities.tongue_cooldown, 0.1), "a cooldown upgrade only lowers it") and ok
 	ok = _check(abilities.apply(Upgrades.get_def("tongue_speed"), 500.0) and not abilities.apply(Upgrades.get_def("tongue_speed"), 100.0) and is_equal_approx(abilities.tongue_speed, 500.0), "a speed upgrade only raises it") and ok
@@ -226,11 +226,11 @@ func _abilities() -> bool:
 	var back := Abilities.from_dict(abilities.to_dict())
 	ok = _check(back.tongue_unlocked and is_equal_approx(back.tongue_cooldown, 0.1) and is_equal_approx(back.tongue_speed, 500.0) and is_equal_approx(back.tongue_length, 80.0), "Tongue Lash round-trips through a save") and ok
 	ok = _check(is_equal_approx(back.tongue_snap, 5.0) and is_equal_approx(Abilities.from_dict({"tongue_snap": 0.2}).tongue_snap, 1.0), "the snap round-trips too, and a save cannot make it slower than a steady return") and ok
-	ok = _check(is_equal_approx(Abilities.from_dict({"tongue_speed": 400.0}).tongue_speed, 400.0) and is_equal_approx(Abilities.from_dict({"tongue_speed": 400.0}).tongue_snap, 3.0), "a save holding the old 400 px/s keeps it, and takes the 3x snap") and ok
+	ok = _check(is_equal_approx(Abilities.from_dict({"tongue_speed": 400.0}).tongue_speed, 400.0) and is_equal_approx(Abilities.from_dict({"tongue_speed": 400.0}).tongue_snap, 3.5), "a save holding the old 400 px/s keeps it, and takes the 3.5x snap") and ok
 	var old := Abilities.from_dict({})
 	ok = _check(not old.tongue_unlocked and is_equal_approx(old.tongue_cooldown, 0.15), "and a new save loads it locked") and ok
 	var gun_save := Abilities.from_dict({"gun_unlocked": true, "gun_cooldown": 0.5, "gun_shot_speed": 900.0})
-	ok = _check(gun_save.tongue_unlocked and is_equal_approx(gun_save.tongue_cooldown, 0.15) and is_equal_approx(gun_save.tongue_speed, 280.0) and is_equal_approx(gun_save.tongue_snap, 3.0), "a save from the gun keeps the power and takes the new tuning")  and ok
+	ok = _check(gun_save.tongue_unlocked and is_equal_approx(gun_save.tongue_cooldown, 0.15) and is_equal_approx(gun_save.tongue_speed, 220.0) and is_equal_approx(gun_save.tongue_snap, 3.5), "a save from the gun keeps the power and takes the new tuning")  and ok
 	var loadout := DevCatalog.reconcile({"abilities": {"gun_unlocked": true, "gun_cooldown": 0.5, "gun_shot_speed": 900.0}})
 	ok = _check(loadout["error"] == "" and loadout["warnings"].is_empty() and loadout["loadout"]["abilities"]["tongue_unlocked"] and is_equal_approx(loadout["loadout"]["abilities"]["tongue_cooldown"], 0.5) and is_equal_approx(loadout["loadout"]["abilities"]["tongue_speed"], 900.0), "a stored loadout from the gun keeps its chosen values") and ok
 	return ok
