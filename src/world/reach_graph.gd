@@ -721,6 +721,11 @@ func _pickup_reached(run: Run, room_id: String, index: int) -> bool:
 ## in the copy of the room with walls broken that covers the same cells.
 func _reached_in_a_state(run: Run, ledge: Ledge) -> bool:
 	if ledge.moving:
+		# A mover is the same mover in every copy of the room.
+		for key in _variant_keys.get(ledge.room_id, []):
+			for other: Ledge in _ledges[key]:
+				if other.moving and other.path == ledge.path and run.reached.has(other):
+					return true
 		return false
 	for key in _variant_keys.get(ledge.room_id, []):
 		for other: Ledge in _ledges[key]:
