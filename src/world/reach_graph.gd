@@ -1147,7 +1147,7 @@ func phases(info: RoomInfo) -> Array[int]:
 		if mover is SpinnerPath:
 			var spin: SpinnerPath = mover
 			var tip := maxf(0.01, spin.radius * TAU / float(spin.period_ticks))
-			step = mini(step, maxi(1, floori(float(Grid.CELL) * 0.6 / tip)))
+			step = mini(step, maxi(1, floori(float(Grid.CELL) * 1.5 / tip)))
 		elif mover is PlatformPath:
 			var path: PlatformPath = mover
 			step = mini(step, maxi(1, floori(float(Grid.CELL) * float(Mover.TICKS_PER_SECOND) / path.speed)))

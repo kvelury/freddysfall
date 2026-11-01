@@ -9,6 +9,10 @@ extends RefCounted
 
 var paths: Array[Mover] = []
 var origin := Vector2.ZERO
+## Where every body is at a tick, worked out once: the solver asks again and again.
+## Dropped when it gets big, which only the running game reaches.
+const CACHE_LIMIT := 4096
+var _cache := {}
 var _owner: PackedInt32Array = PackedInt32Array()
 var _local: PackedInt32Array = PackedInt32Array()
 
@@ -43,16 +47,43 @@ func first_body(m: int) -> int:
 	return at
 
 
+## Everything about the bodies at `tick`, worked out once: each body's rect and
+## whether it is there, and the solid and the spiked rects among them.
+func _at(tick: int) -> Dictionary:
+	var found: Variant = _cache.get(tick)
+	if found != null:
+		return found
+	if _cache.size() >= CACHE_LIMIT:
+		_cache.clear()
+	var rects_now: Array[Rect2] = []
+	var there: Array[bool] = []
+	var solid: Array[Rect2] = []
+	var spiked: Array[Rect2] = []
+	for i in size():
+		var mover := paths[_owner[i]]
+		var present := mover.alive_at(tick, _local[i])
+		var box := mover.rect_at(tick, _local[i])
+		box.position += origin
+		rects_now.append(box)
+		there.append(present)
+		if present:
+			if mover.is_hazard(_local[i]):
+				spiked.append(box)
+			else:
+				solid.append(box)
+	var entry := {"rects": rects_now, "alive": there, "solid": solid, "hazard": spiked}
+	_cache[tick] = entry
+	return entry
+
+
 ## Body `index` at `tick`. Check `alive` first for a body that can go.
 func rect(index: int, tick: int) -> Rect2:
-	var out := paths[_owner[index]].rect_at(tick, _local[index])
-	out.position += origin
-	return out
+	return _at(tick)["rects"][index]
 
 
 ## Whether body `index` exists at `tick`.
 func alive(index: int, tick: int) -> bool:
-	return paths[_owner[index]].alive_at(tick, _local[index])
+	return _at(tick)["alive"][index]
 
 
 ## Whether body `index` kills on touch.
@@ -63,20 +94,12 @@ func hazard(index: int) -> bool:
 ## The bodies that hold a player up, where they are at `tick`: solid, there,
 ## and not hazards.
 func rects(tick: int) -> Array[Rect2]:
-	var out: Array[Rect2] = []
-	for i in size():
-		if not hazard(i) and alive(i, tick):
-			out.append(rect(i, tick))
-	return out
+	return _at(tick)["solid"]
 
 
 ## The hazard bodies at `tick`.
 func hazard_rects(tick: int) -> Array[Rect2]:
-	var out: Array[Rect2] = []
-	for i in size():
-		if hazard(i) and alive(i, tick):
-			out.append(rect(i, tick))
-	return out
+	return _at(tick)["hazard"]
 
 
 ## How far body `index` moves from `tick` to the next tick, in pixels. A body
