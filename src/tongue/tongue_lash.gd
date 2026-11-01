@@ -5,10 +5,8 @@ extends Node2D
 ## in the front of his body, the way he faces, and pulls it back in. The tip
 ## goes out until it meets something solid or runs out of length
 ## (`Abilities.tongue_length`), and then the tongue snaps back. How it moves, out
-## and in, is `TongueMotion`'s: a creep, a snap, an optional stick on what it hit,
-## a return that averages `Abilities.tongue_snap` times `tongue_speed`, and an
-## optional wobble as it seats. With the stats at their starting values it goes
-## out at a steady `tongue_speed` and comes back speeding up.
+## and in, is `TongueMotion`'s: a creep, a snap, a stick on what it hit and a
+## return that averages `Abilities.tongue_snap` times `tongue_speed`.
 ## What the tip meets is dealt with as the gun's shot was: a breakable wall takes a hit
 ## (see BreakableWall), anything else stops it. One lash hits at most one thing.
 ## There is no aiming, so a player who wants to reach higher jumps first.
@@ -29,9 +27,9 @@ const MOUTH_RISE := 1.5
 const TIP := Vector2(3.0, 1.0)
 const PINK := Color("ff6fa8")
 
-## The four parts of a lash. OUT is the creep and the snap; STICK holds the tip on
-## what it hit; BACK is the return; SEAT is the wobble after it.
-enum Phase { OUT, STICK, BACK, SEAT }
+## The three parts of a lash. OUT is the creep and the snap; STICK holds the tip on
+## what it hit; BACK is the return.
+enum Phase { OUT, STICK, BACK }
 
 ## The headless tests set `scripted` and lash with `scripted_lash`.
 var scripted := false
@@ -45,7 +43,7 @@ var direction := 1
 var extension := 0.0
 ## Which part of the lash the tongue is in.
 var phase := Phase.OUT
-## Whether the tongue has turned for home: stuck, coming back or seating.
+## Whether the tongue has turned for home: stuck or coming back.
 var retracting: bool:
 	get:
 		return active and phase != Phase.OUT
@@ -190,21 +188,9 @@ func _move(delta: float) -> void:
 			_time += delta
 			if _time >= _back_duration - TongueMotion.EPSILON:
 				# The return hits nothing, so it needs no steps.
-				extension = 0.0
-				if abilities.tongue_wobble > 0.0:
-					phase = Phase.SEAT
-					_time = 0.0
-				else:
-					end()
-				return
-			extension = _back_from * TongueMotion.remaining(_time / _back_duration, abilities)
-			return
-		Phase.SEAT:
-			_time += delta
-			if _time >= TongueMotion.SEAT_TIME - TongueMotion.EPSILON:
 				end()
 				return
-			extension = TongueMotion.seat_offset(_time / TongueMotion.SEAT_TIME, abilities.tongue_wobble)
+			extension = _back_from * TongueMotion.remaining(_time / _back_duration, abilities)
 			return
 	var distance := TongueMotion.out_distance(_time, delta, abilities)
 	_time += delta

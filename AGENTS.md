@@ -14,7 +14,7 @@ Run from the repo root.
 | `tools/render.sh [ids]` | PNGs of rooms and the world map in `build/renders/`. Read them to see what you built. |
 | `tools/snap.sh <id>` | A real in-game frame of a room in `build/snaps/`. Opens a window for a second, so run it on the user's machine. |
 | `godot --headless --path . --script tests/<name>.gd` | Run one test; each file in `tests/` is one (`tools/check.sh` lists the 29 it runs). Prints a pass line and exits 0. |
-| `godot --path . -- --room=<id>` | Play starting in a room. In the browser, `?room=<id>`. A `--room` or `--dev` launch skips the main menu and boots straight into the world, as does `?dev=1`. Use `--dev --room=<id>` or `?dev=1&room=<id>` for tools; F2 opens the panel, F4 the protected room picker, F6 flips the tongue option and F7 slows the game (dev tests only). |
+| `godot --path . -- --room=<id>` | Play starting in a room. In the browser, `?room=<id>`. A `--room` or `--dev` launch skips the main menu and boots straight into the world, as does `?dev=1`. Use `--dev --room=<id>` or `?dev=1&room=<id>` for tools; F2 opens the panel, F4 the protected room picker and F7 slows the game (dev tests only). |
 | `tools/build_web.sh` then `tools/serve.sh` | The browser build at http://localhost:8060. |
 | `tools/stage_site.sh` | Turns `build/web` into `build/site`, the folder published to GitHub Pages (real files instead of symlinks, no unused untagged copies). `deploy.yml` runs it after `tools/check.sh` on every merge to `main`. `tools/serve.sh site` serves it. |
 

@@ -8,6 +8,13 @@ extends SceneTree
 ## wall and not on a broken one. Space lashes and does not jump.
 
 const WALL := "r7_pipwall"
+## The lash this test was written for: a steady 220 px/s out and an accelerating
+## snap back at 3.5 times that, with no creep and no stick. The starting values are
+## a frog's (see tests/tongue_motion_test.gd), so the lash flows here set these.
+const STEADY := {
+	"tongue_speed": 220.0, "tongue_snap": 3.5, "tongue_creep": 0.0, "tongue_creep_reach": 0.0,
+	"tongue_ramp": 0.0, "tongue_strike": 1.0, "tongue_settle": 0.0, "tongue_stick": 0.0, "tongue_pad": false,
+}
 
 
 func _initialize() -> void:
@@ -49,6 +56,8 @@ func _run() -> void:
 	await physics_frame
 	ok = _check(not tongue.active, "and neither does the key") and ok
 	state.abilities.tongue_unlocked = true
+	for stat in STEADY:
+		state.abilities.set(stat, STEADY[stat])
 
 	# The tongue starts at the mouth, the way the player faces, and goes out at the set speed.
 	ok = _check(tongue.lash(), "with Tongue Lash, a press lashes") and ok
@@ -217,7 +226,7 @@ func _keycodes(action: String) -> Array:
 func _abilities() -> bool:
 	var ok := true
 	var abilities := Abilities.new()
-	ok = _check(not abilities.tongue_unlocked and is_equal_approx(abilities.tongue_cooldown, 0.15) and is_equal_approx(abilities.tongue_speed, 220.0) and is_equal_approx(abilities.tongue_snap, 3.5) and is_equal_approx(abilities.tongue_length, 50.0), "Tongue Lash starts locked, with a 0.15 s cooldown, 220 px/s out, a 3.5x snap back and 50 px of reach") and ok
+	ok = _check(not abilities.tongue_unlocked and is_equal_approx(abilities.tongue_cooldown, 0.15) and is_equal_approx(abilities.tongue_speed, 220.0) and is_equal_approx(abilities.tongue_snap, 2.5) and is_equal_approx(abilities.tongue_length, 50.0), "Tongue Lash starts locked, with a 0.15 s cooldown, 220 px/s out, a 2.5x snap back and 50 px of reach") and ok
 	ok = _check(abilities.apply(Upgrades.get_def("tongue_lash"), true) and abilities.tongue_unlocked and not abilities.apply(Upgrades.get_def("tongue_lash"), true), "the Tongue Lash upgrade unlocks it once") and ok
 	ok = _check(abilities.apply(Upgrades.get_def("tongue_cooldown"), 0.1) and not abilities.apply(Upgrades.get_def("tongue_cooldown"), 0.15) and is_equal_approx(abilities.tongue_cooldown, 0.1), "a cooldown upgrade only lowers it") and ok
 	ok = _check(abilities.apply(Upgrades.get_def("tongue_speed"), 500.0) and not abilities.apply(Upgrades.get_def("tongue_speed"), 100.0) and is_equal_approx(abilities.tongue_speed, 500.0), "a speed upgrade only raises it") and ok
@@ -226,11 +235,11 @@ func _abilities() -> bool:
 	var back := Abilities.from_dict(abilities.to_dict())
 	ok = _check(back.tongue_unlocked and is_equal_approx(back.tongue_cooldown, 0.1) and is_equal_approx(back.tongue_speed, 500.0) and is_equal_approx(back.tongue_length, 80.0), "Tongue Lash round-trips through a save") and ok
 	ok = _check(is_equal_approx(back.tongue_snap, 5.0) and is_equal_approx(Abilities.from_dict({"tongue_snap": 0.2}).tongue_snap, 1.0), "the snap round-trips too, and a save cannot make it slower than a steady return") and ok
-	ok = _check(is_equal_approx(Abilities.from_dict({"tongue_speed": 400.0}).tongue_speed, 400.0) and is_equal_approx(Abilities.from_dict({"tongue_speed": 400.0}).tongue_snap, 3.5), "a save holding the old 400 px/s keeps it, and takes the 3.5x snap") and ok
+	ok = _check(is_equal_approx(Abilities.from_dict({"tongue_speed": 400.0}).tongue_speed, 400.0) and is_equal_approx(Abilities.from_dict({"tongue_speed": 400.0}).tongue_snap, 2.5), "a save holding the old 400 px/s keeps it, and takes the 2.5x snap") and ok
 	var old := Abilities.from_dict({})
 	ok = _check(not old.tongue_unlocked and is_equal_approx(old.tongue_cooldown, 0.15), "and a new save loads it locked") and ok
 	var gun_save := Abilities.from_dict({"gun_unlocked": true, "gun_cooldown": 0.5, "gun_shot_speed": 900.0})
-	ok = _check(gun_save.tongue_unlocked and is_equal_approx(gun_save.tongue_cooldown, 0.15) and is_equal_approx(gun_save.tongue_speed, 220.0) and is_equal_approx(gun_save.tongue_snap, 3.5), "a save from the gun keeps the power and takes the new tuning")  and ok
+	ok = _check(gun_save.tongue_unlocked and is_equal_approx(gun_save.tongue_cooldown, 0.15) and is_equal_approx(gun_save.tongue_speed, 220.0) and is_equal_approx(gun_save.tongue_snap, 2.5), "a save from the gun keeps the power and takes the new tuning")  and ok
 	var loadout := DevCatalog.reconcile({"abilities": {"gun_unlocked": true, "gun_cooldown": 0.5, "gun_shot_speed": 900.0}})
 	ok = _check(loadout["error"] == "" and loadout["warnings"].is_empty() and loadout["loadout"]["abilities"]["tongue_unlocked"] and is_equal_approx(loadout["loadout"]["abilities"]["tongue_cooldown"], 0.5) and is_equal_approx(loadout["loadout"]["abilities"]["tongue_speed"], 900.0), "a stored loadout from the gun keeps its chosen values") and ok
 	return ok

@@ -110,24 +110,13 @@ func _run() -> void:
 	_check(session.set_token_marks(_world, false).is_empty() and body.shown_tokens() == 0, "turning it off hides them again")
 	state.tokens = 0
 
-	# The tongue options (F6) and slow motion (F7): for a dev test only.
-	_check(session.tongue_option_name() == "Today" and not session.slow_motion and Engine.time_scale == 1.0, "the tongue starts on Today and the clock at normal speed")
-	state.abilities.tongue_unlocked = true
-	var power_selected: bool = session.loadout["abilities"]["tongue_unlocked"]
-	_check(session.cycle_tongue_option(_world).is_empty() and session.tongue_option_name() == "Creep & snap" and is_equal_approx(state.abilities.tongue_strike, 3.9), "cycling writes the next option into the abilities")
-	_check(is_equal_approx(session.loadout["abilities"]["tongue_strike"], 3.9) and session.loadout["abilities"]["tongue_unlocked"] == power_selected, "and into the selected loadout, so a retry keeps it, leaving the power found alone")
-	for _i in 5:
-		session.cycle_tongue_option(_world)
-	_check(session.tongue_option_name() == "Creep & snap", "five more presses go all the way round (%s)" % session.tongue_option_name())
-	state.abilities.tongue_strike = 2.0
-	_check(session.tongue_option_name() == "Custom", "an option tuned by hand is Custom")
-	_check(session.cycle_tongue_option(_world).is_empty() and session.tongue_option_name() == "Today", "and the next press starts the list again")
+	# Slow motion (F7): for a dev test only.
+	_check(not session.slow_motion and Engine.time_scale == 1.0, "the clock starts at normal speed")
 	session.mode = session.Mode.NORMAL
-	_check(not session.cycle_tongue_option(_world).is_empty() and session.tongue_option_name() == "Today", "cycling is refused outside a dev test")
-	_check(not session.set_slow_motion(_world, true).is_empty() and not session.slow_motion and Engine.time_scale == 1.0, "and so is slow motion")
+	_check(not session.set_slow_motion(_world, true).is_empty() and not session.slow_motion and Engine.time_scale == 1.0, "slow motion is refused outside a dev test")
 	session.mode = session.Mode.DEV_TEST
 	_world._busy = true
-	_check(not session.cycle_tongue_option(_world).is_empty() and not session.set_slow_motion(_world, true).is_empty(), "both wait for an animation to finish")
+	_check(not session.set_slow_motion(_world, true).is_empty() and not session.slow_motion, "and it waits for an animation to finish")
 	_world._busy = false
 	_check(session.set_slow_motion(_world, true).is_empty() and session.slow_motion and is_equal_approx(Engine.time_scale, 0.25) and session.status_line().contains("slow motion"), "slow motion runs the game at a quarter speed and the status line says so")
 	_check(not _dict_has_key(state.to_dict(), "slow_motion") and not _dict_has_key(session.loadout, "slow_motion") and not _dict_has_key(session.baseline, "slow_motion"), "it is in no save, loadout or baseline")
@@ -152,15 +141,13 @@ func _run() -> void:
 	state.map_zoom = 2
 	_check(session.set_classic_imprint(_world, true).is_empty(), "turn Classic Imprint on before a retry")
 	_check(session.set_token_marks(_world, true).is_empty(), "and the token marks")
-	for _i in 3:
-		session.cycle_tongue_option(_world)
-	_check(session.tongue_option_name() == "Sticky" and session.set_slow_motion(_world, true).is_empty(), "pick the Sticky tongue and slow motion before a retry")
+	_check(session.apply(_world, {"abilities": {"tongue_stick": 0.1, "tongue_pad": false}}).is_empty() and session.set_slow_motion(_world, true).is_empty(), "tune the tongue's stick and turn on slow motion before a retry")
 	_check(session.wall_strength() == 2 and session.set_wall_strength(_world, 5).is_empty() and session.wall_strength() == 5, "wall strength starts at 2 and a dev test can set it")
 	_check(not state.to_dict().has("wall_strength") and not session.loadout.has("wall_strength"), "it is in no save or loadout")
 	_check(session.retry(_world).is_empty(), "retry after travelling across rooms")
 	await _replacement()
 	_check(session.wall_strength() == 5, "wall strength survives a retry")
-	_check(session.tongue_option_name() == "Sticky" and state.abilities.tongue_pad and is_equal_approx(state.abilities.tongue_stick, 0.05), "the chosen tongue option survives a retry")
+	_check(not state.abilities.tongue_pad and is_equal_approx(state.abilities.tongue_stick, 0.1), "the tuned tongue survives a retry")
 	_check(not session.slow_motion and Engine.time_scale == 1.0, "and slow motion is off again on the rebuilt world")
 	_check(session.classic_imprint and session.classic_imprint_active(), "Classic Imprint survives a retry")
 	_check(session.token_marks_active() and _world.player._visual.shown_tokens() == state.tokens, "and so do the token marks, on the new body")
@@ -196,7 +183,7 @@ func _run() -> void:
 	_check(not session.classic_imprint and not session.classic_imprint_active(), "ending the playtest resets Classic Imprint")
 	_check(session.wall_strength() == 2 and session.wall_strength_override == 0, "and the wall strength")
 	_check(not session.token_marks and _world.player._visual.shown_tokens() == 0, "and the token marks")
-	_check(session.tongue_option_name() == "Today" and not session.slow_motion and Engine.time_scale == 1.0, "and the tongue option and the clock")
+	_check(state.abilities.tongue_pad and is_equal_approx(state.abilities.tongue_stick, 0.05) and not session.slow_motion and Engine.time_scale == 1.0, "and the tongue's tuning and the clock")
 	_check(not session.isolated() and state.health == 7 and state.abilities.imprint_width == 4 and _world.current.info.id == "7", "ending restores normal saved progression")
 	_check(FileAccess.get_file_as_string(TEMP) == original, "ending does not save test state")
 	# The independent headless/test disable flag must survive ending a session.

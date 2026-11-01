@@ -17,50 +17,18 @@ extends RefCounted
 ##    miss), the tongue comes back in `extension / (tongue_snap * tongue_speed)`
 ##    seconds, so a close hit and a full reach feel alike. `tongue_settle`
 ##    blends the accelerating return (0) with a spring that is fastest at once
-##    and eases into the mouth (1). `tongue_wobble` is a small pop-out as it
-##    seats.
+##    and eases into the mouth (1).
 ##
-## The defaults (no creep, no ramp, a strike of 1, no settle, stick or wobble)
-## give the steady way out and the accelerating snap back that came before.
+## The starting values are the lash the user chose by playing five options in
+## the dev tools. With no creep, no ramp, a strike of 1, no settle and no stick
+## (and a snap of 3.5) it is the steady way out and accelerating snap back of
+## PR #67, which the tests keep as a second case.
 
-## How long the tip takes to settle after it is home, in seconds.
-const SEAT_TIME := 0.06
 ## How stiff the spring return is. The speed peaks a sixth of the way in, at
 ## about 2.2 times the average, then dies away.
 const SPRING_K := 6.0
 ## Rounding slack when a time lands exactly on a phase's end.
 const EPSILON := 1e-9
-
-## The options to flip between in a dev test (see `DevSession.cycle_tongue_option`).
-## Each is a set of values for the abilities named, nothing more.
-const PRESETS: Array[Dictionary] = [
-	{"name": "Today", "values": {
-		"tongue_speed": 220.0, "tongue_snap": 3.5, "tongue_creep": 0.0, "tongue_creep_reach": 0.0,
-		"tongue_ramp": 0.0, "tongue_strike": 1.0, "tongue_settle": 0.0, "tongue_stick": 0.0,
-		"tongue_wobble": 0.0, "tongue_pad": false,
-	}},
-	{"name": "Creep & snap", "values": {
-		"tongue_speed": 220.0, "tongue_snap": 2.5, "tongue_creep": 0.065, "tongue_creep_reach": 4.0,
-		"tongue_ramp": 0.05, "tongue_strike": 3.9, "tongue_settle": 1.0, "tongue_stick": 0.0,
-		"tongue_wobble": 0.0, "tongue_pad": false,
-	}},
-	{"name": "Whip", "values": {
-		"tongue_speed": 220.0, "tongue_snap": 3.0, "tongue_creep": 0.05, "tongue_creep_reach": 3.0,
-		"tongue_ramp": 0.03, "tongue_strike": 5.0, "tongue_settle": 1.0, "tongue_stick": 0.0,
-		"tongue_wobble": 0.0, "tongue_pad": false,
-	}},
-	{"name": "Sticky", "values": {
-		"tongue_speed": 220.0, "tongue_snap": 2.5, "tongue_creep": 0.065, "tongue_creep_reach": 4.0,
-		"tongue_ramp": 0.05, "tongue_strike": 3.9, "tongue_settle": 1.0, "tongue_stick": 0.05,
-		"tongue_wobble": 0.0, "tongue_pad": true,
-	}},
-	{"name": "Full frog", "values": {
-		"tongue_speed": 220.0, "tongue_snap": 2.5, "tongue_creep": 0.065, "tongue_creep_reach": 4.0,
-		"tongue_ramp": 0.05, "tongue_strike": 3.9, "tongue_settle": 1.0, "tongue_stick": 0.05,
-		"tongue_wobble": 2.0, "tongue_pad": true,
-	}},
-]
-
 
 ## Pixels a second the tip travels `t` seconds after the lash left.
 static func out_speed(t: float, a: Abilities) -> float:
@@ -115,40 +83,6 @@ static func remaining(u: float, a: Abilities) -> float:
 	var floor_ := (1.0 + SPRING_K) * exp(-SPRING_K)
 	var spring := ((1.0 + SPRING_K * u) * exp(-SPRING_K * u) - floor_) / (1.0 - floor_)
 	return lerpf(steady, spring, settle)
-
-
-## Pixels the tip is out after fraction `u` of the seating time: a single small
-## bump that dies away.
-static func seat_offset(u: float, wobble: float) -> float:
-	u = clampf(u, 0.0, 1.0)
-	return wobble * sin(PI * u) * (1.0 - u)
-
-
-static func preset_count() -> int:
-	return PRESETS.size()
-
-
-static func preset_name(index: int) -> String:
-	return String(PRESETS[index]["name"])
-
-
-## A fresh copy of the values option `index` writes.
-static func preset_values(index: int) -> Dictionary:
-	return (PRESETS[index]["values"] as Dictionary).duplicate()
-
-
-## The option whose values `abilities` (a dictionary as from `Abilities.to_dict`)
-## matches exactly, or -1 if it has been tuned off every one.
-static func find_preset(abilities: Dictionary) -> int:
-	for i in PRESETS.size():
-		var matches := true
-		for stat in PRESETS[i]["values"]:
-			if not abilities.has(stat) or not is_equal_approx(float(abilities[stat]), float(PRESETS[i]["values"][stat])):
-				matches = false
-				break
-		if matches:
-			return i
-	return -1
 
 
 static func _creep_speed(a: Abilities) -> float:

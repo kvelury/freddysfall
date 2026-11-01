@@ -229,23 +229,6 @@ func set_wall_strength(world: Node, lashes: int) -> String:
 	return ""
 
 
-## The name of the tongue option the live abilities match, or "Custom" once
-## they have been tuned off all of them.
-func tongue_option_name() -> String:
-	var index := TongueMotion.find_preset(GameState.abilities.to_dict())
-	return "Custom" if index < 0 else TongueMotion.preset_name(index)
-
-
-## Writes the next tongue option (see `TongueMotion.PRESETS`) into the abilities,
-## after the one the live abilities match (the first, if they match none). It is
-## an explicit apply, so a retry keeps it and a named loadout can save it.
-func cycle_tongue_option(world: Node) -> String:
-	if mode != Mode.DEV_TEST or replacing or world.is_busy():
-		return "Dev tools are not ready."
-	var next := (TongueMotion.find_preset(GameState.abilities.to_dict()) + 1) % TongueMotion.preset_count()
-	return apply(world, {"abilities": TongueMotion.preset_values(next)})
-
-
 func set_slow_motion(world: Node, on: bool) -> String:
 	if mode != Mode.DEV_TEST or replacing or world.is_busy():
 		return "Dev tools are not ready."
