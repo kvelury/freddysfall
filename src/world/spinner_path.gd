@@ -25,7 +25,7 @@ var clockwise := false
 ## relative to the pivot when it starts, and whether it is spiked.
 var offsets: Array[Vector2] = []
 var spiked: Array[bool] = []
-## The farthest any corner of the bar gets from the pivot, in pixels.
+## Conservative radius of the snapped, axis-aligned bodies about the pivot.
 var radius := 0.0
 
 
@@ -52,9 +52,12 @@ func _init(spinner_id: String, drawn: Rect2i, seconds: float, turns_clockwise: b
 			hit = hit or (not half.is_empty() and spikes.has("%s_%s" % [side, half]))
 			hit = hit or (col == 0 and spikes.has("left")) or (col == drawn.size.x - 1 and spikes.has("right"))
 			spiked.append(hit)
+	# Centres rotate; square corners do not. A rotated drawn corner misses
+	# the outward corner of an axis-aligned body. Include its half-diagonal
+	# and up to half a pixel of rounding on each axis (Display.snap).
+	var corner_and_snap := Vector2.ONE.length() * (float(Grid.CELL) * 0.5 + 0.5)
 	for offset in offsets:
-		for corner in [Vector2(-5, -5), Vector2(5, -5), Vector2(-5, 5), Vector2(5, 5)]:
-			radius = maxf(radius, (offset + corner).length())
+		radius = maxf(radius, offset.length() + corner_and_snap)
 
 
 func body_count() -> int:
@@ -98,7 +101,7 @@ func keep_out() -> Rect2:
 	return Grid.cell_rect(swept_cells())
 
 
-## Whether the cell `cell` is touched by the circle the bar sweeps.
+## Whether a cell meets the conservative circle enclosing every runtime AABB.
 func sweeps(cell: Vector2i) -> bool:
 	var box := Grid.cell_rect(Rect2i(cell, Vector2i.ONE))
 	var nearest := Vector2(clampf(pivot.x, box.position.x, box.end.x), clampf(pivot.y, box.position.y, box.end.y))

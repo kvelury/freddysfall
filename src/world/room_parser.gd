@@ -403,14 +403,32 @@ static func _check_platforms(info: RoomInfo, errors: Array[String]) -> void:
 			var space_cells: Array[Vector2i] = []
 			if def.type == "breakable":
 				space_cells.assign(def.cells)
-			elif def.type == "machine":
-				space_cells.append(def.cell)
 			else:
-				space_cells.append(def.cell)
+				var space := Rect2i(def.cell, Vector2i.ONE)
+				if def.type == "machine":
+					space = TokenMachine.footprint(def.cell)
+				elif def.type == "save":
+					space = SaveMachine.zone(def.cell)
+				for y in range(space.position.y, space.end.y):
+					for x in range(space.position.x, space.end.x):
+						space_cells.append(Vector2i(x, y))
 			for space_cell in space_cells:
 				if spinner.sweeps(space_cell):
 					found.append("Room %s: %s %s is in the way of spinner %s; keep things out of the circle it turns in" % [info.id, def.type, def.id, spinner.id])
 					break
+		# Track riders may wait at every phase. Keep the spinner out of their
+		# full track and standing band, even when the drawn glyph is elsewhere.
+		for path in _tracked(info):
+			var keep := path.swept_cells().merge(path.band_cells())
+			var overlaps := false
+			for y in range(keep.position.y, keep.end.y):
+				for x in range(keep.position.x, keep.end.x):
+					overlaps = overlaps or spinner.sweeps(Vector2i(x, y))
+			if overlaps:
+				found.append("Room %s: spinner %s sweeps the track or rider space of moving platform %s" % [info.id, spinner.id, path.id])
+		for other in info.spinners:
+			if spinner.id < other.id and spinner.pivot.distance_to(other.pivot) < spinner.radius + other.radius:
+				found.append("Room %s: spinner %s overlaps the sweep of spinner %s" % [info.id, spinner.id, other.id])
 	_append_capped(errors, found)
 
 
