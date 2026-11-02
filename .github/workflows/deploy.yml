@@ -22,13 +22,17 @@ jobs:
     steps:
       - name: Check out the repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Install Godot 4.7.2 and web export templates
+      - name: Read the pinned engine version
+        id: engine
+        run: echo "version=$(python3 tools/test_runner.py engine-version)" >> "$GITHUB_OUTPUT"
+
+      - name: Install Godot and web export templates
         uses: solarlabyrinth/action-setup-godot@d9f6c080367bc8e35dd623433be29e9f59f53a87 # v3
         with:
-          version: 4.7.2-stable
+          version: ${{ steps.engine.outputs.version }}
           export-templates: true
       - name: Confirm the Godot version
-        run: godot --version | grep -E '^4\.7\.2\.'
+        run: python3 tools/test_runner.py version --templates
       - name: Run tests, validate the world, and build the web export
         run: ./tools/check.sh
       - name: Stage the site

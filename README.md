@@ -8,7 +8,7 @@ This file is the project: how it is laid out, how the code fits together, the ru
 
 ## Requirements
 
-[Godot 4.7](https://godotengine.org/) with the web export templates installed. Python 3 serves the exported page. Everything is run from the repo root.
+[Godot 4.7.2 stable](https://godotengine.org/) with the matching web export templates installed. The exact engine/template version lives in `tests/test_manifest.json`; local gate commands and CI verify it. Python 3 serves the exported page. Everything is run from the repo root.
 
 `project.godot` asks for feature `4.7` and the GL Compatibility renderer.
 
@@ -210,6 +210,8 @@ Two kinds of test, and which to write:
 | `docs/design/game-design.md` | The design record: what the game is, the rules, how each system is built, and why. |
 | `docs/testing-checklist.md` | What nobody has played yet. Mark things played here, and keep it short. |
 | `docs/plans/` | History and plans, not the current record. |
+
+`tools/test_runner.py tests [test_name ...]` runs all registered tests or a focused selection. The manifest covers every `tests/*_test.gd`, with a per-test deadline and required final pass line; render, pixel and validator scripts have explicit exclusion reasons. The runner captures both output streams, rejects nonzero exits, unexpected engine/script errors and shutdown leaks, and kills timed-out process groups. Intentional error-path diagnostics require an exact manifest pattern and reason; script errors and leaks cannot be exempted. Focused selections do not replace `tools/check.sh`, which also runs the fake-engine runner regressions, uncached validation and the complete release export/integrity checks. `tools/validate.sh` and `tools/pixel_check.sh` use the same runner. Template verification uses the standard XDG Godot export-template directory, or `GODOT_TEMPLATE_DIR` when explicitly configured.
 
 ## How the code fits together
 

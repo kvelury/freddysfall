@@ -1,9 +1,9 @@
 #!/bin/sh
 set -eu
 cd "$(dirname "$0")/.."
-godot --headless --path . --import
+python3 tools/test_runner.py import
 mkdir -p build/web
-godot --headless --path . --export-release "Web" "build/web/index.html"
+python3 tools/test_runner.py export
 python3 - << 'PY'
 import hashlib
 import os

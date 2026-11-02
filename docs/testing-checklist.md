@@ -280,3 +280,7 @@ Nobody has played these yet. Start a normal game (`http://localhost:8060`) for G
 - [ ] **With a spare heart.** Set two hearts in F2 and die: no screen, back on the safe floor with one. Die again: the screen.
 - [ ] **Early deaths.** Before room 7's pip, every death in rooms 3 to 6 shows the screen. Is that too much?
 - [ ] **Dev retry.** "Retry on death" in F2 skips the screen.
+
+## Verification gate
+
+Automation-only changes need no gameplay playthrough. `python3 tools/test_runner_test.py` exercises fake-engine exit 42 with captured output, script error with exit 0, missing or non-final pass markers, timeout, normal success, narrowly classified intentional diagnostics, manifest coverage, and an injected renderer failure through `tools/pixel_check.sh`. The release gate still requires all manifest tests, uncached validation and web export/integrity checks.
