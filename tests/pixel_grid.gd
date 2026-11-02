@@ -52,6 +52,7 @@ func _run() -> void:
 	await _lash()
 	await _save_hop()
 	await _feed()
+	await _mover_boundaries()
 	if mode == "compare":
 		await _text()
 		await _hud()
@@ -539,3 +540,47 @@ class Outline extends Node2D:
 	func _draw() -> void:
 		var at := Vector2.ZERO
 		draw_polyline(PackedVector2Array([at + Vector2(0, -4), at + Vector2(4, 0), at + Vector2(0, 4), at + Vector2(-4, 0), at + Vector2(0, -4)]), Color.WHITE, 1.0)
+
+
+## Scripted mover generations and hazard orientations on the normal world grid.
+## The fixture clock is explicit, so captured boundaries cannot drift with FPS.
+func _mover_boundaries() -> void:
+	if world != null:
+		world.free()
+		world = null
+	var fixture := Node2D.new()
+	fixture.process_mode = Node.PROCESS_MODE_DISABLED
+	root.add_child(fixture)
+	var camera := Camera2D.new()
+	camera.position = Vector2(160, 90)
+	camera.zoom = Vector2.ONE * Display.RENDER_SCALE
+	fixture.add_child(camera)
+	camera.make_current()
+	var path := EmitterPath.new("pixels", Rect2i(3, 12, 3, 1), Vector2i.RIGHT, 16, 80.0, 2.0)
+	var emitter := EmitterView.new(path, path.life_ticks - 1)
+	fixture.add_child(emitter)
+	await _grab("emitter_before_recycle")
+	emitter.move_to(path.life_ticks)
+	await _grab("emitter_recycle")
+	# Repeating the sample must not add a second burst.
+	emitter.move_to(path.life_ticks)
+	await _grab("emitter_recycle_repeated")
+	emitter.move_to(path.life_ticks + 1)
+	await _grab("emitter_after_recycle")
+	fixture.free()
+	fixture = Node2D.new()
+	fixture.process_mode = Node.PROCESS_MODE_DISABLED
+	root.add_child(fixture)
+	camera = Camera2D.new()
+	camera.position = Vector2(160, 90)
+	camera.zoom = Vector2.ONE * Display.RENDER_SCALE
+	fixture.add_child(camera)
+	camera.make_current()
+	var spinner_path := SpinnerPath.new("pixels", Rect2i(10, 8, 11, 2), 4.0, false, PackedStringArray(["bottom", "top_left"]))
+	for tick in [0, 60, 119, 395]:
+		var spinner := SpinnerView.new(spinner_path, tick)
+		fixture.add_child(spinner)
+		spinner.move_to(tick)
+		await _grab("spinner_hazards_%03d" % tick)
+		spinner.free()
+	fixture.free()
