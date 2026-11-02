@@ -11,13 +11,13 @@ var air_jumps := 0
 ## Whether the player has found Tongue Lash. Until they do, `lash` does nothing.
 var tongue_unlocked := false
 ## Seconds between lashes, counted from the tongue being back in the mouth.
-var tongue_cooldown := 0.15
+var tongue_cooldown := 0.05
 ## How fast the tongue goes out, in pixels a second. The snap back is worked out
 ## from it too, so a faster tongue also snaps back faster.
 var tongue_speed := 220.0
 ## How many times faster than `tongue_speed` the tongue comes back, on average.
 ## It starts back at `tongue_speed` and speeds up. 1 is a steady return.
-var tongue_snap := 2.5
+var tongue_snap := 2.0
 ## How far the tongue reaches past the front of the body, in pixels. The first
 ## 50 is enough for every breakable wall so far; upgrades lengthen it.
 var tongue_length := 50.0
@@ -26,16 +26,16 @@ var tongue_length := 50.0
 ## a creep, a snap, a stick on what it hit and a spring return.
 ## Seconds the tongue creeps at the start, and the pixels it covers doing so.
 var tongue_creep := 0.065
-var tongue_creep_reach := 4.0
+var tongue_creep_reach := 3.0
 ## Seconds the speed takes to climb from the creep to the snap.
-var tongue_ramp := 0.05
+var tongue_ramp := 0.08
 ## How many times `tongue_speed` the tongue goes at the top of the snap.
-var tongue_strike := 3.9
+var tongue_strike := 3.0
 ## 0 is the accelerating return; 1 is a spring that is fastest at once and
 ## eases into the mouth.
 var tongue_settle := 1.0
 ## Seconds the tip stays on what it hit before it comes back.
-var tongue_stick := 0.05
+var tongue_stick := 0.1
 ## Whether the tip is drawn as a pad (3 pixels tall) while it is stuck.
 var tongue_pad := true
 ## Whether the player has found Imprint. Until they do, the cursor is just a cursor.

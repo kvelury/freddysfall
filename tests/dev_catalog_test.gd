@@ -81,7 +81,7 @@ func _initialize() -> void:
 	var round_trip := DevCatalog.reconcile(sample)
 	_check(round_trip["error"].is_empty() and round_trip["warnings"].is_empty() and round_trip["loadout"]["abilities"] == sample["abilities"], "a loadout with a tuned tongue comes back as it was")
 	var old_tongue := DevCatalog.reconcile({"abilities": {"tongue_unlocked": true, "tongue_speed": 300.0}})
-	_check(old_tongue["error"].is_empty() and is_equal_approx(old_tongue["loadout"]["abilities"]["tongue_strike"], 3.9) and old_tongue["loadout"]["abilities"]["tongue_pad"] == true and old_tongue["loadout"]["abilities"]["tongue_speed"] == 300.0, "a loadout from before the shape stats gets the starting values and keeps its own speed")
+	_check(old_tongue["error"].is_empty() and is_equal_approx(old_tongue["loadout"]["abilities"]["tongue_strike"], 3.0) and old_tongue["loadout"]["abilities"]["tongue_pad"] == true and old_tongue["loadout"]["abilities"]["tongue_speed"] == 300.0, "a loadout from before the shape stats gets the starting values and keeps its own speed")
 	_store()
 	for path in [TEMP, TEMP + ".tmp"]:
 		DirAccess.remove_absolute(path)
