@@ -159,14 +159,14 @@ func _play() -> bool:
 	return ok
 
 
-## The real input path, with no scripting: B alone lashes sideways, Up with B
+## The real input path, with no scripting: X alone lashes sideways, Up with X
 ## lashes up, and Space and Up no longer do each other's job.
 func _keys() -> bool:
 	var ok := true
 	var jump := _codes("jump")
 	var look := _codes("look_up")
 	var lash := _codes("lash")
-	ok = _check(jump == [KEY_SPACE] and lash == [KEY_B, KEY_META] and look.has(KEY_W) and look.has(KEY_UP), "Space jumps, B lashes, W and Up look up") and ok
+	ok = _check(jump == [KEY_SPACE] and lash == [KEY_X] and look.has(KEY_W) and look.has(KEY_UP), "Space jumps, X lashes, W and Up look up") and ok
 	ok = _check(not InputMap.action_has_event("look_up", _key(KEY_SPACE)) and not InputMap.action_has_event("jump", _key(KEY_UP)), "Space does not look up and Up does not jump") and ok
 	return ok
 

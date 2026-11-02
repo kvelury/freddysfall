@@ -5,7 +5,7 @@ extends SceneTree
 ## from the mouth at the set speed as far as the set length, comes back in, the
 ## cooldown limits the rate, a wall takes two hits (or the dev test's number),
 ## breaking it stops it colliding, and it is back when the room is built again. A string room checks that a player stands on an intact
-## wall and not on a broken one. B lashes, Space jumps, W and Up look up.
+## wall and not on a broken one. X lashes, Space jumps, W and Up look up.
 
 const WALL := "r7_pipwall"
 ## The lash this test was written for: a steady 220 px/s out and an accelerating
@@ -205,20 +205,14 @@ func _run() -> void:
 	quit(0 if ok else 1)
 
 
-## B or Command lashes, Space jumps, and W and Up look up (and no longer jump).
+## X lashes, Space jumps, and W and Up look up (and no longer jump).
 func _keys() -> bool:
 	var ok := true
 	var jump := _keycodes("jump")
 	var lash := _keycodes("lash")
 	var look := _keycodes("look_up")
 	ok = _check(jump == [KEY_SPACE], "jump is Space only") and ok
-	ok = _check(lash == [KEY_B, KEY_META], "lash is B or Command") and ok
-	for side in [KEY_LOCATION_LEFT, KEY_LOCATION_RIGHT]:
-		var cmd := InputEventKey.new()
-		cmd.physical_keycode = KEY_META
-		cmd.location = side
-		cmd.pressed = true
-		ok = _check(InputMap.event_is_action(cmd, "lash"), "the %s Command key lashes" % ("left" if side == KEY_LOCATION_LEFT else "right")) and ok
+	ok = _check(lash == [KEY_X], "lash is X only (not B or Command)") and ok
 	ok = _check(look.size() == 2 and look.has(KEY_W) and look.has(KEY_UP), "look up is W and Up") and ok
 	return ok
 

@@ -93,7 +93,7 @@ static func key_groups(row: Dictionary) -> Array:
 
 ## A row whose keys are pressed together (`"combo": true`): each binding of its
 ## first action with the first binding of every other action, so look up and lash
-## are [["W", "B"], ["Up", "B"]].
+## are [["W", "X"], ["Up", "X"]].
 static func _combo_groups(row: Dictionary) -> Array:
 	var actions: Array = row["actions"]
 	var rest: Array[String] = []

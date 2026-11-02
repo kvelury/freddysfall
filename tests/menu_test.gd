@@ -35,7 +35,7 @@ func _controls_data() -> bool:
 	abilities.air_jumps = 1
 	abilities.tongue_unlocked = true
 	ok = _check(_ids(Controls.visible_rows(abilities)) == ["move", "jump", "double_jump", "look_up", "lash", "lash_up", "map", "map_zoom", "pause"], "owned powers add their rows (%s)" % [_ids(Controls.visible_rows(abilities))]) and ok
-	ok = _check(Controls.key_groups(Controls.get_row("lash_up")) == [["W", "B"], ["Up", "B"]], "lash up is W + B / Up + B (%s)" % [Controls.key_groups(Controls.get_row("lash_up"))]) and ok
+	ok = _check(Controls.key_groups(Controls.get_row("lash_up")) == [["W", "X"], ["Up", "X"]], "lash up is W + X / Up + X (%s)" % [Controls.key_groups(Controls.get_row("lash_up"))]) and ok
 	ok = _check(Controls.key_groups(Controls.get_row("jump")) == [["Space"]], "jump is Space") and ok
 	return ok
 
