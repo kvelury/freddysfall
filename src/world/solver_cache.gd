@@ -22,6 +22,7 @@ const FORMAT := 2
 ## Everything a jump's result depends on.
 const SOLVER_FILES: Array[String] = [
 	"res://src/world/reach_graph.gd",
+	"res://src/tongue/lash_geometry.gd",
 	"res://src/world/imprint_search.gd",
 	"res://src/imprint/imprint_rules.gd",
 	"res://src/player/movement_sim.gd",

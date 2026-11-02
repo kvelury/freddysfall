@@ -61,6 +61,14 @@ The new room from the user's drawings. Start `?dev=1&room=11`, and in F2 turn To
 
 ## Tongue Lash and breakable walls
 
+Automated geometry regressions cover just-inside, exact-touch and just-outside
+reach in both horizontal directions and up, different lengths, a nearer solid,
+the column-2/column-25 diagnostic, live hit/query agreement, and cache dependency
+coverage. Mutation checks remove length rejection and ignore intervening plain
+solids; each must fail these assertions. The motion/control tests continue to
+cover speed, snap, shape and X / Space / W / Up.
+
+
 Nobody has played these yet. Headless tests prove the rules, not the feel. Use `?dev=1&room=7`, open F2, turn Tongue Lash on and Apply (add Air jumps 1 if you want to climb), or play to room 9's 3TM, which gives it. This replaced the gun, so nothing here was tested as a tongue.
 
 - [ ] **The tongue reads.** A pink line comes out of the notch at the front of the body, goes out at a steady 220 px/s and snaps back in, speeding up like a frog's tongue. Does it look like a tongue and not a laser? Is the snap crisp, and does the reach feel patient by comparison? Does it feel right after turning mid-air? Is one pixel high enough at 1x?

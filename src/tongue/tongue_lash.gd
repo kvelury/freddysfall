@@ -10,7 +10,7 @@ extends Node2D
 ## What the tip meets is dealt with as the gun's shot was: a breakable wall takes a hit
 ## (see BreakableWall), anything else stops it. One lash hits at most one thing.
 ## There is no aiming, so a player who wants to reach higher jumps first. With
-## `look_up` (Up or W) held when `lash` (B) is pressed, the tongue goes straight
+## `look_up` (Up or W) held when `lash` (X) is pressed, the tongue goes straight
 ## up out of the top of his head instead, for a wall or platform above him.
 ##
 ## It is a child of the world and uses its `current` room, `player` and
@@ -19,16 +19,7 @@ extends Node2D
 
 ## The tip moves in steps no longer than this, so a fast one cannot skip a cell.
 const STEP := 4.0
-## Half the body's width, in pixels: the tongue's length is counted from the
-## front of the body.
-const FRONT := 5.0
-## The mouth's height above the body's centre, in pixels. The hit is made here
-## whatever picture is on show; only the drawing follows the picture.
-const MOUTH_RISE := 1.5
-## The size of the tip's box, in pixels.
-const TIP := Vector2(3.0, 1.0)
-## The tip's box going up, in pixels.
-const TIP_UP := Vector2(1.0, 3.0)
+const FRONT := LashGeometry.FRONT
 const PINK := Color("ff6fa8")
 
 ## The three parts of a lash. OUT is the creep and the snap; STICK holds the tip on
@@ -129,9 +120,7 @@ func clear() -> void:
 
 ## The world position of the tip.
 func tip() -> Vector2:
-	if up:
-		return _player.global_position + Vector2(0.0, -(FRONT + extension))
-	return _player.global_position + Vector2(float(direction) * (FRONT + extension), -MOUTH_RISE)
+	return LashGeometry.tip(_player.global_position, direction, up, extension)
 
 
 func _physics_process(delta: float) -> void:
@@ -231,29 +220,20 @@ func _hit() -> bool:
 	_struck = false
 	var room: Room = _world.current
 	var at := tip()
-	var size := TIP_UP if up else TIP
-	var box := Rect2(at - size * 0.5, size)
-	var wall := room.wall_at(box)
-	if wall != null:
-		room.hit_wall(wall, DevSession.wall_strength())
-		_puff(at)
-		_struck = true
-		return true
-	var solid := false
-	for rect in room.world_rects():
-		if rect.intersects(box):
-			solid = true
-			break
-	if not solid:
-		for platform in _world.imprint.platforms:
-			if platform.rect.intersects(box):
-				solid = true
-				break
-	if not solid:
-		for rect in room.mover_rects():
-			if rect.intersects(box):
-				solid = true
-				break
+	var solids: Array = room.world_rects()
+	for platform in _world.imprint.platforms:
+		solids.append(platform.rect)
+	solids.append_array(room.mover_rects())
+	var first := LashGeometry.first_solid(_player.global_position, direction, up, extension, solids)
+	var solid := first >= 0
+	if solid:
+		# Sample just inside the first solid for wall identity, retaining the
+		# live step's tip position and TongueMotion timing for presentation.
+		var distance := LashGeometry.contact(_player.global_position, direction, up, solids[first])
+		var box := LashGeometry.tip_box(LashGeometry.tip(_player.global_position, direction, up, minf(extension, distance + 0.001)), up)
+		var wall := room.wall_at(box)
+		if wall != null:
+			room.hit_wall(wall, DevSession.wall_strength())
 	if solid:
 		_puff(at)
 		_struck = true
