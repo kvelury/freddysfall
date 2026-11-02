@@ -171,6 +171,11 @@
       "script": "tests/lash_up_test.gd",
       "success_marker": "^LASH UP pass$",
       "timeout_seconds": 120
+    },
+    {
+      "script": "tests/physics_order_test.gd",
+      "success_marker": "^PHYSICS ORDER pass$",
+      "timeout_seconds": 120
     }
   ]
 }

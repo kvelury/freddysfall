@@ -104,7 +104,7 @@ def main():
         run(base + ['--export-release', 'Web', 'build/web/index.html'], timeout=300)
     elif args.mode == 'pixel':
         mode = args.selection[0] if args.selection else 'compare'
-        command = ['godot', '--path', '.', '--rendering-driver', 'opengl3', '--fixed-fps', '90', '--script', 'tests/pixel_grid.gd', '--', mode]
+        command = ['godot', '--audio-driver', 'Dummy', '--path', '.', '--rendering-driver', 'opengl3', '--fixed-fps', '90', '--script', 'tests/pixel_grid.gd', '--', mode]
         import shutil
         if not os.environ.get('DISPLAY') and shutil.which('xvfb-run'):
             command = ['xvfb-run', '-a'] + command
