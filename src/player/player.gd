@@ -37,6 +37,10 @@ var facing := 1:
 var animator := PlayerAnimator.new()
 ## Set by the tongue while it is out going up, for the picture that shows it.
 var lashing_up := false
+## Whether the look-up key is held and the body is under the player's control.
+## The tests set `scripted_look_up`.
+var looking_up := false
+var scripted_look_up := false
 
 ## Previous physics pose, shared with the frame-rate camera.
 var _previous_position := Vector2.ZERO
@@ -105,6 +109,7 @@ func _physics_process(delta: float) -> void:
 	# Held players can still move on a save-machine tween later in this tick.
 	_previous_position = global_position
 	if not input_enabled:
+		looking_up = false
 		velocity = Vector2.ZERO
 		# Held still, the player is not carried, so they are not riding when let go.
 		_state.riding = -1
@@ -120,6 +125,7 @@ func _physics_process(delta: float) -> void:
 	if input_x != 0.0 and signf(input_x) != float(facing):
 		facing = int(signf(input_x))
 	scripted_jump_pressed = false
+	looking_up = not blocked and (scripted_look_up if scripted else Input.is_action_pressed("look_up"))
 	_state.position = global_position
 	_state.velocity = velocity
 	var movers: Movers = null
@@ -142,7 +148,7 @@ func _physics_process(delta: float) -> void:
 func _process(delta: float) -> void:
 	if _visual == null:
 		return
-	animator.advance(delta, _state.grounded, velocity.x, lashing_up)
+	animator.advance(delta, _state.grounded, velocity.x, lashing_up, looking_up)
 	var fraction := Engine.get_physics_interpolation_fraction() if is_physics_interpolated_and_enabled() else 1.0
 	var index := FreddySprites.animation(animator.pose).index(animator.time_in_pose, animator.distance_in_pose)
 	_visual.show_at(render_position(fraction), animator.pose, index)

@@ -446,23 +446,19 @@ func _wall_above(info: RoomInfo, cx: int, row: int) -> String:
 
 
 ## The walls a rider on side-to-side mover `ledge` can lash up at: over every
-## column it goes through, from the row it stands in or any row it can jump up to
-## with nothing solid between.
+## column it goes through, from the row it stands in. A rider who jumps off is
+## left behind by the platform (`inherit_platform_velocity` is off), so a lash
+## from a jump is not counted.
 func _lashes_up_from_rider(ledge: Ledge, info: RoomInfo) -> Array[String]:
 	var out: Array[String] = []
 	var mover := info.movers[ledge.path]
 	if not mover is PlatformPath or (mover as PlatformPath).direction.y != 0:
 		return out
 	var swept := mover.swept_cells()
-	var rise := _rise_cells(1 if abilities.air_jumps > 0 else 0)
 	for cx in range(swept.position.x, swept.end.x):
-		for height in rise + 1:
-			var row := ledge.row - height
-			if row < 0 or info.is_solid(cx, row):
-				break
-			var wall := _wall_above(info, cx, row)
-			if not wall.is_empty() and not out.has(wall):
-				out.append(wall)
+		var wall := _wall_above(info, cx, ledge.row)
+		if not wall.is_empty() and not out.has(wall):
+			out.append(wall)
 	return out
 
 

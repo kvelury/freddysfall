@@ -92,6 +92,19 @@ const LAND: Array[String] = [
 	"===....===",
 ]
 
+## Standing still and looking up (the look-up key held): the body as standing,
+## with the pupils in the top row of the eyes.
+const LOOK_UP_BODY: Array[String] = [
+	".+o+...+o+",
+	".+++...+++",
+	"##########",
+	"########..",
+	"######yyyy",
+	"######yyyy",
+	"######yyyy",
+	"######yyyy",
+]
+
 ## Looking up with the mouth open on top, for the tongue going up: the pupils
 ## are in the top row, and the notch (cols 4 and 5 of row 2) is the mouth.
 const LASH_UP_BODY: Array[String] = [
@@ -208,6 +221,9 @@ static func _build() -> Dictionary:
 	table[PlayerAnimator.Pose.WALK] = _animation(walk, 6.0, true)
 	table[PlayerAnimator.Pose.JUMP] = _animation([_standing(JUMP_LEGS)])
 	table[PlayerAnimator.Pose.LAND] = _animation([Frame.new(3, LAND, LAND_TOKENS, LAND_LINE)])
+	var look_up_rows: Array = LOOK_UP_BODY.duplicate()
+	look_up_rows.append_array(STAND_LEGS)
+	table[PlayerAnimator.Pose.LOOK_UP] = _animation([Frame.new(0, look_up_rows, STAND_TOKENS, STAND_LINE)])
 	var lash_up_rows: Array = LASH_UP_BODY.duplicate()
 	lash_up_rows.append_array(STAND_LEGS)
 	table[PlayerAnimator.Pose.LASH_UP] = _animation([Frame.new(0, lash_up_rows, STAND_TOKENS, STAND_LINE, LASH_UP_MOUTH)])

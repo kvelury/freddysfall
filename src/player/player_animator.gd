@@ -12,7 +12,7 @@ const LAND_TIME := 0.125
 const WALK_SPEED := 1.0
 
 ## What the body is doing. `FreddySprites` maps each to the pictures that play for it.
-enum Pose { STAND, WALK, JUMP, LAND, LASH_UP }
+enum Pose { STAND, WALK, JUMP, LAND, LASH_UP, LOOK_UP }
 
 var pose := Pose.STAND
 ## Seconds and ground px since `pose` began. Both start from 0 on every change of pose.
@@ -29,10 +29,11 @@ func land() -> void:
 
 ## Moves on by `delta` seconds of a body that is `grounded` and moving at
 ## `speed_x` px/s, and sets `pose`, `time_in_pose` and `distance_in_pose`. In
-## the air is the jump; just landed is the landing; running walks; the tongue
-## going up looks up, over all of them. How many
+## the air is the jump; just landed is the landing; running walks; standing
+## still with the look-up key held looks up; the tongue going up shows its own
+## picture, over all of them. How many
 ## pictures a pose has and how fast they play is not decided here.
-func advance(delta: float, grounded: bool, speed_x: float, lashing_up := false) -> void:
+func advance(delta: float, grounded: bool, speed_x: float, lashing_up := false, looking_up := false) -> void:
 	var landing := _landing_left > 0.0
 	_landing_left = maxf(0.0, _landing_left - delta)
 	var next := Pose.STAND
@@ -44,6 +45,8 @@ func advance(delta: float, grounded: bool, speed_x: float, lashing_up := false) 
 		next = Pose.LAND
 	elif absf(speed_x) > WALK_SPEED:
 		next = Pose.WALK
+	elif looking_up:
+		next = Pose.LOOK_UP
 	if next != pose:
 		pose = next
 		time_in_pose = 0.0

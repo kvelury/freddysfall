@@ -34,6 +34,9 @@ tongue_lash_test.gd
 menu_test.gd
 title_card_test.gd
 hud_test.gd
+emitter_test.gd
+spinner_test.gd
+lash_up_test.gd
 "
 
 for test in $TESTS; do

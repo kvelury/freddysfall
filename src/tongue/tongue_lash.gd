@@ -9,7 +9,7 @@ extends Node2D
 ## What the tip meets is dealt with as the gun's shot was: a breakable wall takes a hit
 ## (see BreakableWall), anything else stops it. One lash hits at most one thing.
 ## There is no aiming, so a player who wants to reach higher jumps first. With
-## the jump key (Up or W) held when `lash` is pressed, the tongue goes straight
+## `look_up` (Up or W) held when `lash` (B) is pressed, the tongue goes straight
 ## up out of the top of his head instead, for a wall or platform above him.
 ##
 ## It is a child of the world and uses its `current` room, `player` and
@@ -33,7 +33,7 @@ const PINK := Color("ff6fa8")
 ## The headless tests set `scripted` and lash with `scripted_lash`.
 var scripted := false
 var scripted_lash := false
-## The tests' stand-in for holding the jump key when a lash is made.
+## The tests' stand-in for holding the look-up key when a lash is made.
 var scripted_up := false
 
 ## Whether a tongue is out, going or coming back.
@@ -129,7 +129,7 @@ func _physics_process(delta: float) -> void:
 	else:
 		_move(delta)
 	var pressed := scripted_lash if scripted else Input.is_action_just_pressed("lash")
-	var upward := scripted_up if scripted else Input.is_action_pressed("jump")
+	var upward := scripted_up if scripted else Input.is_action_pressed("look_up")
 	scripted_lash = false
 	if pressed:
 		lash(upward)

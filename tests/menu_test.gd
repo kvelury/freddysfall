@@ -30,11 +30,13 @@ func _controls_data() -> bool:
 	ok = _check(Controls.key_groups(Controls.get_row("move")) == [["A", "D"], ["Left", "Right"]], "move is A D / Left Right (%s)" % [Controls.key_groups(Controls.get_row("move"))]) and ok
 	ok = _check(Controls.key_groups(Controls.get_row("pause")) == [["Esc"], ["P"]], "pause is Esc / P (%s)" % [Controls.key_groups(Controls.get_row("pause"))]) and ok
 	ok = _check(Controls.key_groups(Controls.get_row("imprint")) == [["MouseLeft"]], "imprint is the left mouse button") and ok
-	ok = _check(_ids(Controls.visible_rows(null)) == ["move", "jump", "map", "map_zoom", "pause"], "with no game only the base rows show (%s)" % [_ids(Controls.visible_rows(null))]) and ok
+	ok = _check(_ids(Controls.visible_rows(null)) == ["move", "jump", "look_up", "map", "map_zoom", "pause"], "with no game only the base rows show (%s)" % [_ids(Controls.visible_rows(null))]) and ok
 	var abilities := Abilities.new()
 	abilities.air_jumps = 1
 	abilities.tongue_unlocked = true
-	ok = _check(_ids(Controls.visible_rows(abilities)) == ["move", "jump", "double_jump", "lash", "map", "map_zoom", "pause"], "owned powers add their rows (%s)" % [_ids(Controls.visible_rows(abilities))]) and ok
+	ok = _check(_ids(Controls.visible_rows(abilities)) == ["move", "jump", "double_jump", "look_up", "lash", "lash_up", "map", "map_zoom", "pause"], "owned powers add their rows (%s)" % [_ids(Controls.visible_rows(abilities))]) and ok
+	ok = _check(Controls.key_groups(Controls.get_row("lash_up")) == [["W", "B"], ["Up", "B"]], "lash up is W + B / Up + B (%s)" % [Controls.key_groups(Controls.get_row("lash_up"))]) and ok
+	ok = _check(Controls.key_groups(Controls.get_row("jump")) == [["Space"]], "jump is Space") and ok
 	return ok
 
 
@@ -96,7 +98,7 @@ func _pause_menu() -> bool:
 	menu._unhandled_input(_key(KEY_P))
 	ok = _check(menu.opened and paused, "P pauses too") and ok
 	menu._list.get_child(1).pressed.emit()
-	ok = _check(menu._on_controls and menu._view.get_child_count() == 5, "the pause Controls page shows the base rows (%d)" % menu._view.get_child_count()) and ok
+	ok = _check(menu._on_controls and menu._view.get_child_count() == 6, "the pause Controls page shows the base rows (%d)" % menu._view.get_child_count()) and ok
 	menu._unhandled_input(_key(KEY_P))
 	ok = _check(menu.opened and not menu._on_controls, "P on the Controls page goes back") and ok
 	menu._list.get_child(0).pressed.emit()

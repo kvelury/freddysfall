@@ -5,7 +5,7 @@ extends SceneTree
 ## from the mouth at the set speed as far as the set length, comes back in, the
 ## cooldown limits the rate, a wall takes two hits (or the dev test's number),
 ## breaking it stops it colliding, and it is back when the room is built again. A string room checks that a player stands on an intact
-## wall and not on a broken one. Space lashes and does not jump.
+## wall and not on a broken one. B lashes, Space jumps, W and Up look up.
 
 const WALL := "r7_pipwall"
 
@@ -196,13 +196,15 @@ func _run() -> void:
 	quit(0 if ok else 1)
 
 
-## Space lashes, W and Up jump, and Space no longer jumps.
+## B lashes, Space jumps, and W and Up look up (and no longer jump).
 func _keys() -> bool:
 	var ok := true
 	var jump := _keycodes("jump")
 	var lash := _keycodes("lash")
-	ok = _check(not jump.has(KEY_SPACE) and jump.has(KEY_W) and jump.has(KEY_UP), "jump is W and Up, not Space") and ok
-	ok = _check(lash == [KEY_SPACE], "lash is Space") and ok
+	var look := _keycodes("look_up")
+	ok = _check(jump == [KEY_SPACE], "jump is Space only") and ok
+	ok = _check(lash == [KEY_B], "lash is B") and ok
+	ok = _check(look.size() == 2 and look.has(KEY_W) and look.has(KEY_UP), "look up is W and Up") and ok
 	return ok
 
 
