@@ -1,6 +1,6 @@
 extends SceneTree
 
-## Lashing up: with the look-up key (Up or W) held when lash (B) is pressed, the tongue goes
+## Lashing up: with the look-up key (Up or W) held when lash (X) is pressed, the tongue goes
 ## straight up out of the top of Freddy's head. It stops at a solid above him,
 ## keeps going when he turns, and shows the looking-up picture with a vertical
 ## pink line from the notch on top. A press with no key held still lashes the
@@ -132,7 +132,7 @@ func _play() -> bool:
 	var sideways: bool = tongue.active and not tongue.up
 	Input.action_release("jump")
 	Input.action_release("lash")
-	ok = _check(sideways, "with the real keys, jump (Space) and lash (B) lash sideways") and ok
+	ok = _check(sideways, "with the real keys, jump (Space) and lash (X) lash sideways") and ok
 	tongue.clear()
 	for i in 3:
 		await physics_frame
@@ -143,7 +143,7 @@ func _play() -> bool:
 	var upward: bool = tongue.active and tongue.up
 	Input.action_release("look_up")
 	Input.action_release("lash")
-	ok = _check(upward, "with the real keys, look up (W or Up) and lash (B) lash up") and ok
+	ok = _check(upward, "with the real keys, look up (W or Up) and lash (X) lash up") and ok
 	tongue.clear()
 	tongue.scripted = true
 	var body := player.get_node("Visual") as PlayerBody
@@ -156,6 +156,59 @@ func _play() -> bool:
 	body.facing = -1
 	rect = body.tongue_rect_up(20.0)
 	ok = _check(is_equal_approx(rect.position.x, body.position.x + 5.0), "mirrored when he faces left (%s)" % rect) and ok
+	ok = _runtime_geometry(world, player, tongue) and ok
+	world.queue_free()
+	await process_frame
+	state.reset()
+	return ok
+
+
+## Compare the actual live hit path with solver queries at identical fixed
+## origins. The surrounding world and motion integrator stay out of this test.
+func _runtime_geometry(world: Node, player: Player, tongue: Node) -> bool:
+	var ok := true
+	var previous: Room = world.current
+	var saved_position := player.global_position
+	var state: Node = root.get_node("GameState")
+	var abilities: Abilities = state.abilities
+	for data in [[Vector2i(16, 10), 1, false], [Vector2i(4, 10), -1, false], [Vector2i(10, 4), 1, true]]:
+		var rows: Array[String] = []
+		for y in 18:
+			var row := ""
+			for x in 32:
+				row += "B" if Vector2i(x, y) == data[0] else ("#" if x == 0 or x == 31 or y == 0 or y == 17 else ("P" if x == 2 and y == 16 else "."))
+			rows.append(row)
+		var errors: Array[String] = []
+		var built := RoomParser.build([{"id": "1", "grid_pos": Vector2i.ZERO, "text": "legend:\n  B = breakable id=target\n---\n" + "\n".join(rows) + "\n"}], "1", errors)
+		ok = _check(errors.is_empty(), "runtime geometry fixture loads") and ok
+		var info: RoomInfo = built["rooms"]["1"]
+		for length in [48.49, 48.5, 48.51, 80.0]:
+			var room := Room.new()
+			world.add_child(room)
+			room.build(info)
+			world.current = room
+			player.global_position = Vector2(105, 105)
+			tongue.up = data[2]
+			tongue.direction = data[1]
+			tongue.extension = length
+			abilities.tongue_length = length
+			var graph := ReachGraph.new({}, load("res://src/player/movement.tres"), abilities)
+			var expected := not graph._wall_in_direction(info, player.global_position, data[1], data[2]).is_empty()
+			ok = _check(tongue.tip() == LashGeometry.tip(player.global_position, data[1], data[2], length) and tongue._hit() == expected and expected == (length > 48.5), "runtime and query agree at %s length %.2f" % [data[0], length]) and ok
+			world.current = previous
+			room.free()
+		info.solids.append(Rect2i(Vector2i(10, 10) + (data[0] - Vector2i(10, 10)) / 2, Vector2i.ONE))
+		var blocked := Room.new()
+		world.add_child(blocked)
+		blocked.build(info)
+		world.current = blocked
+		tongue.extension = 80.0
+		var target_box := Rect2(Vector2(data[0]) * Grid.CELL, Vector2.ONE * Grid.CELL)
+		ok = _check(tongue._hit() and blocked.wall_at(target_box).damage == 0, "the live lash stops at the nearer solid before %s" % data[0]) and ok
+		world.current = previous
+		blocked.free()
+	player.global_position = saved_position
+	tongue.clear()
 	return ok
 
 

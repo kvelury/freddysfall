@@ -34,6 +34,7 @@ func _run() -> void:
 	ok = _keys() and ok
 	ok = _abilities() and ok
 	ok = _fixture() and ok
+	ok = _geometry() and ok
 
 	var world := (load("res://src/world/world.tscn") as PackedScene).instantiate()
 	world.start_override = "7"
@@ -280,6 +281,26 @@ func _fixture() -> bool:
 	ok = _check(not open.is_solid(7, 12) and open.all_solids().size() == loaded.all_solids().size() - 6, "a variant with it broken has those cells open") and ok
 	room.free()
 	again.free()
+	return ok
+
+
+## Subpixel boundaries deliberately cannot be represented by a cell count.
+func _geometry() -> bool:
+	var ok := true
+	var body := Vector2(105.0, 105.0)
+	for up in [false, true]:
+		for facing in ([-1, 1] if not up else [1]):
+			var axis := LashGeometry.direction(facing, up)
+			var start := LashGeometry.origin(body, facing, up)
+			ok = _check(LashGeometry.tip_box(start, up).size == (Vector2(1, 3) if up else Vector2(3, 1)), "direction %s has the actual pixel tip" % axis) and ok
+			for length in [10.0, 48.5, 80.0]:
+				for offset in [-0.01, 0.0, 0.01]:
+					var target := Rect2(start + axis * (length + 1.5 + 5.0 + offset) - Vector2(5, 5), Vector2(10, 10))
+					var hit := LashGeometry.first_solid(body, facing, up, length, [target])
+					ok = _check((hit == 0) == (offset < 0.0), "%s length %.1f boundary offset %.2f uses strict overlap" % [axis, length, offset]) and ok
+			var near := Rect2(start + axis * 20.0 - Vector2(5, 5), Vector2(10, 10))
+			var far := Rect2(start + axis * 40.0 - Vector2(5, 5), Vector2(10, 10))
+			ok = _check(LashGeometry.first_solid(body, facing, up, 50.0, [far, near]) == 1, "the nearer solid wins independently of list order (%s)" % axis) and ok
 	return ok
 
 

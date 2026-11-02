@@ -31,7 +31,7 @@ func _files() -> bool:
 		if not FileAccess.file_exists(path):
 			missing.append(path)
 	ok = _check(missing.is_empty(), "every file the solver's fingerprint covers exists %s" % [missing]) and ok
-	for name in ["reach_graph.gd", "imprint_search.gd", "movement_sim.gd", "movement.tres", "movement_config.gd", "door.gd", "imprint_rules.gd", "room_info.gd", "grid.gd"]:
+	for name in ["lash_geometry.gd", "reach_graph.gd", "imprint_search.gd", "movement_sim.gd", "movement.tres", "movement_config.gd", "door.gd", "imprint_rules.gd", "room_info.gd", "grid.gd"]:
 		var listed := false
 		for path in SolverCache.SOLVER_FILES:
 			listed = listed or path.ends_with("/" + name)

@@ -13,6 +13,7 @@ func _initialize() -> void:
 	ok = _lifetime() and ok
 	ok = _gate() and ok
 	ok = _double_jump() and ok
+	ok = _lash_geometry() and ok
 	ok = _lash() and ok
 	ok = _progression() and ok
 	ok = _many_rounds() and ok
@@ -179,6 +180,32 @@ func _lash() -> bool:
 	ok = _check(cold.errors == warm.errors and warm.errors.is_empty() and again_cache.stats["edge_rooms_solved"] == 0 and again_cache.stats["edge_rooms_cached"] >= 3, "the states come back from the cache, each room's file apart (%s)" % [again_cache.stats]) and ok
 	for file in DirAccess.get_files_at(directory):
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(directory).path_join(file))
+	return ok
+
+
+func _lash_geometry() -> bool:
+	var ok := true
+	var armed := Abilities.new()
+	armed.tongue_unlocked = true
+	var body := Grid.cell_center(Vector2i(10, 10))
+	for data in [[Vector2i(16, 10), 1, false], [Vector2i(4, 10), -1, false], [Vector2i(10, 4), 1, true]]:
+		var info := RoomInfo.new()
+		info.breakables = {"target": [data[0]]}
+		var graph := ReachGraph.new({}, _cfg, armed)
+		for length in [48.49, 48.5, 48.51, 80.0]:
+			graph.abilities.tongue_length = length
+			ok = _check((graph._wall_in_direction(info, body, data[1], data[2]) == "target") == (length > 48.5), "solver pixel boundary %s at %.2f" % [data[0], length]) and ok
+		info.solids = [Rect2i(Vector2i(10, 10) + (data[0] - Vector2i(10, 10)) / 2, Vector2i.ONE)]
+		ok = _check(graph._wall_in_direction(info, body, data[1], data[2]).is_empty(), "an intervening plain solid stops %s" % data[0]) and ok
+	# Review diagnostic: column 2 cannot break a wall in column 25 with 10 px.
+	var rooms := _world({Vector2i(25, 16): "B"}, "legend:\n  B = breakable id=distant\n---\n")
+	armed.tongue_length = 10.0
+	var graph := ReachGraph.new(rooms, _cfg, armed)
+	var ledge := ReachGraph.Ledge.new()
+	ledge.x0 = 2
+	ledge.x1 = 2
+	ledge.row = 16
+	ok = _check(graph._lashes_from(ledge, rooms["1"]).is_empty(), "a 10 px lash from column 2 cannot break column 25") and ok
 	return ok
 
 
