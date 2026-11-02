@@ -290,3 +290,5 @@ What the existing code does, so new code reads the same:
 - Update `docs/design/game-design.md` when behaviour changes, and this file when the layout, a rule above, or a command changes.
 - Do not playtest inside a cloud agent environment. A headless or brief launch to confirm it runs is fine.
 - Put what nobody has played in `docs/testing-checklist.md`, and take it out once it has been played.
+
+The full-world solver tests have a 45-minute per-process deadline, matching uncached validation. The existing complete gate takes about 40 minutes in CI; a 15-minute process deadline would reject healthy cold solves, especially while independent lanes share CPU. Deadlines remain enforced independently of the required final success markers.
