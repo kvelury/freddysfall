@@ -183,7 +183,7 @@ func _run() -> void:
 	_check(not session.classic_imprint and not session.classic_imprint_active(), "ending the playtest resets Classic Imprint")
 	_check(session.wall_strength() == 2 and session.wall_strength_override == 0, "and the wall strength")
 	_check(not session.token_marks and _world.player._visual.shown_tokens() == 0, "and the token marks")
-	_check(state.abilities.tongue_pad and is_equal_approx(state.abilities.tongue_stick, 0.05) and not session.slow_motion and Engine.time_scale == 1.0, "and the tongue's tuning and the clock")
+	_check(state.abilities.tongue_pad and is_equal_approx(state.abilities.tongue_stick, 0.1) and not session.slow_motion and Engine.time_scale == 1.0, "and the tongue's tuning and the clock")
 	_check(not session.isolated() and state.health == 7 and state.abilities.imprint_width == 4 and _world.current.info.id == "7", "ending restores normal saved progression")
 	_check(FileAccess.get_file_as_string(TEMP) == original, "ending does not save test state")
 	# The independent headless/test disable flag must survive ending a session.

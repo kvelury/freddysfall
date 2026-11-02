@@ -76,7 +76,7 @@ func _run() -> void:
 ## The seven stats: starting values, floors, and the save round trip.
 func _stats() -> void:
 	var a := Abilities.new()
-	_check(is_equal_approx(a.tongue_creep, 0.065) and is_equal_approx(a.tongue_creep_reach, 4.0) and is_equal_approx(a.tongue_ramp, 0.05) and is_equal_approx(a.tongue_strike, 3.9) and a.tongue_settle == 1.0 and is_equal_approx(a.tongue_stick, 0.05) and a.tongue_pad and is_equal_approx(a.tongue_snap, 2.5) and is_equal_approx(a.tongue_speed, 220.0), "the starting values are the chosen frog's tongue: a 4-tick creep over 4 px, a snap to 3.9 times 220 px/s, a 3-tick stick with a pad, a spring return at a 2.5 snap")
+	_check(is_equal_approx(a.tongue_creep, 0.065) and is_equal_approx(a.tongue_creep_reach, 3.0) and is_equal_approx(a.tongue_ramp, 0.08) and is_equal_approx(a.tongue_strike, 3.0) and a.tongue_settle == 1.0 and is_equal_approx(a.tongue_stick, 0.1) and a.tongue_pad and is_equal_approx(a.tongue_snap, 2.0) and is_equal_approx(a.tongue_cooldown, 0.05) and is_equal_approx(a.tongue_speed, 220.0), "the starting values are the chosen frog's tongue: a 4-tick creep over 3 px, an 0.08 s ramp to 3 times 220 px/s, a 6-tick stick with a pad, a spring return at a 2x snap, a 0.05 s cooldown")
 	var d := a.to_dict()
 	for stat in ["tongue_creep", "tongue_creep_reach", "tongue_ramp", "tongue_strike", "tongue_settle", "tongue_stick", "tongue_pad"]:
 		_check(Abilities.STATS.has(stat) and d.has(stat), "%s is registered and serialized" % stat)
