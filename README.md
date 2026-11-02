@@ -307,3 +307,4 @@ subsystems. Typed `Abilities` fields, `STATS` and explicit serialization remain 
 against it. Upgrades and direct `apply` share its validation; planned effects are
 rejected. Dev numeric ranges remain editor limits, also checked when reconciling
 named loadouts; normal-save decoding preserves physically valid values beyond them.
+The full-world solver tests have a 45-minute per-process deadline, matching uncached validation. The existing complete gate takes about 40 minutes in CI; a 15-minute process deadline would reject healthy cold solves, especially while independent lanes share CPU. Deadlines remain enforced independently of the required final success markers.

@@ -9,7 +9,7 @@
     {
       "script": "tests/reach_test.gd",
       "success_marker": "^RESULT pass$",
-      "timeout_seconds": 900
+      "timeout_seconds": 2700
     },
     {
       "script": "tests/physics_test.gd",
@@ -65,7 +65,7 @@
     {
       "script": "tests/cache_test.gd",
       "success_marker": "^CACHE pass$",
-      "timeout_seconds": 900
+      "timeout_seconds": 2700
     },
     {
       "script": "tests/token_test.gd",
@@ -100,7 +100,7 @@
     {
       "script": "tests/imprint_solver_test.gd",
       "success_marker": "^IMPRINTSOLVER pass$",
-      "timeout_seconds": 900
+      "timeout_seconds": 2700
     },
     {
       "script": "tests/platform_test.gd",
