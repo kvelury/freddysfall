@@ -10,6 +10,12 @@ extends SceneTree
 ## moving. The solver: a ledge only a ride reaches is reached, a platform out
 ## of reach is warned about, and an Imprint is refused on a track.
 
+class CrushProbe extends Node:
+	var player: Player
+	func _physics_process(_delta: float) -> void:
+		player._state.crushed = true
+		set_physics_process(false)
+
 const DT := 1.0 / 60.0
 const TOLERANCE := 0.01
 
@@ -369,9 +375,14 @@ func _dying_while_riding() -> bool:
 	var local: Vector2 = player.global_position - (world.current as Room).position
 	ok = _check(died and world.current.info.id == "7" and state.health == 1, "stepping off into the spikes spends the heart and stays in room 7") and ok
 	ok = _check(player.is_on_floor() and player.riding() == -1 and is_equal_approx(local.y, _floor_y(world.current)) and local.x < 150.0, "and they come back on the floor by the door (%s)" % local) and ok
-	# A crush is a death: the world checks it before the player's next step.
+	# MovementSim's collision/crush calculation is tested above. Inject its
+	# result after the player callback, before World consumes it in this tick.
+	# Setting yesterday's result before Player runs relied on the old order.
 	state.health = 2
-	player._state.crushed = true
+	var crush := CrushProbe.new()
+	crush.player = player
+	crush.process_physics_priority = -15
+	world.add_child(crush)
 	await physics_frame
 	await physics_frame
 	ok = _check(not player.visible and state.health == 1, "a player a platform crushes dies") and ok

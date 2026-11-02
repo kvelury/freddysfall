@@ -280,3 +280,5 @@ Nobody has played these yet. Start a normal game (`http://localhost:8060`) for G
 - [ ] **With a spare heart.** Set two hearts in F2 and die: no screen, back on the safe floor with one. Die again: the screen.
 - [ ] **Early deaths.** Before room 7's pip, every death in rooms 3 to 6 shows the screen. Is that too much?
 - [ ] **Dev retry.** "Retry on death" in F2 skips the screen.
+
+Automated runtime-order coverage: `physics_order_test.gd` observes actual callbacks, including the first tick with two rooms, Imprint expiry before movement, player before tongue, pause ownership and normal/quarter-speed state equivalence. `dev_session_test.gd` checks both clock settings reset on retries and session exit. Manual F7 inspection remains for the user’s machine.

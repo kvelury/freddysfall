@@ -63,7 +63,7 @@ The first power-up is double jump. Imprint, where the mouse cursor becomes a pla
 | Render | The viewport is 640×360: `Display.RENDER_SCALE` (2) screen pixels to a world pixel. The camera is zoomed by that, and text and other UI are drawn at the finer resolution. |
 | Window | Integer nearest-neighbor scale of the viewport, aspect kept. Default window 1280×720, which is 2×. |
 | Physics | 60 ticks per second. 2D physics interpolation on. At most 8 steps per frame. |
-| Display | `max_fps` 0, vsync on. Movement math uses `delta`, so the tick rate can change later without rewriting the feel. |
+| Display | `max_fps` 0, vsync on. Simulation steps are 1/60 game seconds; dev quarter-speed pairs 0.25 time scale with 15 physics callbacks per wall second. |
 | Filter | Nearest. Pixels stay pixels. |
 | Font | One font for all text: Pixel Operator 8 (CC0, `assets/fonts/`), set in `UiTheme.FONT` and as the project's default font. It is imported with no antialiasing, hinting or subpixel positioning, and drawn at sizes that are whole multiples of 8 (body 8, titles 24), so a font pixel is a world pixel. Titles use its bold cut, `UiTheme.TITLE_FONT`, in capitals: change that one constant to give titles their own font. Text that is drawn by hand (key caps, map room ids) uses `UiTheme.FONT` too. |
 
@@ -640,7 +640,7 @@ Rooms built for free aim may stop solving, especially any that rely on a platfor
 **What the concept showed.**
 - **Forward slots do not catch a fall.** Freddy falls about 5 px a tick and moves 1.5 px a tick sideways, so a platform placed ahead and below in mid-fall is already above him by the time he reaches it. Down and down-forward are the slots for falling. Forward is for use from a ledge.
 - **The far block of a forward slot can be gone before the jump lands.** A puzzle should count on the anchor block, as it already does.
-- **Godot's `Engine.time_scale` keeps 60 physics ticks a second and shrinks each tick's delta.** `MovementSim` and the solver assume a fixed tick, so build mode's slow-down must be done another way that keeps the runtime and the solver in agreement. One way is to step physics less often.
+- **Godot's `Engine.time_scale` keeps 60 physics ticks a second and shrinks each tick's delta.** `MovementSim` and the solver assume a fixed tick, so build mode's slow-down must be done another way that keeps the runtime and the solver in agreement. Dev F7 now pairs time scale with a lower physics callback rate, preserving 1/60 game-second steps; build mode must use that same clock boundary.
 
 **Dev tools, when built.**
 - An "Imprint aim" choice in the F2 panel: dash-style, build mode or free aim. It is kept with the dev session, survives retries, round-trips in named loadouts and never touches the normal save.
@@ -682,6 +682,8 @@ How each system is built, with the constants that matter. File names are under `
 6. **Start room** must exist and have a `P`.
 
 Errors are sentences naming the room (and the line, for the header). A bad drawing tends to repeat one mistake along a wall, so each kind is capped at `MAX_PER_KIND` (5) per room and the rest counted.
+
+**Runtime tick order.** Explicit physics priorities advance rooms/movers (−40), expire Imprint footing (−30), step the player (−20), process tongue hits (−10), then handle world hazards and interactions (0). Room construction sets its physics priority, including both rooms alive during a door transition; World assigns its other children's priorities centrally. Camera following still runs per display frame, using the player's presentation pose. Dev slow motion preserves 1/60 game-second steps by pairing 0.25 time scale with 15 physics callbacks per wall second. It captures and restores both engine clock settings on disable, rebuild/retry, End playtest, menu and fresh configuration; pause ownership remains with the modal system.
 
 ### The movement (`player/movement_sim.gd`, `player/movement_config.gd`)
 
@@ -1096,6 +1098,7 @@ What was decided, in the order it came up, with the reason. Pull requests are na
 - **Titles are in `world.json`, not the room files.** A title is presentation; the room file's header reaches the solver and its cache.
 
 **Process**
+- **Runtime callback order and dev slow motion share the solver timebase (2026-11-02).** Room ordering previously used display `process_priority`, which does not order physics callbacks. Physics priorities now put mover advance and footing expiry before the player, tongue hits after movement, and interactions last. Quarter-speed lowers callback frequency with time scale so movers and delta-driven movement/lifetimes still advance by the same 1/60 game second. SceneTree callback regressions compare normal and slow states rather than manually arranging method calls.
 - **One record.** `AGENTS.md` for how an agent works, `README.md` for the code and its rules, this file for the game and its decisions, `docs/testing-checklist.md` for what nobody has played. `docs/plans/` is history.
 - **Every new test is mutation-checked,** and the pull request says which mutants were tried.
 - **A pull request is one piece of work, called by its number,** opened on a branch, with the docs in the same change. Merged only when the user says so.
