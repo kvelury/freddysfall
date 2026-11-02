@@ -35,7 +35,8 @@ class State extends RefCounted:
 	var floor_rect := Rect2()
 	## The moving platform the body is standing on, or -1.
 	var riding := -1
-	## Set by step(): a moving platform pushed the body into something solid.
+	## Set by step(): a moving platform pushed the body into something solid, or
+	## it touched a spiked body of a mover. Either way it dies, like spikes.
 	var crushed := false
 	var scratch := {}
 
@@ -86,9 +87,11 @@ static func step(
 		s.air_left = s.air_jumps
 		if movers != null:
 			for i in movers.size():
-				if s.floor_rect == movers.rect(i, tick + 1):
+				if not movers.hazard(i) and movers.alive(i, tick + 1) and s.floor_rect == movers.rect(i, tick + 1):
 					s.riding = i
 					break
+	if movers != null and not movers.is_empty() and _touches_hazard_body(s.position, movers, tick + 1):
+		s.crushed = true
 	# Off a platform and into the air: the body keeps only its own velocity,
 	# unless the platform's is to be added.
 	if was_riding >= 0 and not s.grounded and cfg.inherit_platform_velocity:
@@ -104,7 +107,7 @@ static func move_with(s: State, rects: Array, movers: Movers, tick: int) -> void
 	if s.riding >= 0 and s.riding < movers.size():
 		s.position = _shift(s.position, movers.step_of(s.riding, tick), rects)
 	for i in movers.size():
-		if i == s.riding:
+		if i == s.riding or movers.hazard(i) or not movers.alive(i, tick + 1):
 			continue
 		var after := movers.rect(i, tick + 1)
 		if not _overlaps(s.position, HALF, after):
@@ -115,6 +118,14 @@ static func move_with(s: State, rects: Array, movers: Movers, tick: int) -> void
 			s.crushed = true
 	if s.position != start and _blocked(s.position, HALF, rects, Vector2.ZERO):
 		s.crushed = true
+
+
+## Whether a body at `position` overlaps a spiked mover body at `tick`.
+static func _touches_hazard_body(position: Vector2, movers: Movers, tick: int) -> bool:
+	for rect in movers.hazard_rects(tick):
+		if _overlaps(position, HALF, rect):
+			return true
+	return false
 
 
 ## Moves a body by `motion`, stopping it at walls.

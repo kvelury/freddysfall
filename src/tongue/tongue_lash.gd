@@ -4,11 +4,14 @@ extends Node2D
 ## Tongue Lash. Once it is found, `lash` sends Freddy's tongue out of the notch
 ## in the front of his body, the way he faces, and pulls it back in. The tip
 ## goes out until it meets something solid or runs out of length
-## (`Abilities.tongue_length`), and then the tongue snaps back, starting at the
-## same speed and speeding up, `Abilities.tongue_snap` times faster on average.
+## (`Abilities.tongue_length`), and then the tongue snaps back. How it moves, out
+## and in, is `TongueMotion`'s: a creep, a snap, a stick on what it hit and a
+## return that averages `Abilities.tongue_snap` times `tongue_speed`.
 ## What the tip meets is dealt with as the gun's shot was: a breakable wall takes a hit
 ## (see BreakableWall), anything else stops it. One lash hits at most one thing.
-## There is no aiming, so a player who wants to reach higher jumps first.
+## There is no aiming, so a player who wants to reach higher jumps first. With
+## `look_up` (Up or W) held when `lash` (B) is pressed, the tongue goes straight
+## up out of the top of his head instead, for a wall or platform above him.
 ##
 ## It is a child of the world and uses its `current` room, `player` and
 ## `imprint`. A lash belongs to the room it was made in: leaving, dying and
@@ -24,24 +27,45 @@ const FRONT := 5.0
 const MOUTH_RISE := 1.5
 ## The size of the tip's box, in pixels.
 const TIP := Vector2(3.0, 1.0)
+## The tip's box going up, in pixels.
+const TIP_UP := Vector2(1.0, 3.0)
 const PINK := Color("ff6fa8")
+
+## The three parts of a lash. OUT is the creep and the snap; STICK holds the tip on
+## what it hit; BACK is the return.
+enum Phase { OUT, STICK, BACK }
 
 ## The headless tests set `scripted` and lash with `scripted_lash`.
 var scripted := false
 var scripted_lash := false
+## The tests' stand-in for holding the look-up key when a lash is made.
+var scripted_up := false
 
 ## Whether a tongue is out, going or coming back.
 var active := false
 ## 1 right, -1 left: the way the tongue was sent.
 var direction := 1
+## Whether the tongue was sent straight up.
+var up := false
 ## Pixels from the front of the body to the tip.
 var extension := 0.0
-## Whether the tongue is coming back in.
-var retracting := false
-## How fast the tongue is coming back, in pixels a second, and how fast that
-## grows. Set by `_begin_return`.
-var _return_speed := 0.0
-var _return_accel := 0.0
+## Which part of the lash the tongue is in.
+var phase := Phase.OUT
+## Whether the tongue has turned for home: stuck or coming back.
+var retracting: bool:
+	get:
+		return active and phase != Phase.OUT
+## Seconds spent in the current phase.
+var _time := 0.0
+## The return: the pixels out when it began, and the seconds it takes.
+var _back_from := 0.0
+var _back_duration := 0.0
+## Whether the tip's last hit was on something (a wall or a solid), as against
+## running out of length or leaving the room. Only that sticks.
+var _struck := false
+## Where the tip stuck, as a world coordinate along the tongue: x going sideways,
+## y going up.
+var _stuck_at := 0.0
 ## Seconds before another lash may be made. It runs only while the tongue is in.
 var cooldown_left := 0.0
 
@@ -63,13 +87,15 @@ func can_lash() -> bool:
 
 
 ## Lashes if it may. Returns whether it did.
-func lash() -> bool:
+func lash(upward := false) -> bool:
 	if not can_lash():
 		return false
 	active = true
+	up = upward
+	_player.lashing_up = upward
 	direction = _player.facing
 	extension = 0.0
-	retracting = false
+	_reset_phase()
 	# A lash against a wall the player is pressed to hits it at once.
 	if _hit():
 		_begin_return()
@@ -82,22 +108,29 @@ func end() -> void:
 	if active:
 		cooldown_left = GameState.abilities.tongue_cooldown
 	active = false
+	up = false
+	_player.lashing_up = false
 	extension = 0.0
-	retracting = false
+	_reset_phase()
 	queue_redraw()
 
 
 ## Removes the tongue and the wait for the next lash.
 func clear() -> void:
 	active = false
+	up = false
+	if _player != null:
+		_player.lashing_up = false
 	extension = 0.0
-	retracting = false
+	_reset_phase()
 	cooldown_left = 0.0
 	queue_redraw()
 
 
 ## The world position of the tip.
 func tip() -> Vector2:
+	if up:
+		return _player.global_position + Vector2(0.0, -(FRONT + extension))
 	return _player.global_position + Vector2(float(direction) * (FRONT + extension), -MOUTH_RISE)
 
 
@@ -105,16 +138,17 @@ func _physics_process(delta: float) -> void:
 	if _world.current == null or _world.is_busy():
 		end()
 		return
-	if active and _player.facing != direction:
+	if active and not up and _player.facing != direction:
 		end()
 	if not active:
 		cooldown_left = maxf(cooldown_left - delta, 0.0)
 	else:
 		_move(delta)
 	var pressed := scripted_lash if scripted else Input.is_action_just_pressed("lash")
+	var upward := scripted_up if scripted else Input.is_action_pressed("look_up")
 	scripted_lash = false
 	if pressed:
-		lash()
+		lash(upward)
 
 
 func _process(_delta: float) -> void:
@@ -125,36 +159,67 @@ func _draw() -> void:
 	if not active:
 		return
 	var body := _player.get_node("Visual") as PlayerBody
-	draw_rect(body.tongue_rect(extension), PINK)
+	draw_rect(body.tongue_rect_up(extension) if up else body.tongue_rect(extension), PINK)
+	if phase == Phase.STICK and GameState.abilities.tongue_pad:
+		draw_rect(body.pad_rect_up(extension) if up else body.pad_rect(extension), PINK)
 
 
-## Turns the tongue round and sets up the snap. It starts back at `tongue_speed`
-## and speeds up steadily, so that the return averages `tongue_snap` times
-## `tongue_speed` and takes `extension / (tongue_snap * tongue_speed)` seconds.
-## That makes the peak `(2 * snap - 1) * tongue_speed`, and a faster tongue
-## snaps back faster too. A snap of 1 is a steady return.
+func _reset_phase() -> void:
+	phase = Phase.OUT
+	_time = 0.0
+	_back_from = 0.0
+	_back_duration = 0.0
+	_struck = false
+
+
+## The tip has stopped going out. If it hit something and the tongue sticks, it
+## holds there first; otherwise it turns for home. A lash that hits at once, with
+## nothing out, has nothing to stick.
 func _begin_return() -> void:
-	retracting = true
-	var speed := GameState.abilities.tongue_speed
-	var snap := maxf(GameState.abilities.tongue_snap, 1.0)
-	_return_speed = speed
-	_return_accel = 2.0 * snap * (snap - 1.0) * speed * speed / extension if extension > 0.0 else 0.0
+	if _struck and extension > 0.0 and GameState.abilities.tongue_stick > 0.0:
+		phase = Phase.STICK
+		_time = 0.0
+		_stuck_at = tip().y if up else tip().x
+		return
+	_start_back()
+
+
+## Sets up the return from where the tip is: it takes `extension / (snap * speed)`
+## seconds, along the curve `TongueMotion.remaining` gives.
+func _start_back() -> void:
+	phase = Phase.BACK
+	_time = 0.0
+	_back_from = extension
+	_back_duration = TongueMotion.back_duration(extension, GameState.abilities)
 
 
 func _move(delta: float) -> void:
-	if retracting:
-		# The exact distance of a steady acceleration over this tick. The return
-		# hits nothing, so it needs no steps.
-		extension -= _return_speed * delta + 0.5 * _return_accel * delta * delta
-		_return_speed += _return_accel * delta
-		if extension <= 0.0:
-			end()
-		return
-	var distance := GameState.abilities.tongue_speed * delta
+	var abilities := GameState.abilities
+	match phase:
+		Phase.STICK:
+			_time += delta
+			# The tip stays where it hit even if the player moves.
+			if up:
+				extension = maxf(0.0, _player.global_position.y - _stuck_at - FRONT)
+			else:
+				extension = maxf(0.0, float(direction) * (_stuck_at - _player.global_position.x) - FRONT)
+			if _time >= abilities.tongue_stick - TongueMotion.EPSILON:
+				_start_back()
+			return
+		Phase.BACK:
+			_time += delta
+			if _time >= _back_duration - TongueMotion.EPSILON:
+				# The return hits nothing, so it needs no steps.
+				end()
+				return
+			extension = _back_from * TongueMotion.remaining(_time / _back_duration, abilities)
+			return
+	var distance := TongueMotion.out_distance(_time, delta, abilities)
+	_time += delta
 	var steps := maxi(1, ceili(distance / STEP))
 	for i in steps:
-		extension = minf(extension + distance / float(steps), GameState.abilities.tongue_length)
-		if _hit() or extension >= GameState.abilities.tongue_length:
+		extension = minf(extension + distance / float(steps), abilities.tongue_length)
+		if _hit() or extension >= abilities.tongue_length:
 			_begin_return()
 			return
 
@@ -163,13 +228,16 @@ func _move(delta: float) -> void:
 ## breakable wall is hit, and any solid stops the tongue with a puff. A tip that
 ## has left the room stops there with no puff.
 func _hit() -> bool:
+	_struck = false
 	var room: Room = _world.current
 	var at := tip()
-	var box := Rect2(at - TIP * 0.5, TIP)
+	var size := TIP_UP if up else TIP
+	var box := Rect2(at - size * 0.5, size)
 	var wall := room.wall_at(box)
 	if wall != null:
 		room.hit_wall(wall, DevSession.wall_strength())
 		_puff(at)
+		_struck = true
 		return true
 	var solid := false
 	for rect in room.world_rects():
@@ -188,6 +256,7 @@ func _hit() -> bool:
 				break
 	if solid:
 		_puff(at)
+		_struck = true
 		return true
 	return not Rect2(room.position, room.info.pixel_size).has_point(at)
 
@@ -197,6 +266,9 @@ func _puff(at: Vector2) -> void:
 	for _i in 2:
 		var dust := Player.Dust.new()
 		dust.position = at
-		dust.velocity = Vector2(-float(direction) * randf_range(10.0, 30.0), randf_range(-25.0, 5.0))
+		if up:
+			dust.velocity = Vector2(randf_range(-20.0, 20.0), randf_range(5.0, 25.0))
+		else:
+			dust.velocity = Vector2(-float(direction) * randf_range(10.0, 30.0), randf_range(-25.0, 5.0))
 		dust.life = 0.15
 		_world.add_child(dust)

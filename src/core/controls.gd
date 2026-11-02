@@ -70,6 +70,8 @@ static func visible_rows(abilities: Abilities) -> Array:
 ## every action, then the second of every action. "move" is
 ## [["A", "D"], ["Left", "Right"]].
 static func key_groups(row: Dictionary) -> Array:
+	if bool(row.get("combo", false)):
+		return _combo_groups(row)
 	var per_action: Array = []
 	for action in row["actions"]:
 		per_action.append(InputMap.action_get_events(String(action)))
@@ -86,6 +88,28 @@ static func key_groups(row: Dictionary) -> Array:
 					group.append(text)
 		if not group.is_empty():
 			out.append(group)
+	return out
+
+
+## A row whose keys are pressed together (`"combo": true`): each binding of its
+## first action with the first binding of every other action, so look up and lash
+## are [["W", "X"], ["Up", "X"]].
+static func _combo_groups(row: Dictionary) -> Array:
+	var actions: Array = row["actions"]
+	var rest: Array[String] = []
+	for i in range(1, actions.size()):
+		var events := InputMap.action_get_events(String(actions[i]))
+		var text := _key_text(events[0]) if not events.is_empty() else ""
+		if not text.is_empty():
+			rest.append(text)
+	var out: Array = []
+	for event in InputMap.action_get_events(String(actions[0])):
+		var first := _key_text(event)
+		if first.is_empty():
+			continue
+		var group: Array = [first]
+		group.append_array(rest)
+		out.append(group)
 	return out
 
 

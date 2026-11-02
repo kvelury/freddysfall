@@ -146,7 +146,7 @@ func _input(event: InputEvent) -> void:
 		return
 	# The same keys as the power popup. Escape is the pause key, so it is taken
 	# here and does not also open the pause menu afterwards.
-	var wanted := event.is_action_pressed("ui_accept") or event.is_action_pressed("pause") or event.is_action_pressed("jump")
+	var wanted := event.is_action_pressed("ui_accept") or event.is_action_pressed("pause") or event.is_action_pressed("jump") or event.is_action_pressed("look_up")
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		wanted = true
 	if not wanted:

@@ -17,6 +17,17 @@ Nobody has played these yet. `?dev=1&room=s3`, `?dev=1&room=10`, `?dev=1&room=s2
 - [ ] **Room 9's 3TM.** With room 8's, s3's and room 10's tokens it gives Tongue Lash, and room 9 has no token of its own any more.
 - [ ] **s2's walled door.** Without Tongue Lash the left door cannot be reached (no jumping over the roof). With it (F2), two lashes from the floor break the wall and the door leads to room 12. Coming back, the wall has grown back and is lashed again from the doorway.
 
+## Room 12: emitted platforms, a spinner and lash up
+
+Nobody has played this yet. `?dev=1&room=12`, then F2 for Tongue Lash and double jump.
+
+- [ ] **The ride.** A cracked platform comes out of the machine on the right every 3 s and runs left. It breaks in a burst of shards at the spikes on the pillar, and a rider falls. The tongue does not break it. Is 3 s the right gap, and 40 px/s the right speed?
+- [ ] **The first plug.** Riding it, hold Up or W and press X twice: the lash breaks the plug in the slab over the track. Is there time to do it before the platform runs out, and is it fair that a jump off the platform leaves its speed behind?
+- [ ] **The second plug.** From the ledge you reach, lash up again, then climb to the long ledge on top.
+- [ ] **The spinner.** It turns counter-clockwise once every 8 s. Its bottom row and top-left half are spikes (they kill); the top-right half is safe and carries you. Can you land on the safe half, ride it up, and jump off to the upper-left ledge? Is 8 s right?
+- [ ] **The doors.** The upper-left door leads to room 13 and the bottom-left door to room 14, both empty. The way down the left wall past the wall spikes to the bottom-left door is one way.
+- [ ] **Coming from s2.** The door at the bottom right of room 12 comes in from s2's walled door; the walls grow back each time.
+
 ## Room 7 step, room 9 floor door and s3
 
 Nobody has played these yet. `?dev=1&room=7` and `?dev=1&room=9`.
@@ -53,12 +64,17 @@ The new room from the user's drawings. Start `?dev=1&room=11`, and in F2 turn To
 Nobody has played these yet. Headless tests prove the rules, not the feel. Use `?dev=1&room=7`, open F2, turn Tongue Lash on and Apply (add Air jumps 1 if you want to climb), or play to room 9's 3TM, which gives it. This replaced the gun, so nothing here was tested as a tongue.
 
 - [ ] **The tongue reads.** A pink line comes out of the notch at the front of the body, goes out at a steady 220 px/s and snaps back in, speeding up like a frog's tongue. Does it look like a tongue and not a laser? Is the snap crisp, and does the reach feel patient by comparison? Does it feel right after turning mid-air? Is one pixel high enough at 1x?
-- [ ] **The rate.** Mash Space: about two lashes a second (a little over), and no faster (the cooldown runs from the tongue being back in). Spammable enough, or too much? Tuning knobs in F2: Lash cooldown, Lash speed and Lash snap (the starting values are in `Abilities`). Raise Lash speed and the snap-back should feel faster too; set Lash snap to 1 and the return is as slow as the way out. A game saved before this change keeps 400 px/s: start a new game, or set Lash speed to 220 in F2, to feel the new base.
+- [ ] **The frog tongue.** The tongue creeps (4 ticks, about 4 px), snaps out to the target, sticks for about 3 ticks with a slightly bigger pad at the tip, then comes back quickly and eases into the mouth. Does it read like a frog's at 1x, at full speed and in F7's slow motion? Does the stick read as grip, and not as lag? Does a wall in reach (room 7 from the exit-2 ledge, facing left) feel as quick to connect as before? Every number is in F2 (speed, snap, creep, creep reach, ramp, strike, return spring, stick time, sticky pad).
+- [ ] **F7.** In a dev test with the panel shut, F7 runs the game at a quarter speed and says so on the toast line; again, and it is back. It does nothing with F2 open, the pause menu up, or in a normal game. In the web build (`?dev=1&room=7`) the browser doesn't take it (F7 can ask about caret browsing): if it does, say so and it moves. Slow motion is off again after a retry or End playtest, and is never saved.
+- [ ] **Stick on a moving player.** Lash the wall and walk toward it at the same moment: the tip stays on the wall and the line shortens; it doesn't push into it.
+- [ ] **The rate.** Mash X: about two lashes a second (a little over), and no faster (the cooldown runs from the tongue being back in). Spammable enough, or too much? Tuning knobs in F2: Lash cooldown, Lash speed and Lash snap (the starting values are in `Abilities`). Raise Lash speed and the snap-back should feel faster too; set Lash snap to 1 and the return is as slow as the way out. A game saved before this change keeps 400 px/s: start a new game, or set Lash speed to 220 in F2, to feel the new base.
 - [ ] **The length.** With the first 50 px, room 7's wall (from the exit-2 ledge) and room 11's door wall can both be broken, with room to spare. In F2, set Tongue length to 10 and see the tongue stop short and the wall hold; 50 again and it breaks.
 - [ ] **Lashing while jumping.** Jump and lash to hit something higher. The tip stops at walls, moving platforms and Imprint platforms, and goes on past spikes. Turning round mid-lash pulls it in.
 - [ ] **Landing.** The line comes from the mouth row of the squashed landing picture, a little lower. Does it look wrong for those few frames?
 - [ ] **Old saves.** A save made with the gun still has the power (Tongue Lash) and the F2 loadouts made with Gun values come back with the same cooldown and speed.
-- [ ] **Space lashes, W and Up jump.** Space no longer jumps. Is it comfortable with a direction held?
+- [ ] **Space jumps, X lashes, W and Up look up.** W and Up no longer jump and X does not jump. Is it comfortable with a direction held, and with the left hand on WASD and the right on Space and B?
+- [ ] **Looking up.** Standing still, hold W or Up: Freddy looks up (pupils in the top row), with or without Tongue Lash. Walking, jumping and landing keep their pictures. The map still zooms on Up or W while it is held.
+- [ ] **Lashing up.** With Tongue Lash, hold Up or W and press X: the tongue goes straight up out of a notch on top of his head, and stops at a ceiling. A breakable wall overhead takes a hit. Turning round while it is out does not pull it in. X alone lashes the way he faces.
 - [ ] **The cracks.** A wall looks cracked and breakable from across a room. Each hit flashes it and adds cracks, and the third shatters it cell by cell.
 - [ ] **Standing on a wall.** An intact wall holds the player like any platform; once it breaks, they fall.
 - [ ] **A wall grows back.** Leave room 7 and come back, die and respawn in it, and retry from F2: the wall is whole each time.
@@ -161,7 +177,7 @@ Nobody has played these yet. `?room=7` starts on room 7’s safe landing beside 
 - [ ] **Getting on.** From the clear floor inside the door, jump onto the platform while it waits at the left. The platform's top is four cells above the floor, a full jump. Check the 0.2 s wait reads as a wait, and whether the jump is too easy or too hard (row 66, one cell higher, is as high as a full jump reaches).
 - [ ] **Riding.** Stand still and ride it out to the wall and back. At 75 px/s each way takes about 1.47 s. Check it looks smooth (it moves on physics time, with interpolation), and that the player sits still on it and does not jitter or slide.
 - [ ] **Walking on it** while it moves, both ways.
-- [ ] **Jumping off it while it moves.** `inherit_platform_velocity` is off, so a jump or a step off the end keeps only your own speed: a jump straight up goes straight up and the platform goes on without you. Is it easy to land back on it, and to hop between the strip and the platform? Set it to true in `src/player/movement.tres` to compare (it was tried on and turned off).
+- [ ] **Jumping off it while it moves.** `inherit_platform_velocity` is off (it was on for one build, while lash up shared the jump key), so a jump or a step off the end keeps only your own speed: a jump straight up goes straight up and the platform goes on without you. Is it easy to land back on it, and to hop between the strip and the platform? Set it to true in `src/player/movement.tres` to compare (it was tried on and turned off).
 - [ ] **Getting off.** Step off its left end onto the clear floor as it gets back. With a 0.2 s wait this needs you to be at its left end when it arrives. Too tight? Try a longer `pause=` in `data/rooms/7.txt`.
 - [ ] **Its speed.** Try other `speed=` values in `data/rooms/7.txt` (it is 75 px/s now; the user first asked for a 1.5 s trip, 133 px/s).
 - [ ] **Dying.** Fall off into the spikes: on your last heart you go back to your save room (s2 if you saved there). Coming back, the platform has started over, waiting at the left.

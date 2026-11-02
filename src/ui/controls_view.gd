@@ -37,8 +37,10 @@ func show_rows(rows: Array) -> void:
 		for g in groups.size():
 			if g > 0:
 				keys.add_child(_text("/"))
-			for key: String in groups[g]:
-				keys.add_child(KeyCap.new(key))
+			for k in groups[g].size():
+				if k > 0 and bool(row.get("combo", false)):
+					keys.add_child(_text("+"))
+				keys.add_child(KeyCap.new(groups[g][k]))
 		line.add_child(_text(String(row["label"])))
 
 

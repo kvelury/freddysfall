@@ -1,16 +1,14 @@
 class_name PlatformPath
-extends RefCounted
+extends Mover
 
 ## Where a moving platform is at each physics tick. It waits at the end it is
 ## drawn at, slides at a set speed to the far end of its track, waits, and
 ## slides back. It is worked out from whole ticks, so the game and the reach
 ## solver get the same rect for the same tick.
 
-const TICKS_PER_SECOND := 60
 ## How long it waits at each end, in seconds, when the legend does not say.
 const DEFAULT_PAUSE := 0.2
 
-var id := ""
 ## The cells the platform covers where it is drawn.
 var start_cells := Rect2i()
 ## From the drawn end towards the far end: a unit step along x or y.
@@ -64,7 +62,7 @@ func progress(tick: int) -> float:
 
 
 ## Its rect at `tick`, in room pixels.
-func rect_at(tick: int) -> Rect2:
+func rect_at(tick: int, _body := 0) -> Rect2:
 	var rect := Grid.cell_rect(start_cells)
 	rect.position += Vector2(direction) * distance() * progress(tick)
 	return rect
@@ -83,7 +81,3 @@ func band_cells() -> Rect2i:
 	return Rect2i(swept.position.x, swept.position.y - 1, swept.size.x, 1)
 
 
-## The swept cells and the band above them, in room pixels: where nothing
-## else may be, and where an Imprint may not go.
-func keep_out() -> Rect2:
-	return Grid.cell_rect(swept_cells().merge(band_cells()))
