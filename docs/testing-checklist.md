@@ -71,7 +71,7 @@ Nobody has played these yet. Headless tests prove the rules, not the feel. Use `
 - [ ] **Old saves.** A save made with the gun still has the power (Tongue Lash) and the F2 loadouts made with Gun values come back with the same cooldown and speed.
 - [ ] **Space jumps, B lashes, W and Up look up.** W and Up no longer jump and B does not jump. Is it comfortable with a direction held, and with the left hand on WASD and the right on Space and B?
 - [ ] **Looking up.** Standing still, hold W or Up: Freddy looks up (pupils in the top row), with or without Tongue Lash. Walking, jumping and landing keep their pictures. The map still zooms on Up or W while it is held.
-- [ ] **Lashing up.** With Tongue Lash, hold Up or W and press B: the tongue goes straight up out of a notch on top of his head, and stops at a ceiling. A breakable wall overhead takes a hit. Turning round while it is out does not pull it in. B alone lashes the way he faces.
+- [ ] **Lashing up.** With Tongue Lash, hold Up or W and press B: the tongue goes straight up out of a notch on top of his head, and stops at a ceiling. A breakable wall overhead takes a hit. Turning round while it is out does not pull it in. B alone lashes the way he faces. Left Command and right Command lash like B (in the browser too: Cmd+W closes a tab, so check Up + Command for the up-lash).
 - [ ] **The cracks.** A wall looks cracked and breakable from across a room. Each hit flashes it and adds cracks, and the third shatters it cell by cell.
 - [ ] **Standing on a wall.** An intact wall holds the player like any platform; once it breaks, they fall.
 - [ ] **A wall grows back.** Leave room 7 and come back, die and respawn in it, and retry from F2: the wall is whole each time.

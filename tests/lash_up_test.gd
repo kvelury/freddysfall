@@ -160,7 +160,7 @@ func _keys() -> bool:
 	var jump := _codes("jump")
 	var look := _codes("look_up")
 	var lash := _codes("lash")
-	ok = _check(jump == [KEY_SPACE] and lash == [KEY_B] and look.has(KEY_W) and look.has(KEY_UP), "Space jumps, B lashes, W and Up look up") and ok
+	ok = _check(jump == [KEY_SPACE] and lash == [KEY_B, KEY_META] and look.has(KEY_W) and look.has(KEY_UP), "Space jumps, B lashes, W and Up look up") and ok
 	ok = _check(not InputMap.action_has_event("look_up", _key(KEY_SPACE)) and not InputMap.action_has_event("jump", _key(KEY_UP)), "Space does not look up and Up does not jump") and ok
 	return ok
 

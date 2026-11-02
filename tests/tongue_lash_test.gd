@@ -196,14 +196,20 @@ func _run() -> void:
 	quit(0 if ok else 1)
 
 
-## B lashes, Space jumps, and W and Up look up (and no longer jump).
+## B or Command lashes, Space jumps, and W and Up look up (and no longer jump).
 func _keys() -> bool:
 	var ok := true
 	var jump := _keycodes("jump")
 	var lash := _keycodes("lash")
 	var look := _keycodes("look_up")
 	ok = _check(jump == [KEY_SPACE], "jump is Space only") and ok
-	ok = _check(lash == [KEY_B], "lash is B") and ok
+	ok = _check(lash == [KEY_B, KEY_META], "lash is B or Command") and ok
+	for side in [KEY_LOCATION_LEFT, KEY_LOCATION_RIGHT]:
+		var cmd := InputEventKey.new()
+		cmd.physical_keycode = KEY_META
+		cmd.location = side
+		cmd.pressed = true
+		ok = _check(InputMap.event_is_action(cmd, "lash"), "the %s Command key lashes" % ("left" if side == KEY_LOCATION_LEFT else "right")) and ok
 	ok = _check(look.size() == 2 and look.has(KEY_W) and look.has(KEY_UP), "look up is W and Up") and ok
 	return ok
 

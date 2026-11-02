@@ -78,8 +78,8 @@ The camera follows the player’s interpolated display position each rendered fr
 | Move | A / D, or Left / Right |
 | Jump | Space. Once double jump is found, press it again in the air for one more jump. |
 | Look up | W or Up. Standing still, Freddy looks up. Nothing else changes: it does not jump, and walking, jumping and landing keep their pictures. |
-| Lash | B, once Tongue Lash has been found. One lash a press, in the way the player faces. |
-| Lash up | W or Up held, then B, once Tongue Lash has been found. The tongue goes straight up out of the top of his head. |
+| Lash | B or Command (either side), once Tongue Lash has been found. One lash a press, in the way the player faces. |
+| Lash up | W or Up held, then B or Command, once Tongue Lash has been found. The tongue goes straight up out of the top of his head. |
 | Down | S or Down. Reserved. No action is assigned. |
 | Imprint | Left mouse button, once Imprint is unlocked (for now only through the dev panel). Mouse only. |
 | Map | Hold Tab, or hold M. M exists because a browser may steal Tab for focus. While it is held, Up or W zooms in and Down or S zooms out. |
