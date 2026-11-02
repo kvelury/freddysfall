@@ -117,4 +117,4 @@ for suffix in (".pck", ".wasm", ".audio.worklet.js", ".audio.position.worklet.js
 print(f"web export ok ({tag})")
 PY
 
-echo "CHECK pass: 29 tests, uncached world validation, and web export"
+echo "CHECK pass: 32 tests, uncached world validation, and web export"
