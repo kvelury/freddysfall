@@ -306,3 +306,6 @@ rejection; nonfinite values; legacy gun precedence; physical saved values beyond
 editor ranges; independent exact copies; conflicting metadata; planned effect
 rejection. Mutation checks remove a schema stat, serializer field, finite check
 and operation check, and must fail before restoring production code.
+
+
+Automated door-transfer coverage: `door_test.gd` crosses side, ceiling and floor doors with zero jumps, an exhausted air jump and a partly consumed three-jump budget, including held jump input. `double_jump_test.gd` checks ability clamping, stale-contact removal, landing refill and fresh-placement reset. The reset-on-transfer mutant must fail the airborne budget assertions.

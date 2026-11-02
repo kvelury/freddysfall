@@ -308,3 +308,5 @@ against it. Upgrades and direct `apply` share its validation; planned effects ar
 rejected. Dev numeric ranges remain editor limits, also checked when reconciling
 named loadouts; normal-save decoding preserves physically valid values beyond them.
 The full-world solver tests have a 45-minute per-process deadline, matching uncached validation. The existing complete gate takes about 40 minutes in CI; a 15-minute process deadline would reject healthy cold solves, especially while independent lanes share CPU. Deadlines remain enforced independently of the required final success markers.
+
+Room entry uses `Player.capture_transfer()` / `enter_room()` to preserve remaining air jumps, coyote and buffered-input game time, and jump launch/cut state through the camera slide. Remaining jumps clamp to the current ability count; room-local riding and floor references are cleared. `place()` remains a fresh spawn/warp/respawn reset. `door_test.gd` covers actual side/up/down airborne crossings and held input; `double_jump_test.gd` covers clamping, landing refill and fresh reset.

@@ -17,7 +17,7 @@ var _top := 0.0
 
 func _initialize() -> void:
 	_cfg = load("res://src/player/movement.tres")
-	var ok := true
+	var ok := _transfer_contract()
 
 	# Without the ability, a press in the air does nothing.
 	var single := _stand(0)
@@ -132,4 +132,37 @@ func _jump_then_press(s: MovementSim.State, wait: int, hold_second: bool, settle
 
 func _check(ok: bool, what: String) -> bool:
 	print(("  ok  " if ok else "  FAIL ") + what)
+	return ok
+
+
+## Transfer is a budget-preserving entry; fresh placement remains a reset.
+func _transfer_contract() -> bool:
+	var player := Player.new()
+	player.config = _cfg
+	player.scripted = true
+	player.air_jumps = 3
+	var floor_rects: Array[Rect2] = [Rect2(0, 100, 400, 20)]
+	player.place(Vector2(100, 70), floor_rects)
+	player._state.air_left = 2
+	player._state.coyote = 0.025
+	player._state.buffer = 0.04
+	player._state.cut = true
+	player._state.launched = true
+	player._state.riding = 7
+	player._state.floor_rect = Rect2(900, 900, 10, 10)
+	var transfer := player.capture_transfer()
+	player.air_jumps = 1
+	player.enter_room(Vector2(100, 70), floor_rects, transfer)
+	var ok := _check(player._state.air_left == 1 and player._state.coyote == 0.025 and player._state.buffer == 0.04 and player._state.cut and player._state.launched, "entry preserves jump state and clamps remaining budget to the current ability")
+	ok = _check(player.riding() == -1 and player._state.floor_rect == Rect2(), "entry discards the old room's contact references") and ok
+	player._state.buffer = 0.0
+	player._state.air_left = 0
+	player.velocity = Vector2(0, 120)
+	for i in 20:
+		player._physics_process(DT)
+	ok = _check(player.is_on_floor() and player._state.air_left == 1, "landing after entry refills the budget") and ok
+	player._state.air_left = 0
+	player.place(Vector2(100, 70), floor_rects)
+	ok = _check(player._state.air_left == 1 and not player._state.cut and player._state.buffer == 0.0, "fresh placement still resets budget and jump state") and ok
+	player.free()
 	return ok
