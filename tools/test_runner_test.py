@@ -58,6 +58,10 @@ class RunnerTest(unittest.TestCase):
         self.assertIn('unexpected engine error', self.attempt(source.replace('fixture', 'other'), diagnostics=diagnostic)[0] or '')
         self.assertIn('shutdown/fixture cleanup', self.attempt("print('WARNING: ObjectDB instances leaked at exit'); print('FAKE pass')", diagnostics=diagnostic)[0] or '')
 
+    def test_shutdown_rid_warning(self):
+        failure, _ = self.attempt("print('WARNING: 1 RID of type Canvas was leaked.'); print('FAKE pass')")
+        self.assertIn('shutdown/fixture cleanup', failure or '')
+
     def test_manifest_coverage(self):
         runner.manifest()
 

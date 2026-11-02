@@ -41,7 +41,7 @@ def run(command, *, timeout, marker=None, diagnostics=()):
         # the manifest. SCRIPT ERROR and shutdown/leak reports are never exempt.
         if re.search(r'SCRIPT ERROR|Parse Error|Compile Error', line):
             failures.append('script failure: ' + line)
-        elif re.search(r'ObjectDB instances (?:were )?leaked|resources still in use|RID allocations|Leaked instance', line):
+        elif re.search(r'ObjectDB instances (?:were )?leaked|resources still in use|RID allocations|RIDs? .*leaked|Leaked instance', line):
             failures.append('shutdown/fixture cleanup: ' + line)
         elif re.match(r'\s*ERROR:', line) and not any(re.fullmatch(d['pattern'], line) for d in diagnostics):
             failures.append('unexpected engine error: ' + line)
