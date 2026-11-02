@@ -885,7 +885,7 @@ What was decided, in the order it came up, with the reason. Pull requests are na
 **Movement and the player**
 - **The player is a `Node2D` with a box and no physics body; all movement is `MovementSim`.** The solver, the Imprint preview and the player then agree by construction, and `parity_test` enforces it.
 - **Fixed 60 Hz physics, engine interpolation on for the player.** The jump does not depend on the display’s refresh rate. The camera samples the player’s interpolated pose per display frame and rounds to a pixel; its own automatic interpolation stays off. Other nodes moved in `_process` are not interpolated, or they would glide from their last position.
-- **Doors keep momentum and place** (a body crossing keeps its height or column and its speed, and is pushed in about 20 px); a ceiling door gives a minimum upward speed so a slow player does not stall in the doorway.
+- **Doors keep momentum and place** (a body crossing keeps its height or column and its speed, and is pushed in about 20 px); a ceiling door gives a minimum upward speed so a slow player does not stall in the doorway. Remaining air jumps and jump launch/cut state cross too; coyote and buffered-input timers freeze during the slide. A room entry clears room-local contact references and clamps the remaining jump budget to the current ability, while a fresh spawn, warp or respawn resets it.
 - **Death goes back to the last safe floor, not a save point,** with a history of eight stretches so a bad spot costs one extra death and never a loop. An Imprint is never safe floor, because it breaks.
 
 **Tokens, the 3TM, exit rules (PR #16)**

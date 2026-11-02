@@ -458,6 +458,7 @@ func _on_exit(door: Door) -> void:
 	_busy = true
 	_follow = false
 	_carried = player.velocity
+	var transfer := player.capture_transfer()
 	player.input_enabled = false
 	player.velocity = Vector2.ZERO
 	current.set_exits_active(false)
@@ -467,7 +468,7 @@ func _on_exit(door: Door) -> void:
 	_pending.set_exits_active(false)
 	var crossed := Door.crossing(door, _pending.info, player.global_position, _carried)
 	_carried = crossed["velocity"]
-	player.place(crossed["position"], _pending.world_rects())
+	player.enter_room(crossed["position"], _pending.world_rects(), transfer)
 	player.room = _pending
 	GameState.visit(door.dest_id)
 	_maybe_title(door.dest_id)

@@ -73,9 +73,44 @@ func place(world_position: Vector2, rects: Array[Rect2]) -> void:
 	_state.launched = false
 	_state.cut = false
 	_state.riding = -1
+	_state.floor_rect = Rect2()
+	_state.jumped = false
+	_state.air_jumped = false
 	_state.crushed = false
 	_was_on_floor = _state.grounded
 	reset_physics_interpolation()
+
+
+## The movement budget and jump-in-progress timers cross a doorway unchanged.
+## Position and velocity are mapped separately by Door.crossing. Room-local
+## contact references never belong to this value.
+class Transfer extends RefCounted:
+	var air_left := 0
+	var coyote := 0.0
+	var buffer := 0.0
+	var launched := false
+	var cut := false
+
+
+func capture_transfer() -> Transfer:
+	var transfer := Transfer.new()
+	transfer.air_left = _state.air_left
+	transfer.coyote = _state.coyote
+	transfer.buffer = _state.buffer
+	transfer.launched = _state.launched
+	transfer.cut = _state.cut
+	return transfer
+
+
+## Entering a neighboring room is not a spawn: it cannot refill air jumps.
+## The camera slide freezes these game-time timers along with movement.
+func enter_room(world_position: Vector2, rects: Array[Rect2], transfer: Transfer) -> void:
+	place(world_position, rects)
+	_state.air_left = clampi(transfer.air_left, 0, air_jumps)
+	_state.coyote = transfer.coyote
+	_state.buffer = transfer.buffer
+	_state.launched = transfer.launched
+	_state.cut = transfer.cut
 
 
 ## The displayed position between physics ticks. Only the camera reads it;

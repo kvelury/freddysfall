@@ -296,3 +296,5 @@ What the existing code does, so new code reads the same:
 - Update `docs/design/game-design.md` when behaviour changes, and this file when the layout, a rule above, or a command changes.
 - Do not playtest inside a cloud agent environment. A headless or brief launch to confirm it runs is fine.
 - Put what nobody has played in `docs/testing-checklist.md`, and take it out once it has been played.
+
+Room entry uses `Player.capture_transfer()` / `enter_room()` to preserve remaining air jumps, coyote and buffered-input game time, and jump launch/cut state through the camera slide. Remaining jumps clamp to the current ability count; room-local riding and floor references are cleared. `place()` remains a fresh spawn/warp/respawn reset. `door_test.gd` covers actual side/up/down airborne crossings and held input; `double_jump_test.gd` covers clamping, landing refill and fresh reset.

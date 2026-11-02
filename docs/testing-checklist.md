@@ -282,3 +282,5 @@ Nobody has played these yet. Start a normal game (`http://localhost:8060`) for G
 - [ ] **Dev retry.** "Retry on death" in F2 skips the screen.
 
 Automated runtime-order coverage: `physics_order_test.gd` observes actual callbacks, including the first tick with two rooms, Imprint expiry before movement, player before tongue, pause ownership and normal/quarter-speed state equivalence. `dev_session_test.gd` checks both clock settings reset on retries and session exit. Manual F7 inspection remains for the user’s machine.
+
+Automated door-transfer coverage: `door_test.gd` crosses side, ceiling and floor doors with zero jumps, an exhausted air jump and a partly consumed three-jump budget, including held jump input. `double_jump_test.gd` checks ability clamping, stale-contact removal, landing refill and fresh-placement reset. The reset-on-transfer mutant must fail the airborne budget assertions.
