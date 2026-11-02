@@ -50,7 +50,12 @@ const MAX_ARCS_PER_CANDIDATE := 6
 ## putting a platform down.
 const RIDING_MOMENTS := 12
 
-var _graph: ReachGraph
+## The graph owns this search. A weak back-reference lets both be released
+## after validation, including all cached geometry and simulated legs.
+var _graph_ref: WeakRef
+var _graph: ReachGraph:
+	get:
+		return _graph_ref.get_ref() as ReachGraph
 var _arcs := {}
 var _legs := {}
 ## Whether a candidate is landed on, and on which block, by ledge, cell, width
@@ -64,7 +69,7 @@ var stats := {"arcs": 0, "lands": 0, "legs": 0, "candidates": 0, "legs_made": 0}
 
 
 func _init(graph: ReachGraph) -> void:
-	_graph = graph
+	_graph_ref = weakref(graph)
 
 
 ## What a platform put down from `ledge` can reach among `targets`, room pixels

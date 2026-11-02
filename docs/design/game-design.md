@@ -795,6 +795,8 @@ Previously the camera followed only in `World._physics_process`, before the play
 
 ### The solver (`world/reach_graph.gd`, `world/imprint_search.gd`)
 
+`ReachGraph` owns its Imprint search; the search holds a weak back-reference so completed solves release geometry and cached simulations instead of retaining a reference cycle.
+
 The solver answers "can a player get here, and get back", using `MovementSim` and no scene. It is used by `tools/validate.sh` and the tests only.
 
 - **Ledges.** A ledge is a run of standable cells on one row (air, spikes-free, with solid below). `lo` and `hi` are the range a body's centre can have while still on it: a body hangs on until its centre is half a cell past the end, unless a wall or spikes are right there.
