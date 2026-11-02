@@ -737,6 +737,26 @@ The parser turns a `platform` legend glyph into a `PlatformPath` in `RoomInfo.pl
 
 Touching spikes, or leaving the room's outline by 60 px, calls `_die`: the world goes busy, platforms are cleared with shards, the player shatters, and after `DEATH_TIME` (0.6 s, on physics time) `_respawn` puts them back. `_die` decides where: with `GameState.health` above 0 it empties a pip (`GameState.spend_health`) and `_respawn` puts them on the last safe spot, as described below; with none, `_respawn` (after the Game Over screen's `continued`, see `GameOver`) calls `_place_in` at `_resume_point()`, the machine of `GameState.save_room` (its `RoomInfo.save_cell`) or else the start room's `start_position()`. That placement clears the safe floors. `GameState.save_room` is set when a save room is entered (in `_place_in` and in `_finish_transition`) and when a machine is used. Entering one also calls `GameState.refill_health()`; `_place_in` skips that for a respawn on the last safe floor (`respawn = true`), so dying in a save room does not refill. The world keeps `SAFE_HISTORY` (8) stretches of floor. Each entry is a room and a position, and a new position within `SAFE_SPACING` (30 px) of the stretch's start updates that entry instead of adding one. A spot is recorded when the player stands on the room's own floor (not an Imprint, not a door block) with no spikes within a cell to either side and no door within two cells (`Room.is_safe_spot`). If the player dies again before standing anywhere new after a respawn, that spot was no good and the newest entry is dropped first.
 
+### Ability contracts (`core/ability_schema.gd`)
+
+`AbilitySchema` is pure and independent of gameplay/dev autoloads. `STATS` defines
+stat types, defaults, physical bounds, compatible upgrade operations and subsystem
+tags. `check_value`, `check_definition` and `check_upgrade` return an error string
+or empty success; `decode` returns typed ability values. Integers accept integral
+JSON numbers up to 2147483647. Numbers must be finite; times/cooldowns and counts
+cannot be negative, speed/length/platform duration must be positive, snap/strike
+are at least 1, and platform width/count are at least 1. Existing saved numeric
+floors are preserved; other invalid values use defaults. Valid old values keep
+their precision and are never clamped to editor maxima. `Abilities.copy` copies
+fields and arrays directly, avoiding a decode/normalization during solver copies.
+The gun unlock migrates in normal saves; its old untuned speed/cooldown do not.
+Named loadouts retain all three aliases, with canonical keys taking precedence.
+Implemented effect names are explicitly separate from planned names; neither
+upgrades nor decoded abilities grant a planned power. Duplicate upgrades for a
+stat must agree on dev metadata; conflicting controls are rejected, independent
+of registry order. Coverage still checks real properties, typed defaults, `STATS`
+and explicit serializer fields against the schema.
+
 ### Saving (`autoload/game_state.gd`, `autoload/save.gd`)
 
 `GameState` holds what a save holds: `visited` (a set of room ids), `abilities`, `flags` (`pickup:<id>`, `token:<id>`, `save:<id>`), `tokens` carried, `machines` (id → tokens inside), `map_zoom`, `save_room` (an id, or `""`), `health` (full pips, 0 or more) and `max_health` (the bar's length, never below `health`; a save without it gets one as long as its `health`, so no `VERSION` change was needed). `to_dict` and `load_dict` are the only two places that know the shape, and `load_dict` clamps and defaults everything, so a damaged file gives a smaller state and not a crash. `Save.write(room, position)` adds `version`, `room` and `position` (room pixels) and writes `user://save.json`. `Save.load_game()` returns where to put the player, or `{}`. `VERSION` is 3 and `OLDEST` is 2 (`_migrate` carries a version 2 file over: room `1` becomes `s1`, `save:s1_save` is set, the save room is `s1`): a file older than `OLDEST`, newer than `VERSION`, or not valid JSON is renamed `save.json.bad` and the game starts new. `Save.enabled` is independently off in headless runs. `DevSession.isolated()` also guards `write`, `load_game` and `erase` during room/development tests. Ending a test never changes the independent disable flag. A save written before a field existed loads with that field at its starting value, which is why changing a starting number (Imprint's duration) does not reach old saves.
@@ -879,6 +899,9 @@ What was decided, in the order it came up, with the reason. Pull requests are na
 - **`grid_pos` in `world.json`, doors inferred from facing openings.** No hand-written door table to disagree with the map. An opening with nothing beyond it is sealed until a room is placed there.
 - **Legend ids are written in the file and never derived.** The save remembers things by id, so a room can be redrawn without losing what the player did.
 - **Errors are collected and reported, never thrown.** A bad room should tell its author everything wrong with it at once.
+
+**Ability domains**
+- **Physical domains and editor ranges are separate.** One pure schema validates decoded values and upgrade operations. Existing floor migrations remain explicit; valid legacy saves are not retuned to slider ranges. Dev submissions and named-loadout reconciliation keep their existing editor range checks. Planned effects cannot be applied as powers.
 
 **Movement and the player**
 - **The player is a `Node2D` with a box and no physics body; all movement is `MovementSim`.** The solver, the Imprint preview and the player then agree by construction, and `parity_test` enforces it.

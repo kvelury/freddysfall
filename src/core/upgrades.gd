@@ -46,12 +46,12 @@ static func check(id: String, text: String) -> String:
 	if text.is_empty():
 		return "upgrade %s needs value=%s" % [id, "the name of the effect" if def["kind"] == "add" else "a number"]
 	if def["kind"] == "add":
-		return ""
+		return AbilitySchema.check_upgrade(def, text)
 	var sample: Variant = Abilities.new().get(String(def["stat"]))
 	var valid := text.is_valid_int() if typeof(sample) == TYPE_INT else text.is_valid_float()
 	if not valid:
 		return "upgrade %s needs a %s value, not \"%s\"" % [id, "whole-number" if typeof(sample) == TYPE_INT else "numeric", text]
-	return ""
+	return AbilitySchema.check_upgrade(def, parse_value(id, text))
 
 
 ## The value for upgrade `id` as the right type. Call check first.
@@ -95,5 +95,9 @@ static func _load() -> void:
 			continue
 		if not KINDS.has(def["kind"]):
 			_problems.append("%s: upgrade \"%s\" has kind \"%s\"; it must be one of %s" % [PATH, id, def["kind"], ", ".join(KINDS)])
+			continue
+		var domain_error := AbilitySchema.check_definition(def)
+		if not domain_error.is_empty():
+			_problems.append("%s: upgrade %s: %s" % [PATH, id, domain_error])
 			continue
 		_defs[String(id)] = def

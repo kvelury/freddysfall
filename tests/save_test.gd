@@ -34,13 +34,13 @@ func _abilities() -> bool:
 	ok = _check(not a.apply(width, 4), "the same one again changes nothing") and ok
 	ok = _check(Abilities.from_dict({"imprint_width": 2}).imprint_width == 2, "an old save keeps the width it stored") and ok
 	ok = _check(a.apply(Upgrades.get_def("imprint_duration"), 6.5) and is_equal_approx(a.imprint_duration, 6.5), "a longer duration lasts longer") and ok
-	ok = _check(a.apply(effect, "bounce") and a.imprint_effects == ["bounce"], "an effect is gained") and ok
-	ok = _check(not a.apply(effect, "bounce") and a.imprint_effects == ["bounce"], "and only once") and ok
+	ok = _check(not a.apply(effect, "bounce") and a.imprint_effects.is_empty(), "planned effects are not gained") and ok
+	ok = _check(not a.apply(effect, "bounce") and a.imprint_effects.is_empty(), "and only once") and ok
 	var b := a.copy()
 	b.imprint_effects.append("glow")
-	ok = _check(a.imprint_effects == ["bounce"], "a copy shares nothing with the original") and ok
+	ok = _check(a.imprint_effects.is_empty(), "a copy shares nothing with the original") and ok
 	var c := Abilities.from_dict(a.to_dict())
-	ok = _check(c.imprint_width == 4 and c.imprint_effects == ["bounce"] and is_equal_approx(c.imprint_duration, 6.5), "to_dict and from_dict round-trip") and ok
+	ok = _check(c.imprint_width == 4 and c.imprint_effects.is_empty() and is_equal_approx(c.imprint_duration, 6.5), "to_dict and from_dict round-trip") and ok
 	var d := Abilities.from_dict({"imprint_width": 5, "unheard_of": 1})
 	ok = _check(d.imprint_width == 5 and d.imprint_max_active == 1, "from_dict keeps what it knows and ignores the rest") and ok
 
@@ -60,6 +60,25 @@ func _abilities() -> bool:
 	var plain := Abilities.new()
 	plain.imprint_unlocked = true
 	ok = _check(e.describe().contains("0.2 s cooldown") and not plain.describe().contains("cooldown"), "describe names a cooldown only when there is one") and ok
+	# Every numeric entry point uses the physical domain, including direct apply.
+	for stat in AbilitySchema.STATS:
+		var domain: Dictionary = AbilitySchema.STATS[stat]
+		if not ["int", "float"].has(domain["type"]):
+			continue
+		var upgrade := {"stat": stat, "kind": domain["operations"][0]}
+		for bad in [NAN, INF, -INF, -1, "2", true]:
+			var before := a.to_dict()
+			ok = _check(not AbilitySchema.check_value(stat, bad).is_empty() and not a.apply(upgrade, bad) and a.to_dict() == before, "%s rejects invalid direct value %s" % [stat, str(bad)]) and ok
+			ok = _check(Abilities.from_dict({stat: bad}).get(stat) == (domain["min"] if bad is int and bad < 0 and AbilitySchema.LEGACY_FLOORS.has(stat) else domain["default"]), "%s defaults or migrates invalid decoded value" % stat) and ok
+		ok = _check(not a.apply({"stat": stat, "kind": "unlock"}, true), "%s rejects incompatible operation" % stat) and ok
+	ok = _check(not a.apply({"stat": "absent", "kind": "max"}, 2) and not a.apply({"stat": "imprint_width", "kind": "typo"}, 400), "unknown stats and operations cannot mutate") and ok
+	ok = _check(not Upgrades.check("imprint_cooldown", "-1").is_empty() and not Upgrades.check("imprint_effect", "bounce").is_empty(), "upgrade text respects numeric and effect domains") and ok
+	ok = _check(not AbilitySchema.check_definition({"stat": "imprint_width", "kind": "unlock"}).is_empty(), "schema rejects incompatible operation before values") and ok
+	var legacy := Abilities.from_dict({"tongue_speed": 3000.0, "tongue_creep": 0.8, "tongue_settle": 5.0, "imprint_duration": 0.005})
+	ok = _check(legacy.tongue_speed == 3000.0 and legacy.tongue_creep == 0.8 and legacy.tongue_settle == 5.0 and legacy.imprint_duration == 0.005 and legacy.copy().to_dict() == legacy.to_dict(), "physical legacy values survive decoding and copy outside editor ranges") and ok
+	ok = _check(Abilities.from_dict({"gun_unlocked": true, "gun_shot_speed": 999.0}).tongue_unlocked and Abilities.from_dict({"gun_shot_speed": 999.0}).tongue_speed == Abilities.new().tongue_speed, "normal-save gun compatibility deliberately keeps only unlock") and ok
+	var aliases := DevCatalog.reconcile({"abilities": {"tongue_speed": 300.0, "gun_shot_speed": 400.0}})
+	ok = _check(aliases["loadout"]["abilities"]["tongue_speed"] == 300.0, "canonical loadout values win over aliases") and ok
 	return ok
 
 

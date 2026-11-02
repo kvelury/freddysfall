@@ -206,16 +206,16 @@ func _many_rounds() -> bool:
 	var marks := {}
 	var legend: Array[String] = ["legend:"]
 	var chain: Array[String] = []
+	var upgrades := [["imprint_width", "3"], ["imprint_duration", "2"], ["imprint_max_active", "2"], ["tongue_speed", "300"], ["tongue_snap", "3"], ["tongue_length", "60"], ["tongue_creep", "0.1"], ["tongue_creep_reach", "4"], ["tongue_ramp", "0.1"]]
 	for i in 9:
 		var glyph := glyphs.substr(i, 1)
 		var id := "effect_%d" % (i + 1)
-		var effect := "step_%d" % (i + 1)
 		marks[spots[i]] = glyph
-		legend.append("  %s = pickup id=%s upgrade=imprint_effect value=%s" % [glyph, id, effect])
+		legend.append("  %s = pickup id=%s upgrade=%s value=%s" % [glyph, id, upgrades[i][0], upgrades[i][1]])
 		chain.append(id)
 	var goal_glyph := glyphs.substr(9, 1)
 	marks[spots[9]] = goal_glyph
-	legend.append("  %s = pickup id=goal upgrade=imprint_effect value=step_9" % goal_glyph)
+	legend.append("  %s = pickup id=goal upgrade=imprint_width value=3" % goal_glyph)
 	legend.append("---")
 	chain.append("goal")
 
@@ -232,7 +232,7 @@ func _many_rounds() -> bool:
 	ok = _check(report.errors.is_empty(), "a progression chain longer than eight rounds has no errors %s" % [report.errors]) and ok
 	ok = _check(goal_reached, "the pickup after nine sequential upgrades is reached") and ok
 	ok = _check(report.needs.get("pickup|goal") == expected, "the final pickup needs all nine earlier upgrades (%s)" % [report.needs.get("pickup|goal")]) and ok
-	ok = _check(base.imprint_effects.is_empty() and graph.abilities.imprint_effects.is_empty(), "the long solve leaves the starting abilities alone") and ok
+	ok = _check(base.to_dict() == Abilities.new().to_dict() and graph.abilities.to_dict() == base.to_dict(), "the long solve leaves the starting abilities alone") and ok
 	return ok
 
 

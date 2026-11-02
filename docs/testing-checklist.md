@@ -280,3 +280,11 @@ Nobody has played these yet. Start a normal game (`http://localhost:8060`) for G
 - [ ] **With a spare heart.** Set two hearts in F2 and die: no screen, back on the safe floor with one. Die again: the screen.
 - [ ] **Early deaths.** Before room 7's pip, every death in rooms 3 to 6 shows the screen. Is that too much?
 - [ ] **Dev retry.** "Retry on death" in F2 skips the screen.
+
+Ability contracts: run `dev_catalog_test`, `save_test`, `tongue_motion_test`,
+`tongue_lash_test`, `entity_test` and `imprint_solver_test`. Check real-property,
+STATS/schema/default and serializer coverage; direct upgrade operation/type/domain
+rejection; nonfinite values; legacy gun precedence; physical saved values beyond
+editor ranges; independent exact copies; conflicting metadata; planned effect
+rejection. Mutation checks remove a schema stat, serializer field, finite check
+and operation check, and must fail before restoring production code.

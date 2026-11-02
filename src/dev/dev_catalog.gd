@@ -26,6 +26,12 @@ static func controls(definitions: Dictionary = {}) -> Dictionary:
 		var upgrade: Dictionary = definitions[id]
 		if not upgrade.get("dev") is Dictionary:
 			continue
+		var conflicting := false
+		for other_id in definitions:
+			if other_id != id and definitions[other_id].get("stat") == upgrade["stat"] and definitions[other_id].get("dev") != upgrade["dev"]:
+				conflicting = true
+		if conflicting:
+			continue
 		var control: Dictionary = upgrade["dev"].duplicate(true)
 		control["name"] = upgrade["name"]
 		out[String(upgrade["stat"])] = control
@@ -43,7 +49,20 @@ static func problems(definitions: Dictionary = {}, stats: Array = Abilities.STAT
 		if not def.get("dev") is Dictionary:
 			errors.append("Upgrade %s needs dev control metadata." % id)
 			continue
+		var definition_error := AbilitySchema.check_definition(def)
+		if not definition_error.is_empty():
+			errors.append(definition_error)
 		var control: Dictionary = def["dev"]
+		var stat: String = def["stat"]
+		for other_id in definitions:
+			if other_id != id and definitions[other_id].get("stat") == stat and definitions[other_id].get("dev") != control:
+				errors.append("Conflicting dev metadata for %s." % stat)
+		if AbilitySchema.STATS.has(stat):
+			var domain: Dictionary = AbilitySchema.STATS[stat]
+			if control.get("type") != "unsupported" and control.get("type") != domain["type"]:
+				errors.append("Dev type disagrees with domain for %s." % stat)
+			if domain["type"] == "effects" and (control.get("implemented", []) != domain["implemented"] or control.get("planned", []) != domain["planned"]):
+				errors.append("Effect metadata disagrees with domain for %s." % stat)
 		if not ["bool", "int", "float", "effects", "unsupported"].has(control.get("type", "")):
 			errors.append("Upgrade %s has an unknown dev control type." % id)
 		if control.get("type") == "unsupported" and String(control.get("reason", "")).is_empty():
@@ -81,7 +100,9 @@ static func validate(loadout: Dictionary) -> String:
 	for stat in known:
 		if not values.has(stat):
 			return "Missing ability: %s" % stat
-		var error := check_value(values[stat], known[stat])
+		var error := AbilitySchema.check_value(stat, values[stat])
+		if error.is_empty():
+			error = check_value(values[stat], known[stat])
 		if not error.is_empty():
 			return "%s: %s" % [known[stat]["name"], error]
 	for key in RESOURCES:
@@ -135,7 +156,8 @@ static func reconcile(saved: Dictionary) -> Dictionary:
 	for key in abilities:
 		# The gun became Tongue Lash. Its values were chosen on purpose, so they carry over.
 		if LEGACY_KEYS.has(key):
-			draft["abilities"][LEGACY_KEYS[key]] = abilities[key]
+			if not abilities.has(LEGACY_KEYS[key]):
+				draft["abilities"][LEGACY_KEYS[key]] = abilities[key]
 			continue
 		if not known.has(key):
 			warnings.append("Removed ability: %s" % key)
