@@ -1,0 +1,176 @@
+{
+  "engine_version": "4.7.2-stable",
+  "excluded_scripts": {
+    "tests/pixel_grid.gd": "Renderer scenarios: tools/pixel_check.sh runs these separately.",
+    "tests/render.gd": "Room image generator, not an assertion test.",
+    "tests/validate.gd": "World validator: separately required by the release gate."
+  },
+  "tests": [
+    {
+      "script": "tests/reach_test.gd",
+      "success_marker": "^RESULT pass$",
+      "timeout_seconds": 900
+    },
+    {
+      "script": "tests/physics_test.gd",
+      "success_marker": "^PHYSICS pass$",
+      "timeout_seconds": 120
+    },
+    {
+      "script": "tests/parity_test.gd",
+      "success_marker": "^PARITY pass$",
+      "timeout_seconds": 120
+    },
+    {
+      "script": "tests/door_test.gd",
+      "success_marker": "^DOOR pass$",
+      "timeout_seconds": 120
+    },
+    {
+      "script": "tests/shaft_test.gd",
+      "success_marker": "^SHAFT pass$",
+      "timeout_seconds": 120
+    },
+    {
+      "script": "tests/hazard_test.gd",
+      "success_marker": "^HAZARD pass$",
+      "timeout_seconds": 120
+    },
+    {
+      "script": "tests/start_test.gd",
+      "success_marker": "^START pass$",
+      "timeout_seconds": 120,
+      "intentional_diagnostics": [
+        {
+          "pattern": "ERROR: There is no room \"99\" to start in\\.",
+          "reason": "The unknown-room fixture deliberately starts room 99 and checks fallback to the world start."
+        }
+      ]
+    },
+    {
+      "script": "tests/entity_test.gd",
+      "success_marker": "^ENTITY pass$",
+      "timeout_seconds": 120
+    },
+    {
+      "script": "tests/save_test.gd",
+      "success_marker": "^SAVE pass$",
+      "timeout_seconds": 120
+    },
+    {
+      "script": "tests/map_test.gd",
+      "success_marker": "^MAP pass$",
+      "timeout_seconds": 120
+    },
+    {
+      "script": "tests/cache_test.gd",
+      "success_marker": "^CACHE pass$",
+      "timeout_seconds": 900
+    },
+    {
+      "script": "tests/token_test.gd",
+      "success_marker": "^TOKEN pass$",
+      "timeout_seconds": 120
+    },
+    {
+      "script": "tests/save_room_test.gd",
+      "success_marker": "^SAVEROOM pass$",
+      "timeout_seconds": 120
+    },
+    {
+      "script": "tests/game_over_test.gd",
+      "success_marker": "^GAMEOVER pass$",
+      "timeout_seconds": 120
+    },
+    {
+      "script": "tests/machine_test.gd",
+      "success_marker": "^MACHINE pass$",
+      "timeout_seconds": 120
+    },
+    {
+      "script": "tests/imprint_test.gd",
+      "success_marker": "^IMPRINT pass$",
+      "timeout_seconds": 120
+    },
+    {
+      "script": "tests/imprint_play_test.gd",
+      "success_marker": "^IMPRINTPLAY pass$",
+      "timeout_seconds": 120
+    },
+    {
+      "script": "tests/imprint_solver_test.gd",
+      "success_marker": "^IMPRINTSOLVER pass$",
+      "timeout_seconds": 900
+    },
+    {
+      "script": "tests/platform_test.gd",
+      "success_marker": "^PLATFORM pass$",
+      "timeout_seconds": 120
+    },
+    {
+      "script": "tests/dev_catalog_test.gd",
+      "success_marker": "^DEV CATALOG pass$",
+      "timeout_seconds": 120
+    },
+    {
+      "script": "tests/dev_session_test.gd",
+      "success_marker": "^DEV SESSION pass$",
+      "timeout_seconds": 120
+    },
+    {
+      "script": "tests/dev_ui_test.gd",
+      "success_marker": "^DEV UI pass$",
+      "timeout_seconds": 120
+    },
+    {
+      "script": "tests/double_jump_test.gd",
+      "success_marker": "^double jump test passed$",
+      "timeout_seconds": 120
+    },
+    {
+      "script": "tests/display_test.gd",
+      "success_marker": "^DISPLAY pass$",
+      "timeout_seconds": 120
+    },
+    {
+      "script": "tests/tongue_lash_test.gd",
+      "success_marker": "^TONGUE LASH pass$",
+      "timeout_seconds": 120
+    },
+    {
+      "script": "tests/tongue_motion_test.gd",
+      "success_marker": "^TONGUE MOTION pass$",
+      "timeout_seconds": 120
+    },
+    {
+      "script": "tests/menu_test.gd",
+      "success_marker": "^MENU pass$",
+      "timeout_seconds": 120
+    },
+    {
+      "script": "tests/title_card_test.gd",
+      "success_marker": "^TITLE pass$",
+      "timeout_seconds": 120
+    },
+    {
+      "script": "tests/hud_test.gd",
+      "success_marker": "^HUD pass$",
+      "timeout_seconds": 120
+    },
+    {
+      "script": "tests/emitter_test.gd",
+      "success_marker": "^EMITTER pass$",
+      "timeout_seconds": 120
+    },
+    {
+      "script": "tests/spinner_test.gd",
+      "success_marker": "^SPINNER pass$",
+      "timeout_seconds": 120
+    },
+    {
+      "script": "tests/lash_up_test.gd",
+      "success_marker": "^LASH UP pass$",
+      "timeout_seconds": 120
+    }
+  ]
+}

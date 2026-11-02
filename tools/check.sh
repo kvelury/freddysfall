@@ -2,51 +2,11 @@
 set -eu
 cd "$(dirname "$0")/.."
 
-echo "==> import"
-godot --headless --path . --import
-
-TESTS="
-reach_test.gd
-physics_test.gd
-parity_test.gd
-door_test.gd
-shaft_test.gd
-hazard_test.gd
-start_test.gd
-entity_test.gd
-save_test.gd
-map_test.gd
-cache_test.gd
-token_test.gd
-save_room_test.gd
-game_over_test.gd
-machine_test.gd
-imprint_test.gd
-imprint_play_test.gd
-imprint_solver_test.gd
-platform_test.gd
-dev_catalog_test.gd
-dev_session_test.gd
-dev_ui_test.gd
-double_jump_test.gd
-display_test.gd
-tongue_lash_test.gd
-tongue_motion_test.gd
-menu_test.gd
-title_card_test.gd
-hud_test.gd
-emitter_test.gd
-spinner_test.gd
-lash_up_test.gd
-"
-
-for test in $TESTS; do
-	echo "==> tests/$test"
-	godot --headless --path . --script "tests/$test"
-done
-
-echo "==> validate (no cache)"
-./tools/validate.sh --no-cache
+python3 tools/test_runner.py version --templates
+python3 tools/test_runner_test.py
+python3 tools/test_runner.py import
+python3 tools/test_runner.py tests
+python3 tools/test_runner.py validate --no-cache
 
 echo "==> web export"
 ./tools/build_web.sh
@@ -117,4 +77,5 @@ for suffix in (".pck", ".wasm", ".audio.worklet.js", ".audio.position.worklet.js
 print(f"web export ok ({tag})")
 PY
 
-echo "CHECK pass: 32 tests, uncached world validation, and web export"
+count=$(python3 -c 'import json; print(len(json.load(open("tests/test_manifest.json"))["tests"]))')
+echo "CHECK pass: $count tests, uncached world validation, and web export"

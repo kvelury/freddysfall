@@ -86,6 +86,7 @@ func _view() -> bool:
 	ok = _check(far == (wide.end * 2.0 - VIEW * 0.5).round(), "and at the far corner too (%s)" % far) and ok
 	var odd := MapView.view_center(Vector2(31.3, 17.7), wide, 2.0, VIEW)
 	ok = _check(odd == odd.round(), "the window sits on a whole pixel") and ok
+	data.free()
 	return ok
 
 

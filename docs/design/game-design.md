@@ -1096,6 +1096,7 @@ What was decided, in the order it came up, with the reason. Pull requests are na
 - **Titles are in `world.json`, not the room files.** A title is presentation; the room file's header reaches the solver and its cache.
 
 **Process**
+- **Automation requires completion evidence.** `tests/test_manifest.json` pins Godot/templates and registers every headless test's final marker and timeout. The subprocess runner checks both output streams, exit status, script/engine errors and fixture shutdown leaks. Intentional error-path diagnostics need a specific pattern and reason; leaks and script errors remain failures. The pixel check preserves renderer failure status. Focused runs are useful feedback; the release gate still includes every test, uncached world validation, export and integrity checks.
 - **One record.** `AGENTS.md` for how an agent works, `README.md` for the code and its rules, this file for the game and its decisions, `docs/testing-checklist.md` for what nobody has played. `docs/plans/` is history.
 - **Every new test is mutation-checked,** and the pull request says which mutants were tried.
 - **A pull request is one piece of work, called by its number,** opened on a branch, with the docs in the same change. Merged only when the user says so.

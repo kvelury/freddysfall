@@ -18,10 +18,5 @@ case "${1:-}" in
     "") ;;
     *) echo "usage: tools/pixel_check.sh [--baseline|--shapes]" >&2; exit 2 ;;
 esac
-godot --headless --path . --import >/dev/null 2>&1
-if [ -z "${DISPLAY:-}" ] && command -v xvfb-run >/dev/null 2>&1; then
-    run="xvfb-run -a"
-else
-    run=""
-fi
-$run godot --path . --rendering-driver opengl3 --fixed-fps 90 --script tests/pixel_grid.gd -- "$mode" 2>&1 | grep -v -E "ALSA|V-Sync|set_use_vsync|^$|resource.cpp|^\s+at:|Godot Engine|OpenGL API"
+python3 tools/test_runner.py import
+exec python3 tools/test_runner.py pixel "$mode"
