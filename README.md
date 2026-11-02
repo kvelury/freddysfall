@@ -300,3 +300,10 @@ What the existing code does, so new code reads the same:
 - Update `docs/design/game-design.md` when behaviour changes, and this file when the layout, a rule above, or a command changes.
 - Do not playtest inside a cloud agent environment. A headless or brief launch to confirm it runs is fine.
 - Put what nobody has played in `docs/testing-checklist.md`, and take it out once it has been played.
+
+Ability contracts live in pure `AbilitySchema` (`src/core/ability_schema.gd`): types,
+starting values, finite physical domains, compatible upgrade operations and affected
+subsystems. Typed `Abilities` fields, `STATS` and explicit serialization remain checked
+against it. Upgrades and direct `apply` share its validation; planned effects are
+rejected. Dev numeric ranges remain editor limits, also checked when reconciling
+named loadouts; normal-save decoding preserves physically valid values beyond them.

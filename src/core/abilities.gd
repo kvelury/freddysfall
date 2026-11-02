@@ -56,6 +56,8 @@ var imprint_effects: Array[String] = []
 ## upgrade later never takes anything away. "min" keeps the smaller, for a number where lower is better.
 ## "add" gains an effect once.
 func apply(upgrade: Dictionary, value: Variant) -> bool:
+	if not AbilitySchema.check_upgrade(upgrade, value).is_empty():
+		return false
 	var stat := String(upgrade["stat"])
 	if upgrade["kind"] == "unlock":
 		if get(stat):
@@ -82,7 +84,11 @@ func apply(upgrade: Dictionary, value: Variant) -> bool:
 
 
 func copy() -> Abilities:
-	return Abilities.from_dict(to_dict())
+	var out := Abilities.new()
+	for stat in STATS:
+		var value: Variant = get(stat)
+		out.set(stat, value.duplicate() if value is Array else value)
+	return out
 
 
 func to_dict() -> Dictionary:
@@ -113,31 +119,9 @@ func to_dict() -> Dictionary:
 ## at their starting values or ignored, so an old save still loads.
 static func from_dict(data: Dictionary) -> Abilities:
 	var out := Abilities.new()
-	out.air_jumps = maxi(0, int(data.get("air_jumps", out.air_jumps)))
-	# A save from the gun's days keeps the power it found. Its cooldown and shot
-	# speed are dropped: no upgrade ever changed them.
-	out.tongue_unlocked = bool(data.get("tongue_unlocked", data.get("gun_unlocked", out.tongue_unlocked)))
-	out.tongue_cooldown = float(data.get("tongue_cooldown", out.tongue_cooldown))
-	out.tongue_speed = float(data.get("tongue_speed", out.tongue_speed))
-	out.tongue_snap = maxf(1.0, float(data.get("tongue_snap", out.tongue_snap)))
-	out.tongue_length = float(data.get("tongue_length", out.tongue_length))
-	# Only the floor is held here; the dev controls hold the top of each range.
-	out.tongue_creep = maxf(0.0, float(data.get("tongue_creep", out.tongue_creep)))
-	out.tongue_creep_reach = maxf(0.0, float(data.get("tongue_creep_reach", out.tongue_creep_reach)))
-	out.tongue_ramp = maxf(0.0, float(data.get("tongue_ramp", out.tongue_ramp)))
-	out.tongue_strike = maxf(1.0, float(data.get("tongue_strike", out.tongue_strike)))
-	out.tongue_settle = maxf(0.0, float(data.get("tongue_settle", out.tongue_settle)))
-	out.tongue_stick = maxf(0.0, float(data.get("tongue_stick", out.tongue_stick)))
-	out.tongue_pad = bool(data.get("tongue_pad", out.tongue_pad))
-	out.imprint_unlocked = bool(data.get("imprint_unlocked", out.imprint_unlocked))
-	out.imprint_width = int(data.get("imprint_width", out.imprint_width))
-	out.imprint_duration = float(data.get("imprint_duration", out.imprint_duration))
-	out.imprint_max_active = int(data.get("imprint_max_active", out.imprint_max_active))
-	out.imprint_cooldown = float(data.get("imprint_cooldown", out.imprint_cooldown))
-	var effects = data.get("imprint_effects", [])
-	if effects is Array:
-		for effect in effects:
-			out.imprint_effects.append(String(effect))
+	var decoded := AbilitySchema.decode(data)
+	for stat in STATS:
+		out.set(stat, decoded[stat])
 	return out
 
 

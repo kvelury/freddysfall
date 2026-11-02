@@ -82,7 +82,7 @@ func _stats() -> void:
 		_check(Abilities.STATS.has(stat) and d.has(stat), "%s is registered and serialized" % stat)
 	_check(not Abilities.STATS.has("tongue_wobble") and not d.has("tongue_wobble"), "the wobble, which the chosen tongue does not use, is gone")
 	var odd := Abilities.from_dict({"tongue_creep": -1.0, "tongue_creep_reach": -2.0, "tongue_ramp": -0.5, "tongue_strike": 0.2, "tongue_settle": 5.0, "tongue_stick": -1.0})
-	_check(odd.tongue_creep == 0.0 and odd.tongue_creep_reach == 0.0 and odd.tongue_ramp == 0.0 and odd.tongue_strike == 1.0 and odd.tongue_stick == 0.0, "a save cannot hold a negative time or distance or a strike under 1")
+	_check(odd.tongue_creep == 0.0 and odd.tongue_creep_reach == 0.0 and odd.tongue_ramp == 0.0 and odd.tongue_strike == 1.0 and odd.tongue_stick == 0.0 and odd.tongue_settle == 5.0, "saved motion values retain historical floors; physically valid settle above the slider survives")
 	var steady := Abilities.from_dict(STEADY)
 	var back := Abilities.from_dict(steady.to_dict())
 	_check(back.to_dict() == steady.to_dict() and not back.tongue_pad and back.tongue_stick == 0.0 and is_equal_approx(back.tongue_snap, 3.5), "the steady values round-trip through a save")

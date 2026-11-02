@@ -7,11 +7,16 @@ var _ok := true
 
 
 func _initialize() -> void:
+	for stat in Abilities.STATS:
+		if not AbilitySchema.STATS.has(stat):
+			_check(false, "schema is missing registered stat %s" % stat)
+			quit(1)
+			return
 	_check(DevCatalog.problems().is_empty(), "all current upgrades have dev controls")
 	var definitions := Upgrades.all().duplicate(true)
 	definitions["forgotten"] = {"name": "Future power", "stat": "imprint_width", "kind": "max"}
 	_check(not DevCatalog.problems(definitions).is_empty(), "a new upgrade without dev metadata fails coverage")
-	definitions["forgotten"]["dev"] = {"type": "int", "min": 1, "step": 1}
+	definitions["forgotten"]["dev"] = definitions["imprint_width"]["dev"].duplicate(true)
 	_check(DevCatalog.problems(definitions).is_empty() and DevCatalog.controls(definitions)["imprint_width"]["type"] == "int", "registered upgrades generate controls without a new widget")
 	var stats: Array = Abilities.STATS.duplicate()
 	stats.append("future_stat")
@@ -32,7 +37,16 @@ func _initialize() -> void:
 			elif value is Array:
 				value.append("serialization_fixture")
 			changed.set(key, value)
-			_check(Abilities.from_dict(changed.to_dict()).get(key) == value, "ability %s round-trips a nondefault value" % key)
+			_check(changed.to_dict().get(key) == value and changed.copy().get(key) == value, "ability %s serializes and copies a nondefault value" % key)
+			if AbilitySchema.check_value(key, value).is_empty():
+				_check(Abilities.from_dict(changed.to_dict()).get(key) == value, "ability %s round-trips a valid nondefault value" % key)
+			else:
+				_check(Abilities.from_dict(changed.to_dict()).get(key) == AbilitySchema.STATS[key]["default"], "unimplemented effect fixtures cannot decode into powers")
+	_check(AbilitySchema.STATS.size() == Abilities.STATS.size(), "schema and typed registry have the same size")
+	for stat in Abilities.STATS:
+		_check(AbilitySchema.STATS.has(stat) and AbilitySchema.STATS[stat]["default"] == ability.get(stat), "schema default agrees for %s" % stat)
+	definitions["forgotten"]["dev"]["min"] = 0
+	_check(not DevCatalog.problems(definitions).is_empty() and not DevCatalog.controls(definitions).has("imprint_width"), "conflicting metadata for the same stat fails")
 	var sample := DevCatalog.defaults()
 	sample["abilities"]["imprint_width"] = 5
 	_check(DevCatalog.validate(sample).is_empty() and Abilities.from_dict(sample["abilities"]).imprint_width == 5, "registered values serialize and deserialize")

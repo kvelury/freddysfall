@@ -299,3 +299,10 @@ Automation-only changes need no gameplay playthrough. `python3 tools/test_runner
 
 Solver ownership is checked headlessly: releasing a graph and its Imprint search must release both objects. Test-created detached world-data nodes are freed before shutdown. No gameplay or room tuning changes accompany this cleanup.
 Automated runtime-order coverage: `physics_order_test.gd` observes actual callbacks, including the first tick with two rooms, Imprint expiry before movement, player before tongue, pause ownership and normal/quarter-speed state equivalence. `dev_session_test.gd` checks both clock settings reset on retries and session exit. Manual F7 inspection remains for the user’s machine.
+Ability contracts: run `dev_catalog_test`, `save_test`, `tongue_motion_test`,
+`tongue_lash_test`, `entity_test` and `imprint_solver_test`. Check real-property,
+STATS/schema/default and serializer coverage; direct upgrade operation/type/domain
+rejection; nonfinite values; legacy gun precedence; physical saved values beyond
+editor ranges; independent exact copies; conflicting metadata; planned effect
+rejection. Mutation checks remove a schema stat, serializer field, finite check
+and operation check, and must fail before restoring production code.

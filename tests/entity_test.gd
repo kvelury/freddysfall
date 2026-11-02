@@ -52,8 +52,8 @@ func _valid() -> bool:
 	ok = _check(_has(errors, "upgrade="), "a token with a setting it does not use is an error (%s)" % [errors]) and ok
 
 	errors.clear()
-	info = RoomParser.parse_room("7", Vector2i.ZERO, _room(["legend:", "", "  U   =   pickup   id=a   upgrade=imprint_effect   value=bounce", "  V = pickup id=b upgrade=imprint_duration value=6.5"], {Vector2i(5, 3): "U", Vector2i(9, 3): "V"}), errors)
-	ok = _check(errors.is_empty() and info.entities.size() == 2, "extra spaces, blank lines, several things, a float and an effect all load %s" % [errors]) and ok
+	info = RoomParser.parse_room("7", Vector2i.ZERO, _room(["legend:", "", "  U   =   pickup   id=a   upgrade=imprint_width   value=3", "  V = pickup id=b upgrade=imprint_duration value=6.5"], {Vector2i(5, 3): "U", Vector2i(9, 3): "V"}), errors)
+	ok = _check(errors.is_empty() and info.entities.size() == 2, "extra spaces, blank lines, several things, a float and an integer all load %s" % [errors]) and ok
 
 	errors.clear()
 	info = RoomParser.parse_room("7", Vector2i.ZERO, _room(["legend:", "  U = pickup id=a upgrade=imprint_cooldown value=0.5"], {Vector2i(5, 3): "U"}), errors)
