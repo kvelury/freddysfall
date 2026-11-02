@@ -284,3 +284,5 @@ Nobody has played these yet. Start a normal game (`http://localhost:8060`) for G
 ## Verification gate
 
 Automation-only changes need no gameplay playthrough. `python3 tools/test_runner_test.py` exercises fake-engine exit 42 with captured output, script error with exit 0, missing or non-final pass markers, timeout, normal success, narrowly classified intentional diagnostics, manifest coverage, and an injected renderer failure through `tools/pixel_check.sh`. The release gate still requires all manifest tests, uncached validation and web export/integrity checks.
+
+Solver ownership is checked headlessly: releasing a graph and its Imprint search must release both objects. Test-created detached world-data nodes are freed before shutdown. No gameplay or room tuning changes accompany this cleanup.

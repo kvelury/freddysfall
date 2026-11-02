@@ -196,7 +196,7 @@ Two kinds of test, and which to write:
 | `src/world/world.gd`, `world.tscn` | The scene root: places the player, builds rooms, door slides, death and respawn, collecting, the 3TM feed, autosave. |
 | `src/world/room.gd` | One room as a node: solids drawn in a chunk per screen, hazards, doors (halos or blocks), the things in it, and the clock its moving platforms run on. |
 | `src/world/exit_halo.gd`, `shatter.gd`, `flying_token.gd` | Effects: the glow in a doorway, a burst of shards, a token flying into a 3TM. |
-| `src/world/reach_graph.gd` | The solver: ledges, the jumps and drops between them, doors, exit rules, what each room needs, traps. Used by `validate.sh` and the tests, never by the running game. |
+| `src/world/reach_graph.gd` | Owns its Imprint search, whose back-reference is weak so completed solves release their resources. The solver: ledges, the jumps and drops between them, doors, exit rules, what each room needs, traps. Used by `validate.sh` and the tests, never by the running game. |
 | `src/world/imprint_search.gd` | The part of the solver that puts Imprint platforms down. |
 | `src/world/solver_cache.gd` | The solver's results kept on disk between runs. |
 | `src/tongue/` | `TongueLash` (the lash key, cooldown, the tongue's phases out, stuck and back, and what its tip hits; the pink line is drawn from `PlayerBody.tongue_rect`, the sticky pad from `PlayerBody.pad_rect`). `TongueMotion` (the pure curves for the creep, snap and return). Breakable walls are `src/world/entities/breakable_wall.gd`, and the room keeps them (`Room.wall_at`, `Room.hit_wall`) with `RoomInfo.variant` for a copy that has some broken. |

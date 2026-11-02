@@ -10,6 +10,7 @@ var _cfg: MovementConfig
 func _initialize() -> void:
 	_cfg = load("res://src/player/movement.tres")
 	var ok := true
+	ok = _lifetime() and ok
 	ok = _gate() and ok
 	ok = _double_jump() and ok
 	ok = _lash() and ok
@@ -28,6 +29,19 @@ func _initialize() -> void:
 	ok = _from_a_mover() and ok
 	print("IMPRINTSOLVER %s" % ("pass" if ok else "fail"))
 	quit(0 if ok else 1)
+
+
+## The graph owns its search; the search must not keep the graph alive.
+func _lifetime() -> bool:
+	var graph := ReachGraph.new({}, _cfg)
+	var search := ImprintSearch.new(graph)
+	graph._imprint = search
+	var graph_ref: WeakRef = weakref(graph)
+	var search_ref: WeakRef = weakref(search)
+	graph = null
+	var released := graph_ref.get_ref() == null
+	search = null
+	return _check(released and search_ref.get_ref() == null, "graph and Imprint search release without a reference cycle")
 
 
 func _gate() -> bool:

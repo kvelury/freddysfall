@@ -14,6 +14,7 @@ func _run() -> bool:
 	var cfg := load("res://src/player/movement.tres") as MovementConfig
 	if cfg == null:
 		print("FAIL movement.tres did not load")
+		data.free()
 		return false
 	_cfg = cfg
 	var passed := true
@@ -25,6 +26,7 @@ func _run() -> bool:
 	passed = _loader() and passed
 	passed = _crossing(data) and passed
 	passed = _camera() and passed
+	data.free()
 	print("RESULT %s" % ("pass" if passed else "fail"))
 	return passed
 
