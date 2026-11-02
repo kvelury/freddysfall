@@ -42,7 +42,7 @@ func build(room_info: RoomInfo, flags := {}, fills := {}, door_override := false
 	_flags = flags
 	# The platforms move before the player steps, so the player is carried to
 	# where they are this tick.
-	process_priority = -1
+	process_physics_priority = -40
 	_door_override = door_override
 	locked = not door_override and not ExitRules.met(info, flags)
 	# One drawable chunk per screen. Godot culls a chunk whose rect is

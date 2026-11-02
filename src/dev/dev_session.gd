@@ -31,6 +31,9 @@ const MAX_WALL_STRENGTH := 99
 ## speed) by a retry, a replaced world, End playtest, the main menu and a fresh boot.
 var slow_motion := false
 const SLOW_SCALE := 0.25
+var _clock_captured := false
+var _normal_time_scale := 1.0
+var _normal_physics_rate := 60
 var retry_on_death := false
 var target := ""
 var baseline := {}
@@ -232,15 +235,28 @@ func set_wall_strength(world: Node, lashes: int) -> String:
 func set_slow_motion(world: Node, on: bool) -> String:
 	if mode != Mode.DEV_TEST or replacing or world.is_busy():
 		return "Dev tools are not ready."
-	slow_motion = on
-	Engine.time_scale = SLOW_SCALE if on else 1.0
+	if not on:
+		_normal_speed()
+		return ""
+	if not slow_motion:
+		_normal_time_scale = Engine.time_scale
+		_normal_physics_rate = Engine.physics_ticks_per_second
+		_clock_captured = true
+	# Each callback still advances 1/60 game seconds. Movers index callbacks;
+	# player, tongue and lifetime clocks consume their matching engine delta.
+	Engine.physics_ticks_per_second = maxi(1, roundi(_normal_physics_rate * SLOW_SCALE))
+	Engine.time_scale = _normal_time_scale * SLOW_SCALE
+	slow_motion = true
 	return ""
 
 
 ## Switches slow motion off and puts the clock back at normal speed.
 func _normal_speed() -> void:
 	slow_motion = false
-	Engine.time_scale = 1.0
+	if _clock_captured:
+		Engine.time_scale = _normal_time_scale
+		Engine.physics_ticks_per_second = _normal_physics_rate
+		_clock_captured = false
 
 
 func set_retry_on_death(world: Node, on: bool) -> String:

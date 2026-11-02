@@ -65,6 +65,12 @@ var _carried := Vector2.ZERO
 
 
 func _ready() -> void:
+	# Lower physics priorities run first, independent of scene insertion order.
+	# Room.build assigns -40, including both rooms during a door slide.
+	imprint.process_physics_priority = -30
+	player.process_physics_priority = -20
+	tongue.process_physics_priority = -10
+	process_physics_priority = 0
 	WorldData.ensure_loaded()
 	camera.position_smoothing_enabled = false
 	# The picture is Display.RENDER_SCALE screen pixels to a world pixel.

@@ -34,7 +34,9 @@ Editor/debug runs always offer F2 and a Dev tools item in the pause menu; export
   tick by tick (the panel's "Slow motion" switch does the same). It does nothing with the panel
   open, a pause menu or animation holding the input, or outside a dev test. A session switch
   like Classic Imprint: not saved, not in loadouts, and off after a retry, End playtest or a
-  fresh boot.
+  fresh boot. Slow motion pairs 0.25 time scale with 15 physics callbacks per wall
+  second, preserving each 1/60 game-second simulation step; both engine settings
+  return to their captured values when it ends.
 - **Player:** tokens (0–3), hearts held and max hearts (the HUD frame's length, at least 1), Tongue Lash (on/off, cooldown, speed, snap, length, and the lash's shape: creep, creep reach, ramp, strike, return spring, stick and the sticky tip pad), air jumps (0–3; 1 is double jump), Imprint on/off, width (the size a platform
   *starts* at; it shrinks, and 3 is the default), duration, active count, and
   cooldown (0 is off, which is the default). Bounce is explicitly not implemented.
@@ -169,6 +171,7 @@ After adding a script with a `class_name`, run `godot --headless --path . --impo
 | `tests/dev_ui_test.gd` | Panel input/drafts, modal pause ownership, deferred opening, room selection, and a direction held through the panel not turning the player, and the token marks switch (off, reaches the session, not in the draft, shows the session's state on reopening). Native runs also render panel screenshots to `build/dev-panel-*.png`. Prints `DEV UI pass`. |
 | `tests/emitter_test.gd` | Emitter parsing, runtime/solver trips and rider falls, plus view generation continuity, endpoint effects, gaps, skipped samples and interpolation at 0/0.5/1. Prints `EMITTER pass`. |
 | `tests/spinner_test.gd` | Snapped spinner AABBs stay within their declared clearance at every tick across odd/even dimensions, directions, periods and hazard patterns. Checks obstacle, machine/save footprints, mover rider space and other spinners. Prints `SPINNER pass`. |
+| `tests/physics_order_test.gd` | Actual SceneTree callback order, first tick with two live rooms, expired Imprint footing, pause ownership, and equal normal/quarter-speed states with 1/60 game-second deltas. Prints `PHYSICS ORDER pass`. |
 | `tests/platform_test.gd` | Moving platforms. The room format (a platform and its `-` or `\|` track, and each rule around it as an error), where a path puts it at each tick, pushing and crushing, the solver (a ledge only a ride reaches, a platform out of reach, no Imprint on a track), and room 7 in play: a rider carried exactly through a whole trip, walking on it, leaving it with only their own speed (switch off, as shipped) and with the platform's added (switch on), the real player and `simulate_jump` ending in the same place, and a death while riding coming back on real floor. Prints `PLATFORM pass`. |
 | `tests/imprint_solver_test.gd` | The solver with Imprint, on strings (with Tongue Lash: a pickup behind a breakable wall out of reach without it and taken with it, needing the pickup that gives it, a solid in the way keeping it shut, a plain solid box shut, and each wall state cached by its own key; and with an air jump: a 10-cell pit crossed with one and not without, a 24-cell pit not, a double jump pickup opening the way, and its air edges coming back from the cache): a pit too wide to jump is shut without Imprint and open with it, a platform that breaks too soon is no use, `~` cells forbid it, a room reports the pickup it needs, a room that holds its doors shut waits for its token, three tokens and a 3TM give Imprint, a `trap: allowed` room is a warning and not an error, a fall four screens tall lands, room 6's wall needs Imprint, only the block nearest the jump's start counts as footing (either on a tie), and a jump carried onto it by another block is dropped. Prints `IMPRINTSOLVER pass`. |
 | `tests/validate.gd` | Loads the whole world, then solves it: every room and door reachable from the start, nowhere to get stuck. Lists every problem and exits 1 if there is one, and says where the time went. Keeps what it works out about each room in `build/solver-cache/` (`--no-cache` skips it). Run through `tools/validate.sh`. |
@@ -241,9 +244,14 @@ GameState (autoload) ◄──► Save (autoload, user://save.json)
 3. `DevSession` sets the normal/room-test/dev-test boundary before any save access. `World._ready` picks the start: `--room=`/`?room=` (no save), else `--new-game`/`?new-game=1` (erase the save, reset the state, start room), else the save, else the start room. It then `_place_in`s the player.
 4. `_place_in` frees the old room, builds the new `Room` from `RoomInfo` and `GameState` (flags and machine fills decide what is still in the world), puts the player on it, and calls `GameState.visit`.
 
-### Each physics tick (`World._physics_process`)
+### Each physics tick
 
-In this order, skipped while the world is busy (a door slide, a death, a 3TM feed): die if touching a hazard or outside the room by more than 60 px; otherwise collect what the player touches, and then change rooms if a door is touched, else remember safe floor. The camera follows the player’s displayed position in `World._process` on every rendered frame, then rounds to whole pixels. `Player._physics_process` runs `MovementSim.step`; `ImprintTool._physics_process` ages platforms (not while busy) and refreshes cursor legality. The optional reachability search runs only when `preview_state()` is explicitly queried.
+Physics callbacks have explicit `process_physics_priority`: room/movers −40, Imprint
+expiry and footing −30, player movement −20, tongue hits −10, world interactions 0.
+Both rooms advance during a door slide. These priorities are separate from display-frame
+processing; `process_priority` does not order physics callbacks.
+
+World interactions run in this order, skipped while the world is busy (a door slide, a death, a 3TM feed): die if touching a hazard or outside the room by more than 60 px; otherwise collect what the player touches, and then change rooms if a door is touched, else remember safe floor. The camera follows the player’s displayed position in `World._process` on every rendered frame, then rounds to whole pixels. `Player._physics_process` runs `MovementSim.step`; `ImprintTool._physics_process` ages platforms (not while busy) and refreshes cursor legality. The optional reachability search runs only when `preview_state()` is explicitly queried.
 
 ### What the code keeps true
 
