@@ -17,6 +17,7 @@ func _initialize() -> void:
 	var ok := true
 	ok = _parser() and ok
 	ok = _path() and ok
+	ok = _view() and ok
 	ok = _sim() and ok
 	ok = _solver() and ok
 	ok = _lash_up_solver() and ok
@@ -206,4 +207,55 @@ func _lash_up_solver() -> bool:
 	graph = ReachGraph.new(_world_of(solid_roof, "  E = emitter id=e1 speed=40 every=2\n"), cfg, armed)
 	report = graph.analyze("1")
 	ok = _check(not top_reached.call(graph, report), "a solid ceiling is not lashed through") and ok
+	return ok
+
+
+func _view() -> bool:
+	var ok := true
+	# Equal life/gap, divisible life/gap (multiple slots), non-divisible and gaps.
+	for every in [2.0, 0.5, 0.7, 3.0]:
+		var path := EmitterPath.new("view", Rect2i(1, 10, 2, 1), Vector2i.RIGHT, 12, 60.0, every)
+		var host := Node2D.new()
+		var view := EmitterView.new(path, 0)
+		host.add_child(view)
+		ok = _check(host.get_child_count() == 1, "construction emits no break effects (every %.1f)" % every) and ok
+		var expected_bursts := 0
+		var good := true
+		for tick in range(1, path.period() * 2 + 1):
+			for body in path.body_count():
+				if path.alive_at(tick - 1, body) and not path.continuous_at(tick - 1, body):
+					expected_bursts += path.start_cells.size.x
+			view.move_to(tick)
+			var children := host.get_child_count()
+			view.move_to(tick)
+			good = good and children == host.get_child_count() and children == 1 + expected_bursts
+			for body in path.body_count():
+				good = good and view._alive[body] == path.alive_at(tick, body)
+				if not path.alive_at(tick, body):
+					continue
+				for fraction in [0.0, 0.5, 1.0]:
+					var expected := path.rect_at(tick, body).position
+					if path.continuous_at(tick - 1, body):
+						expected = Display.snap(path.rect_at(tick - 1, body).position.lerp(expected, fraction))
+					good = good and view.shown_at(body, fraction) == expected
+		var endpoint := Grid.cell_rect(path.start_cells).position + Vector2(path.direction) * path.distance()
+		for child in host.get_children():
+			if child is Shatter:
+				good = good and child.position.y == endpoint.y + 5 and child.position.x >= endpoint.x + 5 and child.position.x < endpoint.x + 20
+		ok = _check(good, "birth, interpolation 0/0.5/1 and exactly one endpoint break per generation (every %.1f)" % every) and ok
+		var before := host.get_child_count()
+		var visible_bodies := 0
+		for alive in view._alive:
+			visible_bodies += int(alive)
+		view.move_to(path.period() * 5)
+		ok = _check(host.get_child_count() == before + visible_bodies * path.start_cells.size.x, "skipped generations break each previously visible body once") and ok
+		var snapped := true
+		for body in path.body_count():
+			if path.alive_at(path.period() * 5, body):
+				snapped = snapped and view.shown_at(body, 0.0) == path.rect_at(path.period() * 5, body).position
+		ok = _check(snapped, "skipped generation births never interpolate across the room") and ok
+		before = host.get_child_count()
+		view.move_to(0)
+		ok = _check(host.get_child_count() == before, "rewind resets presentation without break effects") and ok
+		host.free()
 	return ok
