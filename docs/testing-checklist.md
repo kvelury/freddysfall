@@ -17,6 +17,8 @@ Nobody has played these yet. `?dev=1&room=s3`, `?dev=1&room=10`, `?dev=1&room=s2
 - [ ] **Room 9's 3TM.** With room 8's, s3's and room 10's tokens it gives Tongue Lash, and room 9 has no token of its own any more.
 - [ ] **s2's walled door.** Without Tongue Lash the left door cannot be reached (no jumping over the roof). With it (F2), two lashes from the floor break the wall and the door leads to room 12. Coming back, the wall has grown back and is lashed again from the doorway.
 
+Automated mover clearance regression: `tests/spinner_test.gd` checks all runtime AABB cells against declared sweeps (including tick 395/body 10/cell 18,3), full entity footprints, other movers and their rider bands. This must pass without moving authored room geometry. Spinner motion/rendering is unchanged; run the pixel gate to confirm it.
+
 ## Room 12: emitted platforms, a spinner and lash up
 
 Nobody has played this yet. `?dev=1&room=12`, then F2 for Tongue Lash and double jump.
