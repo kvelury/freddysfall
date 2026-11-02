@@ -18,6 +18,7 @@ var _bypass: CheckButton
 var _retry: CheckButton
 var _classic: CheckButton
 var _token_marks: CheckButton
+var _slow: CheckButton
 var _wall: LineEdit
 var _names: ItemList
 var _name: LineEdit
@@ -58,12 +59,24 @@ func _input(event: InputEvent) -> void:
 			open_panel()
 	elif event.keycode == KEY_F4:
 		open_panel(1)
+	elif event.keycode == KEY_F7:
+		_slow_hotkey()
 	elif event.keycode == KEY_ESCAPE and (opened or _pending >= 0):
 		_pending = -1
 		close_panel()
 	else:
 		return
 	get_viewport().set_input_as_handled()
+
+
+## F7 toggles slow motion and says so in the toast line. Only in a dev test with
+## nothing else holding the input: not with the panel open or waiting, not while a
+## pause menu, popup or animation has it.
+func _slow_hotkey() -> void:
+	if DevSession.mode != DevSession.Mode.DEV_TEST or opened or _pending >= 0 or not _world.modal_owner.is_empty():
+		return
+	if DevSession.set_slow_motion(_world, not DevSession.slow_motion).is_empty():
+		_world.toast.show_text("Slow motion: %s" % ("1/4 speed" if DevSession.slow_motion else "off"))
 
 
 func open_panel(tab := 0) -> void:
@@ -85,6 +98,7 @@ func open_panel(tab := 0) -> void:
 		_retry.set_pressed_no_signal(DevSession.retry_on_death)
 		_classic.set_pressed_no_signal(DevSession.classic_imprint)
 		_token_marks.set_pressed_no_signal(DevSession.token_marks)
+		_slow.set_pressed_no_signal(DevSession.slow_motion)
 		_wall.text = str(DevSession.wall_strength())
 		_status.text = _store.error
 	_tabs.current_tab = tab
@@ -187,6 +201,13 @@ func _build_player(body: VBoxContainer) -> void:
 		_token_marks.set_pressed_no_signal(DevSession.token_marks)
 	)
 	body.add_child(_token_marks)
+	_slow = CheckButton.new()
+	_slow.text = "Slow motion (F7)"
+	_slow.toggled.connect(func(on: bool) -> void:
+		_report(DevSession.set_slow_motion(_world, on))
+		_slow.set_pressed_no_signal(DevSession.slow_motion)
+	)
+	body.add_child(_slow)
 	var wall_row := HBoxContainer.new()
 	body.add_child(wall_row)
 	var wall_label := Label.new()

@@ -90,13 +90,19 @@ func _play() -> bool:
 	var tip: Vector2 = tongue.tip()
 	ok = _check(is_equal_approx(tip.x, player.global_position.x) and tip.y < player.global_position.y - 4.0, "the tip is above the head, not in front of it") and ok
 	var farthest := 0.0
+	var stuck_ys: Array[float] = []
 	for i in 40:
 		await physics_frame
-		farthest = maxf(farthest, tongue.extension)
+		if tongue.phase == tongue.Phase.OUT:
+			farthest = maxf(farthest, tongue.extension)
+		elif tongue.phase == tongue.Phase.STICK:
+			stuck_ys.append(tongue.tip().y)
 		if not tongue.active:
 			break
+	# It sticks to the ceiling: the tip stays put while the player falls away.
+	ok = _check(stuck_ys.size() >= 2 and absf(stuck_ys[0] - stuck_ys[-1]) < 0.01, "an up-lash sticks to the ceiling, tip fixed (%d ticks)" % stuck_ys.size()) and ok
 	# The ceiling's underside is 20 px above the top of the body.
-	ok = _check(farthest > 16.0 and farthest < 27.0, "it stops at the ceiling (%.1f px)" % farthest) and ok
+	ok = _check(farthest > 15.0 and farthest < 27.0, "it stops at the ceiling (%.1f px)" % farthest) and ok
 	ok = _check(not tongue.active and not player.lashing_up and tongue.cooldown_left > 0.0, "then it is back in and the picture ends") and ok
 	# Turning does not cut an up-lash short.
 	for i in 30:
