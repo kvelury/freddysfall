@@ -75,20 +75,20 @@ var imprint_effects: Array[String] = []
 ## "unlock" turns a yes-or-no ability on. "max" keeps the larger of the old and new value, so finding a lesser
 ## upgrade later never takes anything away. "min" keeps the smaller, for a number where lower is better.
 ## "add" gains an effect once.
-func apply(upgrade: Dictionary, value: Variant) -> bool:
-	var stat := String(upgrade["stat"])
-	if upgrade["kind"] == "unlock":
+func apply(upgrade: UpgradeDef, value: Variant) -> bool:
+	var stat := upgrade.stat
+	if upgrade.kind == "unlock":
 		if get(stat):
 			return false
 		set(stat, true)
 		return true
-	if upgrade["kind"] == "add":
+	if upgrade.kind == "add":
 		var effects: Array[String] = get(stat)
 		if effects.has(String(value)):
 			return false
 		effects.append(String(value))
 		return true
-	if upgrade["kind"] == "min":
+	if upgrade.kind == "min":
 		var current: Variant = get(stat)
 		if value >= current:
 			return false

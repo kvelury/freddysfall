@@ -207,7 +207,12 @@ func _run(rooms: Dictionary, cache: SolverCache, width: int) -> ReachGraph.Repor
 
 
 func _same(a: ReachGraph.Report, b: ReachGraph.Report) -> bool:
-	return a.errors == b.errors and a.warnings == b.warnings and a.reached_ledges == b.reached_ledges and a.total_ledges == b.total_ledges and a.unreached.size() == b.unreached.size() and a.traps.size() == b.traps.size() and a.one_way.size() == b.one_way.size() and a.pickups == b.pickups
+	var rows := func(report: ReachGraph.Report) -> Array:
+		var out := []
+		for pickup in report.pickups:
+			out.append(pickup.row())
+		return out
+	return a.errors == b.errors and a.warnings == b.warnings and a.reached_ledges == b.reached_ledges and a.total_ledges == b.total_ledges and a.unreached.size() == b.unreached.size() and a.traps.size() == b.traps.size() and a.one_way.size() == b.one_way.size() and rows.call(a) == rows.call(b)
 
 
 ## Two rooms side by side. Room 1 is a floor with a pit of spikes in it, a start

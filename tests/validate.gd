@@ -62,8 +62,8 @@ func _initialize() -> void:
 	for message in report.warnings:
 		print("warn ", message)
 	for pickup in report.pickups:
-		var gives: String = (pickup["upgrade"] + " " + pickup["value"]).strip_edges()
-		print("%s %s in room %s%s%s" % [pickup["type"], pickup["id"], pickup["room"], ": " + gives if not gives.is_empty() else "", "" if pickup["reached"] else "  (not reached)"])
+		var gives: String = (pickup.upgrade + " " + pickup.value).strip_edges()
+		print("%s %s in room %s%s%s" % [pickup.type, pickup.id, pickup.room, ": " + gives if not gives.is_empty() else "", "" if pickup.reached else "  (not reached)"])
 	var ids: Array = data.rooms.keys()
 	ids.sort_custom(func(a: String, b: String) -> bool: return a.naturalnocasecmp_to(b) < 0)
 	for id in ids:
@@ -74,7 +74,7 @@ func _initialize() -> void:
 			print("room %s needs %s" % [id, "nothing" if needs.is_empty() else ", ".join(needs)])
 	var kinds := {}
 	for pickup in report.pickups:
-		kinds[pickup["id"]] = pickup["type"]
+		kinds[pickup.id] = pickup.type
 	var extra: Array = report.needs.keys().filter(func(k: String) -> bool: return k.contains("|"))
 	extra.sort()
 	for key in extra:
@@ -133,7 +133,7 @@ func _flag_value(name: String) -> String:
 func _write_dump(path: String, graph: ReachGraph, report: ReachGraph.Report) -> void:
 	var pickups := []
 	for pickup in report.pickups:
-		pickups.append(pickup)
+		pickups.append(pickup.row())
 	pickups.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return String(a["id"]) < String(b["id"]))
 	var errors := report.errors.duplicate()
 	errors.sort()

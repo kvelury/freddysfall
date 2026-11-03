@@ -128,7 +128,7 @@ func _lash() -> bool:
 	var graph := ReachGraph.new(rooms, _cfg, armed)
 	var with_lash := graph.analyze("1")
 	ok = check(with_lash.errors.is_empty(), "with Tongue Lash it is taken %s" % [with_lash.errors]) and ok
-	ok = check(with_lash.pickups.any(func(p: Dictionary) -> bool: return p["id"] == "gem" and p["reached"]), "and the report lists it as reached") and ok
+	ok = check(with_lash.pickups.any(func(p: ReachGraph.PickupReport) -> bool: return p.id == "gem" and p.reached), "and the report lists it as reached") and ok
 	ok = check(with_lash.reached_ledges == with_lash.total_ledges, "the ledge inside the box counts as reached, and no state counts as a place of its own (%d of %d)" % [with_lash.reached_ledges, with_lash.total_ledges]) and ok
 
 	# A progression: Tongue Lash is a pickup on the near side, and the pickup needs it.
@@ -223,8 +223,8 @@ func _many_rounds() -> bool:
 	var report := graph.solve("1")
 	var goal_reached := false
 	for pickup in report.pickups:
-		if pickup["id"] == "goal":
-			goal_reached = pickup["reached"]
+		if pickup.id == "goal":
+			goal_reached = pickup.reached
 	var expected: Array[String] = []
 	expected.assign(chain.slice(0, 9))
 	var ok := true
@@ -271,7 +271,7 @@ func _saved_lock() -> bool:
 	ok = check(things.size() == 1 and things[0].size == Vector2(50, 30), "the solver touches a save machine over its whole 50 x 30 zone, as the game does (%s)" % [things]) and ok
 	var report := ReachGraph.new(rooms, _cfg).solve("1")
 	ok = check(report.errors.is_empty() and report.reached_rooms.has("3"), "a save room whose machine is on its floor lets the player through %s" % [report.errors]) and ok
-	ok = check(report.pickups.any(func(p: Dictionary) -> bool: return p["id"] == "s2_save" and p["type"] == "save" and p["reached"]), "and the machine is listed as reached") and ok
+	ok = check(report.pickups.any(func(p: ReachGraph.PickupReport) -> bool: return p.id == "s2_save" and p.type == "save" and p.reached), "and the machine is listed as reached") and ok
 	ok = check(report.needs.get("3") == [], "taking it gives nothing, so the room behind needs nothing (%s)" % [report.needs.get("3")]) and ok
 
 	# The machine on a platform nobody can jump up to: the doors stay shut.
@@ -693,12 +693,12 @@ class ChainReachGraph extends ReachGraph:
 			reached_ids[chain[i]] = true
 		for id in _things:
 			var def: EntityDef = _things[id]
-			report.pickups.append({
-				"id": id,
-				"type": def.type,
-				"room": "1",
-				"upgrade": String(def.props.get("upgrade", "")),
-				"value": String(def.props.get("value", "")),
-				"reached": reached_ids.has(id),
-			})
+			var found := ReachGraph.PickupReport.new()
+			found.id = id
+			found.type = def.type
+			found.room = "1"
+			found.upgrade = String(def.props.get("upgrade", ""))
+			found.value = String(def.props.get("value", ""))
+			found.reached = reached_ids.has(id)
+			report.pickups.append(found)
 		return report

@@ -112,15 +112,15 @@ func _crossing(data) -> bool:
 
 	# Same place along the wall, same velocity, and just clear of the far door.
 	var across := Door.crossing(one.exit_on("right"), two, Vector2(301.0, 35.0), run)
-	ok = check(across["position"] == Vector2(339.5, 35.0), "crossing room s1's door keeps height and pushes in (%s)" % across["position"]) and ok
-	ok = check(across["velocity"] == run, "crossing keeps velocity") and ok
-	var body := Rect2(across["position"] - Vector2(5, 5), Vector2(10, 10))
+	ok = check(across.position == Vector2(339.5, 35.0), "crossing room s1's door keeps height and pushes in (%s)" % across.position) and ok
+	ok = check(across.velocity == run, "crossing keeps velocity") and ok
+	var body := Rect2(across.position - Vector2(5, 5), Vector2(10, 10))
 	var trigger := two.exit_on("left").trigger_rect()
 	ok = check(not Rect2(trigger.position + Vector2(320, 0), trigger.size).intersects(body), "a body that crossed is clear of the far trigger") and ok
 
 	# A door the body is not level with: it is carried along the wall to the far door.
 	var shifted := Door.crossing(two.exit_on("right"), three, Vector2(301.0, 145.0), run)
-	ok = check(shifted["position"] == Vector2(659.5, 85.0), "crossing is clamped into the far door's rows (%s)" % shifted["position"]) and ok
+	ok = check(shifted.position == Vector2(659.5, 85.0), "crossing is clamped into the far door's rows (%s)" % shifted.position) and ok
 
 	# Up and down, between two rooms in a column.
 	var shaft := _world([
@@ -131,14 +131,14 @@ func _crossing(data) -> bool:
 	var high: RoomInfo = shaft["rooms"]["2"]
 	ok = check(shaft["errors"].is_empty(), "a two-room shaft loads clean %s" % [shaft["errors"]]) and ok
 	var rising := Door.crossing(low.exit_on("up"), high, Vector2(95.0, 195.0), Vector2(0.0, -50.0))
-	ok = check(rising["position"] == Vector2(95.0, 160.5), "going up pushes into the room above (%s)" % rising["position"]) and ok
-	ok = check(rising["velocity"].y == -Door.UP_BOOST, "going up slowly is lifted to the minimum rise (%s)" % rising["velocity"]) and ok
+	ok = check(rising.position == Vector2(95.0, 160.5), "going up pushes into the room above (%s)" % rising.position) and ok
+	ok = check(rising.velocity.y == -Door.UP_BOOST, "going up slowly is lifted to the minimum rise (%s)" % rising.velocity) and ok
 	var leaping := Door.crossing(low.exit_on("up"), high, Vector2(95.0, 195.0), Vector2(0.0, -300.0))
-	ok = check(leaping["velocity"].y == -300.0, "going up fast is not slowed") and ok
+	ok = check(leaping.velocity.y == -300.0, "going up fast is not slowed") and ok
 	var edge := Door.crossing(low.exit_on("up"), high, Vector2(20.0, 195.0), Vector2.ZERO)
-	ok = check(edge["position"].x == 65.0, "crossing is clamped into the far door's columns (%s)" % edge["position"]) and ok
+	ok = check(edge.position.x == 65.0, "crossing is clamped into the far door's columns (%s)" % edge.position) and ok
 	var falling := Door.crossing(high.exit_on("down"), low, Vector2(95.0, 170.0), Vector2(30.0, 200.0))
-	ok = check(falling["position"] == Vector2(95.0, 199.5) and falling["velocity"] == Vector2(30.0, 200.0), "going down keeps velocity and drops in (%s)" % falling["position"]) and ok
+	ok = check(falling.position == Vector2(95.0, 199.5) and falling.velocity == Vector2(30.0, 200.0), "going down keeps velocity and drops in (%s)" % falling.position) and ok
 
 	# A wall right behind the far door shortens the push instead of burying the body.
 	var tight := _cells_in(0, 15, 0, 16, "X")
@@ -149,7 +149,7 @@ func _crossing(data) -> bool:
 	], "1")
 	var behind: RoomInfo = walled["rooms"]["2"]
 	var squeezed := Door.crossing((walled["rooms"]["1"] as RoomInfo).exit_on("right"), behind, Vector2(301.0, 165.0), run)
-	ok = check(squeezed["position"].x == 325.0, "a wall behind the door shortens the push (%s)" % squeezed["position"]) and ok
+	ok = check(squeezed.position.x == 325.0, "a wall behind the door shortens the push (%s)" % squeezed.position) and ok
 	return ok
 
 
@@ -360,7 +360,7 @@ func _reach_cases() -> bool:
 	report = _solve([_entry("1", Vector2i(0, 0), legend + _box({Vector2i(10, 16): "U", Vector2i(20, 13): "V", Vector2i(26, 8): "W"}))])
 	var taken := {}
 	for pickup in report.pickups:
-		taken[pickup["id"]] = pickup["reached"]
+		taken[pickup.id] = pickup.reached
 	ok = check(taken == {"floor": true, "hop": true, "high": false}, "a pickup on the floor or a hop up is reached, one eight cells up is not %s" % [taken]) and ok
 	ok = check(_has_line(report.errors, "pickup high"), "and the one out of reach is an error %s" % [report.errors]) and ok
 	return ok

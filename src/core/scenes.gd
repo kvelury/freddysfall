@@ -1,7 +1,7 @@
 class_name Scenes
 extends RefCounted
 
-## Swapping the running scene, like DevSession._replace does for a dev rebuild.
+## Swapping the running scene, as a dev rebuild does.
 
 
 ## Frees `old` and puts `next` in its place, as the current scene if `old` was.

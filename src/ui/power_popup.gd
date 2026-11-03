@@ -59,9 +59,9 @@ func open(id: String) -> bool:
 	if opened or not _world.acquire_modal(OWNER):
 		return false
 	var def := Upgrades.get_def(id)
-	_name.text = String(def.get("name", id))
+	_name.text = def.title
 	var rows: Array = []
-	for row_id in def.get("controls", []):
+	for row_id in def.controls:
 		rows.append(Controls.get_row(String(row_id)))
 	_view.show_rows(rows)
 	_open_for = 0.0

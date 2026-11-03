@@ -20,7 +20,7 @@ func _controls_data() -> bool:
 	var ok := check(Controls.problems().is_empty(), "the controls file is clean (%s)" % [Controls.problems()])
 	ok = check(Upgrades.problems().is_empty(), "the upgrades file is clean (%s)" % [Upgrades.problems()]) and ok
 	for id in Upgrades.all():
-		for row_id in Upgrades.get_def(id).get("controls", []):
+		for row_id in Upgrades.get_def(id).controls:
 			ok = check(not Controls.get_row(row_id).is_empty(), "upgrade %s shows controls row %s" % [id, row_id]) and ok
 	ok = check(Controls.key_groups(Controls.get_row("move")) == [["A", "D"], ["Left", "Right"]], "move is A D / Left Right (%s)" % [Controls.key_groups(Controls.get_row("move"))]) and ok
 	ok = check(Controls.key_groups(Controls.get_row("pause")) == [["Esc"], ["P"]], "pause is Esc / P (%s)" % [Controls.key_groups(Controls.get_row("pause"))]) and ok

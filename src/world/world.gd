@@ -77,7 +77,7 @@ func _ready() -> void:
 	game_over.continued.connect(func() -> void: _respawn(true))
 	GameState.abilities_changed.connect(func() -> void: player.air_jumps = GameState.abilities.air_jumps)
 	GameState.upgrade_granted.connect(func(id: String) -> void:
-		if Upgrades.get_def(id).has("controls"):
+		if Upgrades.get_def(id).has_controls:
 			_popups.append(id))
 	var requested := start_override
 	if requested.is_empty() and not from_menu:
@@ -150,7 +150,7 @@ func _place_in(id: String, world_position := Vector2.INF, respawn := false) -> v
 	camera.position = _camera_focus(current, player.global_position)
 	current.set_exits_active(true)
 	if current.info.is_save_room():
-		GameState.save_room = id
+		GameState.set_save_room(id)
 		# Dying in a save room puts the player back in it, but is not entering it.
 		if not respawn:
 			GameState.refill_health()
@@ -287,8 +287,8 @@ func _pop(machine: SaveMachine, side: int) -> void:
 ## room's doors are checked (a save room can hold its doors shut until this),
 ## the game is written, and a line says so.
 func _commit_save(machine: SaveMachine) -> void:
-	GameState.flags[SaveMachine.flag_for(machine.def)] = true
-	GameState.save_room = current.info.id
+	GameState.set_flag(SaveMachine.flag_for(machine.def))
+	GameState.set_save_room(current.info.id)
 	current.recheck_exits(GameState.flags)
 	_autosave()
 	if not DevSession.isolated():
@@ -329,7 +329,7 @@ func _feed(machine: TokenMachine) -> void:
 		var flier := FlyingToken.launch(self, player.global_position, machine.slot_position(slot), FEED_TIME)
 		await flier.arrived
 		machine.fill()
-		GameState.machines[machine.def.id] = machine.filled
+		GameState.set_machine_fill(machine.def.id, machine.filled)
 		await get_tree().create_timer(FEED_PAUSE, true, true).timeout
 	if machine.spent:
 		await machine.dispense()
@@ -460,8 +460,8 @@ func _on_exit(door: Door) -> void:
 	_pending = _make_room(door.dest_id)
 	_pending.set_exits_active(false)
 	var crossed := Door.crossing(door, _pending.info, player.global_position, _carried)
-	_carried = crossed["velocity"]
-	player.place(crossed["position"], _pending.world_rects())
+	_carried = crossed.velocity
+	player.place(crossed.position, _pending.world_rects())
 	player.room = _pending
 	GameState.visit(door.dest_id)
 	_maybe_title(door.dest_id)
@@ -489,7 +489,7 @@ func _finish_transition() -> void:
 	_follow = true
 	if current != null:
 		if current.info.is_save_room():
-			GameState.save_room = current.info.id
+			GameState.set_save_room(current.info.id)
 			GameState.refill_health()
 		_autosave()
 
@@ -504,7 +504,7 @@ func _maybe_title(id: String) -> void:
 		return
 	_titled[id] = true
 	if not DevSession.isolated():
-		GameState.flags[key] = true
+		GameState.set_flag(key)
 	title_card.show_title(String(title["text"]), float(title["hold"]))
 
 

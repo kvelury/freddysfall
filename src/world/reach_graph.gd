@@ -257,8 +257,8 @@ func solve(start_room: String) -> Report:
 				seen[ledge] = true
 		var fresh := 0
 		for pickup in report.pickups:
-			if pickup["reached"] and not taken.has(pickup["id"]):
-				taken[pickup["id"]] = round
+			if pickup.reached and not taken.has(pickup.id):
+				taken[pickup.id] = round
 				fresh += 1
 		var next_abilities := _with(base, taken.keys())
 		if fresh == 0 or next_abilities.to_dict() == abilities.to_dict():
@@ -278,11 +278,11 @@ func solve(start_room: String) -> Report:
 		if int(ledge_round[ledge]) > int(room_round[ledge.room_id]):
 			report.needs["ledge|" + ledge.describe()] = _needs(start_room, base, taken, int(ledge_round[ledge]), func(r: Report) -> bool: return r.reached.has(ledge))
 	for pickup in report.pickups:
-		if pickup["reached"] and int(taken[pickup["id"]]) > 0:
-			var id: String = pickup["id"]
+		if pickup.reached and int(taken[pickup.id]) > 0:
+			var id: String = pickup.id
 			report.needs["pickup|" + id] = _needs(start_room, base, taken, int(taken[id]), func(r: Report) -> bool:
 				for entry in r.pickups:
-					if entry["id"] == id and entry["reached"]:
+					if entry.id == id and entry.reached:
 						return true
 				return false
 			)
@@ -421,7 +421,14 @@ func _analyze(start_room: String) -> Report:
 		var defs := _things_of(info)
 		for i in defs.size():
 			var got := _pickup_reached(run, id, i)
-			report.pickups.append({"id": defs[i].id, "type": defs[i].type, "room": String(id), "upgrade": String(defs[i].props.get("upgrade", "")), "value": String(defs[i].props.get("value", "")), "reached": got})
+			var found := PickupReport.new()
+			found.id = defs[i].id
+			found.type = defs[i].type
+			found.room = String(id)
+			found.upgrade = String(defs[i].props.get("upgrade", ""))
+			found.value = String(defs[i].props.get("value", ""))
+			found.reached = got
+			report.pickups.append(found)
 			if reached_rooms.has(id) and not got:
 				lost_pickups.append("Room %s: %s %s at cell %s cannot be reached: no jump from a ledge the player gets to touches it" % [id, defs[i].type, defs[i].id, defs[i].cell])
 	_append_capped(report.errors, lost_pickups)
@@ -884,7 +891,7 @@ func _landings_of(info: RoomInfo, touch: Touch, depth: int) -> Array[Ledge]:
 	var dest_origin := Vector2(dest.grid_pos) * Grid.SCREEN_SIZE
 	var crossed := Door.crossing(door, dest, source_origin + touch.position, touch.velocity)
 	var far := dest.exits.find(dest.door_by_rect(door.dest_rect))
-	var out := _land(dest, crossed["position"] - dest_origin, crossed["velocity"], far, depth)
+	var out := _land(dest, crossed.position - dest_origin, crossed.velocity, far, depth)
 	_landings[key] = out
 	return out
 
@@ -1584,6 +1591,19 @@ class Ledge extends RefCounted:
 		return "Room %s: the ledge on row %d, cells %d-%d" % [base(), row, x0, x1]
 
 
+## One thing the search can take, and whether a path reached it.
+class PickupReport extends RefCounted:
+	var id := ""
+	var type := ""
+	var room := ""
+	var upgrade := ""
+	var value := ""
+	var reached := false
+
+	func row() -> Dictionary:
+		return {"id": id, "type": type, "room": room, "upgrade": upgrade, "value": value, "reached": reached}
+
+
 class Report extends RefCounted:
 	var errors: Array[String] = []
 	var warnings: Array[String] = []
@@ -1595,8 +1615,8 @@ class Report extends RefCounted:
 	var one_way: Array[Ledge] = []
 	## [room_id, Door] pairs.
 	var unreached_doors: Array = []
-	## One entry per pickup: {id, room, upgrade, value, reached}.
-	var pickups: Array[Dictionary] = []
+	## One entry per pickup, token, 3TM and save machine.
+	var pickups: Array[PickupReport] = []
 	## Every ledge that was reached, and the ids of the rooms that were.
 	var reached := {}
 	var reached_rooms := {}

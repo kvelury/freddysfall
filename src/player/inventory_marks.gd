@@ -13,8 +13,8 @@ extends RefCounted
 
 ## How wide each token's line is.
 const WIDTH := 2
-## The pocket cap, `GameState.TOKEN_CAP`.
-const MAX_TOKENS := GameState.TOKEN_CAP
+## The pocket cap, `Progression.TOKEN_CAP`.
+const MAX_TOKENS := Progression.TOKEN_CAP
 
 
 ## The pixels cut from `frame` for `tokens` carried and Imprint found, facing right.

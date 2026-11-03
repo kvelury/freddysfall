@@ -66,7 +66,7 @@ func doorway(room: RoomInfo) -> Vector2:
 ## does not touch it at once, with the same velocity. Going up, it leaves at
 ## least UP_BOOST. If a wall is in the way the push is shortened. Returns
 ## {"position": world pixels, "velocity": px/s}.
-static func crossing(door: Door, dest: RoomInfo, position: Vector2, velocity: Vector2) -> Dictionary:
+static func crossing(door: Door, dest: RoomInfo, position: Vector2, velocity: Vector2) -> Crossing:
 	var far := dest.door_by_rect(door.dest_rect)
 	var origin := Vector2(dest.grid_pos) * Grid.SCREEN_SIZE
 	var cell := float(Grid.CELL)
@@ -89,7 +89,17 @@ static func crossing(door: Door, dest: RoomInfo, position: Vector2, velocity: Ve
 			break
 	if door.edge == "up":
 		vel.y = minf(vel.y, -UP_BOOST)
-	return {"position": pos, "velocity": vel}
+	return Crossing.new(pos, vel)
+
+
+## Where a body arrives after crossing a door, and how fast it is going.
+class Crossing extends RefCounted:
+	var position := Vector2.ZERO
+	var velocity := Vector2.ZERO
+
+	func _init(at: Vector2, moving: Vector2) -> void:
+		position = at
+		velocity = moving
 
 
 static func _walled(room: RoomInfo, local_center: Vector2) -> bool:
