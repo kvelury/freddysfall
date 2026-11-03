@@ -4,18 +4,35 @@ extends RefCounted
 ## Pure descriptions and validation for editable playtest state. Upgrade controls
 ## come from the gameplay registry; resources use the same control format.
 
+## The collapsible groups of the dev panel's Player tab, in order. Every control
+## names one in its `section`; a control that fits none starts a new section here.
+const SECTIONS := [
+	{"id": "resources", "title": "Tokens & hearts"},
+	{"id": "movement", "title": "Movement"},
+	{"id": "lash", "title": "Tongue Lash"},
+	{"id": "imprint", "title": "Imprint"},
+	{"id": "debug", "title": "Debug view"},
+]
+
 const RESOURCES := {
-	"tokens": {"name": "Tokens", "type": "int", "min": 0, "max": 3, "step": 1},
-	"health": {"name": "Hearts", "type": "int", "min": 0, "step": 1},
+	"tokens": {"name": "Tokens", "type": "int", "min": 0, "max": 3, "step": 1, "section": "resources"},
+	"health": {"name": "Hearts", "type": "int", "min": 0, "step": 1, "section": "resources"},
 	# The frame's length, never below the base heart. A loadout with more hearts
 	# than this raises it to match.
-	"max_health": {"name": "Max hearts", "type": "int", "min": 1, "step": 1},
+	"max_health": {"name": "Max hearts", "type": "int", "min": 1, "step": 1, "section": "resources"},
 }
 ## Ability names a stored loadout may still use, and what they are now.
 const LEGACY_KEYS := {"gun_unlocked": "tongue_unlocked", "gun_cooldown": "tongue_cooldown", "gun_shot_speed": "tongue_speed"}
 ## Integers pass through cell rectangles and UI numbers. Keep them representable
 ## exactly, rather than accepting an overflowing float as a valid stat.
 const MAX_INTEGER := 2147483647
+
+
+static func section_ids() -> Array[String]:
+	var ids: Array[String] = []
+	for section in SECTIONS:
+		ids.append(String(section["id"]))
+	return ids
 
 
 static func controls(definitions: Dictionary = {}) -> Dictionary:
@@ -47,6 +64,10 @@ static func problems(definitions: Dictionary = {}, stats: Array = []) -> Array[S
 		var control: Dictionary = def["dev"]
 		if not ["bool", "int", "float", "effects", "unsupported"].has(control.get("type", "")):
 			errors.append("Upgrade %s has an unknown dev control type." % id)
+		if not control.has("section"):
+			errors.append("Upgrade %s needs a dev section." % id)
+		elif not section_ids().has(control["section"]):
+			errors.append("Upgrade %s has an unknown dev section." % id)
 		if control.get("type") == "unsupported" and String(control.get("reason", "")).is_empty():
 			errors.append("Upgrade %s needs a reason for missing dev support." % id)
 	if stats.is_empty():

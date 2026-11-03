@@ -70,6 +70,12 @@ immediately in isolated playtesting, removed/reset, retried, and round-tripped i
 named loadout where applicable. Include this support, tests and documentation in
 the same PR. An intentionally unsupported feature needs an explicit reason.
 
+- Every control belongs to a collapsible section of the panel's Player tab. An upgrade's
+  `dev` block names one in `section`; `DevCatalog.SECTIONS` lists them (Tokens & hearts,
+  Movement, Tongue Lash, Imprint, Debug view). Add a section there when none fits; a missing
+  or unknown one fails `DevCatalog.problems()`. A session switch with no registry entry
+  (Classic Imprint, token marks, slow motion, wall strength) is placed in `_build_player`
+  under the section it belongs to.
 - Add `dev` control metadata to every upgrade in `data/upgrades.json`. Supported
   types are `bool`, `int`, `float`, `effects`, and `unsupported` (requires `reason`).
   Numeric controls declare bounds, step and units; effects distinguish implemented

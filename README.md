@@ -30,6 +30,8 @@ Editor/debug runs always offer F2 and a Dev tools item in the pause menu; export
 
 - **F2 / pause menu → Dev tools:** pause and edit powers or resources. **Apply** commits; **Resume / Cancel**
   closes, discarding unapplied edits. F4 focuses the room picker. Escape closes.
+  The Player tab is split into collapsible sections (Tokens & hearts, Movement, Tongue Lash,
+  Imprint, Debug view); every new control names one in `section` (`DevCatalog.SECTIONS`).
 - **F7 (panel shut, in a dev test only):** runs the game at a quarter speed, to watch a motion
   tick by tick (the panel's "Slow motion" switch does the same). It does nothing with the panel
   open, a pause menu or animation holding the input, or outside a dev test. A session switch

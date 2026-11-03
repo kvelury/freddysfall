@@ -10,10 +10,23 @@ func _initialize() -> void:
 	var definitions := Upgrades.all().duplicate(true)
 	definitions["forgotten"] = {"name": "Future power", "stat": "imprint_width", "kind": "max"}
 	check(not DevCatalog.problems(definitions).is_empty(), "a new upgrade without dev metadata fails coverage")
-	definitions["forgotten"]["dev"] = {"type": "int", "min": 1, "step": 1}
+	definitions["forgotten"]["dev"] = {"type": "int", "min": 1, "step": 1, "section": "imprint"}
 	check(DevCatalog.problems(definitions).is_empty() and DevCatalog.controls(definitions)["imprint_width"]["type"] == "int", "registered upgrades generate controls without a new widget")
 	var stats: Array = Abilities.stats().duplicate()
 	stats.append("future_stat")
+	var sectionless: Dictionary = Upgrades.all().duplicate(true)
+	sectionless["imprint_width"]["dev"].erase("section")
+	check(not DevCatalog.problems(sectionless).is_empty(), "an upgrade with no dev section fails coverage")
+	var misfiled: Dictionary = Upgrades.all().duplicate(true)
+	misfiled["imprint_width"]["dev"]["section"] = "nowhere"
+	check(not DevCatalog.problems(misfiled).is_empty(), "an upgrade in an unknown section fails coverage")
+	check(DevCatalog.section_ids().size() == DevCatalog.SECTIONS.size() and DevCatalog.section_ids().has("lash"), "sections have unique ids")
+	var seen := {}
+	for id in DevCatalog.section_ids():
+		seen[id] = true
+	check(seen.size() == DevCatalog.SECTIONS.size(), "no two sections share an id")
+	for key in DevCatalog.RESOURCES:
+		check(DevCatalog.section_ids().has(DevCatalog.RESOURCES[key]["section"]), "resource %s is in a real section" % key)
 	check(not DevCatalog.problems({}, stats).is_empty(), "an unregistered ability stat fails coverage")
 	var state: Node = root.get_node("GameState")
 	check(DevCatalog.RESOURCES["tokens"]["max"] == state.TOKEN_CAP, "dev token bounds match the gameplay cap")

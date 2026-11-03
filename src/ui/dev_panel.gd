@@ -9,6 +9,7 @@ var _window: PanelContainer
 var _tabs: TabContainer
 var _status: Label
 var _fields := {}
+var _sections := {}
 var _original := {}
 var _full_draft := false
 var _dirty := {}
@@ -162,18 +163,32 @@ func _page(title: String) -> VBoxContainer:
 
 
 func _build_player(body: VBoxContainer) -> void:
+	_button(body, "Reset loadout to defaults", func() -> void:
+		_set_fields(DevCatalog.defaults())
+		_full_draft = true
+		_status.text = "Defaults staged. Apply to use them."
+	)
+	for section in DevCatalog.SECTIONS:
+		_sections[section["id"]] = _section(body, section["title"], section["id"] == "resources")
 	var controls := DevCatalog.controls()
+	var pieces := {}
 	for key in DevCatalog.RESOURCES:
-		_field(body, key, DevCatalog.RESOURCES[key])
+		pieces[key] = DevCatalog.RESOURCES[key]
 	for stat in controls:
-		_field(body, stat, controls[stat])
-	var row := HBoxContainer.new()
-	body.add_child(row)
-	_button(row, "+1 token", func() -> void: _nudge("tokens", 1, DevCatalog.RESOURCES["tokens"]))
-	_button(row, "Fill 3", func() -> void: _fields["tokens"].text = "3")
-	_button(row, "Empty", func() -> void: _fields["tokens"].text = "0")
+		pieces[stat] = controls[stat]
+	# A power's on/off switch heads its section, then its tuning in file order.
+	for unlocks in [true, false]:
+		for key in pieces:
+			var control: Dictionary = pieces[key]
+			if (control["type"] == "bool") == unlocks:
+				_field(_sections[control["section"]], key, control)
+	var tokens := HBoxContainer.new()
+	_sections["resources"].add_child(tokens)
+	_button(tokens, "+1 token", func() -> void: _nudge("tokens", 1, DevCatalog.RESOURCES["tokens"]))
+	_button(tokens, "Fill 3", func() -> void: _fields["tokens"].text = "3")
+	_button(tokens, "Empty", func() -> void: _fields["tokens"].text = "0")
 	var pips := HBoxContainer.new()
-	body.add_child(pips)
+	_sections["resources"].add_child(pips)
 	_button(pips, "+1 heart", func() -> void:
 		_nudge("max_health", 1, DevCatalog.RESOURCES["max_health"])
 		_nudge("health", 1, DevCatalog.RESOURCES["health"]))
@@ -182,34 +197,9 @@ func _build_player(body: VBoxContainer) -> void:
 	_button(pips, "Reset hearts", func() -> void:
 		_fields["health"].text = "1"
 		_fields["max_health"].text = "1")
-	_button(body, "Reset loadout to defaults", func() -> void:
-		_set_fields(DevCatalog.defaults())
-		_full_draft = true
-		_status.text = "Defaults staged. Apply to use them."
-	)
-	_classic = CheckButton.new()
-	_classic.text = "Classic Imprint (no shrinking)"
-	_classic.toggled.connect(func(on: bool) -> void:
-		_report(DevSession.set_classic_imprint(_world, on))
-		_classic.set_pressed_no_signal(DevSession.classic_imprint)
-	)
-	body.add_child(_classic)
-	_token_marks = CheckButton.new()
-	_token_marks.text = "Show token marks on Freddy"
-	_token_marks.toggled.connect(func(on: bool) -> void:
-		_report(DevSession.set_token_marks(_world, on))
-		_token_marks.set_pressed_no_signal(DevSession.token_marks)
-	)
-	body.add_child(_token_marks)
-	_slow = CheckButton.new()
-	_slow.text = "Slow motion (F7)"
-	_slow.toggled.connect(func(on: bool) -> void:
-		_report(DevSession.set_slow_motion(_world, on))
-		_slow.set_pressed_no_signal(DevSession.slow_motion)
-	)
-	body.add_child(_slow)
+	var lash: VBoxContainer = _sections["lash"]
 	var wall_row := HBoxContainer.new()
-	body.add_child(wall_row)
+	lash.add_child(wall_row)
 	var wall_label := Label.new()
 	wall_label.text = "Wall strength (lashes)"
 	wall_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -221,6 +211,36 @@ func _build_player(body: VBoxContainer) -> void:
 	_button(wall_row, "-", func() -> void: _set_wall(str(DevSession.wall_strength() - 1)))
 	_button(wall_row, "+", func() -> void: _set_wall(str(DevSession.wall_strength() + 1)))
 	_wall.text = str(DevSession.wall_strength())
+	_classic = _switch(_sections["imprint"], "Classic Imprint (no shrinking)", func(on: bool) -> String: return DevSession.set_classic_imprint(_world, on), func() -> bool: return DevSession.classic_imprint)
+	_token_marks = _switch(_sections["debug"], "Show token marks on Freddy", func(on: bool) -> String: return DevSession.set_token_marks(_world, on), func() -> bool: return DevSession.token_marks)
+	_slow = _switch(_sections["debug"], "Slow motion (F7)", func(on: bool) -> String: return DevSession.set_slow_motion(_world, on), func() -> bool: return DevSession.slow_motion)
+
+
+## A folding group on the Player tab. Its body is returned; the open/closed
+## state lives on the panel, which is only hidden between visits, so it is kept.
+func _section(page: VBoxContainer, title: String, open: bool) -> VBoxContainer:
+	var fold := FoldableContainer.new()
+	fold.title = title
+	fold.folded = not open
+	fold.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	page.add_child(fold)
+	var inner := VBoxContainer.new()
+	inner.add_theme_constant_override("separation", 2)
+	fold.add_child(inner)
+	return inner
+
+
+## A session switch: it acts at once through `set`, then shows what the session
+## actually holds, since a refused change leaves it as it was.
+func _switch(parent: Node, text: String, set: Callable, current: Callable) -> CheckButton:
+	var check := CheckButton.new()
+	check.text = text
+	check.toggled.connect(func(on: bool) -> void:
+		_report(set.call(on))
+		check.set_pressed_no_signal(current.call())
+	)
+	parent.add_child(check)
+	return check
 
 
 ## Applies the wall strength typed or nudged. It takes effect at once, since it

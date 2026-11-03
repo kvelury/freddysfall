@@ -127,6 +127,29 @@ func _run() -> void:
 	panel._token_marks.button_pressed = true
 	panel._token_marks.button_pressed = false
 	check(not session.token_marks, "and turns off again")
+	# Every control sits in the collapsible section it declares, and folding hides without disabling.
+	var controls := DevCatalog.controls()
+	controls.merge(DevCatalog.RESOURCES)
+	for key in controls:
+		if not panel._fields.has(key):
+			continue
+		var field = panel._fields[key]
+		# An effects field with nothing implemented has no widget to find.
+		var placed: Control = field if field is Control else (field.values()[0] if not field.is_empty() else null)
+		if placed == null:
+			continue
+		check(_fold_of(placed) == panel._sections[controls[key]["section"]].get_parent(), "%s is in its %s section" % [key, controls[key]["section"]])
+	check(_fold_of(panel._wall) == panel._sections["lash"].get_parent(), "wall strength is in the Tongue Lash section")
+	check(_fold_of(panel._classic) == panel._sections["imprint"].get_parent(), "Classic Imprint is in the Imprint section")
+	check(_fold_of(panel._slow) == panel._sections["debug"].get_parent() and _fold_of(panel._token_marks) == panel._sections["debug"].get_parent(), "the view switches are in the Debug view section")
+	var lash_fold: FoldableContainer = panel._sections["lash"].get_parent()
+	check(lash_fold.folded and not panel._sections["resources"].get_parent().folded, "sections start folded, except tokens and hearts")
+	lash_fold.folded = false
+	check(not lash_fold.folded, "a section unfolds")
+	panel._fields["tongue_cooldown"].text = "0.5"
+	lash_fold.folded = true
+	check(panel._fields["tongue_cooldown"].text == "0.5" and panel._draft()["error"].is_empty(), "a folded section keeps and still supplies its values")
+	panel._fields["tongue_cooldown"].text = str(DevCatalog.defaults()["abilities"]["tongue_cooldown"])
 	# The pixel font has ASCII only; anything else draws as a box with its code point in it (U+2212, the
 	# Unicode minus, showed as "2212" on the - buttons).
 	var odd: Array[String] = []
@@ -134,8 +157,8 @@ func _run() -> void:
 	while not pending.is_empty():
 		var node: Node = pending.pop_back()
 		pending.append_array(node.get_children())
-		if node is Button or node is Label:
-			for ch in String(node.text):
+		if node is Button or node is Label or node is FoldableContainer:
+			for ch in String(node.text if not node is FoldableContainer else node.title):
 				if ch.unicode_at(0) > 126:
 					odd.append("%s in '%s'" % [ch, node.text])
 	check(odd.is_empty(), "every button and label in the dev panel is in the pixel font's ASCII (%s)" % [odd])
@@ -258,3 +281,10 @@ func _press(panel: Node, key: Key) -> void:
 	event.keycode = key
 	event.pressed = true
 	panel._input(event)
+
+
+## The folding section a control is drawn in.
+func _fold_of(node: Node) -> Node:
+	while node != null and not node is FoldableContainer:
+		node = node.get_parent()
+	return node

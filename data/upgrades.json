@@ -6,6 +6,7 @@
     "message": "Double jump. Press jump again in the air.",
     "controls": ["double_jump"],
     "dev": {
+      "section": "movement",
       "type": "int",
       "min": 0,
       "max": 3,
@@ -20,6 +21,7 @@
     "message": "Tongue Lash. Lash your tongue.",
     "controls": ["lash"],
     "dev": {
+      "section": "lash",
       "type": "bool"
     }
   },
@@ -28,6 +30,7 @@
     "stat": "tongue_cooldown",
     "kind": "min",
     "dev": {
+      "section": "lash",
       "type": "float",
       "min": 0.05,
       "max": 10,
@@ -40,6 +43,7 @@
     "stat": "tongue_speed",
     "kind": "max",
     "dev": {
+      "section": "lash",
       "type": "float",
       "min": 10,
       "max": 2000,
@@ -52,6 +56,7 @@
     "stat": "tongue_snap",
     "kind": "max",
     "dev": {
+      "section": "lash",
       "type": "float",
       "min": 1,
       "max": 10,
@@ -64,6 +69,7 @@
     "stat": "tongue_length",
     "kind": "max",
     "dev": {
+      "section": "lash",
       "type": "float",
       "min": 10,
       "max": 1000,
@@ -76,6 +82,7 @@
     "stat": "tongue_creep",
     "kind": "max",
     "dev": {
+      "section": "lash",
       "type": "float",
       "min": 0,
       "max": 0.5,
@@ -88,6 +95,7 @@
     "stat": "tongue_creep_reach",
     "kind": "max",
     "dev": {
+      "section": "lash",
       "type": "float",
       "min": 0,
       "max": 20,
@@ -100,6 +108,7 @@
     "stat": "tongue_ramp",
     "kind": "max",
     "dev": {
+      "section": "lash",
       "type": "float",
       "min": 0,
       "max": 0.5,
@@ -112,6 +121,7 @@
     "stat": "tongue_strike",
     "kind": "max",
     "dev": {
+      "section": "lash",
       "type": "float",
       "min": 1,
       "max": 10,
@@ -124,6 +134,7 @@
     "stat": "tongue_settle",
     "kind": "max",
     "dev": {
+      "section": "lash",
       "type": "float",
       "min": 0,
       "max": 1,
@@ -136,6 +147,7 @@
     "stat": "tongue_stick",
     "kind": "max",
     "dev": {
+      "section": "lash",
       "type": "float",
       "min": 0,
       "max": 0.5,
@@ -148,6 +160,7 @@
     "stat": "tongue_pad",
     "kind": "unlock",
     "dev": {
+      "section": "lash",
       "type": "bool"
     }
   },
@@ -158,6 +171,7 @@
     "message": "Imprint. Left click puts a platform under the cursor.",
     "controls": ["imprint"],
     "dev": {
+      "section": "imprint",
       "type": "bool"
     }
   },
@@ -166,6 +180,7 @@
     "stat": "imprint_width",
     "kind": "max",
     "dev": {
+      "section": "imprint",
       "type": "int",
       "min": 1,
       "max": 2147483647,
@@ -178,6 +193,7 @@
     "stat": "imprint_duration",
     "kind": "max",
     "dev": {
+      "section": "imprint",
       "type": "float",
       "min": 0.01,
       "max": 1000000,
@@ -190,6 +206,7 @@
     "stat": "imprint_max_active",
     "kind": "max",
     "dev": {
+      "section": "imprint",
       "type": "int",
       "min": 1,
       "max": 2147483647,
@@ -202,6 +219,7 @@
     "stat": "imprint_cooldown",
     "kind": "min",
     "dev": {
+      "section": "imprint",
       "type": "float",
       "min": 0,
       "max": 1000000,
@@ -214,6 +232,7 @@
     "stat": "imprint_effects",
     "kind": "add",
     "dev": {
+      "section": "imprint",
       "type": "effects",
       "implemented": [],
       "planned": [
