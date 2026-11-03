@@ -6,9 +6,6 @@ extends Node2D
 ## bar. The room moves it each tick. Each block is drawn on a whole world pixel,
 ## like a moving platform.
 
-## How far each pixel of a block's edge a tooth stands out, across the cell.
-const TEETH: Array[int] = [1, 3, 5, 3, 1, 1, 3, 5, 3, 1]
-
 var path: SpinnerPath
 var _tick := 0
 var _current: Array[Vector2] = []
@@ -58,27 +55,18 @@ func _draw() -> void:
 			draw_rect(Rect2(at, Vector2(Grid.CELL, Grid.CELL)), Color.WHITE, true)
 
 
-## A block of spikes: a one-pixel base on the side that faces the bar and
-## teeth standing out of it, away from the bar. The way out is the block's row
-## side (down for the bottom row, up for the top) turned with the bar, taken as
-## the nearest of the four directions.
+## A block of spikes, drawn as the same teeth as a `^` cell, pointing away
+## from the bar. The way out is facing_at().
 func _teeth(at: Vector2, offset: Vector2) -> void:
+	PixelArt.draw(self, PixelArt.spikes_name(facing_at(_tick, offset)), at)
+
+
+## The way a spiked block's teeth point at `tick`: away from the bar, which is
+## down for the bottom row and up for the top, turned with the bar and taken as
+## the nearest of the four directions.
+func facing_at(tick: int, offset: Vector2) -> Vector2i:
 	var out := Vector2(0, 1) if offset.y > 0.0 else Vector2(0, -1)
-	out = out.rotated(path.angle_at(_tick))
-	var dir := Vector2i(signi(roundi(out.x)), signi(roundi(out.y)))
+	out = out.rotated(path.angle_at(tick))
 	if absf(out.x) >= absf(out.y):
-		dir = Vector2i(1 if out.x > 0.0 else -1, 0)
-	else:
-		dir = Vector2i(0, 1 if out.y > 0.0 else -1)
-	for i in Grid.CELL:
-		var height: int = TEETH[i]
-		if dir.x == 0:
-			var y0 := at.y + (float(Grid.CELL - 1 - height) if dir.y > 0 else 0.0)
-			draw_rect(Rect2(Vector2(at.x + float(i), y0), Vector2(1, height + 1)), Color.WHITE)
-			var base_y := at.y if dir.y > 0 else at.y + float(Grid.CELL - 1)
-			draw_rect(Rect2(Vector2(at.x + float(i), base_y), Vector2.ONE), Color.WHITE)
-		else:
-			var x0 := at.x + (float(Grid.CELL - 1 - height) if dir.x > 0 else 0.0)
-			draw_rect(Rect2(Vector2(x0, at.y + float(i)), Vector2(height + 1, 1)), Color.WHITE)
-			var base_x := at.x if dir.x > 0 else at.x + float(Grid.CELL - 1)
-			draw_rect(Rect2(Vector2(base_x, at.y + float(i)), Vector2.ONE), Color.WHITE)
+		return Vector2i.RIGHT if out.x > 0.0 else Vector2i.LEFT
+	return Vector2i.DOWN if out.y > 0.0 else Vector2i.UP
