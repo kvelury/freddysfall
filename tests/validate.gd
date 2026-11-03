@@ -9,7 +9,10 @@ extends SceneTree
 ##
 ## `--dump=<path>` also writes everything the solver worked out, sorted, for
 ## tools/solver_diff.sh. `--strict-ledges` makes a ledge nobody reaches an
-## error, as CI runs it.
+## error, as CI runs it. `--cache-dir=<path>` chooses the cache folder.
+## `--warm=<id,id>` works out those rooms' jumps (and each set of their walls
+## broken) into the cache and exits, so tools/validate.sh --jobs can share it
+## across processes.
 
 ## How many room keys the timing table lists, slowest first.
 const SLOWEST_SHOWN := 10
@@ -31,10 +34,21 @@ func _initialize() -> void:
 	var started := Time.get_ticks_msec()
 	var cfg := load("res://src/player/movement.tres") as MovementConfig
 	var graph := ReachGraph.new(data.rooms, cfg)
+	var cache_dir := _flag_value("--cache-dir")
+	if cache_dir.is_empty():
+		cache_dir = "res://build/solver-cache"
 	var cache: SolverCache = null
 	if not _has_flag("--no-cache"):
-		cache = SolverCache.new("res://build/solver-cache")
+		cache = SolverCache.new(cache_dir)
 		graph.cache = cache
+	var warm_ids := _flag_value("--warm")
+	if not warm_ids.is_empty():
+		for id in warm_ids.split(",", false):
+			graph.warm(id)
+		var files := cache.save() if cache != null else 0
+		print("warm %s %.1f s (%d files)" % [warm_ids, float(Time.get_ticks_msec() - started) / 1000.0, files])
+		quit(0)
+		return
 	var report := graph.solve(data.start_room)
 	var written := cache.save() if cache != null else 0
 	if _has_flag("--strict-ledges"):
@@ -83,6 +97,15 @@ func _initialize() -> void:
 		for i in mini(slowest.size(), SLOWEST_SHOWN):
 			var row: Dictionary = slowest[i]
 			print("  %-28s %8.1f s  %7d plans  %7d run once for every moment  %3d phases" % [row["key"], row["ms"] / 1000.0, row["plans"], row.get("reused", 0), row["phases"]])
+	var totals := {}
+	for row in slowest:
+		var base := String(row["key"]).split("~", true, 1)[0].split(" ", true, 1)[0]
+		totals[base] = float(totals.get(base, 0.0)) + float(row["ms"])
+	if not totals.is_empty() and DirAccess.dir_exists_absolute(ProjectSettings.globalize_path("res://build")):
+		var times := FileAccess.open("res://build/room-times.json", FileAccess.WRITE)
+		if times != null:
+			times.store_string(JSON.stringify(totals))
+			times.close()
 	if cache != null:
 		print("cache: %d rooms' ledges from it and %d worked out, %d legs from it and %d worked out, %d files written" % [cache.stats["edge_rooms_cached"], cache.stats["edge_rooms_solved"], cache.stats["legs_cached"], cache.stats["legs_solved"], written])
 	else:

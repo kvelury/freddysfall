@@ -79,7 +79,7 @@ if [ "${1:-}" = "--tests-only" ]; then
 fi
 
 echo "==> validate (no cache, every ledge reachable)"
-./tools/validate.sh --no-cache --strict-ledges
+./tools/validate.sh --jobs "$(nproc 2>/dev/null || echo 2)" --fresh --strict-ledges
 
 echo "==> web export"
 ./tools/build_web.sh
