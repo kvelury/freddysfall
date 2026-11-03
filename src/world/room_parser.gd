@@ -575,6 +575,10 @@ static func _read_legend_line(line: String, room_id: String, number: int, errors
 			def.props[pair[0]] = pair[1]
 	for message in Entities.problems(def):
 		errors.append("%s: %s" % [where, message])
+	# A kind that is not registered has nothing to ask, so it goes no further
+	# than its error: everything after the legend can rely on Entities.kind.
+	if not Entities.is_known(def.type):
+		return null
 	return def
 
 

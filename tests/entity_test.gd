@@ -83,7 +83,16 @@ func _legend_lines() -> bool:
 		RoomParser.parse_room("7", Vector2i.ZERO, _room(["legend:", case[1]], {Vector2i(5, 3): "U"}), errors)
 		ok = check(_has(errors, case[2]) and _has(errors, "line 2"), "%s is an error that says '%s' and the line (%s)" % [case[0], case[2], errors]) and ok
 
+	# An unknown kind drawn more than once, or in a save room, is still only an
+	# error in words: nothing later asks Entities.kind about it.
 	var errors: Array[String] = []
+	RoomParser.parse_room("7", Vector2i.ZERO, _room(["legend:", "  U = banana id=a"], {Vector2i(5, 3): "U", Vector2i(9, 3): "U"}), errors)
+	ok = check(_has(errors, "banana"), "an unknown kind drawn twice is an error, not a crash (%s)" % [errors]) and ok
+	errors.clear()
+	RoomParser.parse_room("s9", Vector2i.ZERO, _room(["legend:", "  S = save id=s9_save", "  U = banana id=a"], {Vector2i(5, 16): "S", Vector2i(9, 3): "U"}), errors)
+	ok = check(_has(errors, "banana"), "an unknown kind in a save room is an error, not a crash (%s)" % [errors]) and ok
+
+	errors.clear()
 	RoomParser.parse_room("7", Vector2i.ZERO, _room(["legend:", LEGEND_LINE, "  U = pickup id=b upgrade=imprint_width value=3"], {Vector2i(5, 3): "U"}), errors)
 	ok = check(_has(errors, "defined twice"), "the same glyph twice in a legend is an error (%s)" % [errors]) and ok
 
