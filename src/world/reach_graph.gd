@@ -310,26 +310,22 @@ func _needs(start_room: String, base: Abilities, taken: Dictionary, round: int, 
 ## `base` with what the things named in `ids` give: a pickup's upgrade, and
 ## the upgrade of each 3TM that the tokens among them can pay for.
 func _with(base: Abilities, ids: Array) -> Abilities:
-	var out := base.copy()
-	var tokens := 0
-	var machines: Array[String] = []
+	var ledger := {"abilities": base.copy(), "tokens": 0, "machines": []}
 	for id in ids:
 		var def: EntityDef = _things.get(id)
 		if def == null:
 			continue
-		match def.type:
-			"pickup":
-				out.apply(Upgrades.get_def(String(def.props["upgrade"])), Upgrades.parse_value(String(def.props["upgrade"]), String(def.props.get("value", ""))))
-			"token":
-				tokens += 1
-			"machine":
-				machines.append(String(id))
-	machines.sort()
-	for id in machines:
+		var made := Entities.kind(def.type)
+		if made != null:
+			made.solver_effect(def, ledger)
+	var machines: Array = ledger["machines"]
+	machines.sort_custom(func(a: EntityDef, b: EntityDef) -> bool: return a.id < b.id)
+	var tokens := int(ledger["tokens"])
+	var out: Abilities = ledger["abilities"]
+	for def in machines:
 		if tokens < MACHINE_COST:
 			break
 		tokens -= MACHINE_COST
-		var def: EntityDef = _things[id]
 		if def.props.has("prize"):
 			continue
 		out.apply(Upgrades.get_def(String(def.props["upgrade"])), Upgrades.parse_value(String(def.props["upgrade"]), String(def.props.get("value", ""))))
@@ -951,13 +947,8 @@ func geometry_of(info: RoomInfo) -> Geometry:
 		for cell in info.hazards:
 			geo.hazards.append(Grid.cell_rect(Rect2i(cell, Vector2i.ONE)))
 		for def in _things_of(info):
-			if def.type == "machine":
-				geo.things.append(TokenMachine.touch_rect_for(def.cell))
-			elif def.type == "save":
-				geo.things.append(SaveMachine.touch_rect_for(def.cell))
-			else:
-				var centre := Grid.cell_center(def.cell)
-				geo.things.append(Rect2(centre - Vector2(Pickup.HALF, Pickup.HALF), Vector2(Pickup.HALF, Pickup.HALF) * 2.0))
+			var made := Entities.kind(def.type)
+			geo.things.append(made.touch_rect(def) if made != null else Rect2())
 		geo.movers = Movers.new(info.movers)
 		for mover in info.movers:
 			geo.keep_outs.append(mover.keep_out())
