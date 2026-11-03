@@ -220,8 +220,9 @@ func _lands_on(info: RoomInfo, geo: ReachGraph.Geometry, ledge: ReachGraph.Ledge
 
 ## Where `arc`, run among `rects`, comes down on `last`, or NaN if it does not.
 func _landing(geo: ReachGraph.Geometry, arc: Arc, rects: Array[Rect2], last: Rect2, limit: int) -> Vector2:
-	var movers: Movers = geo.movers if arc.tick >= 0 else null
-	var result := MovementSim.simulate_jump(_graph.movement(), rects, arc.start, Vector2(arc.speed, 0.0), arc.input, arc.hold, true, arc.jump, geo.triggers, geo.bounds, geo.hazards, [], NAN, 0, limit, false, movers, maxi(arc.tick, 0), arc.riding)
+	var plan := _plan_of(geo, rects, arc, arc.speed, arc.input, arc.hold, arc.jump, arc.tick)
+	plan.limit = limit
+	var result := MovementSim.run(_graph.movement(), plan)
 	if result["hazard"] or int(result["trigger"]) >= 0 or not result["landed"] or int(result["riding"]) >= 0:
 		return Vector2(NAN, NAN)
 	var at: Vector2 = result["position"]
@@ -371,10 +372,26 @@ func _arc(near: Array[Rect2], geo: ReachGraph.Geometry, ledge: ReachGraph.Ledge,
 	arc.jump = jump
 	arc.tick = tick
 	arc.riding = geo.movers.first_body(ledge.path) if tick >= 0 else -1
-	var movers: Movers = geo.movers if tick >= 0 else null
-	var result := MovementSim.simulate_jump(_graph.movement(), near, arc.start, Vector2(speed, 0.0), input, hold, true, jump, geo.triggers, geo.bounds, geo.hazards, [], NAN, 0, 180, true, movers, maxi(tick, 0), arc.riding)
+	var plan := _plan_of(geo, near, arc, speed, input, hold, jump, tick)
+	plan.record = true
+	var result := MovementSim.run(_graph.movement(), plan)
 	arc.path = result["path"]
 	return arc
+
+
+## The plan for `arc` among `rects`: with the room's moving platforms at its
+## moment, if it has one.
+func _plan_of(geo: ReachGraph.Geometry, rects: Array[Rect2], arc: Arc, speed: float, input: float, hold: int, jump: bool, tick: int) -> JumpPlan:
+	var plan := JumpPlan.new(rects, arc.start, Vector2(speed, 0.0), input, hold)
+	plan.jump = jump
+	plan.triggers = geo.triggers
+	plan.bounds = geo.bounds
+	plan.hazards = geo.hazards
+	if tick >= 0:
+		plan.movers = geo.movers
+		plan.start_tick = tick
+		plan.start_riding = arc.riding
+	return plan
 
 
 ## A jump from a ledge: how it was made and the position of the body each tick.

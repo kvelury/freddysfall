@@ -25,6 +25,7 @@ const SOLVER_FILES: Array[String] = [
 	"res://src/world/imprint_search.gd",
 	"res://src/imprint/imprint_rules.gd",
 	"res://src/player/movement_sim.gd",
+	"res://src/player/jump_plan.gd",
 	"res://src/player/movement_config.gd",
 	"res://src/player/movement.tres",
 	"res://src/world/door.gd",

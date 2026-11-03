@@ -546,7 +546,12 @@ func _rise_cells(air: int) -> int:
 	if _rise.has(air):
 		return _rise[air]
 	var floor_rects: Array = [Rect2(-1000.0, 100.0, 3000.0, 50.0)]
-	var result := MovementSim.simulate_jump(_cfg, floor_rects, Vector2(0.0, 95.0), Vector2.ZERO, 0.0, 90, true, true, [], Rect2(), [], [], NAN, 0, 180, false, null, 0, -1, air, 22 if air > 0 else -1, 90)
+	var plan := JumpPlan.new(floor_rects, Vector2(0.0, 95.0), Vector2.ZERO, 0.0, 90)
+	if air > 0:
+		plan.air_jumps = air
+		plan.air_frame = 22
+		plan.air_hold = 90
+	var result := MovementSim.run(_cfg, plan)
 	_rise[air] = floori((100.0 - float(result["min_feet"])) / float(Grid.CELL))
 	return _rise[air]
 
@@ -911,7 +916,14 @@ func _land(dest: RoomInfo, pos: Vector2, vel: Vector2, skip_door: int, depth: in
 	if skip_door >= 0:
 		triggers[skip_door] = Rect2(-1.0e6, -1.0e6, 0.0, 0.0)
 	for input in [-1.0, 0.0, 1.0]:
-		var result := MovementSim.simulate_jump(_cfg, near, pos, vel, input, 0, standing, false, triggers, geo.bounds, geo.hazards, [], NAN, 0, FALL_LIMIT)
+		var plan := JumpPlan.new(near, pos, vel, input, 0)
+		plan.grounded_start = standing
+		plan.jump = false
+		plan.triggers = triggers
+		plan.bounds = geo.bounds
+		plan.hazards = geo.hazards
+		plan.limit = FALL_LIMIT
+		var result := MovementSim.run(_cfg, plan)
 		if result["hazard"]:
 			continue
 		var door := int(result["trigger"])
@@ -1231,8 +1243,18 @@ func _off_plans(info: RoomInfo, geo: Geometry, ledge: Ledge, near: Array[Rect2],
 func try_plan(info: RoomInfo, geo: Geometry, ledge: Ledge, near: Array[Rect2], x: float, speed: float, input: float, hold: int, jump: bool, limit := -1, tick := -1, top := NAN, riding := -1, air_frame := -1, air_hold := 0) -> void:
 	_room_plans[_plan_key] = int(_room_plans.get(_plan_key, 0)) + 1
 	var start := Vector2(x, (ledge.top if is_nan(top) else top) - float(Grid.CELL) * 0.5)
-	var ticks_allowed := frame_limit if limit < 0 else limit
-	var air_jumps := 1 if air_frame >= 0 else 0
+	var plan := JumpPlan.new(near, start, Vector2(speed, 0.0), input, hold)
+	plan.jump = jump
+	plan.triggers = geo.triggers
+	plan.bounds = geo.bounds
+	plan.hazards = geo.hazards
+	plan.collect = geo.things
+	plan.limit = frame_limit if limit < 0 else limit
+	if air_frame >= 0:
+		plan.air_jumps = 1
+		plan.air_frame = air_frame
+		plan.air_hold = air_hold
+	var ticks_allowed := plan.limit
 	var result: Dictionary
 	var record_key := ""
 	if _recording != null or _reusing != null:
@@ -1246,7 +1268,7 @@ func try_plan(info: RoomInfo, geo: Geometry, ledge: Ledge, near: Array[Rect2], x
 		var key := "%d|%s|%s|%s|%d|%s|%d|%s|%d|%d" % [ledge.get_instance_id(), x, speed, input, hold, jump, ticks_allowed, top, air_frame, air_hold]
 		var free: Variant = _free_runs.get(key)
 		if free == null:
-			free = MovementSim.simulate_jump(_cfg, near, start, Vector2(speed, 0.0), input, hold, true, jump, geo.triggers, geo.bounds, geo.hazards, geo.things, NAN, 0, ticks_allowed, false, null, 0, -1, air_jumps, air_frame, air_hold)
+			free = MovementSim.run(_cfg, plan)
 			if _meets_movers(geo, free["bounds"]):
 				free = false
 			_free_runs[key] = free
@@ -1254,8 +1276,11 @@ func try_plan(info: RoomInfo, geo: Geometry, ledge: Ledge, near: Array[Rect2], x
 			_room_reused[_plan_key] = int(_room_reused.get(_plan_key, 0)) + 1
 			result = free
 	if result.is_empty():
-		var movers: Movers = geo.movers if tick >= 0 else null
-		result = MovementSim.simulate_jump(_cfg, near, start, Vector2(speed, 0.0), input, hold, true, jump, geo.triggers, geo.bounds, geo.hazards, geo.things, NAN, 0, ticks_allowed, false, movers, maxi(tick, 0), riding, air_jumps, air_frame, air_hold)
+		if tick >= 0:
+			plan.movers = geo.movers
+			plan.start_tick = tick
+			plan.start_riding = riding
+		result = MovementSim.run(_cfg, plan)
 	if _recording != null:
 		_recording[record_key] = {"collected": result["collected"], "hazard": result["hazard"], "trigger": result["trigger"], "position": result["position"], "velocity": result["velocity"], "landed": result["landed"], "riding": result["riding"], "bounds": result["bounds"]}
 	var air := air_frame >= 0
