@@ -150,6 +150,8 @@ func door_world_rects() -> Array[Rect2]:
 ## is touching. A token or 3TM the body has left forgets that it already told
 ## the player something.
 func touched_things(body: Rect2) -> Array[Node2D]:
+	if _things.is_empty():
+		return []
 	var out: Array[Node2D] = []
 	for thing in _things:
 		if not is_instance_valid(thing) or thing.is_queued_for_deletion():
@@ -176,10 +178,15 @@ func touches_hazard(body: Rect2) -> bool:
 	return false
 
 
+## How far past the room's outline, in pixels, a body may go before it has
+## fallen out of the world. The solver stops a path at the same distance.
+const OUTSIDE_MARGIN := 60.0
+
+
 ## Whether a body that has left the room's outline by more than a screen's
 ## edge margin has fallen out of the world.
 func is_outside(world_point: Vector2) -> bool:
-	return not Rect2(position, info.pixel_size).grow(60.0).has_point(world_point)
+	return not Rect2(position, info.pixel_size).grow(OUTSIDE_MARGIN).has_point(world_point)
 
 
 ## Whether a body resting at `body` is somewhere to come back to after dying:
@@ -202,13 +209,20 @@ func is_safe_spot(body: Rect2) -> bool:
 	return true
 
 
+var _world_rects_cache: Array[Rect2] = []
+var _world_rects_dirty := true
+
+
 ## The room's solids as pixel rects in world space, for the player to collide
-## with. While the doors are blocked the blocks are solid too.
+## with. While the doors are blocked the blocks are solid too. The array is
+## cached: do not add to it or change it.
 func world_rects() -> Array[Rect2]:
-	var out := _solid_rects()
-	for block in _blocks:
-		out.append(Rect2(block.position + position, block.size))
-	return out
+	if _world_rects_dirty:
+		_world_rects_cache = _solid_rects()
+		for block in _blocks:
+			_world_rects_cache.append(Rect2(block.position + position, block.size))
+		_world_rects_dirty = false
+	return _world_rects_cache
 
 
 ## Opens the doors if the exit rule is now met: the blocks shatter and the
@@ -232,6 +246,7 @@ func _refresh_doors(want_locked: bool) -> void:
 	if locked == want_locked:
 		return
 	locked = want_locked
+	_world_rects_dirty = true
 	for block in _blocks:
 		if not want_locked:
 			var burst := Shatter.new()
@@ -267,6 +282,7 @@ func hit_wall(wall: BreakableWall, strength: int) -> bool:
 	_walls.erase(wall)
 	info.broken.append(wall.def.id)
 	_floor_rects = _solid_rects()
+	_world_rects_dirty = true
 	wall_broken.emit()
 	return true
 

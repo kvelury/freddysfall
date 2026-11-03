@@ -141,7 +141,8 @@ func _physics_process(delta: float) -> void:
 
 func _process(_delta: float) -> void:
 	_set_cursor_hidden(is_active() and not scripted)
-	queue_redraw()
+	if is_active() or not platforms.is_empty():
+		queue_redraw()
 
 
 func _input(event: InputEvent) -> void:
@@ -186,7 +187,8 @@ func _update_reachability() -> void:
 	var cell := _preview_cell
 	var rect := Grid.cell_rect(Rect2i(cell, Vector2i(width, 1)))
 	rect.position += room.position
-	var rects := room.world_rects()
+	var rects: Array[Rect2] = []
+	rects.assign(room.world_rects())
 	rects.append_array(room.mover_rects())
 	for platform in platforms:
 		rects.append(platform.rect)
@@ -215,7 +217,8 @@ func _blocks_standing() -> int:
 
 ## Rebuilds the player's collision list from the room and the platforms.
 func sync_solids() -> void:
-	var rects: Array[Rect2] = _world.current.world_rects()
+	var rects: Array[Rect2] = []
+	rects.assign(_world.current.world_rects())
 	for platform in platforms:
 		rects.append(platform.rect)
 	_player.solids = rects

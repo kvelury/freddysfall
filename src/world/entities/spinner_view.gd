@@ -32,9 +32,6 @@ func move_to(tick: int) -> void:
 	queue_redraw()
 
 
-func _process(_delta: float) -> void:
-	queue_redraw()
-
 
 func shown_at(body: int, fraction: float) -> Vector2:
 	return Display.snap(_previous[body].lerp(_current[body], fraction))

@@ -132,18 +132,18 @@ func _run() -> void:
 	await process_frame
 	_stand(world, player, Vector2i(24, 34))
 	tongue.cooldown_left = 0.0
-	world._busy = true
+	world._set_mode(2)
 	ok = check(not tongue.lash(), "no lash while the world is busy") and ok
-	world._busy = false
+	world._set_mode(0)
 	world.modal_owner = "test"
 	ok = check(not tongue.lash(), "or while a panel has the input") and ok
 	world.modal_owner = ""
 	ok = check(tongue.lash(), "and it lashes again once they are over") and ok
-	world._busy = true
+	world._set_mode(2)
 	await physics_frame
 	await physics_frame
 	ok = check(not tongue.active, "a tongue out when the world goes busy is pulled in") and ok
-	world._busy = false
+	world._set_mode(0)
 
 	# The snap back: the tongue goes out at tongue_speed and comes back faster,
 	# speeding up, and a faster tongue snaps back faster too.

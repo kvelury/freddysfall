@@ -152,7 +152,8 @@ func _physics_process(delta: float) -> void:
 
 
 func _process(_delta: float) -> void:
-	queue_redraw()
+	if active:
+		queue_redraw()
 
 
 func _draw() -> void:
@@ -248,6 +249,8 @@ func _hit() -> bool:
 	for rect in room.mover_rects():
 		extra.append(Rect2(rect.position - origin, rect.size))
 	var local := Rect2(box.position - origin, box.size)
+	# The room has already moved its platforms to this tick, which is where the
+	# player finished the step, so the tongue tests the same moment the body does.
 	var solid := bool(TongueReach.box_hit(room.info, local, extra)["solid"])
 	if solid:
 		_puff(at)

@@ -7,6 +7,7 @@ extends Node2D
 
 var def: EntityDef
 var _age := 0.0
+var _lift := 0.0
 
 
 func _init(entity: EntityDef = null) -> void:
@@ -33,12 +34,15 @@ func collect() -> void:
 
 func _process(delta: float) -> void:
 	_age += delta
-	queue_redraw()
+	var lift := roundf(sin(_age * 3.0) * 1.5)
+	if lift != _lift:
+		_lift = lift
+		queue_redraw()
 
 
 ## A solid gold diamond that bobs, so it reads apart from the hollow upgrade pickup.
 func _draw() -> void:
-	draw_token(self, Vector2(0.0, roundf(sin(_age * 3.0) * 1.5)))
+	draw_token(self, Vector2(0.0, _lift))
 
 
 ## The token shape, centred on `at`, drawn onto `canvas`. The 3TM and the

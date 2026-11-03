@@ -22,6 +22,7 @@ var filled := 0
 var _age := 0.0
 var _flash := 0.0
 var _dispensing := -1.0
+var _drawn := ""
 
 
 func _init(entity: EntityDef = null, slots_filled := 0) -> void:
@@ -84,7 +85,11 @@ func _process(delta: float) -> void:
 	_flash = maxf(0.0, _flash - delta)
 	if _dispensing >= 0.0:
 		_dispensing += delta
-	queue_redraw()
+	var lift := roundi(sin(_age * 3.0) * 1.5)
+	var mark := "%d|%s|%d" % [lift, _flash > 0.0, int(_dispensing / 0.05) if _dispensing >= 0.0 else -2]
+	if mark != _drawn:
+		_drawn = mark
+		queue_redraw()
 
 
 func _draw() -> void:

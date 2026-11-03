@@ -111,9 +111,9 @@ func _run() -> void:
 	session.mode = session.Mode.NORMAL
 	check(not session.set_slow_motion(_world, true).is_empty() and not session.slow_motion and Engine.time_scale == 1.0, "slow motion is refused outside a dev test")
 	session.mode = session.Mode.DEV_TEST
-	_world._busy = true
+	_world._set_mode(2)
 	check(not session.set_slow_motion(_world, true).is_empty() and not session.slow_motion, "and it waits for an animation to finish")
-	_world._busy = false
+	_world._set_mode(0)
 	check(session.set_slow_motion(_world, true).is_empty() and session.slow_motion and is_equal_approx(Engine.time_scale, 0.25) and session.status_line().contains("slow motion"), "slow motion runs the game at a quarter speed and the status line says so")
 	check(not _dict_has_key(state.to_dict(), "slow_motion") and not _dict_has_key(session.loadout, "slow_motion") and not _dict_has_key(session.baseline, "slow_motion"), "it is in no save, loadout or baseline")
 	check(session.set_slow_motion(_world, false).is_empty() and Engine.time_scale == 1.0 and not session.slow_motion, "and turns off again")

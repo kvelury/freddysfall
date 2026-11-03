@@ -45,9 +45,6 @@ func move_to(tick: int) -> void:
 	queue_redraw()
 
 
-func _process(_delta: float) -> void:
-	queue_redraw()
-
 
 ## Where platform `body` is drawn `fraction` of the way from the last tick to
 ## this one, on a whole world pixel.

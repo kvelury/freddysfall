@@ -962,7 +962,8 @@ func geometry_of(info: RoomInfo) -> Geometry:
 		for mover in info.movers:
 			geo.keep_outs.append(mover.keep_out())
 			geo.mover_space.append(_space_of(mover))
-		geo.bounds = Rect2(Vector2(-40.0, -120.0), info.pixel_size + Vector2(80.0, 160.0))
+		var margin := Room.OUTSIDE_MARGIN
+		geo.bounds = Rect2(Vector2.ONE * -margin, info.pixel_size + Vector2.ONE * margin * 2.0)
 		_geometry[info.id] = geo
 	return _geometry[info.id]
 

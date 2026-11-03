@@ -149,13 +149,13 @@ func _run() -> void:
 	session.wall_strength_override = 0
 	panel._wall.text = "3"
 	panel.close_panel()
-	world._busy = true
+	world._set_mode(2)
 	_press(panel, KEY_F2)
 	check(not panel.opened and panel._pending == 0, "panel defers opening during an animation")
 	_press(panel, KEY_F2)
 	check(panel._pending == -1, "second F2 cancels pending opening")
 	_press(panel, KEY_F2)
-	world._busy = false
+	world._set_mode(0)
 	await process_frame
 	await process_frame
 	check(panel.opened, "pending panel opens after the animation")
@@ -181,10 +181,10 @@ func _run() -> void:
 	_press(panel, KEY_F7)
 	check(not session.slow_motion, "while something else holds the input, it does nothing")
 	world.modal_owner = ""
-	world._busy = true
+	world._set_mode(2)
 	_press(panel, KEY_F7)
 	check(not session.slow_motion, "and during an animation")
-	world._busy = false
+	world._set_mode(0)
 	for mode in [session.Mode.NORMAL, session.Mode.ROOM_TEST]:
 		session.mode = mode
 		_press(panel, KEY_F7)

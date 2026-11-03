@@ -99,10 +99,10 @@ func _pause_menu() -> bool:
 	menu._list.get_child(0).pressed.emit()
 	ok = check(not menu.opened and not paused, "Resume resumes") and ok
 
-	world._busy = true
+	world._set_mode(2)
 	menu._unhandled_input(_key(KEY_ESCAPE))
 	ok = check(not menu.opened and menu._pending, "during an animation the press waits") and ok
-	world._busy = false
+	world._set_mode(0)
 	menu._process(0.0)
 	ok = check(menu.opened, "it opens once the animation is over") and ok
 	menu.close()
