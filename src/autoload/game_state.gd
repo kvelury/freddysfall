@@ -10,9 +10,9 @@ signal health_changed
 signal upgrade_granted(id: String)
 
 ## Most tokens the player can carry at once.
-const TOKEN_CAP := 3
+const TOKEN_CAP := Progression.TOKEN_CAP
 ## Hearts every player has from the start. Collected pips add to it.
-const BASE_HEALTH := 1
+const BASE_HEALTH := Progression.BASE_HEALTH
 
 var current_room_id := ""
 var visited := {}
@@ -69,9 +69,9 @@ func grant(id: String, text: String) -> String:
 	if abilities.apply(upgrade, value):
 		abilities_changed.emit()
 	upgrade_granted.emit(id)
-	if upgrade.has("message"):
-		return String(upgrade["message"])
-	return "%s +1" % String(upgrade["name"]).capitalize()
+	if upgrade.has_message:
+		return upgrade.message
+	return "%s +1" % upgrade.title.capitalize()
 
 
 func tokens_full() -> bool:
@@ -133,56 +133,61 @@ func spend_token() -> void:
 	tokens_changed.emit()
 
 
+## The saved shape. Where the player stands is added by Save, not here.
 func to_dict() -> Dictionary:
-	return {
-		"visited": visited.keys(),
-		"abilities": abilities.to_dict(),
-		"flags": flags.keys(),
-		"tokens": tokens,
-		"machines": machines.duplicate(),
-		"map_zoom": map_zoom,
-		"save_room": save_room,
-		"health_base": BASE_HEALTH,
-		"health": health,
-		"max_health": max_health,
-	}
+	return snapshot().to_dict()
+
+
+func snapshot() -> Progression:
+	var out := Progression.new()
+	out.visited = visited.duplicate()
+	out.abilities = abilities.copy()
+	out.flags = flags.duplicate()
+	out.tokens = tokens
+	out.machines = machines.duplicate()
+	out.map_zoom = map_zoom
+	out.save_room = save_room
+	out.health = health
+	out.max_health = max_health
+	return out
 
 
 ## Replaces the state with what to_dict wrote. Anything unreadable is left
 ## out, so a damaged save gives a smaller state and not a crash.
 func load_dict(data: Dictionary) -> void:
-	visited = {}
-	for id in data.get("visited", []):
-		visited[String(id)] = true
-	flags = {}
-	for key in data.get("flags", []):
-		flags[String(key)] = true
-	machines = {}
-	var held = data.get("machines", {})
-	if held is Dictionary:
-		for id in held:
-			machines[String(id)] = clampi(int(held[id]), 0, TokenMachine.COST)
-	tokens = clampi(int(data.get("tokens", 0)), 0, TOKEN_CAP)
-	map_zoom = MapView.clamp_level(int(data.get("map_zoom", MapView.MIDDLE)))
-	var saved_room = data.get("save_room", "")
-	save_room = String(saved_room) if saved_room is String else ""
-	health = maxi(0, int(data.get("health", 0)))
-	# A save from before the base heart counted pips only, so it gains the base
-	# heart. A save with the key already counts it. An empty dict is a new game.
-	var shift := 0 if data.has("health_base") or data.is_empty() else BASE_HEALTH
-	if data.is_empty():
-		health = BASE_HEALTH
-	health += shift
-	# A save from before the frame had a length: every heart held was collected.
-	max_health = maxi(health, int(data.get("max_health", 0)) + shift)
-	max_health = maxi(BASE_HEALTH, max_health)
-	health = mini(health, max_health)
+	restore(Progression.from_dict(data))
+
+
+func restore(progress: Progression) -> void:
+	visited = progress.visited.duplicate()
+	flags = progress.flags.duplicate()
+	machines = progress.machines.duplicate()
+	tokens = progress.tokens
+	map_zoom = progress.map_zoom
+	save_room = progress.save_room
+	health = progress.health
+	max_health = progress.max_health
+	abilities = progress.abilities.copy()
 	tokens_changed.emit()
 	health_changed.emit()
-	var saved = data.get("abilities", {})
-	abilities = Abilities.from_dict(saved if saved is Dictionary else {})
 	abilities_changed.emit()
 	visited_changed.emit()
+
+
+func set_flag(key: String) -> void:
+	flags[key] = true
+
+
+func set_machine_fill(id: String, filled: int) -> void:
+	machines[id] = filled
+
+
+func set_save_room(id: String) -> void:
+	save_room = id
+
+
+func set_map_zoom(level: int) -> void:
+	map_zoom = level
 
 
 func reset() -> void:

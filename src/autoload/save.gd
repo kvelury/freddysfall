@@ -30,18 +30,34 @@ func write(room_id: String, position: Vector2) -> bool:
 	data["version"] = VERSION
 	data["room"] = room_id
 	data["position"] = [position.x, position.y]
-	var file := FileAccess.open(path, FileAccess.WRITE)
+	# Written whole to a file beside it, then put in its place, so a tab
+	# closed or a crash mid-write leaves the last save as it was.
+	var temporary := _temporary()
+	var file := FileAccess.open(temporary, FileAccess.WRITE)
 	if file == null:
-		push_warning("Could not write %s (error %d)" % [path, FileAccess.get_open_error()])
+		push_warning("Could not write %s (error %d)" % [temporary, FileAccess.get_open_error()])
 		return false
 	file.store_string(JSON.stringify(data, "  "))
+	file.flush()
+	var result := file.get_error()
+	# On the web, closing a user:// file is what has it synced to IndexedDB.
+	file.close()
+	if result == OK:
+		result = DirAccess.rename_absolute(temporary, path)
+	if result != OK:
+		push_warning("Could not replace %s (error %d)" % [path, result])
+		DirAccess.remove_absolute(temporary)
+		return false
 	return true
 
 
 ## Whether there is a saved game to continue. A file that cannot be read
-## still counts: load_game sets it aside and the game starts fresh.
+## still counts: load_game sets it aside and the game starts fresh. This only
+## looks; load_game is what puts a finished write in place.
 func has_game() -> bool:
-	return enabled and not DevSession.isolated() and FileAccess.file_exists(path)
+	if not enabled or DevSession.isolated():
+		return false
+	return FileAccess.file_exists(path) or _whole(_temporary())
 
 
 ## Reads the save into GameState. Returns {"room": String, "position": Vector2}
@@ -49,7 +65,10 @@ func has_game() -> bool:
 ## A save for a room that no longer exists still restores abilities, flags and
 ## the map, but gives no room.
 func load_game() -> Dictionary:
-	if not enabled or DevSession.isolated() or not FileAccess.file_exists(path):
+	if not enabled or DevSession.isolated():
+		return {}
+	_recover()
+	if not FileAccess.file_exists(path):
 		return {}
 	var json := JSON.new()
 	var parsed := json.parse(FileAccess.get_file_as_string(path))
@@ -76,8 +95,46 @@ func load_game() -> Dictionary:
 ## Deletes the save. Like writing and reading, it does nothing when saving is
 ## off, so a test or a debugging start never touches a real file.
 func erase() -> void:
-	if enabled and not DevSession.isolated() and FileAccess.file_exists(path):
-		DirAccess.remove_absolute(path)
+	if not enabled or DevSession.isolated():
+		return
+	for file in [path, _temporary()]:
+		if FileAccess.file_exists(file):
+			DirAccess.remove_absolute(file)
+
+
+func _temporary() -> String:
+	return path + ".tmp"
+
+
+## A write is finished only once its file is renamed into place. A temporary
+## file with no save beside it that reads as a save was written whole and
+## stopped before the rename, so it becomes the save. One that does not (a
+## write cut off half way) is dropped, and so is one beside a save, which is
+## a write whose rename failed: the save is kept.
+func _recover() -> void:
+	var temporary := _temporary()
+	if not FileAccess.file_exists(temporary):
+		return
+	if FileAccess.file_exists(path):
+		push_warning("Dropping %s, a save that was never put in place; %s is kept." % [temporary, path])
+		DirAccess.remove_absolute(temporary)
+	elif not _whole(temporary):
+		push_warning("Dropping %s, a save cut off before it was finished." % temporary)
+		DirAccess.remove_absolute(temporary)
+	else:
+		var result := DirAccess.rename_absolute(temporary, path)
+		if result != OK:
+			push_warning("Could not put %s in place of %s (error %d)." % [temporary, path, result])
+
+
+## Whether `file` exists and holds a whole save: a JSON object with a version.
+func _whole(file: String) -> bool:
+	if not FileAccess.file_exists(file):
+		return false
+	var json := JSON.new()
+	if json.parse(FileAccess.get_file_as_string(file)) != OK:
+		return false
+	return json.data is Dictionary and json.data.get("version") is float
 
 
 ## Turns a file of an older VERSION into the current shape. Add a step here

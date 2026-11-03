@@ -1,7 +1,8 @@
 #!/bin/sh
 set -eu
 cd "$(dirname "$0")/.."
-godot --headless --path . --import
+# check.sh imports once and sets SKIP_IMPORT=1.
+[ "${SKIP_IMPORT:-}" = 1 ] || godot --headless --path . --import
 mkdir -p build/web
 godot --headless --path . --export-release "Web" "build/web/index.html"
 python3 - << 'PY'

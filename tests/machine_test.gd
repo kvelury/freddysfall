@@ -1,4 +1,4 @@
-extends SceneTree
+extends TestCase
 
 ## The 3TM in room 4: with no tokens it says how full it is, with some it takes
 ## them one at a time, remembers them, and on the third gives double jump, after
@@ -9,11 +9,7 @@ const TEMP := "user://machine_test.json"
 
 
 func _initialize() -> void:
-	# A script error inside a coroutine leaves the test waiting forever.
-	create_timer(90.0).timeout.connect(func() -> void:
-		print("FAIL timed out")
-		quit(1)
-	)
+	watchdog()
 	_run()
 
 
@@ -27,18 +23,18 @@ func _run() -> void:
 	state.reset()
 
 	var world: Node = await _world()
-	ok = _check(world.warp_to("4"), "warp to room 4, which has the 3TM") and ok
+	ok = check(world.warp_to("4"), "warp to room 4, which has the 3TM") and ok
 	var player: Player = world.get_node("Player")
 	player.scripted = true
 	var room: Room = world.current
 	var machine := _machine(room)
-	ok = _check(machine != null and machine.filled == 0 and not machine.spent, "room 4 shows an empty 3TM") and ok
-	ok = _check(machine.rect().size == Vector2(30, 30) and room.world_rects().size() == room.info.solids.size(), "it is a 3 x 3 cell thing and not solid") and ok
+	ok = check(machine != null and machine.filled == 0 and not machine.spent, "room 4 shows an empty 3TM") and ok
+	ok = check(machine.rect().size == Vector2(30, 30) and room.world_rects().size() == room.info.solids.size(), "it is a 3 x 3 cell thing and not solid") and ok
 
 	# With nothing to give, touching it does nothing, and says nothing.
 	await _touch(player, room)
 	var toast: Label = world.get_node("Toast").get_child(0)
-	ok = _check(not toast.visible and not world.is_busy() and machine.filled == 0, "touched with no tokens nothing happens and no line is shown") and ok
+	ok = check(not toast.visible and not world.is_busy() and machine.filled == 0, "touched with no tokens nothing happens and no line is shown") and ok
 
 	# Two tokens go in, one at a time, with something flying to each slot.
 	state.tokens = 2
@@ -54,9 +50,9 @@ func _run() -> void:
 				flew = maxi(flew, 1)
 		await physics_frame
 		frames += 1
-	ok = _check(froze and flew == 1, "the player is frozen and a token flies while the machine works") and ok
-	ok = _check(machine.filled == 2 and state.tokens == 0 and state.machines.get("r4_3tm") == 2, "two slots fill and two tokens are spent (%d filled, %d carried, %s)" % [machine.filled, state.tokens, state.machines]) and ok
-	ok = _check(state.abilities.air_jumps == 0 and player.input_enabled and not world.is_busy(), "two tokens give nothing yet, and the player is free") and ok
+	ok = check(froze and flew == 1, "the player is frozen and a token flies while the machine works") and ok
+	ok = check(machine.filled == 2 and state.tokens == 0 and state.machines.get("r4_3tm") == 2, "two slots fill and two tokens are spent (%d filled, %d carried, %s)" % [machine.filled, state.tokens, state.machines]) and ok
+	ok = check(state.abilities.air_jumps == 0 and player.input_enabled and not world.is_busy(), "two tokens give nothing yet, and the player is free") and ok
 
 	# The third token fills the last slot and the machine gives double jump.
 	state.tokens = 1
@@ -70,23 +66,23 @@ func _run() -> void:
 				sparked = true
 		await physics_frame
 		frames += 1
-	ok = _check(machine.spent and machine.filled == 3 and state.tokens == 0, "the third token fills it") and ok
-	ok = _check(state.abilities.air_jumps == 1 and not state.abilities.imprint_unlocked, "and gives double jump, not Imprint") and ok
-	ok = _check(sparked, "with a spark that comes back to the player") and ok
+	ok = check(machine.spent and machine.filled == 3 and state.tokens == 0, "the third token fills it") and ok
+	ok = check(state.abilities.air_jumps == 1 and not state.abilities.imprint_unlocked, "and gives double jump, not Imprint") and ok
+	ok = check(sparked, "with a spark that comes back to the player") and ok
 	# The world is free for a tick and then shows the popup for the power.
 	await physics_frame
 	await physics_frame
 	var popup = world.power_popup
-	ok = _check(popup.opened and "Double jump" in popup._name.text, "and a popup says what it was (%s)" % popup._name.text) and ok
+	ok = check(popup.opened and "Double jump" in popup._name.text, "and a popup says what it was (%s)" % popup._name.text) and ok
 	popup.dismiss()
-	ok = _check(player.input_enabled and not world.is_busy(), "the player is free again") and ok
-	ok = _check(FileAccess.file_exists(TEMP), "and the game saved") and ok
+	ok = check(player.input_enabled and not world.is_busy(), "the player is free again") and ok
+	ok = check(FileAccess.file_exists(TEMP), "and the game saved") and ok
 
 	# A spent machine does nothing, and does not take a token.
 	state.tokens = 1
 	state.tokens_changed.emit()
 	await _frames_idle(world, 40)
-	ok = _check(state.tokens == 1 and not world.is_busy(), "a spent 3TM leaves the token with the player") and ok
+	ok = check(state.tokens == 1 and not world.is_busy(), "a spent 3TM leaves the token with the player") and ok
 
 	# Resume from the save: the machine is spent and double jump is still there.
 	world.queue_free()
@@ -96,30 +92,30 @@ func _run() -> void:
 	# The resume point is inside the save machine, which lets the player out first.
 	while world.is_busy():
 		await physics_frame
-	ok = _check(state.abilities.air_jumps == 1 and state.machines.get("r4_3tm") == 3, "starting again keeps double jump and the machine's fill (%s)" % [state.machines]) and ok
+	ok = check(state.abilities.air_jumps == 1 and state.machines.get("r4_3tm") == 3, "starting again keeps double jump and the machine's fill (%s)" % [state.machines]) and ok
 	world.warp_to("4")
 	machine = _machine(world.current)
-	ok = _check(machine != null and machine.spent, "and room 4 builds the 3TM already spent") and ok
+	ok = check(machine != null and machine.spent, "and room 4 builds the 3TM already spent") and ok
 
 	# Room 9's 3TM gives Tongue Lash.
 	var second: EntityDef = null
 	for def in root.get_node("WorldData").get_room("9").entities:
 		if def.type == "machine":
 			second = def
-	ok = _check(second != null and second.props.get("upgrade") == "tongue_lash" and Entities.problems(second).is_empty(), "room 9's 3TM has upgrade=tongue_lash") and ok
-	ok = _check(not state.abilities.tongue_unlocked and "Tongue Lash" in state.machine_prize(second) and state.abilities.tongue_unlocked, "and gives Tongue Lash, with a line saying so") and ok
+	ok = check(second != null and second.props.get("upgrade") == "tongue_lash" and Entities.problems(second).is_empty(), "room 9's 3TM has upgrade=tongue_lash") and ok
+	ok = check(not state.abilities.tongue_unlocked and "Tongue Lash" in state.machine_prize(second) and state.abilities.tongue_unlocked, "and gives Tongue Lash, with a line saying so") and ok
 
 	# A `prize=health` machine gives a health pip and no ability.
 	var prize := EntityDef.new()
 	prize.type = "machine"
 	prize.id = "health_machine"
 	prize.props = {"prize": "health"}
-	ok = _check(Entities.problems(prize).is_empty(), "a 3TM with prize=health is valid") and ok
+	ok = check(Entities.problems(prize).is_empty(), "a 3TM with prize=health is valid") and ok
 	var health_before: int = state.health
 	var bar_before: int = state.max_health
 	var abilities_before: Dictionary = state.abilities.to_dict()
 	var line: String = state.machine_prize(prize)
-	ok = _check(state.health == health_before + 1 and state.max_health == bar_before + 1 and state.abilities.to_dict() == abilities_before and line.is_empty(), "it gives a health pip, a longer bar, no ability and no line (%s)" % line) and ok
+	ok = check(state.health == health_before + 1 and state.max_health == bar_before + 1 and state.abilities.to_dict() == abilities_before and line.is_empty(), "it gives a health pip, a longer bar, no ability and no line (%s)" % line) and ok
 	var both := EntityDef.new()
 	both.type = "machine"
 	both.id = "bad"
@@ -127,15 +123,14 @@ func _run() -> void:
 	var neither := EntityDef.new()
 	neither.type = "machine"
 	neither.id = "bad2"
-	ok = _check(not Entities.problems(both).is_empty() and not Entities.problems(neither).is_empty(), "a 3TM with both an upgrade and a prize, or neither, is a validation error") and ok
+	ok = check(not Entities.problems(both).is_empty() and not Entities.problems(neither).is_empty(), "a 3TM with both an upgrade and a prize, or neither, is a validation error") and ok
 
 	world.queue_free()
 	await process_frame
 	DirAccess.remove_absolute(TEMP)
 	save.enabled = false
 	state.reset()
-	print("MACHINE %s" % ("pass" if ok else "fail"))
-	quit(0 if ok else 1)
+	finish("MACHINE", ok)
 
 
 ## Walks the player in from the right until they touch the machine, then stops.
@@ -168,8 +163,3 @@ func _world() -> Node:
 	root.add_child(world)
 	await process_frame
 	return world
-
-
-func _check(cond: bool, label: String) -> bool:
-	print(("ok   " if cond else "FAIL ") + label)
-	return cond

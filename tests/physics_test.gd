@@ -1,4 +1,4 @@
-extends SceneTree
+extends TestCase
 
 ## Drives the real player through room s1, to confirm the player's own movement
 ## can make the running jumps the solver says the room asks for. It lands on
@@ -9,6 +9,7 @@ extends SceneTree
 ## end for the run-up the last jump needs.
 
 func _initialize() -> void:
+	watchdog()
 	var world := (load("res://src/world/world.tscn") as PackedScene).instantiate()
 	root.add_child(world)
 	var player: Player = world.get_node("Player")

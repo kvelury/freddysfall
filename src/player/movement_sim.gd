@@ -12,6 +12,9 @@ extends RefCounted
 ## velocity, unless the config says to add the platform's.
 
 const HALF := Vector2(Grid.CELL * 0.5, Grid.CELL * 0.5)
+## An empty list of rects, for a body with no moving platforms to test. Never
+## added to.
+const NO_RECTS: Array = []
 
 
 ## What a body carries from one tick to the next.
@@ -38,7 +41,6 @@ class State extends RefCounted:
 	## Set by step(): a moving platform pushed the body into something solid, or
 	## it touched a spiked body of a mover. Either way it dies, like spikes.
 	var crushed := false
-	var scratch := {}
 
 
 ## One physics tick: read input, apply forces, round corners, collide.
@@ -56,30 +58,16 @@ static func step(
 	tick := 0
 ) -> void:
 	var was_riding := s.riding
-	var solid := rects
+	# The platforms, where they will be after this tick, are tested after the
+	# room's own solids, as if appended to them.
+	var extra: Array = NO_RECTS
 	s.crushed = false
 	if movers != null and not movers.is_empty():
 		move_with(s, rects, movers, tick)
-		solid = rects.duplicate()
-		solid.append_array(movers.rects(tick + 1))
-	integrate(
-		cfg, s.velocity, s.grounded, s.coyote, s.buffer, s.launched, s.cut,
-		input_x, jump_pressed, jump_held, delta, s.scratch, s.air_jumps, s.air_left
-	)
-	s.velocity = s.scratch["velocity"]
-	s.coyote = s.scratch["coyote"]
-	s.buffer = s.scratch["buffer"]
-	s.launched = s.scratch["launched"]
-	s.cut = s.scratch["cut"]
-	s.jumped = s.scratch["jumped"]
-	s.air_jumped = s.scratch["air_jumped"]
-	s.air_left = s.scratch["air_left"]
-	s.position = corner_correct(cfg, s.position, s.velocity, s.grounded, solid, delta)
-	var resolved := resolve(s.position, s.velocity, solid, delta, HALF)
-	s.position = resolved["position"]
-	s.velocity = resolved["velocity"]
-	s.grounded = resolved["grounded"]
-	s.floor_rect = resolved["floor"]
+		extra = movers.rects(tick + 1)
+	_integrate(cfg, s, input_x, jump_pressed, jump_held, delta)
+	s.position = corner_correct(cfg, s.position, s.velocity, s.grounded, rects, delta, extra)
+	_resolve(s, rects, extra, delta)
 	s.riding = -1
 	if s.grounded:
 		s.launched = false
@@ -164,7 +152,8 @@ static func corner_correct(
 	velocity: Vector2,
 	grounded: bool,
 	rects: Array,
-	delta: float
+	delta: float,
+	extra: Array = NO_RECTS
 ) -> Vector2:
 	var max_px := int(round(cfg.corner_correction))
 	if max_px <= 0:
@@ -172,15 +161,15 @@ static func corner_correct(
 	var pos := position
 	if not grounded and absf(velocity.x) > 1.0 and velocity.y >= 0.0:
 		var horiz := Vector2(velocity.x * delta, 0.0)
-		if _blocked(pos, HALF, rects, horiz):
+		if _blocked(pos, HALF, rects, horiz, extra):
 			for n in max_px:
 				var lift := float(n + 1)
-				if not _blocked(pos + Vector2(0.0, -lift), HALF, rects, horiz):
+				if not _blocked(pos + Vector2(0.0, -lift), HALF, rects, horiz, extra):
 					pos.y -= lift
 					break
 	if velocity.y < 0.0:
 		var vert := Vector2(0.0, velocity.y * delta)
-		if _blocked(pos, HALF, rects, vert):
+		if _blocked(pos, HALF, rects, vert, extra):
 			var prefer := signf(velocity.x) if absf(velocity.x) > 1.0 else 1.0
 			var pushed := false
 			for dir in [prefer, -prefer]:
@@ -189,29 +178,24 @@ static func corner_correct(
 				var direction := float(dir)
 				for n in max_px:
 					var push := float(n + 1) * direction
-					if not _blocked(pos + Vector2(push, 0.0), HALF, rects, vert):
+					if not _blocked(pos + Vector2(push, 0.0), HALF, rects, vert, extra):
 						pos.x += push
 						pushed = true
 						break
 	return pos
 
 
-static func integrate(
-	cfg: MovementConfig,
-	velocity: Vector2,
-	grounded: bool,
-	coyote: float,
-	buffer: float,
-	launched: bool,
-	cut: bool,
-	input_x: float,
-	jump_pressed: bool,
-	jump_held: bool,
-	delta: float,
-	out: Dictionary,
-	air_jumps := 0,
-	air_left := 0
-) -> void:
+## Input, gravity and the jump rules for one tick, on the body's velocity and
+## timers in `s` (not its position).
+static func _integrate(cfg: MovementConfig, s: State, input_x: float, jump_pressed: bool, jump_held: bool, delta: float) -> void:
+	var velocity := s.velocity
+	var grounded := s.grounded
+	var coyote := s.coyote
+	var buffer := s.buffer
+	var launched := s.launched
+	var cut := s.cut
+	var air_jumps := s.air_jumps
+	var air_left := s.air_left
 	var target := 0.0
 	var accel := cfg.ground_friction if grounded else cfg.air_friction
 	if absf(input_x) > 0.01:
@@ -267,47 +251,87 @@ static func integrate(
 			launched = false
 			cut = false
 
-	out["velocity"] = velocity
-	out["coyote"] = coyote
-	out["buffer"] = buffer
-	out["launched"] = launched
-	out["cut"] = cut
-	out["jumped"] = jumped
-	out["air_jumped"] = air_jumped
-	out["air_left"] = air_left
+	s.velocity = velocity
+	s.coyote = coyote
+	s.buffer = buffer
+	s.launched = launched
+	s.cut = cut
+	s.jumped = jumped
+	s.air_jumped = air_jumped
+	s.air_left = air_left
 
 
-static func resolve(position: Vector2, velocity: Vector2, rects: Array, delta: float, half: Vector2) -> Dictionary:
-	var pos := position
-	var vel := velocity
+## Moves the body in `s` by its velocity for `delta`, along x and then y, and
+## stops it at the first of `rects` and then `extra` it would overlap: the
+## last overlapping block on each axis decides. Sets its position, velocity,
+## `grounded` and `floor_rect`.
+static func _resolve(s: State, rects: Array, extra: Array, delta: float) -> void:
+	var pos := s.position
+	var vel := s.velocity
 	pos.x += vel.x * delta
 	for rect in rects:
 		var block: Rect2 = rect
-		if _overlaps(pos, half, block):
-			if vel.x > 0.0:
-				pos.x = block.position.x - half.x
-			elif vel.x < 0.0:
-				pos.x = block.end.x + half.x
+		if _overlaps(pos, HALF, block):
+			pos.x = _stop_x(pos.x, vel.x, block)
+			vel.x = 0.0
+	for rect in extra:
+		var block: Rect2 = rect
+		if _overlaps(pos, HALF, block):
+			pos.x = _stop_x(pos.x, vel.x, block)
 			vel.x = 0.0
 	pos.y += vel.y * delta
-	var grounded := false
-	var floor := Rect2()
+	s.grounded = false
+	s.floor_rect = Rect2()
 	for rect in rects:
 		var block: Rect2 = rect
-		if _overlaps(pos, half, block):
+		if _overlaps(pos, HALF, block):
 			if vel.y >= 0.0:
-				pos.y = block.position.y - half.y
-				vel.y = 0.0
-				grounded = true
-				floor = block
-			else:
-				pos.y = block.end.y + half.y
-				vel.y = 0.0
+				s.grounded = true
+				s.floor_rect = block
+			pos.y = _stop_y(vel.y, block)
+			vel.y = 0.0
+	for rect in extra:
+		var block: Rect2 = rect
+		if _overlaps(pos, HALF, block):
+			if vel.y >= 0.0:
+				s.grounded = true
+				s.floor_rect = block
+			pos.y = _stop_y(vel.y, block)
+			vel.y = 0.0
+	s.position = pos
+	s.velocity = vel
+
+
+## Where a body moving at `vx` that overlaps `block` stops along x.
+static func _stop_x(x: float, vx: float, block: Rect2) -> float:
+	if vx > 0.0:
+		return block.position.x - HALF.x
+	if vx < 0.0:
+		return block.end.x + HALF.x
+	return x
+
+
+## Where a body moving at `vy` that overlaps `block` stops along y: on top of
+## it when falling or still, under it when rising.
+static func _stop_y(vy: float, block: Rect2) -> float:
+	if vy >= 0.0:
+		return block.position.y - HALF.y
+	return block.end.y + HALF.y
+
+
+## `_resolve` for a body of half-size HALF that is not in a State, as
+## {"position", "velocity", "grounded", "floor"}.
+static func resolve(position: Vector2, velocity: Vector2, rects: Array, delta: float, half: Vector2 = HALF) -> Dictionary:
+	assert(half == HALF, "MovementSim moves bodies of half-size HALF only")
+	var s := State.new()
+	s.position = position
+	s.velocity = velocity
+	_resolve(s, rects, NO_RECTS, delta)
 	return {
-		"position": pos,
-		"velocity": vel,
-		"grounded": grounded,
-		"floor": floor,
+		"position": s.position,
+		"velocity": s.velocity,
+		"grounded": s.grounded,
+		"floor": s.floor_rect,
 	}
 
 
@@ -319,7 +343,10 @@ static func resolve(position: Vector2, velocity: Vector2, rects: Array, delta: f
 ## means no limit. `movers` are the room's moving platforms, at `start_tick` on
 ## the first frame. `start_riding` is the one the body starts standing on, or
 ## -1. The result's "riding" is the one it landed on, or -1, and a body that
-## is crushed counts as a hazard.
+## is crushed counts as a hazard. "bounds" is the box the body's centre stayed
+## in, from the start to where it stopped: grown by the body and what a tick
+## can move or probe (see ReachGraph.reuse_margin), it is everything the path
+## could have touched.
 static func simulate_jump(
 	cfg: MovementConfig,
 	rects: Array,
@@ -344,16 +371,40 @@ static func simulate_jump(
 	air_frame := -1,
 	air_hold := 0
 ) -> Dictionary:
+	var plan := JumpPlan.new(rects, start_position, start_velocity, input_x, hold_frames)
+	plan.grounded_start = grounded_start
+	plan.jump = jump
+	plan.triggers = triggers
+	plan.bounds = bounds
+	plan.hazards = hazards
+	plan.collect = collect
+	plan.later_input = later_input
+	plan.switch_frame = switch_frame
+	plan.limit = limit
+	plan.record = record
+	plan.movers = movers
+	plan.start_tick = start_tick
+	plan.start_riding = start_riding
+	plan.air_jumps = air_jumps
+	plan.air_frame = air_frame
+	plan.air_hold = air_hold
+	return run(cfg, plan)
+
+
+## `simulate_jump` with the plan's settings named (see JumpPlan).
+static func run(cfg: MovementConfig, plan: JumpPlan) -> Dictionary:
 	var s := State.new()
-	s.air_jumps = air_jumps
-	s.air_left = air_jumps
-	s.position = start_position
-	s.velocity = start_velocity
-	s.grounded = grounded_start
-	s.riding = start_riding
-	s.coyote = cfg.coyote_time if grounded_start else 0.0
+	s.air_jumps = plan.air_jumps
+	s.air_left = plan.air_jumps
+	s.position = plan.start_position
+	s.velocity = plan.start_velocity
+	s.grounded = plan.grounded_start
+	s.riding = plan.start_riding
+	s.coyote = cfg.coyote_time if plan.grounded_start else 0.0
 	var delta := 1.0 / 60.0
 	var min_feet := s.position.y + HALF.y
+	var low := s.position
+	var high := s.position
 	var landed := false
 	var airborne := false
 	var trigger := -1
@@ -361,31 +412,36 @@ static func simulate_jump(
 	var floor_rect := Rect2()
 	var collected: Array[int] = []
 	var path := PackedVector2Array()
-	if record:
-		path.append(start_position)
+	if plan.record:
+		path.append(plan.start_position)
+	var has_bounds := plan.bounds.has_area()
+	var switching := not is_nan(plan.later_input)
+	var air_frame := plan.air_frame
 	var frames := 0
-	for frame in limit:
+	for frame in plan.limit:
 		frames = frame + 1
-		var input := input_x if is_nan(later_input) or frame < switch_frame else later_input
+		var input := plan.input_x if not switching or frame < plan.switch_frame else plan.later_input
 		# A second press at `air_frame`, held for `air_hold` ticks, replaces the first jump's hold.
-		var press := (jump and frame == 0) or frame == air_frame
-		var held := frame < hold_frames if air_frame < 0 or frame < air_frame else frame < air_frame + air_hold
-		step(cfg, s, rects, input, press, held, delta, movers, start_tick + frame)
-		if record:
+		var press := (plan.jump and frame == 0) or frame == air_frame
+		var held := frame < plan.hold_frames if air_frame < 0 or frame < air_frame else frame < air_frame + plan.air_hold
+		step(cfg, s, plan.rects, input, press, held, delta, plan.movers, plan.start_tick + frame)
+		if plan.record:
 			path.append(s.position)
 		min_feet = minf(min_feet, s.position.y + HALF.y)
+		low = low.min(s.position)
+		high = high.max(s.position)
 		if not s.grounded:
 			airborne = true
-		if s.crushed or _touching(s.position, HALF, hazards) >= 0:
+		if s.crushed or _touching(s.position, HALF, plan.hazards) >= 0:
 			hazard = true
 			break
-		for i in collect.size():
-			if not collected.has(i) and _overlaps(s.position, HALF, collect[i]):
+		for i in plan.collect.size():
+			if not collected.has(i) and _overlaps(s.position, HALF, plan.collect[i]):
 				collected.append(i)
-		trigger = _touching(s.position, HALF, triggers)
+		trigger = _touching(s.position, HALF, plan.triggers)
 		if trigger >= 0:
 			break
-		if bounds.has_area() and not bounds.has_point(s.position):
+		if has_bounds and not plan.bounds.has_point(s.position):
 			break
 		if s.grounded and frame > 2 and airborne:
 			landed = true
@@ -403,7 +459,8 @@ static func simulate_jump(
 		"frames": frames,
 		"path": path,
 		"riding": s.riding if landed else -1,
-		"tick": start_tick + frames,
+		"tick": plan.start_tick + frames,
+		"bounds": Rect2(low, high - low),
 	}
 
 
@@ -415,9 +472,12 @@ static func _touching(center: Vector2, half: Vector2, triggers: Array) -> int:
 
 
 ## Whether the body, moved by `motion`, would overlap a block.
-static func _blocked(center: Vector2, half: Vector2, rects: Array, motion: Vector2) -> bool:
+static func _blocked(center: Vector2, half: Vector2, rects: Array, motion: Vector2, extra: Array = NO_RECTS) -> bool:
 	var moved := center + motion
 	for rect in rects:
+		if _overlaps(moved, half, rect):
+			return true
+	for rect in extra:
 		if _overlaps(moved, half, rect):
 			return true
 	return false

@@ -1,4 +1,4 @@
-extends SceneTree
+extends TestCase
 
 ## The player and the reach solver have to move the same. Each case replays one
 ## input plan through the real Player node and through MovementSim.simulate_jump
@@ -8,11 +8,7 @@ const TOLERANCE := 0.01
 
 
 func _initialize() -> void:
-	# A script error inside a coroutine leaves the test waiting forever.
-	create_timer(90.0).timeout.connect(func() -> void:
-		print("FAIL timed out")
-		quit(1)
-	)
+	watchdog()
 	_run()
 
 
@@ -43,8 +39,7 @@ func _run() -> void:
 	]
 	for c in cases:
 		ok = _case(player, cfg, rects, c[0], c[1], c[2], c[3], c[4]) and ok
-	print("PARITY %s" % ("pass" if ok else "fail"))
-	quit(0 if ok else 1)
+	finish("PARITY", ok)
 
 
 func _case(player: Player, cfg: MovementConfig, rects: Array[Rect2], start: Vector2, input: float, hold: int, running: bool, label: String) -> bool:
@@ -66,9 +61,4 @@ func _case(player: Player, cfg: MovementConfig, rects: Array[Rect2], start: Vect
 			break
 	var gap := player.global_position.distance_to(expected["position"])
 	var same := landed == bool(expected["landed"]) and gap <= TOLERANCE
-	return _check(same and landed, "%s: player %s, solver %s (%.4f px apart)" % [label, player.global_position, expected["position"], gap])
-
-
-func _check(cond: bool, label: String) -> bool:
-	print(("ok   " if cond else "FAIL ") + label)
-	return cond
+	return check(same and landed, "%s: player %s, solver %s (%.4f px apart)" % [label, player.global_position, expected["position"], gap])

@@ -40,7 +40,7 @@ static func problems() -> Array[String]:
 			for action in row["actions"]:
 				if not InputMap.has_action(String(action)):
 					errors.append("Controls row %s uses unknown action %s." % [id, action])
-		if row.has("needs") and not Abilities.STATS.has(String(row["needs"])):
+		if row.has("needs") and not Abilities.stats().has(String(row["needs"])):
 			errors.append("Controls row %s needs unknown ability %s." % [id, row["needs"]])
 	return errors
 

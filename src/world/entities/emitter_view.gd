@@ -11,6 +11,10 @@ var path: EmitterPath
 var _current: Array[Vector2] = []
 var _previous: Array[Vector2] = []
 var _alive: Array[bool] = []
+## Whether any platform moved on the last tick. _draw reads the physics
+## interpolation fraction, so it has to run every frame while one is moving,
+## and not at all when every platform stands still.
+var _moving := false
 
 
 func _init(emitter_path: EmitterPath, tick := 0) -> void:
@@ -42,11 +46,16 @@ func move_to(tick: int) -> void:
 			_current[body] = path.rect_at(tick, body).position
 			if appeared:
 				_previous[body] = _current[body]
+	_moving = false
+	for body in path.body_count():
+		if _alive[body] and _previous[body] != _current[body]:
+			_moving = true
 	queue_redraw()
 
 
 func _process(_delta: float) -> void:
-	queue_redraw()
+	if _moving:
+		queue_redraw()
 
 
 ## Where platform `body` is drawn `fraction` of the way from the last tick to

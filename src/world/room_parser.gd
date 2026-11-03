@@ -166,7 +166,7 @@ static func _place_entities(info: RoomInfo, placements: Dictionary, errors: Arra
 		var cells: Array = placements.get(glyph, [])
 		if cells.is_empty():
 			errors.append("Room %s: legend glyph '%s' (%s %s) is never drawn in the room" % [info.id, glyph, def.type, def.id])
-		elif cells.size() > 1 and def.type != "platform" and def.type != "emitter" and def.type != "spinner" and def.type != "breakable":
+		elif cells.size() > 1 and not Entities.kind(def.type).structural():
 			errors.append("Room %s: legend glyph '%s' (%s %s) is drawn %d times, at %s and elsewhere; each one needs its own glyph and id" % [info.id, glyph, def.type, def.id, cells.size(), cells[0]])
 		elif def.type == "platform" or def.type == "emitter":
 			var path := _place_platform(info, def, cells, errors)
@@ -434,8 +434,7 @@ static func _check_save_things(info: RoomInfo, errors: Array[String]) -> void:
 	elif not info.is_save_room() and saves > 0:
 		errors.append("Room %s has a save machine, but only a room whose id is s and a number (like s1) can be a save room" % info.id)
 	if info.is_save_room() and saves == 1:
-		var allowed := ["save", "token", "breakable", "platform"]  # emitters are not allowed
-		var others := info.entities.filter(func(def: EntityDef) -> bool: return not allowed.has(def.type)).size()
+		var others := info.entities.filter(func(def: EntityDef) -> bool: return not Entities.kind(def.type).allowed_in_save_room()).size()
 		if others > 0:
 			errors.append("Room %s is a save room, and a save room holds nothing but its save machine, tokens, breakable walls and platforms, but its legend has %d other thing(s)" % [info.id, others])
 		if not info.movers.is_empty():
@@ -576,6 +575,10 @@ static func _read_legend_line(line: String, room_id: String, number: int, errors
 			def.props[pair[0]] = pair[1]
 	for message in Entities.problems(def):
 		errors.append("%s: %s" % [where, message])
+	# A kind that is not registered has nothing to ask, so it goes no further
+	# than its error: everything after the legend can rely on Entities.kind.
+	if not Entities.is_known(def.type):
+		return null
 	return def
 
 

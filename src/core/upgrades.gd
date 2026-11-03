@@ -24,9 +24,10 @@ static func has(id: String) -> bool:
 	return _defs.has(id)
 
 
-static func get_def(id: String) -> Dictionary:
+static func get_def(id: String) -> UpgradeDef:
 	_load()
-	return _defs.get(id, {})
+	var raw: Variant = _defs.get(id, {})
+	return UpgradeDef.from_raw(id, raw if raw is Dictionary else {})
 
 
 ## Everything wrong with the upgrade file. Empty means it is usable.
@@ -39,15 +40,15 @@ static func problems() -> Array[String]:
 ## an empty string if nothing is.
 static func check(id: String, text: String) -> String:
 	var def := get_def(id)
-	if def.is_empty():
+	if def.kind.is_empty():
 		return "there is no upgrade \"%s\" (upgrades: %s)" % [id, ", ".join(all().keys())]
-	if def["kind"] == "unlock":
+	if def.kind == "unlock":
 		return "" if text.is_empty() else "upgrade %s takes no value, but was given \"%s\"" % [id, text]
 	if text.is_empty():
-		return "upgrade %s needs value=%s" % [id, "the name of the effect" if def["kind"] == "add" else "a number"]
-	if def["kind"] == "add":
+		return "upgrade %s needs value=%s" % [id, "the name of the effect" if def.kind == "add" else "a number"]
+	if def.kind == "add":
 		return ""
-	var sample: Variant = Abilities.new().get(String(def["stat"]))
+	var sample: Variant = Abilities.new().get(def.stat)
 	var valid := text.is_valid_int() if typeof(sample) == TYPE_INT else text.is_valid_float()
 	if not valid:
 		return "upgrade %s needs a %s value, not \"%s\"" % [id, "whole-number" if typeof(sample) == TYPE_INT else "numeric", text]
@@ -57,11 +58,11 @@ static func check(id: String, text: String) -> String:
 ## The value for upgrade `id` as the right type. Call check first.
 static func parse_value(id: String, text: String) -> Variant:
 	var def := get_def(id)
-	if def["kind"] == "unlock":
+	if def.kind == "unlock":
 		return true
-	if def["kind"] == "add":
+	if def.kind == "add":
 		return text
-	var sample: Variant = Abilities.new().get(String(def["stat"]))
+	var sample: Variant = Abilities.new().get(def.stat)
 	return text.to_int() if typeof(sample) == TYPE_INT else text.to_float()
 
 
@@ -90,8 +91,8 @@ static func _load() -> void:
 			if bad:
 				_problems.append("%s: upgrade \"%s\" has controls that are not ids of rows in %s" % [PATH, id, Controls.PATH])
 				continue
-		if not Abilities.STATS.has(def["stat"]):
-			_problems.append("%s: upgrade \"%s\" changes \"%s\", which is not an ability (%s)" % [PATH, id, def["stat"], ", ".join(Abilities.STATS)])
+		if not Abilities.stats().has(def["stat"]):
+			_problems.append("%s: upgrade \"%s\" changes \"%s\", which is not an ability (%s)" % [PATH, id, def["stat"], ", ".join(Abilities.stats())])
 			continue
 		if not KINDS.has(def["kind"]):
 			_problems.append("%s: upgrade \"%s\" has kind \"%s\"; it must be one of %s" % [PATH, id, def["kind"], ", ".join(KINDS)])

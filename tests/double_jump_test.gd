@@ -1,4 +1,4 @@
-extends SceneTree
+extends TestCase
 
 ## Double jump in MovementSim: one extra jump in mid-air, refilled on landing,
 ## as strong as a ground jump, and never taking the place of a ground or coyote
@@ -22,31 +22,31 @@ func _initialize() -> void:
 	# Without the ability, a press in the air does nothing.
 	var single := _stand(0)
 	_jump_then_press(single, 20, true, true)
-	ok = _check(not _air_seen, "no air jump with air_jumps = 0") and ok
+	ok = check(not _air_seen, "no air jump with air_jumps = 0") and ok
 	var single_rise := FLOOR_Y - 5.0 - _top
 
 	# With one, a press at the top rises about as far again as the first jump.
 	var double := _stand(1)
 	_jump_then_press(double, 20, true, true)
-	ok = _check(_air_seen, "an air jump happens with air_jumps = 1") and ok
+	ok = check(_air_seen, "an air jump happens with air_jumps = 1") and ok
 	var double_rise := FLOOR_Y - 5.0 - _top
-	ok = _check(double_rise > single_rise * 1.9 and double_rise < single_rise * 2.1, "an air jump at the top rises about as far again (%.1f px, a single jump %.1f)" % [double_rise, single_rise]) and ok
+	ok = check(double_rise > single_rise * 1.9 and double_rise < single_rise * 2.1, "an air jump at the top rises about as far again (%.1f px, a single jump %.1f)" % [double_rise, single_rise]) and ok
 
 	# Letting go at once cuts the second jump short.
 	var tapped := _stand(1)
 	_jump_then_press(tapped, 20, false, true)
-	ok = _check(FLOOR_Y - 5.0 - _top < double_rise - 5.0, "a tap on the second jump rises less than a hold (%.1f px)" % (FLOOR_Y - 5.0 - _top)) and ok
+	ok = check(FLOOR_Y - 5.0 - _top < double_rise - 5.0, "a tap on the second jump rises less than a hold (%.1f px)" % (FLOOR_Y - 5.0 - _top)) and ok
 
 	# A third press does nothing; landing refills.
 	var t := _stand(1)
 	_jump_then_press(t, 20, true, false)
-	ok = _check(t.air_left == 0 and not t.grounded, "the air jump is spent, and the body is still in the air") and ok
+	ok = check(t.air_left == 0 and not t.grounded, "the air jump is spent, and the body is still in the air") and ok
 	_air_seen = false
 	_tick(t, true, true)
-	ok = _check(not _air_seen, "a press with none left does nothing") and ok
+	ok = check(not _air_seen, "a press with none left does nothing") and ok
 	for i in 300:
 		_tick(t, false, false)
-	ok = _check(t.grounded and t.air_left == 1, "landing refills the air jump") and ok
+	ok = check(t.grounded and t.air_left == 1, "landing refills the air jump") and ok
 
 	# A press just after walking off a ledge is a ground (coyote) jump.
 	var edge: Array = [Rect2(0, FLOOR_Y, 300, 20)]
@@ -59,9 +59,9 @@ func _initialize() -> void:
 		MovementSim.step(_cfg, c, edge, 1.0, false, false, DT)
 		if not c.grounded:
 			break
-	ok = _check(not c.grounded, "the body walked off the ledge") and ok
+	ok = check(not c.grounded, "the body walked off the ledge") and ok
 	MovementSim.step(_cfg, c, edge, 1.0, true, true, DT)
-	ok = _check(c.jumped and not c.air_jumped and c.air_left == 1, "a coyote press is a ground jump and keeps the air jump") and ok
+	ok = check(c.jumped and not c.air_jumped and c.air_left == 1, "a coyote press is a ground jump and keeps the air jump") and ok
 
 	# Past coyote time, the same press is the air jump.
 	var late := MovementSim.State.new()
@@ -69,7 +69,7 @@ func _initialize() -> void:
 	late.air_jumps = 1
 	late.air_left = 1
 	MovementSim.step(_cfg, late, edge, 1.0, true, true, DT)
-	ok = _check(late.air_jumped and late.air_left == 0, "a press in the air, with no coyote time left, is the air jump") and ok
+	ok = check(late.air_jumped and late.air_left == 0, "a press in the air, with no coyote time left, is the air jump") and ok
 
 	# With none left, a press just before landing still buffers a ground jump.
 	var b := _stand(1)
@@ -83,14 +83,15 @@ func _initialize() -> void:
 		if landed and b.jumped:
 			rebounded = true
 			break
-	ok = _check(rebounded, "a press just before landing, with no air jump left, jumps on landing") and ok
+	ok = check(rebounded, "a press just before landing, with no air jump left, jumps on landing") and ok
 
 	# Abilities: stored, saved and described.
 	var abilities := Abilities.new()
-	ok = _check(abilities.air_jumps == 0 and abilities.apply(Upgrades.get_def("double_jump"), 1) and abilities.air_jumps == 1, "the double_jump upgrade sets air_jumps to 1") and ok
-	ok = _check(not abilities.apply(Upgrades.get_def("double_jump"), 1), "taking it again changes nothing") and ok
-	ok = _check(Abilities.from_dict(abilities.to_dict()).air_jumps == 1 and Abilities.from_dict({}).air_jumps == 0, "air_jumps round-trips, and an old save loads as 0") and ok
+	ok = check(abilities.air_jumps == 0 and abilities.apply(Upgrades.get_def("double_jump"), 1) and abilities.air_jumps == 1, "the double_jump upgrade sets air_jumps to 1") and ok
+	ok = check(not abilities.apply(Upgrades.get_def("double_jump"), 1), "taking it again changes nothing") and ok
+	ok = check(Abilities.from_dict(abilities.to_dict()).air_jumps == 1 and Abilities.from_dict({}).air_jumps == 0, "air_jumps round-trips, and an old save loads as 0") and ok
 
+	ok = ok and passed()
 	if ok:
 		print("double jump test passed")
 	quit(0 if ok else 1)
@@ -128,8 +129,3 @@ func _jump_then_press(s: MovementSim.State, wait: int, hold_second: bool, settle
 		_tick(s, false, hold_second)
 		if s.grounded:
 			break
-
-
-func _check(ok: bool, what: String) -> bool:
-	print(("  ok  " if ok else "  FAIL ") + what)
-	return ok

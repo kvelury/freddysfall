@@ -8,6 +8,7 @@ const HALF := 4.0
 
 var def: EntityDef
 var _age := 0.0
+var _lift := 0.0
 
 
 func _init(entity: EntityDef = null) -> void:
@@ -34,13 +35,15 @@ func collect() -> void:
 
 func _process(delta: float) -> void:
 	_age += delta
-	queue_redraw()
+	var lift := roundf(sin(_age * 3.0) * 1.5)
+	if lift != _lift:
+		_lift = lift
+		queue_redraw()
 
 
 ## A diamond that bobs a pixel or two, with a hollow middle so it reads as a
 ## thing to take and not as a block.
 func _draw() -> void:
-	var lift := roundf(sin(_age * 3.0) * 1.5)
-	var c := Vector2(0.0, lift)
+	var c := Vector2(0.0, _lift)
 	PixelArt.draw(self, "token", c)
 	draw_rect(Rect2(c + Vector2(-1, -1), Vector2(2, 2)), Color.BLACK)

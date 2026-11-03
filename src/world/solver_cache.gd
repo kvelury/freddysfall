@@ -17,20 +17,40 @@ extends RefCounted
 ## The tests do not use it: they leave `ReachGraph.cache` empty.
 
 ## Goes up when the shape of the files changes.
-const FORMAT := 2
+## 3: a room's jumps are kept per Abilities.movement_key, so a jump worked out
+## with one set of movement stats is never reused for another.
+const FORMAT := 3
 
 ## Everything a jump's result depends on.
 const SOLVER_FILES: Array[String] = [
 	"res://src/world/reach_graph.gd",
+	"res://src/world/solver/move_provider.gd",
+	"res://src/world/solver/ground_moves.gd",
+	"res://src/world/solver/air_moves.gd",
+	"res://src/world/solver/lash_moves.gd",
+	"res://src/world/solver/imprint_moves.gd",
+	"res://src/tongue/tongue_reach.gd",
 	"res://src/world/imprint_search.gd",
 	"res://src/imprint/imprint_rules.gd",
+	"res://src/imprint/imprint_platform.gd",
 	"res://src/player/movement_sim.gd",
+	"res://src/player/jump_plan.gd",
 	"res://src/player/movement_config.gd",
 	"res://src/player/movement.tres",
 	"res://src/world/door.gd",
 	"res://src/world/tiles.gd",
 	"res://src/world/room_info.gd",
 	"res://src/world/entities.gd",
+	"res://src/world/kinds/entity_kind.gd",
+	"res://src/world/kinds/pickup_kind.gd",
+	"res://src/world/kinds/token_kind.gd",
+	"res://src/world/kinds/health_kind.gd",
+	"res://src/world/kinds/machine_kind.gd",
+	"res://src/world/kinds/save_kind.gd",
+	"res://src/world/kinds/platform_kind.gd",
+	"res://src/world/kinds/emitter_kind.gd",
+	"res://src/world/kinds/spinner_kind.gd",
+	"res://src/world/kinds/breakable_kind.gd",
 	"res://src/world/mover.gd",
 	"res://src/world/platform_path.gd",
 	"res://src/world/emitter_path.gd",
@@ -40,7 +60,43 @@ const SOLVER_FILES: Array[String] = [
 	"res://src/world/entities/save_machine.gd",
 	"res://src/world/entities/pickup.gd",
 	"res://src/core/grid.gd",
+	"res://src/core/display.gd",
+	"res://src/world/solver_cache.gd",
 ]
+
+## Reached from the solver, but a change to it cannot change a cached jump.
+## The test that checks the fingerprint's closure (cache_test) allows these and
+## fails on anything else it reaches that is not in SOLVER_FILES. A stat that
+## changes how a body moves belongs in Abilities.movement_key, not in this list.
+const FINGERPRINT_EXEMPT := {
+	"res://src/core/abilities.gd": "which jumps get used depends on the abilities, not how one jump moves; a stat that changes the movement goes in Abilities.movement_key",
+	"res://src/core/upgrades.gd": "names which stat a pickup raises; the jumps themselves do not read it",
+	"res://src/core/upgrade_def.gd": "the fields of an upgrade; the jumps themselves do not read it",
+	"res://src/core/progression.gd": "the saved snapshot; a jump does not read it",
+	"res://src/core/controls.gd": "the controls page; upgrades.gd only checks that a row id exists",
+	"res://src/core/palette.gd": "colours for drawing, which a jump never reads",
+	"res://src/core/pixel_art.gd": "drawing pictures, which a jump never reads",
+	"res://src/core/pixel_shapes.gd": "drawing pictures, which a jump never reads",
+	"res://src/player/freddy_sprites.gd": "the player's pictures",
+	"res://src/player/inventory_marks.gd": "marks drawn on the player",
+	"res://src/player/player.gd": "the running player; the solver calls MovementSim, not this node",
+	"res://src/player/player_animator.gd": "which picture the player shows",
+	"res://src/player/player_body.gd": "drawing the player",
+	"res://src/tongue/tongue_lash.gd": "the running tongue; the solver's lash and this one share TongueReach, which is in the fingerprint",
+	"res://src/tongue/tongue_motion.gd": "the running tongue's curves, which the solver's lash does not use",
+	"res://src/world/entities/breakable_wall.gd": "the wall's node; the solver reads its cells from RoomInfo",
+	"res://src/world/entities/emitter_view.gd": "drawing an emitter; the solver reads EmitterPath",
+	"res://src/world/entities/health_pip.gd": "the pip's node; the solver uses Pickup's touch size",
+	"res://src/world/entities/moving_platform.gd": "drawing a platform; the solver reads PlatformPath",
+	"res://src/world/entities/spinner_view.gd": "drawing a spinner; the solver reads SpinnerPath",
+	"res://src/world/entities/token.gd": "the token's node; the solver uses Pickup's touch size",
+	"res://src/world/exit_halo.gd": "the glow in a doorway",
+	"res://src/world/exit_rules.gd": "decides when a room opens during the search, after the jumps are worked out",
+	"res://src/world/entity_def.gd": "a thing's id and props, hashed in the room fingerprint",
+	"res://src/world/room.gd": "the running room; the solver reads RoomInfo",
+	"res://src/world/room_parser.gd": "its output is the RoomInfo the room fingerprint hashes",
+	"res://src/world/shatter.gd": "the burst of shards when something breaks",
+}
 
 ## The directory the files are in.
 var directory := ""
@@ -101,13 +157,11 @@ func entry_for(info: RoomInfo) -> Entry:
 			var legs = data.get("legs")
 			if edges is Dictionary:
 				entry.edges = edges
-				entry.has_edges = true
 			if legs is Dictionary:
 				entry.legs = legs
 			var air_edges = data.get("air_edges")
 			if air_edges is Dictionary:
 				entry.air_edges = air_edges
-				entry.has_air = true
 	_rooms[info.id] = entry
 	return entry
 
@@ -166,29 +220,27 @@ static func pack(ledge: ReachGraph.Ledge, air := false) -> Dictionary:
 class Entry extends RefCounted:
 	var room_id := ""
 	var fingerprint := ""
-	## Ledge index (as text) -> what it reaches, once the room's ledges are done.
+	## movement_key -> (ledge index as text -> what it reaches).
 	var edges := {}
-	var has_edges := false
 	## The same for what needs an air jump, worked out only when a solve has one.
 	var air_edges := {}
-	var has_air := false
 	## "x|y|width|limit" of a platform -> what a body standing on it reaches.
 	var legs := {}
 	var dirty := false
 
-	func store_edges(ledges: Array) -> void:
-		edges = {}
-		for ledge: ReachGraph.Ledge in ledges:
-			edges[str(ledge.index)] = SolverCache.pack(ledge)
-		has_edges = true
+	func store_edges(key: String, ledges: Array) -> void:
+		edges[key] = _pack_ledges(ledges, false)
 		dirty = true
 
-	func store_air_edges(ledges: Array) -> void:
-		air_edges = {}
-		for ledge: ReachGraph.Ledge in ledges:
-			air_edges[str(ledge.index)] = SolverCache.pack(ledge, true)
-		has_air = true
+	func store_air_edges(key: String, ledges: Array) -> void:
+		air_edges[key] = _pack_ledges(ledges, true)
 		dirty = true
+
+	func _pack_ledges(ledges: Array, air: bool) -> Dictionary:
+		var packed := {}
+		for ledge: ReachGraph.Ledge in ledges:
+			packed[str(ledge.index)] = SolverCache.pack(ledge, air)
+		return packed
 
 	func store_leg(key: String, ledge: ReachGraph.Ledge) -> void:
 		legs[key] = SolverCache.pack(ledge)

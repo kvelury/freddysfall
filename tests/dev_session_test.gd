@@ -1,17 +1,13 @@
-extends SceneTree
+extends TestCase
 
 ## Save isolation, exact editing, real door blocks, and reproducible retries.
 
 const TEMP := "user://dev_session_test.json"
-var _ok := true
 var _world: Node
 
 
 func _initialize() -> void:
-	create_timer(90.0).timeout.connect(func() -> void:
-		print("FAIL timed out")
-		quit(1)
-	)
+	watchdog()
 	if OS.get_cmdline_user_args().has("--boot-probe"):
 		_boot_probe()
 	else:
@@ -31,103 +27,103 @@ func _run() -> void:
 	var original := FileAccess.get_file_as_string(TEMP)
 	var output: Array[String] = []
 	var result := OS.execute(OS.get_executable_path(), ["--headless", "--path", ProjectSettings.globalize_path("res://"), "--script", "res://tests/dev_session_test.gd", "--", "--dev", "--room=7", "--new-game", "--boot-probe"], output, true)
-	_check(result == 0, "actual dev launch starts fresh and new-game cannot erase the save: %s" % "".join(output).strip_edges())
+	check(result == 0, "actual dev launch starts fresh and new-game cannot erase the save: %s" % "".join(output).strip_edges())
 	state.reset()
 	_world = load("res://src/world/world.tscn").instantiate()
 	_world.start_override = "7"
 	root.add_child(_world)
 	await process_frame
 	_world.player.scripted = true
-	_check(state.health == 1 and state.abilities.imprint_width == 2, "direct room starts with fresh state, not the save")
-	_check(session.enter(_world).is_empty() and session.isolated(), "enter protected dev mode")
-	_check(not save.write("7", Vector2.ZERO) and save.load_game().is_empty(), "normal save reads and writes are blocked")
+	check(state.health == 1 and state.abilities.imprint_width == 2, "direct room starts with fresh state, not the save")
+	check(session.enter(_world).is_empty() and session.isolated(), "enter protected dev mode")
+	check(not save.write("7", Vector2.ZERO) and save.load_game().is_empty(), "normal save reads and writes are blocked")
 	save.erase()
-	_check(FileAccess.get_file_as_string(TEMP) == original, "erase cannot delete a normal save during a test")
+	check(FileAccess.get_file_as_string(TEMP) == original, "erase cannot delete a normal save during a test")
 	var error: String = session.apply(_world, {"abilities": {"imprint_unlocked": true, "imprint_width": 5, "imprint_max_active": 2}, "tokens": 3, "health": 4})
-	_check(error.is_empty() and state.tokens == 3 and state.health == 4 and state.abilities.imprint_width == 5, "grant powers and resources exactly")
+	check(error.is_empty() and state.tokens == 3 and state.health == 4 and state.abilities.imprint_width == 5, "grant powers and resources exactly")
 	_world.imprint.platforms.append(ImprintPlatform.new(Rect2(10, 10, 20, 10), 2.5))
 	state.tokens = 1
-	_check(session.apply(_world, {"health": 6}).is_empty() and _world.imprint.platforms.size() == 1, "resource edits leave Imprints alone")
-	_check(state.max_health == 6, "more pips than the bar holds lengthens the bar")
-	_check(session.apply(_world, {"max_health": 8}).is_empty() and state.max_health == 8 and state.health == 6 and session.loadout["max_health"] == 8, "the bar can be longer than the pips held")
-	_check(session.apply(_world, {"abilities": {"imprint_duration": 5.0}}).is_empty() and state.tokens == 1 and session.loadout["tokens"] == 3 and _world.imprint.platforms.is_empty(), "duration edit preserves consumed live tokens and selected retry tokens")
-	_check(session.apply(_world, {"abilities": {"imprint_width": 2}}).is_empty() and state.abilities.imprint_width == 2, "dev editing can lower a normally monotonic upgrade")
+	check(session.apply(_world, {"health": 6}).is_empty() and _world.imprint.platforms.size() == 1, "resource edits leave Imprints alone")
+	check(state.max_health == 6, "more pips than the bar holds lengthens the bar")
+	check(session.apply(_world, {"max_health": 8}).is_empty() and state.max_health == 8 and state.health == 6 and session.loadout["max_health"] == 8, "the bar can be longer than the pips held")
+	check(session.apply(_world, {"abilities": {"imprint_duration": 5.0}}).is_empty() and state.tokens == 1 and session.loadout["tokens"] == 3 and _world.imprint.platforms.is_empty(), "duration edit preserves consumed live tokens and selected retry tokens")
+	check(session.apply(_world, {"abilities": {"imprint_width": 2}}).is_empty() and state.abilities.imprint_width == 2, "dev editing can lower a normally monotonic upgrade")
 	_world.imprint.platforms.append(ImprintPlatform.new(Rect2(10, 10, 20, 10), 1.5))
 	_world.imprint.cooldown_left = 3.0
-	_check(session.apply(_world, {"abilities": {"imprint_cooldown": 0.2}}).is_empty() and is_equal_approx(state.abilities.imprint_cooldown, 0.2) and is_equal_approx(session.loadout["abilities"]["imprint_cooldown"], 0.2), "a cooldown edit is applied and selected for retries")
-	_check(_world.imprint.platforms.is_empty() and is_zero_approx(_world.imprint.cooldown_left), "and it clears live platforms and any running cooldown")
-	_check(not session.apply(_world, {"abilities": {"imprint_cooldown": -1.0}}).is_empty() and is_equal_approx(state.abilities.imprint_cooldown, 0.2), "a negative cooldown is refused without changing anything")
+	check(session.apply(_world, {"abilities": {"imprint_cooldown": 0.2}}).is_empty() and is_equal_approx(state.abilities.imprint_cooldown, 0.2) and is_equal_approx(session.loadout["abilities"]["imprint_cooldown"], 0.2), "a cooldown edit is applied and selected for retries")
+	check(_world.imprint.platforms.is_empty() and is_zero_approx(_world.imprint.cooldown_left), "and it clears live platforms and any running cooldown")
+	check(not session.apply(_world, {"abilities": {"imprint_cooldown": -1.0}}).is_empty() and is_equal_approx(state.abilities.imprint_cooldown, 0.2), "a negative cooldown is refused without changing anything")
 	var before: Dictionary = state.to_dict()
-	_check(not session.apply(_world, {"tokens": 2, "health": -1}).is_empty() and state.to_dict() == before, "invalid edits make no partial changes")
-	_check(session.start(_world, "missing").contains("No such room") and not session.replacing, "invalid room leaves test untouched")
+	check(not session.apply(_world, {"tokens": 2, "health": -1}).is_empty() and state.to_dict() == before, "invalid edits make no partial changes")
+	check(session.start(_world, "missing").contains("No such room") and not session.replacing, "invalid room leaves test untouched")
 
 	_world.warp_to("2")
 	_world.player.place(_world.current.position + Grid.cell_center(Vector2i(3, 4)), _world.current.world_rects())
 	var blocked_count: int = _world.current.world_rects().size()
-	_check(_world.current.locked and session.set_bypass(_world, true).is_empty(), "bypass opens an actually locked room")
-	_check(not _world.current.locked and _world.current.world_rects().size() < blocked_count and state.flags.is_empty(), "bypass removes physical collisions without marking pickups")
+	check(_world.current.locked and session.set_bypass(_world, true).is_empty(), "bypass opens an actually locked room")
+	check(not _world.current.locked and _world.current.world_rects().size() < blocked_count and state.flags.is_empty(), "bypass removes physical collisions without marking pickups")
 	var door: Door = _world.current.info.exits[0]
 	var doorway := Grid.cell_rect(door.rect)
 	_world.player.place(_world.current.position + doorway.get_center(), _world.current.world_rects())
-	_check(not session.set_bypass(_world, false).is_empty() and session.bypass, "cannot close a door on the player")
+	check(not session.set_bypass(_world, false).is_empty() and session.bypass, "cannot close a door on the player")
 	_world.player.place(_world.current.position + Grid.cell_center(Vector2i(3, 4)), _world.current.world_rects())
-	_check(session.set_bypass(_world, false).is_empty() and _world.current.locked and _world.current.world_rects().size() == blocked_count, "turning bypass off restores unmet requirements and collisions")
+	check(session.set_bypass(_world, false).is_empty() and _world.current.locked and _world.current.world_rects().size() == blocked_count, "turning bypass off restores unmet requirements and collisions")
 
 	# The Classic Imprint switch: a comparison, for a dev test only.
-	_check(not session.classic_imprint and not session.classic_imprint_active(), "Classic Imprint starts off")
+	check(not session.classic_imprint and not session.classic_imprint_active(), "Classic Imprint starts off")
 	_world.imprint.platforms.append(ImprintPlatform.new(Rect2(10, 10, 30, 10), 1.5))
 	_world.imprint.cooldown_left = 2.0
-	_check(session.set_classic_imprint(_world, true).is_empty() and session.classic_imprint and session.classic_imprint_active(), "Classic Imprint can be turned on in a dev test")
-	_check(_world.imprint.platforms.is_empty() and is_zero_approx(_world.imprint.cooldown_left), "and turning it on clears platforms and the cooldown")
+	check(session.set_classic_imprint(_world, true).is_empty() and session.classic_imprint and session.classic_imprint_active(), "Classic Imprint can be turned on in a dev test")
+	check(_world.imprint.platforms.is_empty() and is_zero_approx(_world.imprint.cooldown_left), "and turning it on clears platforms and the cooldown")
 	_world.imprint.platforms.append(ImprintPlatform.new(Rect2(10, 10, 30, 10), 1.5, false))
-	_check(session.set_classic_imprint(_world, false).is_empty() and not session.classic_imprint_active() and _world.imprint.platforms.is_empty(), "turning it off clears them too")
-	_check(not _dict_has_classic(state.to_dict()) and not _dict_has_classic(session.loadout) and not _dict_has_classic(session.baseline), "it is in no save, loadout or baseline")
+	check(session.set_classic_imprint(_world, false).is_empty() and not session.classic_imprint_active() and _world.imprint.platforms.is_empty(), "turning it off clears them too")
+	check(not _dict_has_classic(state.to_dict()) and not _dict_has_classic(session.loadout) and not _dict_has_classic(session.baseline), "it is in no save, loadout or baseline")
 	session.mode = session.Mode.NORMAL
-	_check(not session.set_classic_imprint(_world, true).is_empty() and not session.classic_imprint, "it is refused outside a dev test")
+	check(not session.set_classic_imprint(_world, true).is_empty() and not session.classic_imprint, "it is refused outside a dev test")
 	session.classic_imprint = true
-	_check(not session.classic_imprint_active(), "and a flag left set does nothing outside a dev test")
+	check(not session.classic_imprint_active(), "and a flag left set does nothing outside a dev test")
 	session.classic_imprint = false
 	session.mode = session.Mode.DEV_TEST
 
 	# The token marks switch: off unless a dev test turns it on.
 	var body: PlayerBody = _world.player._visual
 	state.tokens = 3
-	_check(not session.token_marks and not session.token_marks_active() and body.shown_tokens() == 0, "token marks start off: the body shows none of the 3 tokens carried")
+	check(not session.token_marks and not session.token_marks_active() and body.shown_tokens() == 0, "token marks start off: the body shows none of the 3 tokens carried")
 	var redraws := [0]
 	session.token_marks_changed.connect(func() -> void: redraws[0] += 1)
-	_check(session.set_token_marks(_world, true).is_empty() and session.token_marks_active() and redraws[0] == 1, "token marks can be turned on in a dev test, and tell the body")
-	_check(body.shown_tokens() == 3 and session.status_line().contains("token marks"), "and then the body shows all 3, and the status line says so (%s)" % session.status_line())
+	check(session.set_token_marks(_world, true).is_empty() and session.token_marks_active() and redraws[0] == 1, "token marks can be turned on in a dev test, and tell the body")
+	check(body.shown_tokens() == 3 and session.status_line().contains("token marks"), "and then the body shows all 3, and the status line says so (%s)" % session.status_line())
 	state.tokens = 1
-	_check(body.shown_tokens() == 1, "it follows the tokens carried")
+	check(body.shown_tokens() == 1, "it follows the tokens carried")
 	state.abilities.imprint_unlocked = true
-	_check(not body.shown_imprint(), "the Imprint line is never drawn, with Imprint found and the token marks on")
+	check(not body.shown_imprint(), "the Imprint line is never drawn, with Imprint found and the token marks on")
 	state.abilities.imprint_unlocked = false
-	_check(not _dict_has_key(state.to_dict(), "token_marks") and not _dict_has_key(session.loadout, "token_marks") and not _dict_has_key(session.baseline, "token_marks"), "it is in no save, loadout or baseline")
+	check(not _dict_has_key(state.to_dict(), "token_marks") and not _dict_has_key(session.loadout, "token_marks") and not _dict_has_key(session.baseline, "token_marks"), "it is in no save, loadout or baseline")
 	session.mode = session.Mode.NORMAL
-	_check(not session.set_token_marks(_world, false).is_empty() and session.token_marks, "it is refused outside a dev test")
-	_check(not session.token_marks_active() and body.shown_tokens() == 0 and not session.status_line().contains("token marks"), "and a flag left set shows nothing outside a dev test")
+	check(not session.set_token_marks(_world, false).is_empty() and session.token_marks, "it is refused outside a dev test")
+	check(not session.token_marks_active() and body.shown_tokens() == 0 and not session.status_line().contains("token marks"), "and a flag left set shows nothing outside a dev test")
 	session.mode = session.Mode.DEV_TEST
-	_check(session.set_token_marks(_world, false).is_empty() and body.shown_tokens() == 0, "turning it off hides them again")
+	check(session.set_token_marks(_world, false).is_empty() and body.shown_tokens() == 0, "turning it off hides them again")
 	state.tokens = 0
 
 	# Slow motion (F7): for a dev test only.
-	_check(not session.slow_motion and Engine.time_scale == 1.0, "the clock starts at normal speed")
+	check(not session.slow_motion and Engine.time_scale == 1.0, "the clock starts at normal speed")
 	session.mode = session.Mode.NORMAL
-	_check(not session.set_slow_motion(_world, true).is_empty() and not session.slow_motion and Engine.time_scale == 1.0, "slow motion is refused outside a dev test")
+	check(not session.set_slow_motion(_world, true).is_empty() and not session.slow_motion and Engine.time_scale == 1.0, "slow motion is refused outside a dev test")
 	session.mode = session.Mode.DEV_TEST
-	_world._busy = true
-	_check(not session.set_slow_motion(_world, true).is_empty() and not session.slow_motion, "and it waits for an animation to finish")
-	_world._busy = false
-	_check(session.set_slow_motion(_world, true).is_empty() and session.slow_motion and is_equal_approx(Engine.time_scale, 0.25) and session.status_line().contains("slow motion"), "slow motion runs the game at a quarter speed and the status line says so")
-	_check(not _dict_has_key(state.to_dict(), "slow_motion") and not _dict_has_key(session.loadout, "slow_motion") and not _dict_has_key(session.baseline, "slow_motion"), "it is in no save, loadout or baseline")
-	_check(session.set_slow_motion(_world, false).is_empty() and Engine.time_scale == 1.0 and not session.slow_motion, "and turns off again")
-	_check(not session.loadout["abilities"].has("slow_motion"), "the loadout holds powers only")
+	_world._set_mode(2)
+	check(not session.set_slow_motion(_world, true).is_empty() and not session.slow_motion, "and it waits for an animation to finish")
+	_world._set_mode(0)
+	check(session.set_slow_motion(_world, true).is_empty() and session.slow_motion and is_equal_approx(Engine.time_scale, 0.25) and session.status_line().contains("slow motion"), "slow motion runs the game at a quarter speed and the status line says so")
+	check(not _dict_has_key(state.to_dict(), "slow_motion") and not _dict_has_key(session.loadout, "slow_motion") and not _dict_has_key(session.baseline, "slow_motion"), "it is in no save, loadout or baseline")
+	check(session.set_slow_motion(_world, false).is_empty() and Engine.time_scale == 1.0 and not session.slow_motion, "and turns off again")
+	check(not session.loadout["abilities"].has("slow_motion"), "the loadout holds powers only")
 
 	state.flags["pickup:baseline"] = true
 	state.machines["baseline_machine"] = 1
-	_check(session.start(_world, "7").is_empty(), "start a repeatable test")
+	check(session.start(_world, "7").is_empty(), "start a repeatable test")
 	await _replacement()
-	_check(state.tokens == 3 and state.health == 6, "starting a test replenishes the selected resources")
+	check(state.tokens == 3 and state.health == 6, "starting a test replenishes the selected resources")
 	_world.warp_to("3")
 	state.flags["pickup:later"] = true
 	state.machines["baseline_machine"] = 3
@@ -137,67 +133,66 @@ func _run() -> void:
 	pip.type = "health"
 	pip.id = "later_pip"
 	state.take_health(pip)
-	_check(state.health == 1 and state.flags.has("health:later_pip"), "taking a health pip in a test adds one and sets its flag")
+	check(state.health == 1 and state.flags.has("health:later_pip"), "taking a health pip in a test adds one and sets its flag")
 	state.map_zoom = 2
-	_check(session.set_classic_imprint(_world, true).is_empty(), "turn Classic Imprint on before a retry")
-	_check(session.set_token_marks(_world, true).is_empty(), "and the token marks")
-	_check(session.apply(_world, {"abilities": {"tongue_stick": 0.1, "tongue_pad": false}}).is_empty() and session.set_slow_motion(_world, true).is_empty(), "tune the tongue's stick and turn on slow motion before a retry")
-	_check(session.wall_strength() == 2 and session.set_wall_strength(_world, 5).is_empty() and session.wall_strength() == 5, "wall strength starts at 2 and a dev test can set it")
-	_check(not state.to_dict().has("wall_strength") and not session.loadout.has("wall_strength"), "it is in no save or loadout")
-	_check(session.retry(_world).is_empty(), "retry after travelling across rooms")
+	check(session.set_classic_imprint(_world, true).is_empty(), "turn Classic Imprint on before a retry")
+	check(session.set_token_marks(_world, true).is_empty(), "and the token marks")
+	check(session.apply(_world, {"abilities": {"tongue_stick": 0.1, "tongue_pad": false}}).is_empty() and session.set_slow_motion(_world, true).is_empty(), "tune the tongue's stick and turn on slow motion before a retry")
+	check(session.wall_strength() == 2 and session.set_wall_strength(_world, 5).is_empty() and session.wall_strength() == 5, "wall strength starts at 2 and a dev test can set it")
+	check(not state.to_dict().has("wall_strength") and not session.loadout.has("wall_strength"), "it is in no save or loadout")
+	check(session.retry(_world).is_empty(), "retry after travelling across rooms")
 	await _replacement()
-	_check(session.wall_strength() == 5, "wall strength survives a retry")
-	_check(not state.abilities.tongue_pad and is_equal_approx(state.abilities.tongue_stick, 0.1), "the tuned tongue survives a retry")
-	_check(not session.slow_motion and Engine.time_scale == 1.0, "and slow motion is off again on the rebuilt world")
-	_check(session.classic_imprint and session.classic_imprint_active(), "Classic Imprint survives a retry")
-	_check(session.token_marks_active() and _world.player._visual.shown_tokens() == state.tokens, "and so do the token marks, on the new body")
-	_check(_world.current.info.id == "7" and state.flags.has("pickup:baseline") and not state.flags.has("pickup:later") and state.machines["baseline_machine"] == 1 and not state.flags.has("health:later_pip"), "retry restores original room, flags (the pip is back), and machine fills")
-	_check(state.tokens == 3 and state.health == 6 and state.max_health == 8 and state.abilities.imprint_duration == 5.0, "retry uses latest explicitly applied powers and replenishes resources")
-	_check(is_equal_approx(state.abilities.imprint_cooldown, 0.2) and is_zero_approx(_world.imprint.cooldown_left), "retry keeps the applied cooldown setting, with no cooldown running")
-	_check(_world.current.tick == 0 and _world.imprint.platforms.is_empty() and _world.player.velocity == Vector2.ZERO, "rebuild resets platform clock and transient player state")
-	_check(not state.visited.has("3") and state.map_zoom == 1, "retry restores visited rooms and map zoom")
+	check(session.wall_strength() == 5, "wall strength survives a retry")
+	check(not state.abilities.tongue_pad and is_equal_approx(state.abilities.tongue_stick, 0.1), "the tuned tongue survives a retry")
+	check(not session.slow_motion and Engine.time_scale == 1.0, "and slow motion is off again on the rebuilt world")
+	check(session.classic_imprint and session.classic_imprint_active(), "Classic Imprint survives a retry")
+	check(session.token_marks_active() and _world.player._visual.shown_tokens() == state.tokens, "and so do the token marks, on the new body")
+	check(_world.current.info.id == "7" and state.flags.has("pickup:baseline") and not state.flags.has("pickup:later") and state.machines["baseline_machine"] == 1 and not state.flags.has("health:later_pip"), "retry restores original room, flags (the pip is back), and machine fills")
+	check(state.tokens == 3 and state.health == 6 and state.max_health == 8 and state.abilities.imprint_duration == 5.0, "retry uses latest explicitly applied powers and replenishes resources")
+	check(is_equal_approx(state.abilities.imprint_cooldown, 0.2) and is_zero_approx(_world.imprint.cooldown_left), "retry keeps the applied cooldown setting, with no cooldown running")
+	check(_world.current.tick == 0 and _world.imprint.platforms.is_empty() and _world.player.velocity == Vector2.ZERO, "rebuild resets platform clock and transient player state")
+	check(not state.visited.has("3") and state.map_zoom == 1, "retry restores visited rooms and map zoom")
 	session.set_retry_on_death(_world, true)
 	_world._die()
 	await create_timer(0.8).timeout
 	_world = _current_world()
 	_world.player.scripted = true
-	_check(_world.current.info.id == "7" and state.health == 6 and not _world.is_busy(), "automatic death retry refills health and finishes the death effect")
+	check(_world.current.info.id == "7" and state.health == 6 and not _world.is_busy(), "automatic death retry refills health and finishes the death effect")
 	session.set_retry_on_death(_world, false)
 	_world._die()
 	await create_timer(0.8).timeout
-	_check(state.health == 5 and state.max_health == 8 and not _world.is_busy(), "with automatic retry off, death empties a pip and the bar keeps its length")
+	check(state.health == 5 and state.max_health == 8 and not _world.is_busy(), "with automatic retry off, death empties a pip and the bar keeps its length")
 	state.health = 0
 	session.set_retry_on_death(_world, true)
 	_world._die()
 	await create_timer(0.8).timeout
 	_world = _current_world()
 	_world.player.scripted = true
-	_check(_world.current.info.id == "7" and state.health == 6, "automatic retry also works with no health")
-	_check(session.start(_world, "7", true).is_empty(), "start a fresh test")
+	check(_world.current.info.id == "7" and state.health == 6, "automatic retry also works with no health")
+	check(session.start(_world, "7", true).is_empty(), "start a fresh test")
 	await _replacement()
-	_check(state.flags.is_empty() and state.machines.is_empty() and state.tokens == 3, "fresh test clears progression and retains the selected loadout")
+	check(state.flags.is_empty() and state.machines.is_empty() and state.tokens == 3, "fresh test clears progression and retains the selected loadout")
 	_world.save_now()
-	_check(FileAccess.get_file_as_string(TEMP) == original, "all playtest operations preserve the save bytes")
-	_check(session.end(_world).is_empty(), "end isolated playtest")
+	check(FileAccess.get_file_as_string(TEMP) == original, "all playtest operations preserve the save bytes")
+	check(session.end(_world).is_empty(), "end isolated playtest")
 	await _replacement()
-	_check(not session.classic_imprint and not session.classic_imprint_active(), "ending the playtest resets Classic Imprint")
-	_check(session.wall_strength() == 2 and session.wall_strength_override == 0, "and the wall strength")
-	_check(not session.token_marks and _world.player._visual.shown_tokens() == 0, "and the token marks")
-	_check(state.abilities.tongue_pad and is_equal_approx(state.abilities.tongue_stick, 0.1) and not session.slow_motion and Engine.time_scale == 1.0, "and the tongue's tuning and the clock")
-	_check(not session.isolated() and state.health == 7 and state.abilities.imprint_width == 4 and _world.current.info.id == "7", "ending restores normal saved progression")
-	_check(FileAccess.get_file_as_string(TEMP) == original, "ending does not save test state")
+	check(not session.classic_imprint and not session.classic_imprint_active(), "ending the playtest resets Classic Imprint")
+	check(session.wall_strength() == 2 and session.wall_strength_override == 0, "and the wall strength")
+	check(not session.token_marks and _world.player._visual.shown_tokens() == 0, "and the token marks")
+	check(state.abilities.tongue_pad and is_equal_approx(state.abilities.tongue_stick, 0.1) and not session.slow_motion and Engine.time_scale == 1.0, "and the tongue's tuning and the clock")
+	check(not session.isolated() and state.health == 7 and state.abilities.imprint_width == 4 and _world.current.info.id == "7", "ending restores normal saved progression")
+	check(FileAccess.get_file_as_string(TEMP) == original, "ending does not save test state")
 	# The independent headless/test disable flag must survive ending a session.
 	save.enabled = false
 	session.enter(_world)
 	session.end(_world)
 	await _replacement()
-	_check(not save.enabled and not session.isolated(), "ending never turns on an independently disabled save")
+	check(not save.enabled and not session.isolated(), "ending never turns on an independently disabled save")
 	# The final assertions may run inside the rebuilt scene's ready signal.
 	_world.queue_free()
 	for path in [TEMP, TEMP + ".bad"]:
 		DirAccess.remove_absolute(path)
-	print("DEV SESSION %s" % ("pass" if _ok else "fail"))
-	quit(0 if _ok else 1)
+	finish("DEV SESSION")
 
 
 ## Whether a dictionary holds the switch anywhere, however deep.
@@ -237,11 +232,6 @@ func _current_world() -> Node:
 	return null
 
 
-func _check(condition: bool, label: String) -> void:
-	print(("ok   " if condition else "FAIL ") + label)
-	_ok = condition and _ok
-
-
 ## Run in a separate actual command-line process so launch precedence is tested
 ## without mocking the argument parser or ever pointing at the real save.
 func _boot_probe() -> void:
@@ -256,7 +246,7 @@ func _boot_probe() -> void:
 	var world: Node = load("res://src/world/world.tscn").instantiate()
 	root.add_child(world)
 	await process_frame
-	_check(session.isolated() and world.current.info.id == "7" and state.health == 1 and state.flags.is_empty(), "direct dev boot resets progression")
-	_check(FileAccess.get_file_as_string(TEMP) == original, "new-game is ignored in isolated startup")
+	check(session.isolated() and world.current.info.id == "7" and state.health == 1 and state.flags.is_empty(), "direct dev boot resets progression")
+	check(FileAccess.get_file_as_string(TEMP) == original, "new-game is ignored in isolated startup")
 	world.free()
-	quit(0 if _ok else 1)
+	quit(0 if passed() else 1)

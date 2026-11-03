@@ -33,7 +33,8 @@ static func controls(definitions: Dictionary = {}) -> Dictionary:
 
 
 ## Every upgrade and every serialized ability needs an explicit dev decision.
-static func problems(definitions: Dictionary = {}, stats: Array = Abilities.STATS) -> Array[String]:
+## `stats` left empty means every stat Abilities declares.
+static func problems(definitions: Dictionary = {}, stats: Array = []) -> Array[String]:
 	if definitions.is_empty():
 		definitions = Upgrades.all()
 	var errors: Array[String] = []
@@ -48,6 +49,8 @@ static func problems(definitions: Dictionary = {}, stats: Array = Abilities.STAT
 			errors.append("Upgrade %s has an unknown dev control type." % id)
 		if control.get("type") == "unsupported" and String(control.get("reason", "")).is_empty():
 			errors.append("Upgrade %s needs a reason for missing dev support." % id)
+	if stats.is_empty():
+		stats = Abilities.stats()
 	for stat in stats:
 		if not known.has(stat):
 			errors.append("Ability %s needs a dev control or an explicit exception." % stat)
@@ -57,7 +60,7 @@ static func problems(definitions: Dictionary = {}, stats: Array = Abilities.STAT
 
 
 static func defaults() -> Dictionary:
-	return {"abilities": Abilities.new().to_dict(), "tokens": 0, "health": GameState.BASE_HEALTH, "max_health": GameState.BASE_HEALTH}
+	return {"abilities": Abilities.new().to_dict(), "tokens": 0, "health": Progression.BASE_HEALTH, "max_health": Progression.BASE_HEALTH}
 
 
 static func capture(state: Dictionary) -> Dictionary:
@@ -65,7 +68,7 @@ static func capture(state: Dictionary) -> Dictionary:
 		"abilities": state["abilities"].duplicate(true),
 		"tokens": state["tokens"],
 		"health": state["health"],
-		"max_health": maxi(GameState.BASE_HEALTH, maxi(int(state["health"]), int(state.get("max_health", 0)))),
+		"max_health": maxi(Progression.BASE_HEALTH, maxi(int(state["health"]), int(state.get("max_health", 0)))),
 	}
 
 
@@ -119,7 +122,7 @@ static func with_loadout(state: Dictionary, loadout: Dictionary) -> Dictionary:
 	out["abilities"] = loadout["abilities"].duplicate(true)
 	for key in RESOURCES:
 		out[key] = int(loadout.get(key, 0))
-	out["max_health"] = maxi(GameState.BASE_HEALTH, maxi(out["health"], out["max_health"]))
+	out["max_health"] = maxi(Progression.BASE_HEALTH, maxi(out["health"], out["max_health"]))
 	return out
 
 
@@ -156,6 +159,6 @@ static func reconcile(saved: Dictionary) -> Dictionary:
 			draft[key] = saved[key]
 	# Loadouts stored before the base heart may have no frame at all.
 	if draft["max_health"] is int and draft["health"] is int:
-		draft["max_health"] = maxi(GameState.BASE_HEALTH, maxi(draft["health"], draft["max_health"]))
+		draft["max_health"] = maxi(Progression.BASE_HEALTH, maxi(draft["health"], draft["max_health"]))
 	var error := validate(draft)
 	return {"error": error, "loadout": draft, "warnings": warnings}

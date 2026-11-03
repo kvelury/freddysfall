@@ -78,7 +78,7 @@ func set_level(level: int) -> void:
 	level = MapView.clamp_level(level)
 	if level == GameState.map_zoom:
 		return
-	GameState.map_zoom = level
+	GameState.set_map_zoom(level)
 	_zoom_changed = true
 	refresh()
 

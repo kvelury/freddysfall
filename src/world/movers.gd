@@ -15,6 +15,10 @@ const CACHE_LIMIT := 4096
 var _cache := {}
 var _owner: PackedInt32Array = PackedInt32Array()
 var _local: PackedInt32Array = PackedInt32Array()
+## Ticks after which every mover is back where it started (the least common
+## multiple of their periods), so the cache is kept by `tick % _period`. 0 when
+## that is longer than CACHE_LIMIT, and the cache is kept by tick.
+var _period := 0
 
 
 func _init(list: Array[Mover] = [], at := Vector2.ZERO) -> void:
@@ -24,6 +28,22 @@ func _init(list: Array[Mover] = [], at := Vector2.ZERO) -> void:
 		for b in paths[p].body_count():
 			_owner.append(p)
 			_local.append(b)
+	var together := 1
+	for mover in paths:
+		var period := maxi(1, mover.period())
+		together = together / _gcd(together, period) * period
+		if together > CACHE_LIMIT:
+			together = 0
+			break
+	_period = together
+
+
+static func _gcd(a: int, b: int) -> int:
+	while b != 0:
+		var r := a % b
+		a = b
+		b = r
+	return a
 
 
 func size() -> int:
@@ -50,6 +70,9 @@ func first_body(m: int) -> int:
 ## Everything about the bodies at `tick`, worked out once: each body's rect and
 ## whether it is there, and the solid and the spiked rects among them.
 func _at(tick: int) -> Dictionary:
+	# Every mover repeats exactly after its period (tests/mover_test.gd).
+	if _period > 0:
+		tick = posmod(tick, _period)
 	var found: Variant = _cache.get(tick)
 	if found != null:
 		return found

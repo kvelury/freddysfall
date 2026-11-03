@@ -1,4 +1,4 @@
-extends SceneTree
+extends TestCase
 
 ## The solver's cache on disk: a run that reads it gets exactly the answers of a
 ## run that does not, and a room is only taken from it while nothing the room
@@ -18,8 +18,7 @@ func _initialize() -> void:
 	ok = _damaged() and ok
 	ok = _upgrade() and ok
 	_clear()
-	print("CACHE %s" % ("pass" if ok else "fail"))
-	quit(0 if ok else 1)
+	finish("CACHE", ok)
 
 
 ## The files the solver's fingerprint covers all exist, and the ones that
@@ -30,14 +29,61 @@ func _files() -> bool:
 	for path in SolverCache.SOLVER_FILES:
 		if not FileAccess.file_exists(path):
 			missing.append(path)
-	ok = _check(missing.is_empty(), "every file the solver's fingerprint covers exists %s" % [missing]) and ok
-	for name in ["reach_graph.gd", "imprint_search.gd", "movement_sim.gd", "movement.tres", "movement_config.gd", "door.gd", "imprint_rules.gd", "room_info.gd", "grid.gd"]:
+	ok = check(missing.is_empty(), "every file the solver's fingerprint covers exists %s" % [missing]) and ok
+	for name in ["reach_graph.gd", "imprint_search.gd", "movement_sim.gd", "movement.tres", "movement_config.gd", "door.gd", "imprint_rules.gd", "imprint_platform.gd", "jump_plan.gd", "room_info.gd", "grid.gd"]:
 		var listed := false
 		for path in SolverCache.SOLVER_FILES:
 			listed = listed or path.ends_with("/" + name)
-		ok = _check(listed, "the fingerprint covers %s" % name) and ok
-	ok = _check(SolverCache.solver_fingerprint() == SolverCache.solver_fingerprint() and SolverCache.solver_fingerprint().length() == 64, "and it is a stable hash") and ok
+		ok = check(listed, "the fingerprint covers %s" % name) and ok
+	ok = check(SolverCache.solver_fingerprint() == SolverCache.solver_fingerprint() and SolverCache.solver_fingerprint().length() == 64, "and it is a stable hash") and ok
+	ok = _closure() and ok
 	return ok
+
+
+## Every script the solver's code names, followed from reach_graph.gd, is in
+## SOLVER_FILES or named in FINGERPRINT_EXEMPT with a reason. ui, autoload and
+## dev code is not followed.
+func _closure() -> bool:
+	var classes := {}
+	for entry in ProjectSettings.get_global_class_list():
+		classes[String(entry["class"])] = String(entry["path"])
+	var ident := RegEx.create_from_string("\\b[A-Z][A-Za-z0-9]+\\b")
+	var literal := RegEx.create_from_string("\"(res://[^\"]+)\"")
+	var seen := {}
+	var queue: Array[String] = ["res://src/world/reach_graph.gd"]
+	while not queue.is_empty():
+		var path: String = queue.pop_front()
+		if seen.has(path) or _outside(path) or not FileAccess.file_exists(path):
+			continue
+		seen[path] = true
+		var text := FileAccess.get_file_as_string(path)
+		for found in ident.search_all(text):
+			var name := found.get_string()
+			if classes.has(name):
+				queue.append(String(classes[name]))
+		for found in literal.search_all(text):
+			var named := found.get_string(1)
+			if named.ends_with(".gd") or named.ends_with(".tres"):
+				queue.append(named)
+	var missing: Array[String] = []
+	var stale: Array[String] = []
+	for path in seen:
+		if SolverCache.SOLVER_FILES.has(path) or SolverCache.FINGERPRINT_EXEMPT.has(path):
+			continue
+		missing.append(path)
+	for path in SolverCache.FINGERPRINT_EXEMPT:
+		if not seen.has(path):
+			stale.append(path)
+		elif String(SolverCache.FINGERPRINT_EXEMPT[path]).is_empty():
+			stale.append(path)
+	missing.sort()
+	stale.sort()
+	var ok := check(missing.is_empty(), "the fingerprint covers everything the solver reaches %s" % [missing])
+	return check(stale.is_empty(), "every exemption is reached and has a reason %s" % [stale]) and ok
+
+
+func _outside(path: String) -> bool:
+	return path.begins_with("res://src/ui/") or path.begins_with("res://src/autoload/") or path.begins_with("res://src/dev/")
 
 
 ## A run with the cache, cold and then warm, says what a run without it says.
@@ -47,17 +93,17 @@ func _same_answers() -> bool:
 	var plain := _run(rooms, null, 2)
 	var cold_cache := SolverCache.new(DIR)
 	var cold := _run(rooms, cold_cache, 2)
-	ok = _check(_same(plain, cold), "a cold run with the cache says what a run without it says") and ok
-	ok = _check(cold_cache.stats["edge_rooms_cached"] == 0 and cold_cache.stats["edge_rooms_solved"] == 2 and cold_cache.stats["legs_cached"] == 0 and cold_cache.stats["legs_solved"] > 0, "and it worked everything out (%s)" % [cold_cache.stats]) and ok
+	ok = check(_same(plain, cold), "a cold run with the cache says what a run without it says") and ok
+	ok = check(cold_cache.stats["edge_rooms_cached"] == 0 and cold_cache.stats["edge_rooms_solved"] == 2 and cold_cache.stats["legs_cached"] == 0 and cold_cache.stats["legs_solved"] > 0, "and it worked everything out (%s)" % [cold_cache.stats]) and ok
 	var written := cold_cache.save()
-	ok = _check(written == 2 and FileAccess.file_exists(DIR + "/1.json") and FileAccess.file_exists(DIR + "/2.json"), "one file is written per room (%d)" % written) and ok
-	ok = _check(cold_cache.save() == 0, "and nothing is written twice") and ok
+	ok = check(written == 2 and FileAccess.file_exists(DIR + "/1.json") and FileAccess.file_exists(DIR + "/2.json"), "one file is written per room (%d)" % written) and ok
+	ok = check(cold_cache.save() == 0, "and nothing is written twice") and ok
 
 	var warm_cache := SolverCache.new(DIR)
 	var warm := _run(rooms, warm_cache, 2)
-	ok = _check(_same(plain, warm), "a warm run says it too (%d reached, %d errors)" % [warm.reached_ledges, warm.errors.size()]) and ok
-	ok = _check(warm_cache.stats["edge_rooms_cached"] == 2 and warm_cache.stats["edge_rooms_solved"] == 0 and warm_cache.stats["legs_solved"] == 0 and warm_cache.stats["legs_cached"] == cold_cache.stats["legs_solved"], "and it took every room and every leg from the cache (%s)" % [warm_cache.stats]) and ok
-	ok = _check(warm_cache.save() == 0, "and has nothing to write") and ok
+	ok = check(_same(plain, warm), "a warm run says it too (%d reached, %d errors)" % [warm.reached_ledges, warm.errors.size()]) and ok
+	ok = check(warm_cache.stats["edge_rooms_cached"] == 2 and warm_cache.stats["edge_rooms_solved"] == 0 and warm_cache.stats["legs_solved"] == 0 and warm_cache.stats["legs_cached"] == cold_cache.stats["legs_solved"], "and it took every room and every leg from the cache (%s)" % [warm_cache.stats]) and ok
+	ok = check(warm_cache.save() == 0, "and has nothing to write") and ok
 	return ok
 
 
@@ -74,31 +120,31 @@ func _what_invalidates() -> bool:
 	var edited := _world({Vector2i(10, 12): "#", Vector2i(11, 12): "#"})
 	var after_edit := SolverCache.new(DIR)
 	var edited_report := _run(edited, after_edit, 2)
-	ok = _check(after_edit.stats["edge_rooms_cached"] == 1 and after_edit.stats["edge_rooms_solved"] == 1, "editing room 2 redoes room 2 and not room 1 (%s)" % [after_edit.stats]) and ok
-	ok = _check(_same(_run(edited, null, 2), edited_report), "and the answers are the ones of a run without the cache") and ok
+	ok = check(after_edit.stats["edge_rooms_cached"] == 1 and after_edit.stats["edge_rooms_solved"] == 1, "editing room 2 redoes room 2 and not room 1 (%s)" % [after_edit.stats]) and ok
+	ok = check(_same(_run(edited, null, 2), edited_report), "and the answers are the ones of a run without the cache") and ok
 	after_edit.save()
 
 	# Room 1's door leads nowhere once room 2 is gone, so it is sealed: a different room.
 	var alone := _world({}, false)
 	var after_remove := SolverCache.new(DIR)
 	_run(alone, after_remove, 2)
-	ok = _check(after_remove.stats["edge_rooms_solved"] == 1 and after_remove.stats["edge_rooms_cached"] == 0, "removing the neighbour changes room 1's doors, so room 1 is redone (%s)" % [after_remove.stats]) and ok
+	ok = check(after_remove.stats["edge_rooms_solved"] == 1 and after_remove.stats["edge_rooms_cached"] == 0, "removing the neighbour changes room 1's doors, so room 1 is redone (%s)" % [after_remove.stats]) and ok
 
 	# The solver changed: everything is redone.
 	cache = SolverCache.new(DIR)
 	cache.solver = "another solver"
 	_run(edited, cache, 2)
-	ok = _check(cache.stats["edge_rooms_cached"] == 0 and cache.stats["legs_cached"] == 0 and cache.stats["edge_rooms_solved"] == 2, "a different solver fingerprint redoes every room (%s)" % [cache.stats]) and ok
+	ok = check(cache.stats["edge_rooms_cached"] == 0 and cache.stats["legs_cached"] == 0 and cache.stats["edge_rooms_solved"] == 2, "a different solver fingerprint redoes every room (%s)" % [cache.stats]) and ok
 
 	# A room's fingerprint covers what is in it.
 	var a: RoomInfo = rooms["1"]
 	var b: RoomInfo = _world({}, true, "", {Vector2i(5, 5): "^"})["1"]
 	var c: RoomInfo = _world({}, true, "legend:\n  U = pickup id=key upgrade=imprint\n---\n", {Vector2i(4, 16): "U"})["1"]
-	ok = _check(SolverCache.room_fingerprint(a) == SolverCache.room_fingerprint(_world()["1"]), "the same room has the same fingerprint") and ok
-	ok = _check(SolverCache.room_fingerprint(a) != SolverCache.room_fingerprint(b), "a hazard changes it") and ok
-	ok = _check(SolverCache.room_fingerprint(a) != SolverCache.room_fingerprint(c), "a pickup changes it") and ok
+	ok = check(SolverCache.room_fingerprint(a) == SolverCache.room_fingerprint(_world()["1"]), "the same room has the same fingerprint") and ok
+	ok = check(SolverCache.room_fingerprint(a) != SolverCache.room_fingerprint(b), "a hazard changes it") and ok
+	ok = check(SolverCache.room_fingerprint(a) != SolverCache.room_fingerprint(c), "a pickup changes it") and ok
 	var d: RoomInfo = _world({}, true, "legend:\n  U = pickup id=key upgrade=imprint_width value=3\n---\n", {Vector2i(4, 16): "U"})["1"]
-	ok = _check(SolverCache.room_fingerprint(c) != SolverCache.room_fingerprint(d), "and so does what it gives, with the room's cells the same") and ok
+	ok = check(SolverCache.room_fingerprint(c) != SolverCache.room_fingerprint(d), "and so does what it gives, with the room's cells the same") and ok
 	return ok
 
 
@@ -117,11 +163,11 @@ func _damaged() -> bool:
 		file.close()
 		var cache := SolverCache.new(DIR)
 		var report := _run(rooms, cache, 2)
-		ok = _check(_same(plain, report) and cache.stats["edge_rooms_solved"] == 1 and cache.stats["edge_rooms_cached"] == 1, "a damaged file (%s) is ignored and room 1 is redone (%s)" % [text.left(18), cache.stats]) and ok
-		ok = _check(cache.save() >= 1, "and it is written again") and ok
+		ok = check(_same(plain, report) and cache.stats["edge_rooms_solved"] == 1 and cache.stats["edge_rooms_cached"] == 1, "a damaged file (%s) is ignored and room 1 is redone (%s)" % [text.left(18), cache.stats]) and ok
+		ok = check(cache.save() >= 1, "and it is written again") and ok
 	var healed := SolverCache.new(DIR)
 	_run(rooms, healed, 2)
-	ok = _check(healed.stats["edge_rooms_solved"] == 0, "after which it is read") and ok
+	ok = check(healed.stats["edge_rooms_solved"] == 0, "after which it is read") and ok
 	return ok
 
 
@@ -137,14 +183,14 @@ func _upgrade() -> bool:
 	var wide_plain := _run(rooms, null, 3)
 	var wide_cache := SolverCache.new(DIR)
 	var wide := _run(rooms, wide_cache, 3)
-	ok = _check(_same(wide_plain, wide), "a wider platform, from a cache of narrow ones, says what a run without the cache says") and ok
-	ok = _check(wide_cache.stats["edge_rooms_cached"] == 2 and wide_cache.stats["legs_solved"] > 0, "the rooms' jumps are reused and the new legs are worked out (%s)" % [wide_cache.stats]) and ok
+	ok = check(_same(wide_plain, wide), "a wider platform, from a cache of narrow ones, says what a run without the cache says") and ok
+	ok = check(wide_cache.stats["edge_rooms_cached"] == 2 and wide_cache.stats["legs_solved"] > 0, "the rooms' jumps are reused and the new legs are worked out (%s)" % [wide_cache.stats]) and ok
 	wide_cache.save()
 	var widths := {}
 	var saved = JSON.parse_string(FileAccess.get_file_as_string(DIR + "/1.json"))
 	for key in saved["legs"]:
 		widths[String(key).get_slice("|", 2)] = true
-	ok = _check(not widths.is_empty() and widths.keys() == ["1"], "every stored leg is one block wide (%s)" % [widths.keys()]) and ok
+	ok = check(not widths.is_empty() and widths.keys() == ["1"], "every stored leg is one block wide (%s)" % [widths.keys()]) and ok
 	return ok
 
 
@@ -161,7 +207,12 @@ func _run(rooms: Dictionary, cache: SolverCache, width: int) -> ReachGraph.Repor
 
 
 func _same(a: ReachGraph.Report, b: ReachGraph.Report) -> bool:
-	return a.errors == b.errors and a.warnings == b.warnings and a.reached_ledges == b.reached_ledges and a.total_ledges == b.total_ledges and a.unreached.size() == b.unreached.size() and a.traps.size() == b.traps.size() and a.one_way.size() == b.one_way.size() and a.pickups == b.pickups
+	var rows := func(report: ReachGraph.Report) -> Array:
+		var out := []
+		for pickup in report.pickups:
+			out.append(pickup.row())
+		return out
+	return a.errors == b.errors and a.warnings == b.warnings and a.reached_ledges == b.reached_ledges and a.total_ledges == b.total_ledges and a.unreached.size() == b.unreached.size() and a.traps.size() == b.traps.size() and a.one_way.size() == b.one_way.size() and rows.call(a) == rows.call(b)
 
 
 ## Two rooms side by side. Room 1 is a floor with a pit of spikes in it, a start
@@ -202,8 +253,3 @@ func _clear() -> void:
 			DirAccess.remove_absolute(path.path_join(file))
 	else:
 		DirAccess.make_dir_recursive_absolute(path)
-
-
-func _check(cond: bool, label: String) -> bool:
-	print(("ok   " if cond else "FAIL ") + label)
-	return cond

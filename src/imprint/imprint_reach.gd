@@ -44,7 +44,14 @@ static func can_land_on(cfg: MovementConfig, rects: Array[Rect2], platform: Rect
 			for at in STEER_AT:
 				plans.append({"input": 0.0, "hold": hold, "jump": grounded, "later": later, "at": at})
 	for plan in plans:
-		var result := MovementSim.simulate_jump(cfg, near, position, velocity, plan["input"], plan["hold"], grounded, plan["jump"], triggers, Rect2(), hazards, [], plan["later"], plan["at"])
+		var jump := JumpPlan.new(near, position, velocity, plan["input"], plan["hold"])
+		jump.grounded_start = grounded
+		jump.jump = plan["jump"]
+		jump.triggers = triggers
+		jump.hazards = hazards
+		jump.later_input = plan["later"]
+		jump.switch_frame = plan["at"]
+		var result := MovementSim.run(cfg, jump)
 		if result["hazard"] or int(result["trigger"]) >= 0 or not result["landed"]:
 			continue
 		if _on_top(result["position"], platform):

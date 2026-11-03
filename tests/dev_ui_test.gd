@@ -1,16 +1,11 @@
-extends SceneTree
+extends TestCase
 
 ## Real panel events, pause ownership, draft application, and optional native
 ## screenshots. Headless runs never read or write the user's loadout store.
 
-var _ok := true
-
 
 func _initialize() -> void:
-	create_timer(90.0).timeout.connect(func() -> void:
-		print("FAIL timed out")
-		quit(1)
-	)
+	watchdog()
 	_run()
 
 
@@ -24,26 +19,26 @@ func _run() -> void:
 	var session: Node = root.get_node("DevSession")
 	world.player.scripted = true
 	_press(panel, KEY_F2)
-	_check(panel.opened and paused and world.modal_owner == "dev", "F2 opens a paused panel")
+	check(panel.opened and paused and world.modal_owner == "dev", "F2 opens a paused panel")
 	var imprint_switch: CheckButton = panel._fields["imprint_unlocked"]
-	_check(not imprint_switch.button_pressed and imprint_switch.text == "Off", "locked Imprint displays Off when the panel opens")
+	check(not imprint_switch.button_pressed and imprint_switch.text == "Off", "locked Imprint displays Off when the panel opens")
 	imprint_switch.button_pressed = true
-	_check(imprint_switch.text == "On", "enabling Imprint updates the label to On")
+	check(imprint_switch.text == "On", "enabling Imprint updates the label to On")
 	imprint_switch.button_pressed = false
-	_check(imprint_switch.text == "Off", "disabling Imprint updates the label to Off")
-	_check(panel._rooms.item_count == root.get_node("WorldData").rooms.size(), "room picker initially lists every implemented room")
+	check(imprint_switch.text == "Off", "disabling Imprint updates the label to Off")
+	check(panel._rooms.item_count == root.get_node("WorldData").rooms.size(), "room picker initially lists every implemented room")
 	var selected: PackedInt32Array = panel._rooms.get_selected_items()
-	_check(selected.size() == 1 and panel._rooms.get_item_text(selected[0]) == "7", "current room is selected without filtering out other rooms")
+	check(selected.size() == 1 and panel._rooms.get_item_text(selected[0]) == "7", "current room is selected without filtering out other rooms")
 	var save_index := -1
 	for index in panel._rooms.item_count:
 		if panel._rooms.get_item_text(index) == "s1":
 			save_index = index
 	if save_index >= 0:
 		panel._rooms.item_selected.emit(save_index)
-	_check(panel._room.text == "s1" and panel._rooms.item_count == root.get_node("WorldData").rooms.size(), "selecting a listed room chooses it without hiding the list")
+	check(panel._room.text == "s1" and panel._rooms.item_count == root.get_node("WorldData").rooms.size(), "selecting a listed room chooses it without hiding the list")
 	panel._filter_rooms("s")
 	var save_rooms: Array = root.get_node("WorldData").rooms.keys().filter(func(id: String) -> bool: return id.contains("s"))
-	_check(panel._rooms.item_count == save_rooms.size(), "typing still filters save rooms")
+	check(panel._rooms.item_count == save_rooms.size(), "typing still filters save rooms")
 	panel._filter_rooms("")
 	panel._tabs.current_tab = 1
 	for index in 100:
@@ -51,87 +46,87 @@ func _run() -> void:
 	for frame in 4:
 		await process_frame
 	var last_room: Rect2 = panel._rooms.get_item_rect(panel._rooms.item_count - 1)
-	_check(last_room.end.y <= panel._rooms.size.y and not panel._rooms.get_v_scroll_bar().visible, "long room list grows to fit every row without an inner scrollbar")
+	check(last_room.end.y <= panel._rooms.size.y and not panel._rooms.get_v_scroll_bar().visible, "long room list grows to fit every row without an inner scrollbar")
 	var page: ScrollContainer = panel._tabs.get_child(1)
-	_check(page.get_v_scroll_bar().visible, "Rooms uses its single outer scrollbar for the long page")
+	check(page.get_v_scroll_bar().visible, "Rooms uses its single outer scrollbar for the long page")
 	panel._tabs.current_tab = 2
 	for index in 100:
 		panel._names.add_item("test_loadout_%d" % index)
 	for frame in 4:
 		await process_frame
 	var last_loadout: Rect2 = panel._names.get_item_rect(panel._names.item_count - 1)
-	_check(last_loadout.end.y <= panel._names.size.y and not panel._names.get_v_scroll_bar().visible, "long loadout list also has no inner scrollbar")
+	check(last_loadout.end.y <= panel._names.size.y and not panel._names.get_v_scroll_bar().visible, "long loadout list also has no inner scrollbar")
 	panel._refresh_names()
 	panel._filter_rooms("")
 	panel._tabs.current_tab = 0
 	var tick: int = world.current.tick
 	await create_timer(0.05).timeout
-	_check(world.current.tick == tick, "moving platform clock stops while editing")
-	_check(not world.acquire_modal("map"), "map cannot take the dev panel's pause")
+	check(world.current.tick == tick, "moving platform clock stops while editing")
+	check(not world.acquire_modal("map"), "map cannot take the dev panel's pause")
 	world.release_modal("map")
-	_check(paused, "map close cannot unpause dev panel")
+	check(paused, "map close cannot unpause dev panel")
 	panel._fields["imprint_unlocked"].button_pressed = true
 	panel._fields["imprint_width"].text = "5"
 	panel._fields["tokens"].text = "3"
-	_check(panel._apply() and state.tokens == 3 and state.abilities.imprint_width == 5 and state.abilities.imprint_unlocked, "panel applies a complete valid draft")
+	check(panel._apply() and state.tokens == 3 and state.abilities.imprint_width == 5 and state.abilities.imprint_unlocked, "panel applies a complete valid draft")
 	state.tokens = 1
 	panel.close_panel()
 	panel.open_panel()
 	panel._fields["imprint_duration"].text = "7.5"
-	_check(panel._apply() and state.tokens == 1 and session.loadout["tokens"] == 3, "editing an unrelated field does not overwrite retry resources")
+	check(panel._apply() and state.tokens == 1 and session.loadout["tokens"] == 3, "editing an unrelated field does not overwrite retry resources")
 	world.imprint.scripted = true
 	world.imprint.scripted_cell = Vector2i(3, 8)
 	world.imprint.refresh_preview()
 	panel._fields["imprint_width"].text = str(DevCatalog.MAX_INTEGER)
-	_check(panel._apply() and world.imprint.preview_state() == "unavailable", "extreme width invalidates the old preview before drawing")
+	check(panel._apply() and world.imprint.preview_state() == "unavailable", "extreme width invalidates the old preview before drawing")
 	world.imprint.refresh_preview()
-	_check(world.imprint.preview_reason() == "outside", "extreme width is refused without overflow or per-cell work")
+	check(world.imprint.preview_reason() == "outside", "extreme width is refused without overflow or per-cell work")
 	panel._fields["imprint_width"].text = "5"
 	panel._apply()
-	_check(panel._fields.has("imprint_cooldown"), "the panel has a cooldown field")
+	check(panel._fields.has("imprint_cooldown"), "the panel has a cooldown field")
 	panel._fields["imprint_cooldown"].text = "0.2"
-	_check(panel._apply() and is_equal_approx(state.abilities.imprint_cooldown, 0.2), "panel applies a cooldown")
+	check(panel._apply() and is_equal_approx(state.abilities.imprint_cooldown, 0.2), "panel applies a cooldown")
 	var cooldown_control: Dictionary = DevCatalog.controls()["imprint_cooldown"]
 	panel._fields["imprint_cooldown"].text = "0"
 	for i in 3:
 		panel._nudge("imprint_cooldown", 1, cooldown_control)
-	_check(panel._fields["imprint_cooldown"].text == "0.3", "three presses of + give 0.3, not float noise (%s)" % panel._fields["imprint_cooldown"].text)
+	check(panel._fields["imprint_cooldown"].text == "0.3", "three presses of + give 0.3, not float noise (%s)" % panel._fields["imprint_cooldown"].text)
 	for i in 5:
 		panel._nudge("imprint_cooldown", -1, cooldown_control)
-	_check(float(panel._fields["imprint_cooldown"].text) == 0.0, "and − stops at 0 (%s)" % panel._fields["imprint_cooldown"].text)
+	check(float(panel._fields["imprint_cooldown"].text) == 0.0, "and − stops at 0 (%s)" % panel._fields["imprint_cooldown"].text)
 	panel._apply()
-	_check(is_zero_approx(state.abilities.imprint_cooldown), "and the cooldown can be turned off again")
-	_check(panel._classic != null and not panel._classic.button_pressed and not session.classic_imprint, "the Classic Imprint switch is on the Player tab, off")
+	check(is_zero_approx(state.abilities.imprint_cooldown), "and the cooldown can be turned off again")
+	check(panel._classic != null and not panel._classic.button_pressed and not session.classic_imprint, "the Classic Imprint switch is on the Player tab, off")
 	panel._classic.button_pressed = true
-	_check(session.classic_imprint, "turning it on reaches the session")
-	_check(session.status_line().contains("classic imprint"), "and the pause menu's status line says so (%s)" % session.status_line())
-	_check(not panel._draft().has("classic_imprint") and not panel._draft().get("abilities", {}).has("classic_imprint"), "it is not part of the draft")
+	check(session.classic_imprint, "turning it on reaches the session")
+	check(session.status_line().contains("classic imprint"), "and the pause menu's status line says so (%s)" % session.status_line())
+	check(not panel._draft().has("classic_imprint") and not panel._draft().get("abilities", {}).has("classic_imprint"), "it is not part of the draft")
 	panel._fields["imprint_cooldown"].text = "0"
-	_check(panel._apply() and session.classic_imprint, "Apply does not change it")
+	check(panel._apply() and session.classic_imprint, "Apply does not change it")
 	panel._fields["health"].text = "bad"
 	panel._fields["tokens"].text = "2"
-	_check(not panel._apply() and state.tokens == 1, "invalid panel draft is atomic")
+	check(not panel._apply() and state.tokens == 1, "invalid panel draft is atomic")
 	_press(panel, KEY_ESCAPE)
-	_check(not panel.opened and not paused and state.tokens == 1, "Escape discards unapplied fields")
-	_check(session.classic_imprint, "and does not change the Classic switch")
+	check(not panel.opened and not paused and state.tokens == 1, "Escape discards unapplied fields")
+	check(session.classic_imprint, "and does not change the Classic switch")
 	panel.open_panel()
-	_check(panel._classic.button_pressed, "the switch shows its state when the panel opens again")
+	check(panel._classic.button_pressed, "the switch shows its state when the panel opens again")
 	panel._classic.button_pressed = false
-	_check(not session.classic_imprint, "and turns off again")
-	_check(not session.status_line().contains("classic"), "with the status line clear of it")
-	_check(panel._token_marks != null and not panel._token_marks.button_pressed and not session.token_marks, "the token marks switch is on the Player tab, off")
+	check(not session.classic_imprint, "and turns off again")
+	check(not session.status_line().contains("classic"), "with the status line clear of it")
+	check(panel._token_marks != null and not panel._token_marks.button_pressed and not session.token_marks, "the token marks switch is on the Player tab, off")
 	panel._token_marks.button_pressed = true
-	_check(session.token_marks and session.status_line().contains("token marks"), "turning it on reaches the session, and the status line")
-	_check(not panel._draft().has("token_marks") and not panel._draft().get("abilities", {}).has("token_marks"), "it is not part of the draft")
+	check(session.token_marks and session.status_line().contains("token marks"), "turning it on reaches the session, and the status line")
+	check(not panel._draft().has("token_marks") and not panel._draft().get("abilities", {}).has("token_marks"), "it is not part of the draft")
 	panel._fields["imprint_cooldown"].text = "0"
-	_check(panel._apply() and session.token_marks, "Apply does not change it")
+	check(panel._apply() and session.token_marks, "Apply does not change it")
 	_press(panel, KEY_ESCAPE)
 	session.token_marks = false
 	panel.open_panel()
-	_check(not panel._token_marks.button_pressed, "the switch shows the session's state when the panel opens again, not its own")
+	check(not panel._token_marks.button_pressed, "the switch shows the session's state when the panel opens again, not its own")
 	panel._token_marks.button_pressed = true
 	panel._token_marks.button_pressed = false
-	_check(not session.token_marks, "and turns off again")
+	check(not session.token_marks, "and turns off again")
 	# The pixel font has ASCII only; anything else draws as a box with its code point in it (U+2212, the
 	# Unicode minus, showed as "2212" on the - buttons).
 	var odd: Array[String] = []
@@ -143,91 +138,91 @@ func _run() -> void:
 			for ch in String(node.text):
 				if ch.unicode_at(0) > 126:
 					odd.append("%s in '%s'" % [ch, node.text])
-	_check(odd.is_empty(), "every button and label in the dev panel is in the pixel font's ASCII (%s)" % [odd])
-	_check(panel._wall != null and panel._wall.text == "2", "the wall strength field is on the Player tab, at 2")
+	check(odd.is_empty(), "every button and label in the dev panel is in the pixel font's ASCII (%s)" % [odd])
+	check(panel._wall != null and panel._wall.text == "2", "the wall strength field is on the Player tab, at 2")
 	panel._wall.text_submitted.emit("4")
-	_check(session.wall_strength() == 4 and panel._wall.text == "4", "typing a number sets the strength")
+	check(session.wall_strength() == 4 and panel._wall.text == "4", "typing a number sets the strength")
 	panel._wall.text_submitted.emit("0")
-	_check(session.wall_strength() == 4 and panel._wall.text == "4", "an invalid number is refused and the field shows the real value")
+	check(session.wall_strength() == 4 and panel._wall.text == "4", "an invalid number is refused and the field shows the real value")
 	panel._wall.text_submitted.emit("x")
-	_check(session.wall_strength() == 4, "and so is text")
+	check(session.wall_strength() == 4, "and so is text")
 	session.wall_strength_override = 0
 	panel._wall.text = "3"
 	panel.close_panel()
-	world._busy = true
+	world._set_mode(2)
 	_press(panel, KEY_F2)
-	_check(not panel.opened and panel._pending == 0, "panel defers opening during an animation")
+	check(not panel.opened and panel._pending == 0, "panel defers opening during an animation")
 	_press(panel, KEY_F2)
-	_check(panel._pending == -1, "second F2 cancels pending opening")
+	check(panel._pending == -1, "second F2 cancels pending opening")
 	_press(panel, KEY_F2)
-	world._busy = false
+	world._set_mode(0)
 	await process_frame
 	await process_frame
-	_check(panel.opened, "pending panel opens after the animation")
+	check(panel.opened, "pending panel opens after the animation")
 	panel.close_panel()
 
 	# F7 slows the game, in a dev test with the panel shut.
 	var toast: Toast = world.toast
-	_check(session.mode == session.Mode.DEV_TEST and not session.slow_motion, "a dev test starts at normal speed")
+	check(session.mode == session.Mode.DEV_TEST and not session.slow_motion, "a dev test starts at normal speed")
 	_press(panel, KEY_F7)
-	_check(session.slow_motion and is_equal_approx(Engine.time_scale, 0.25) and toast._label.visible and toast._label.text == "Slow motion: 1/4 speed", "F7 slows the game to a quarter speed and says so")
+	check(session.slow_motion and is_equal_approx(Engine.time_scale, 0.25) and toast._label.visible and toast._label.text == "Slow motion: 1/4 speed", "F7 slows the game to a quarter speed and says so")
 	_press(panel, KEY_F7)
-	_check(not session.slow_motion and Engine.time_scale == 1.0 and toast._label.text == "Slow motion: off", "and again puts it back")
+	check(not session.slow_motion and Engine.time_scale == 1.0 and toast._label.text == "Slow motion: off", "and again puts it back")
 	panel.open_panel()
 	_press(panel, KEY_F7)
-	_check(not session.slow_motion, "with the panel open, F7 does nothing")
-	_check(panel._slow != null and not panel._slow.button_pressed, "the panel offers slow motion, off")
+	check(not session.slow_motion, "with the panel open, F7 does nothing")
+	check(panel._slow != null and not panel._slow.button_pressed, "the panel offers slow motion, off")
 	panel._slow.button_pressed = true
-	_check(session.slow_motion and Engine.time_scale < 1.0, "and its switch slows the game")
+	check(session.slow_motion and Engine.time_scale < 1.0, "and its switch slows the game")
 	panel._slow.button_pressed = false
-	_check(not session.slow_motion and Engine.time_scale == 1.0, "and puts it back")
+	check(not session.slow_motion and Engine.time_scale == 1.0, "and puts it back")
 	panel.close_panel()
 	world.modal_owner = "pause"
 	_press(panel, KEY_F7)
-	_check(not session.slow_motion, "while something else holds the input, it does nothing")
+	check(not session.slow_motion, "while something else holds the input, it does nothing")
 	world.modal_owner = ""
-	world._busy = true
+	world._set_mode(2)
 	_press(panel, KEY_F7)
-	_check(not session.slow_motion, "and during an animation")
-	world._busy = false
+	check(not session.slow_motion, "and during an animation")
+	world._set_mode(0)
 	for mode in [session.Mode.NORMAL, session.Mode.ROOM_TEST]:
 		session.mode = mode
 		_press(panel, KEY_F7)
-		_check(not session.slow_motion and Engine.time_scale == 1.0, "outside a dev test (mode %d), it does nothing" % mode)
+		check(not session.slow_motion and Engine.time_scale == 1.0, "outside a dev test (mode %d), it does nothing" % mode)
 	session.mode = session.Mode.DEV_TEST
 	var map: Node = world.get_node("MapOverlay")
 	map._set_open(true)
 	panel.open_panel()
-	_check(not panel.opened and panel._pending >= 0, "dev panel waits for held map to close")
+	check(not panel.opened and panel._pending >= 0, "dev panel waits for held map to close")
 	map._set_open(false)
 	for i in 15:
 		await process_frame
-	_check(panel.opened and paused and world.modal_owner == "dev", "pause transfers to the panel after map closes")
+	check(panel.opened and paused and world.modal_owner == "dev", "pause transfers to the panel after map closes")
 	panel.close_panel()
 	Input.action_press("jump")
-	_check(world.gameplay_input_blocked(), "held gameplay input is suppressed after closing")
+	check(world.gameplay_input_blocked(), "held gameplay input is suppressed after closing")
 	# A direction held through the panel does not turn the player either.
 	world.player.scripted = false
 	world.player.facing = 1
 	Input.action_press("move_left")
 	for i in 3:
 		await physics_frame
-	_check(world.player.facing == 1, "a held direction does not turn the player while input is suppressed")
+	check(world.player.facing == 1, "a held direction does not turn the player while input is suppressed")
 	Input.action_release("move_left")
 	Input.action_release("jump")
-	_check(not world.gameplay_input_blocked(), "gameplay resumes once held keys are released")
+	check(not world.gameplay_input_blocked(), "gameplay resumes once held keys are released")
 	Input.action_press("move_left")
 	for i in 2:
 		await physics_frame
 	Input.action_release("move_left")
-	_check(world.player.facing == -1, "and a fresh press turns them")
+	check(world.player.facing == -1, "and a fresh press turns them")
 	world.player.facing = 1
 	world.player.scripted = true
 	_press(panel, KEY_F4)
-	_check(panel.opened and panel._tabs.current_tab == 1, "F4 focuses room selection")
+	check(panel.opened and panel._tabs.current_tab == 1, "F4 focuses room selection")
 	panel._room.text = "999"
 	panel._start(false)
-	_check(world.current.info.id == "7" and panel._status.text.contains("No such room"), "invalid room selection leaves test unchanged")
+	check(world.current.info.id == "7" and panel._status.text.contains("No such room"), "invalid room selection leaves test unchanged")
 	panel._room.text = "s1"
 	panel._start(false)
 	await process_frame
@@ -235,11 +230,11 @@ func _run() -> void:
 	world = _current_world()
 	panel = world.get_node("DevPanel")
 	world.player.scripted = true
-	_check(world.current.info.id == "s1" and not paused and state.tokens == 3, "room picker starts a save-room test and replenishes the loadout")
+	check(world.current.info.id == "s1" and not paused and state.tokens == 3, "room picker starts a save-room test and replenishes the loadout")
 	panel.open_panel()
 	await process_frame
 	await process_frame
-	_check(panel._window.size.x <= 312 and panel._window.size.y <= 160, "panel fits the native viewport")
+	check(panel._window.size.x <= 312 and panel._window.size.y <= 160, "panel fits the native viewport")
 	if DisplayServer.get_name() != "headless":
 		for tab in 3:
 			panel._tabs.current_tab = tab
@@ -248,8 +243,7 @@ func _run() -> void:
 			root.get_texture().get_image().save_png("res://build/dev-panel-%d.png" % tab)
 	panel.close_panel()
 	world.free()
-	print("DEV UI %s" % ("pass" if _ok else "fail"))
-	quit(0 if _ok else 1)
+	finish("DEV UI")
 
 
 func _current_world() -> Node:
@@ -264,8 +258,3 @@ func _press(panel: Node, key: Key) -> void:
 	event.keycode = key
 	event.pressed = true
 	panel._input(event)
-
-
-func _check(condition: bool, label: String) -> void:
-	print(("ok   " if condition else "FAIL ") + label)
-	_ok = condition and _ok

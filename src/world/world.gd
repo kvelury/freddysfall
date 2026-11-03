@@ -10,8 +10,10 @@ const FEED_PAUSE := 0.2
 const SPARK_TIME := 0.3
 ## How many stretches of floor are remembered, and how far apart two spots have
 ## to be, in pixels, to count as different stretches.
-const SAFE_HISTORY := 8
-const SAFE_SPACING := 30.0
+const SAFE_HISTORY := SafeFloor.HISTORY
+const SAFE_SPACING := SafeFloor.SPACING
+
+enum Mode { PLAY, DOOR_SLIDE, DYING, GAME_OVER, SAVE_MACHINE, FEEDING }
 
 @onready var rooms_root: Node2D = $Rooms
 @onready var player: Player = $Player
@@ -51,15 +53,12 @@ var _popups: Array[String] = []
 var _titled := {}
 var current: Room
 var _pending: Room
-var _busy := false
+var mode := Mode.PLAY
 var _follow := true
+var safe := SafeFloor.new()
 ## The floor the player has stood on, newest last. Each entry has the "room",
 ## the "position" they last stood at on that stretch of floor, and the
 ## "anchor" where the stretch began, so walking along one floor is one entry.
-var _safe: Array[Dictionary] = []
-## Whether the player has stood on safe floor since they last came back from a
-## death. A respawn that dies before that was a bad spot, and goes one back.
-var _stood_since_respawn := true
 ## Velocity the player had at a door, given back when the slide ends.
 var _carried := Vector2.ZERO
 
@@ -77,7 +76,7 @@ func _ready() -> void:
 	game_over.continued.connect(func() -> void: _respawn(true))
 	GameState.abilities_changed.connect(func() -> void: player.air_jumps = GameState.abilities.air_jumps)
 	GameState.upgrade_granted.connect(func(id: String) -> void:
-		if Upgrades.get_def(id).has("controls"):
+		if Upgrades.get_def(id).has_controls:
 			_popups.append(id))
 	var requested := start_override
 	if requested.is_empty() and not from_menu:
@@ -121,7 +120,7 @@ func _ready() -> void:
 ## without playing to it. Returns false if there is no such room or the world
 ## is mid-transition.
 func warp_to(id: String) -> bool:
-	if _busy or not WorldData.rooms.has(id):
+	if is_busy() or not WorldData.rooms.has(id):
 		return false
 	_place_in(id)
 	return true
@@ -145,12 +144,12 @@ func _place_in(id: String, world_position := Vector2.INF, respawn := false) -> v
 	player.room = current
 	player.facing = 1
 	if not respawn:
-		_safe.clear()
+		safe.clear()
 		_record_safe(id, at)
 	camera.position = _camera_focus(current, player.global_position)
 	current.set_exits_active(true)
 	if current.info.is_save_room():
-		GameState.save_room = id
+		GameState.set_save_room(id)
 		# Dying in a save room puts the player back in it, but is not entering it.
 		if not respawn:
 			GameState.refill_health()
@@ -162,20 +161,23 @@ func _place_in(id: String, world_position := Vector2.INF, respawn := false) -> v
 func _physics_process(_delta: float) -> void:
 	if current == null:
 		return
-	if not _busy and not _popups.is_empty() and modal_owner.is_empty():
+	if not is_busy() and not _popups.is_empty() and modal_owner.is_empty():
 		power_popup.open(_popups.pop_front())
-	if not _busy:
+	if not is_busy():
 		var body := player.body_rect()
 		if current.touches_hazard(body) or current.is_outside(player.global_position) or player.crushed():
 			_die()
 		else:
 			for thing in current.touched_things(body):
 				_collect(thing)
-			var door := current.touched_door(body)
-			if door != null and not door.dest_id.is_empty():
-				_on_exit(door)
-			elif player.is_on_floor() and current.is_safe_spot(body):
-				_record_safe(current.info.id, player.global_position)
+				if is_busy():
+					break
+			if not is_busy():
+				var door := current.touched_door(body)
+				if door != null and not door.dest_id.is_empty():
+					_on_exit(door)
+				elif player.is_on_floor() and current.is_safe_spot(body):
+					_record_safe(current.info.id, player.global_position)
 
 
 ## Follow the same point in time that the renderer uses for the player.
@@ -205,7 +207,16 @@ func _make_room(id: String) -> Room:
 
 ## Whether a door slide or a death is under way and the player is not in control.
 func is_busy() -> bool:
-	return _busy
+	return mode != Mode.PLAY
+
+
+## Moves to `next`. A change that the sequences never make is reported and ignored.
+func _set_mode(next: Mode) -> void:
+	var legal := mode == Mode.PLAY or next == Mode.PLAY or (mode == Mode.DYING and next == Mode.GAME_OVER)
+	if not legal:
+		push_error("World mode %d cannot change to %d" % [mode, next])
+		return
+	mode = next
 
 
 func _collect(thing: Node2D) -> void:
@@ -279,7 +290,7 @@ func _pop(machine: SaveMachine, side: int) -> void:
 	await _arc(machine.centre(), landing, SaveMachine.POP_TIME)
 	player.place(landing, player.solids)
 	player.input_enabled = true
-	_busy = false
+	_set_mode(Mode.PLAY)
 	machine.close()
 
 
@@ -287,8 +298,8 @@ func _pop(machine: SaveMachine, side: int) -> void:
 ## room's doors are checked (a save room can hold its doors shut until this),
 ## the game is written, and a line says so.
 func _commit_save(machine: SaveMachine) -> void:
-	GameState.flags[SaveMachine.flag_for(machine.def)] = true
-	GameState.save_room = current.info.id
+	GameState.set_flag(SaveMachine.flag_for(machine.def))
+	GameState.set_save_room(current.info.id)
 	current.recheck_exits(GameState.flags)
 	_autosave()
 	if not DevSession.isolated():
@@ -297,7 +308,7 @@ func _commit_save(machine: SaveMachine) -> void:
 
 ## Takes control from the player, and stops them where they are.
 func _hold_player() -> void:
-	_busy = true
+	_set_mode(Mode.SAVE_MACHINE)
 	player.input_enabled = false
 	player.velocity = Vector2.ZERO
 
@@ -320,7 +331,7 @@ func _feed(machine: TokenMachine) -> void:
 		return
 	if GameState.tokens == 0:
 		return
-	_busy = true
+	_set_mode(Mode.FEEDING)
 	player.input_enabled = false
 	player.velocity = Vector2.ZERO
 	while GameState.tokens > 0 and not machine.spent:
@@ -329,7 +340,7 @@ func _feed(machine: TokenMachine) -> void:
 		var flier := FlyingToken.launch(self, player.global_position, machine.slot_position(slot), FEED_TIME)
 		await flier.arrived
 		machine.fill()
-		GameState.machines[machine.def.id] = machine.filled
+		GameState.set_machine_fill(machine.def.id, machine.filled)
 		await get_tree().create_timer(FEED_PAUSE, true, true).timeout
 	if machine.spent:
 		await machine.dispense()
@@ -343,7 +354,7 @@ func _feed(machine: TokenMachine) -> void:
 			hud.fly_in(&"pip", player.global_position)
 		await get_tree().create_timer(FEED_PAUSE, true, true).timeout
 	player.input_enabled = true
-	_busy = false
+	_set_mode(Mode.PLAY)
 	_autosave()
 
 
@@ -380,15 +391,7 @@ func _resume_point() -> Dictionary:
 
 ## Remembers that the player stood at `at` in room `room_id`.
 func _record_safe(room_id: String, at: Vector2) -> void:
-	_stood_since_respawn = true
-	if not _safe.is_empty():
-		var last := _safe[-1]
-		if last["room"] == room_id and at.distance_to(last["anchor"]) < SAFE_SPACING:
-			last["position"] = at
-			return
-	_safe.append({"room": room_id, "position": at, "anchor": at})
-	if _safe.size() > SAFE_HISTORY:
-		_safe.pop_front()
+	safe.record(room_id, at)
 
 
 func _die() -> void:
@@ -400,9 +403,9 @@ func _die() -> void:
 		GameState.spend_health()
 		# Dying again without having stood anywhere since the last respawn
 		# means that spot was no good. Go back to the floor before it.
-		if not to_save and not _stood_since_respawn and _safe.size() > 1:
-			_safe.pop_back()
-	_busy = true
+		if not to_save and not safe.stood_since_respawn and safe.spots.size() > 1:
+			safe.drop_last()
+	_set_mode(Mode.DYING)
 	imprint.clear(true)
 	tongue.clear()
 	player.input_enabled = false
@@ -418,7 +421,10 @@ func _die() -> void:
 		timer.finished.connect(func() -> void: DevSession.retry(self, true))
 	elif to_save:
 		# The last heart is gone: the screen goes black and waits, and the key sends them to the save room.
-		timer.finished.connect(game_over.open)
+		timer.finished.connect(func() -> void:
+			_set_mode(Mode.GAME_OVER)
+			game_over.open()
+		)
 	else:
 		timer.finished.connect(_respawn.bind(false))
 
@@ -429,13 +435,13 @@ func _respawn(to_save: bool) -> void:
 		var point := _resume_point()
 		_place_in(point["room"], Vector2(WorldData.get_room(point["room"]).grid_pos) * Grid.SCREEN_SIZE + (point["position"] as Vector2))
 	else:
-		var spot := _safe[-1]
+		var spot := safe.last()
 		_place_in(spot["room"], spot["position"], true)
-		_stood_since_respawn = false
+		safe.stood_since_respawn = false
 	player.visible = true
 	player.input_enabled = true
 	_follow = true
-	_busy = false
+	_set_mode(Mode.PLAY)
 	if to_save:
 		game_over.reveal()
 		var machine := current.save_machine_holding(player.body_rect())
@@ -447,9 +453,9 @@ func _respawn(to_save: bool) -> void:
 ## velocity. The player is frozen while the camera slides, and gets the
 ## velocity back when it ends.
 func _on_exit(door: Door) -> void:
-	if _busy or door.dest_id.is_empty():
+	if is_busy() or door.dest_id.is_empty():
 		return
-	_busy = true
+	_set_mode(Mode.DOOR_SLIDE)
 	_follow = false
 	_carried = player.velocity
 	player.input_enabled = false
@@ -459,9 +465,10 @@ func _on_exit(door: Door) -> void:
 	tongue.clear()
 	_pending = _make_room(door.dest_id)
 	_pending.set_exits_active(false)
+	current.process_mode = Node.PROCESS_MODE_DISABLED
 	var crossed := Door.crossing(door, _pending.info, player.global_position, _carried)
-	_carried = crossed["velocity"]
-	player.place(crossed["position"], _pending.world_rects())
+	_carried = crossed.velocity
+	player.place(crossed.position, _pending.world_rects())
 	player.room = _pending
 	GameState.visit(door.dest_id)
 	_maybe_title(door.dest_id)
@@ -485,11 +492,11 @@ func _finish_transition() -> void:
 		current.set_exits_active(true)
 	player.velocity = _carried
 	player.input_enabled = true
-	_busy = false
+	_set_mode(Mode.PLAY)
 	_follow = true
 	if current != null:
 		if current.info.is_save_room():
-			GameState.save_room = current.info.id
+			GameState.set_save_room(current.info.id)
 			GameState.refill_health()
 		_autosave()
 
@@ -504,7 +511,7 @@ func _maybe_title(id: String) -> void:
 		return
 	_titled[id] = true
 	if not DevSession.isolated():
-		GameState.flags[key] = true
+		GameState.set_flag(key)
 	title_card.show_title(String(title["text"]), float(title["hold"]))
 
 

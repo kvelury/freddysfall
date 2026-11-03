@@ -21,16 +21,27 @@ func _ready() -> void:
 func ensure_loaded() -> void:
 	if _loaded:
 		return
+	load_from(WORLD_PATH, ROOM_DIR)
+
+
+## Loads a world from `world_path` and room files in `room_dir`, replacing
+## whatever was loaded. Tests use this for a small world of their own.
+func load_from(world_path: String, room_dir: String) -> void:
 	_loaded = true
-	var data = JSON.parse_string(FileAccess.get_file_as_string(WORLD_PATH))
+	start_room = ""
+	rooms = {}
+	titles = {}
+	errors = []
+	_by_pos = {}
+	var data = JSON.parse_string(FileAccess.get_file_as_string(world_path))
 	if not data is Dictionary:
-		errors.append("Failed to parse %s" % WORLD_PATH)
+		errors.append("Failed to parse %s" % world_path)
 		_report()
 		return
 	start_room = String(data.get("start_room", ""))
 	var entries: Array = []
 	for raw in data.get("rooms", []):
-		var entry = _read_entry(raw)
+		var entry = _read_entry(raw, world_path, room_dir)
 		if entry != null:
 			entries.append(entry)
 	var built := RoomParser.build(entries, start_room, errors)
@@ -48,12 +59,12 @@ func id_at(grid_pos: Vector2i) -> String:
 	return String(_by_pos.get(grid_pos, ""))
 
 
-func _read_entry(raw) -> Variant:
+func _read_entry(raw, world_path := WORLD_PATH, room_dir := ROOM_DIR) -> Variant:
 	if not raw is Dictionary or not raw.has("id") or not raw.get("grid_pos") is Array or raw["grid_pos"].size() != 2:
-		errors.append("%s has a room entry without an id and a [x, y] grid_pos: %s" % [WORLD_PATH, raw])
+		errors.append("%s has a room entry without an id and a [x, y] grid_pos: %s" % [world_path, raw])
 		return null
 	var id := String(raw["id"])
-	var path := ROOM_DIR + id + ".txt"
+	var path := room_dir + id + ".txt"
 	if not FileAccess.file_exists(path):
 		errors.append("Room %s has no file at %s" % [id, path])
 		return null

@@ -40,13 +40,15 @@ const MACHINE_COST := TokenMachine.COST
 ## The most ticks between the moments a moving platform is tried at. A slower
 ## platform is tried at the moments it has moved a cell, if that is sooner.
 const MAX_PHASE_STEP := 12
+## Where the plans the Imprint search simulates are counted (see timing()).
+const IMPRINT_PLANS := "(imprint)"
+## Most states (sets of walls broken in one visit) the solver keeps for a room.
+## More than this is an error: split the room.
+const MAX_WALL_STATES := 16
 ## The air jumps the solver tries, from a ground jump held for each of
 ## AIR_FIRST_HOLDS ticks: the second press at each of AIR_FRAMES (ticks after
 ## the first), held for each of AIR_HOLDS. A walk off a ledge uses the later
 ## frames only (AIR_OFF_FRAMES), because the early ones are still its coyote jump.
-## Most states (sets of walls broken in one visit) the solver keeps for a room.
-## More than this is an error: split the room.
-const MAX_WALL_STATES := 16
 const AIR_FIRST_HOLDS: Array[int] = [8, 90]
 const AIR_FRAMES: Array[int] = [10, 18, 26, 40]
 const AIR_OFF_FRAMES: Array[int] = [16, 24, 36]
@@ -70,6 +72,11 @@ var _ledges := {}
 var _geometry := {}
 var _solved := {}
 var _air_solved := {}
+## Room ids whose ground jumps are already on their ledges. Those jumps do not
+## read air_jumps, so a later movement_key copies them instead of simulating
+## again. A stat that changes a ground jump must stop this reuse and be named
+## in Abilities.movement_key.
+var _ground_ready := {}
 ## The solver's copies of rooms with walls broken: key (see RoomInfo.key_for)
 ## -> room, and base room id -> its keys. A copy's ledges are in `_ledges`
 ## under its key, like any room's.
@@ -82,8 +89,32 @@ var _landings := {}
 var _imprint: ImprintSearch
 ## Microseconds spent building the jumps of every ledge.
 var _edge_usec := 0
+## The same, by room key (a copy with walls broken has its own), and how many
+## plans were simulated and how many moments its platforms were tried at.
+var _room_usec := {}
+var _room_plans := {}
+var _room_phases := {}
+## Paths without the room's platforms, by plan, for the room being worked out
+## (see try_plan), and how many plans each room key took from them.
+var _free_runs := {}
+var _room_reused := {}
+## What every plan of a room with breakable walls came to, by plan, kept while
+## the room as loaded is worked out ("<id>" and "<id> air"): a copy of it with
+## walls broken takes each plan whose path stays clear of those walls from here
+## instead of simulating it again. `_recording` is the table being filled, and
+## `_reusing` with `_changed` (the broken walls' cells, in pixels) the one being
+## read, while a room is worked out; both are empty otherwise.
+var _records := {}
+var _recording: Variant = null
+var _reusing: Variant = null
+var _changed: Array[Rect2] = []
+var _room_from_base := {}
+## The room key whose plans are being counted, set while its jumps are worked out.
+var _plan_key := IMPRINT_PLANS
 ## Every pickup, token and 3TM in the world by id.
 var _things := {}
+## How the player can move, in the order they are tried: ground, air, lash, imprint.
+var _providers: Array[MoveProvider] = []
 
 
 ## `ability_set` is what the player has, the starting abilities if left out.
@@ -93,6 +124,7 @@ func _init(rooms: Dictionary, movement: MovementConfig, ability_set: Abilities =
 	_rooms = rooms
 	_cfg = movement
 	abilities = ability_set if ability_set != null else Abilities.new()
+	_providers = [GroundMoves.new(self), AirMoves.new(self), LashMoves.new(self), ImprintMoves.new(self)]
 	for id in rooms:
 		_ledges[id] = _find_ledges(rooms[id])
 		for def in _things_of(rooms[id]):
@@ -113,11 +145,29 @@ func timing() -> Dictionary:
 		out["legs"] = float(_imprint.stats["legs"]) / 1000.0
 		out["candidates"] = _imprint.stats["candidates"]
 		out["legs_made"] = _imprint.stats["legs_made"]
+	var rooms: Array[Dictionary] = []
+	for key in _room_usec:
+		rooms.append({"key": String(key), "ms": float(_room_usec[key]) / 1000.0, "plans": int(_room_plans.get(key, 0)), "reused": int(_room_reused.get(key, 0)), "from_base": int(_room_from_base.get(key, 0)), "phases": int(_room_phases.get(key, 1))})
+	rooms.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return a["ms"] > b["ms"])
+	out["rooms"] = rooms
 	return out
+
+
+func _add_room_time(key: String, started: int) -> void:
+	var spent := Time.get_ticks_usec() - started
+	_edge_usec += spent
+	_room_usec[key] = int(_room_usec.get(key, 0)) + spent
 
 
 func room_info(room_id: String) -> RoomInfo:
 	return _info_of(room_id)
+
+
+## The ledges of `room_id` with their jumps, walks and door touches worked
+## out, without solving the world. Door landings are not: they need a solve.
+func room_ledges(room_id: String) -> Array[Ledge]:
+	_ensure_edges(_info_of(room_id))
+	return ledges_in(room_id)
 
 
 func ledges_in(room_id: String) -> Array[Ledge]:
@@ -185,8 +235,11 @@ func solve(start_room: String) -> Report:
 	# and proves that nothing else opens.
 	var max_rounds := _things.size() + 1
 	var converged := false
+	var too_many_jumps := 0
 	for round in max_rounds:
 		abilities = _with(base, taken.keys())
+		if abilities.air_jumps > 1:
+			too_many_jumps = abilities.air_jumps
 		report = _analyze(start_room)
 		for ledge in report.reached:
 			# A copy of a room with walls broken is not a place of its own.
@@ -204,8 +257,8 @@ func solve(start_room: String) -> Report:
 				seen[ledge] = true
 		var fresh := 0
 		for pickup in report.pickups:
-			if pickup["reached"] and not taken.has(pickup["id"]):
-				taken[pickup["id"]] = round
+			if pickup.reached and not taken.has(pickup.id):
+				taken[pickup.id] = round
 				fresh += 1
 		var next_abilities := _with(base, taken.keys())
 		if fresh == 0 or next_abilities.to_dict() == abilities.to_dict():
@@ -213,6 +266,8 @@ func solve(start_room: String) -> Report:
 			break
 	if not converged:
 		report.errors.append("Progression search did not converge after %d rounds (%d things in the world)" % [max_rounds, _things.size()])
+	if too_many_jumps > 1:
+		report.errors.append("the solver models at most one air jump; an upgrade gives %d" % too_many_jumps)
 	report.trap_lines = trap_lines
 	_append_capped(report.errors, report.trap_lines)
 	# What each thing needs: the pickups taken in earlier rounds, cut down to
@@ -223,15 +278,18 @@ func solve(start_room: String) -> Report:
 		if int(ledge_round[ledge]) > int(room_round[ledge.room_id]):
 			report.needs["ledge|" + ledge.describe()] = _needs(start_room, base, taken, int(ledge_round[ledge]), func(r: Report) -> bool: return r.reached.has(ledge))
 	for pickup in report.pickups:
-		if pickup["reached"] and int(taken[pickup["id"]]) > 0:
-			var id: String = pickup["id"]
+		if pickup.reached and int(taken[pickup.id]) > 0:
+			var id: String = pickup.id
 			report.needs["pickup|" + id] = _needs(start_room, base, taken, int(taken[id]), func(r: Report) -> bool:
 				for entry in r.pickups:
-					if entry["id"] == id and entry["reached"]:
+					if entry.id == id and entry.reached:
 						return true
 				return false
 			)
 	abilities = base
+	# The plans kept for walls-broken copies are only a speed-up while rooms
+	# are being worked out; a copy made later simulates in full.
+	_records.clear()
 	return report
 
 
@@ -255,26 +313,22 @@ func _needs(start_room: String, base: Abilities, taken: Dictionary, round: int, 
 ## `base` with what the things named in `ids` give: a pickup's upgrade, and
 ## the upgrade of each 3TM that the tokens among them can pay for.
 func _with(base: Abilities, ids: Array) -> Abilities:
-	var out := base.copy()
-	var tokens := 0
-	var machines: Array[String] = []
+	var ledger := {"abilities": base.copy(), "tokens": 0, "machines": []}
 	for id in ids:
 		var def: EntityDef = _things.get(id)
 		if def == null:
 			continue
-		match def.type:
-			"pickup":
-				out.apply(Upgrades.get_def(String(def.props["upgrade"])), Upgrades.parse_value(String(def.props["upgrade"]), String(def.props.get("value", ""))))
-			"token":
-				tokens += 1
-			"machine":
-				machines.append(String(id))
-	machines.sort()
-	for id in machines:
+		var made := Entities.kind(def.type)
+		if made != null:
+			made.solver_effect(def, ledger)
+	var machines: Array = ledger["machines"]
+	machines.sort_custom(func(a: EntityDef, b: EntityDef) -> bool: return a.id < b.id)
+	var tokens := int(ledger["tokens"])
+	var out: Abilities = ledger["abilities"]
+	for def in machines:
 		if tokens < MACHINE_COST:
 			break
 		tokens -= MACHINE_COST
-		var def: EntityDef = _things[id]
 		if def.props.has("prize"):
 			continue
 		out.apply(Upgrades.get_def(String(def.props["upgrade"])), Upgrades.parse_value(String(def.props["upgrade"]), String(def.props.get("value", ""))))
@@ -366,7 +420,14 @@ func _analyze(start_room: String) -> Report:
 		var defs := _things_of(info)
 		for i in defs.size():
 			var got := _pickup_reached(run, id, i)
-			report.pickups.append({"id": defs[i].id, "type": defs[i].type, "room": String(id), "upgrade": String(defs[i].props.get("upgrade", "")), "value": String(defs[i].props.get("value", "")), "reached": got})
+			var found := PickupReport.new()
+			found.id = defs[i].id
+			found.type = defs[i].type
+			found.room = String(id)
+			found.upgrade = String(defs[i].props.get("upgrade", ""))
+			found.value = String(defs[i].props.get("value", ""))
+			found.reached = got
+			report.pickups.append(found)
 			if reached_rooms.has(id) and not got:
 				lost_pickups.append("Room %s: %s %s at cell %s cannot be reached: no jump from a ledge the player gets to touches it" % [id, defs[i].type, defs[i].id, defs[i].cell])
 	_append_capped(report.errors, lost_pickups)
@@ -422,27 +483,14 @@ func _lash_ledges(ledge: Ledge, info: RoomInfo) -> Array[Ledge]:
 	return out
 
 
-## The cells above a body standing in cell (`cx`, `row`) that its tongue reaches
-## going straight up, from the one above the head to `tongue_length` past the
-## top of the body.
-func _up_reach_cells() -> int:
-	return maxi(1, ceili(abilities.tongue_length / float(Grid.CELL)))
-
-
 ## The id of the wall that stands in the way going straight up from cell
 ## (`cx`, `row`), within the tongue's reach, or "" if the first solid is not a
 ## wall, or there is none.
 func _wall_above(info: RoomInfo, cx: int, row: int) -> String:
-	for dy in range(1, _up_reach_cells() + 1):
-		var y := row - dy
-		if y < 0:
-			return ""
-		var wall := info.standing_wall_at(Vector2i(cx, y))
-		if not wall.is_empty():
-			return wall
-		if info.is_solid(cx, y):
-			return ""
-	return ""
+	var cell := float(Grid.CELL)
+	var center := Vector2((float(cx) + 0.5) * cell, (float(row) + 0.5) * cell)
+	var dir := Vector2(0.0, -1.0)
+	return String(TongueReach.first_hit(info, TongueReach.mouth(center, dir), dir, abilities.tongue_length)["wall"])
 
 
 ## The walls a rider on side-to-side mover `ledge` can lash up at: over every
@@ -473,8 +521,8 @@ func _lashes_from(ledge: Ledge, info: RoomInfo) -> Array:
 	if _lash_cache.has(key):
 		return _lash_cache[key]
 	var out := []
-	var width := info.cell_size.x
 	var rise := _rise_cells(air)
+	var cell := float(Grid.CELL)
 	for cx in range(ledge.x0, ledge.x1 + 1):
 		for height in rise + 1:
 			var row := ledge.row - height
@@ -483,17 +531,12 @@ func _lashes_from(ledge: Ledge, info: RoomInfo) -> Array:
 			var above := _wall_above(info, cx, row)
 			if not above.is_empty() and not out.any(func(s: Array) -> bool: return s[0] == above and s[1] == cx):
 				out.append([above, cx])
-			for way in [-1, 1]:
-				var x: int = cx + way
-				while x >= 0 and x < width:
-					var wall := info.standing_wall_at(Vector2i(x, row))
-					if not wall.is_empty():
-						if not out.any(func(s: Array) -> bool: return s[0] == wall and s[1] == cx):
-							out.append([wall, cx])
-						break
-					if info.is_solid(x, row):
-						break
-					x += way
+			var center := Vector2((float(cx) + 0.5) * cell, (float(row) + 0.5) * cell)
+			for way in [-1.0, 1.0]:
+				var dir := Vector2(way, 0.0)
+				var wall := String(TongueReach.first_hit(info, TongueReach.mouth(center, dir), dir, abilities.tongue_length)["wall"])
+				if not wall.is_empty() and not out.any(func(s: Array) -> bool: return s[0] == wall and s[1] == cx):
+					out.append([wall, cx])
 	_lash_cache[key] = out
 	return out
 
@@ -504,7 +547,12 @@ func _rise_cells(air: int) -> int:
 	if _rise.has(air):
 		return _rise[air]
 	var floor_rects: Array = [Rect2(-1000.0, 100.0, 3000.0, 50.0)]
-	var result := MovementSim.simulate_jump(_cfg, floor_rects, Vector2(0.0, 95.0), Vector2.ZERO, 0.0, 90, true, true, [], Rect2(), [], [], NAN, 0, 180, false, null, 0, -1, air, 22 if air > 0 else -1, 90)
+	var plan := JumpPlan.new(floor_rects, Vector2(0.0, 95.0), Vector2.ZERO, 0.0, 90)
+	if air > 0:
+		plan.air_jumps = air
+		plan.air_frame = 22
+		plan.air_hold = 90
+	var result := MovementSim.run(_cfg, plan)
 	_rise[air] = floori((100.0 - float(result["min_feet"])) / float(Grid.CELL))
 	return _rise[air]
 
@@ -516,24 +564,20 @@ func _flood(run: Run) -> void:
 	while not run.queue.is_empty():
 		var ledge: Ledge = run.queue.pop_back()
 		var info: RoomInfo = _info_of(ledge.room_id)
-		_ensure_edges(info)
-		var air := abilities != null and abilities.air_jumps > 0
-		if air:
-			_ensure_air_edges(info)
 		var next: Array[Ledge] = []
-		for index in ledge.to_ledges:
-			next.append(_ledges[ledge.room_id][index])
-		if air:
-			for index in ledge.air_to_ledges:
-				next.append(_ledges[ledge.room_id][index])
-		if abilities != null and abilities.tongue_unlocked:
-			next.append_array(_lash_ledges(ledge, info))
-		next.append_array(run.extra_to.get(ledge, []))
 		var touches: Array[Touch] = []
-		touches.append_array(ledge.touches)
-		if air:
-			touches.append_array(ledge.air_touches)
-		touches.append_array(run.extra_touches.get(ledge, []))
+		for provider in _providers:
+			if not provider.applies(abilities):
+				continue
+			# Abilities do not change within a run, so a provider prepares a
+			# room once per run, not once per ledge.
+			var prepared: Dictionary = run.prepared.get_or_add(provider, {})
+			if not prepared.has(info.id):
+				prepared[info.id] = true
+				provider.prepare(info)
+			var moves := provider.next(ledge, info, run)
+			next.append_array(moves.ledges)
+			touches.append_array(moves.touches)
 		# The doors of a locked room are blocks: its touches wait until it opens.
 		if run.locked.has(ledge.base()) and not touches.is_empty():
 			if not run.held.has(ledge.base()):
@@ -559,8 +603,9 @@ func _flood(run: Run) -> void:
 func _settle(run: Run) -> void:
 	while true:
 		_flood(run)
-		if abilities.imprint_unlocked:
-			_place_imprints(run)
+		for provider in _providers:
+			if provider.applies(abilities):
+				provider.expand(run)
 		if not _open_locks(run):
 			return
 
@@ -733,7 +778,10 @@ func _reached_in_a_state(run: Run, ledge: Ledge) -> bool:
 func _pickup_on(run: Run, ledge: Ledge, index: int) -> bool:
 	if not run.reached.has(ledge):
 		return false
-	return ledge.pickups.has(index) or (abilities.air_jumps > 0 and ledge.air_pickups.has(index)) or run.extra_pickups.get(ledge, []).has(index)
+	for provider in _providers:
+		if provider.applies(abilities) and provider.picked(ledge, run, index):
+			return true
+	return false
 
 
 func _append_capped(into: Array[String], lines: Array[String]) -> void:
@@ -847,7 +895,7 @@ func _landings_of(info: RoomInfo, touch: Touch, depth: int) -> Array[Ledge]:
 	var dest_origin := Vector2(dest.grid_pos) * Grid.SCREEN_SIZE
 	var crossed := Door.crossing(door, dest, source_origin + touch.position, touch.velocity)
 	var far := dest.exits.find(dest.door_by_rect(door.dest_rect))
-	var out := _land(dest, crossed["position"] - dest_origin, crossed["velocity"], far, depth)
+	var out := _land(dest, crossed.position - dest_origin, crossed.velocity, far, depth)
 	_landings[key] = out
 	return out
 
@@ -869,7 +917,14 @@ func _land(dest: RoomInfo, pos: Vector2, vel: Vector2, skip_door: int, depth: in
 	if skip_door >= 0:
 		triggers[skip_door] = Rect2(-1.0e6, -1.0e6, 0.0, 0.0)
 	for input in [-1.0, 0.0, 1.0]:
-		var result := MovementSim.simulate_jump(_cfg, near, pos, vel, input, 0, standing, false, triggers, geo.bounds, geo.hazards, [], NAN, 0, FALL_LIMIT)
+		var plan := JumpPlan.new(near, pos, vel, input, 0)
+		plan.grounded_start = standing
+		plan.jump = false
+		plan.triggers = triggers
+		plan.bounds = geo.bounds
+		plan.hazards = geo.hazards
+		plan.limit = FALL_LIMIT
+		var result := MovementSim.run(_cfg, plan)
 		if result["hazard"]:
 			continue
 		var door := int(result["trigger"])
@@ -900,31 +955,102 @@ func geometry_of(info: RoomInfo) -> Geometry:
 		for cell in info.hazards:
 			geo.hazards.append(Grid.cell_rect(Rect2i(cell, Vector2i.ONE)))
 		for def in _things_of(info):
-			if def.type == "machine":
-				geo.things.append(TokenMachine.touch_rect_for(def.cell))
-			elif def.type == "save":
-				geo.things.append(SaveMachine.touch_rect_for(def.cell))
-			else:
-				var centre := Grid.cell_center(def.cell)
-				geo.things.append(Rect2(centre - Vector2(Pickup.HALF, Pickup.HALF), Vector2(Pickup.HALF, Pickup.HALF) * 2.0))
+			var made := Entities.kind(def.type)
+			geo.things.append(made.touch_rect(def) if made != null else Rect2())
 		geo.movers = Movers.new(info.movers)
 		for mover in info.movers:
 			geo.keep_outs.append(mover.keep_out())
-		geo.bounds = Rect2(Vector2(-40.0, -120.0), info.pixel_size + Vector2(80.0, 160.0))
+			geo.mover_space.append(_space_of(mover))
+		var margin := Room.OUTSIDE_MARGIN
+		geo.bounds = Rect2(Vector2.ONE * -margin, info.pixel_size + Vector2.ONE * margin * 2.0)
 		_geometry[info.id] = geo
 	return _geometry[info.id]
 
 
-func _ensure_edges(info: RoomInfo) -> void:
-	if _solved.has(info.id):
+## The box every body of `mover` stays in while it is there, over one whole
+## period (it repeats exactly after that).
+static func _space_of(mover: Mover) -> Rect2:
+	var out := Rect2()
+	var first := true
+	for tick in mover.period():
+		for body in mover.body_count():
+			if not mover.alive_at(tick, body):
+				continue
+			var rect := mover.rect_at(tick, body)
+			out = rect if first else out.merge(rect)
+			first = false
+	return out
+
+
+## Works out every jump of `room_id`, and of each set of its breakable walls
+## broken, and keeps them in the cache. The search that joins rooms is not part
+## of this, so several rooms can be warmed at once, one process each.
+func warm(room_id: String) -> void:
+	if not _rooms.has(room_id):
 		return
-	_solved[info.id] = true
+	var info: RoomInfo = _rooms[room_id]
+	_ensure_edges(info)
+	# Air edges are only asked for once the player has an air jump, so they are
+	# kept under that key. Warming with the starting abilities would file them
+	# where a solve never looks.
+	var jumps := abilities.air_jumps
+	abilities.air_jumps = maxi(jumps, 1)
+	_ensure_air_edges(info)
+	abilities.air_jumps = jumps
+	var walls: Array[String] = []
+	for wall_id in info.breakables:
+		walls.append(String(wall_id))
+	walls.sort()
+	var subsets: Array = [[]]
+	for wall_id in walls:
+		var grown: Array = []
+		for existing in subsets:
+			var next: Array = (existing as Array).duplicate()
+			next.append(wall_id)
+			grown.append(next)
+		for extra in grown:
+			subsets.append(extra)
+			if subsets.size() >= MAX_WALL_STATES:
+				break
+		if subsets.size() >= MAX_WALL_STATES:
+			break
+	for broken in subsets:
+		if (broken as Array).is_empty():
+			continue
+		var names: Array[String] = []
+		names.assign(broken)
+		var variant := _variant_for(room_id, names)
+		if variant == null:
+			break
+		_ensure_edges(variant)
+		abilities.air_jumps = maxi(jumps, 1)
+		_ensure_air_edges(variant)
+		abilities.air_jumps = jumps
+	_records.clear()
+
+
+func _ensure_edges(info: RoomInfo) -> void:
+	var move := abilities.movement_key()
+	var memo := "%s|%s" % [info.id, move]
+	if _solved.has(memo):
+		return
+	if info.id != info.base():
+		# A copy with walls broken reuses the plans of the room as loaded.
+		_ensure_edges(_rooms[info.base()])
+	_solved[memo] = true
 	var started := Time.get_ticks_usec()
 	var entry: SolverCache.Entry = cache.entry_for(info) if cache != null else null
-	if entry != null and _restore_edges(entry, _ledges[info.id]):
-		cache.stats["edge_rooms_cached"] += 1
-		_edge_usec += Time.get_ticks_usec() - started
+	if _ground_ready.has(info.id):
+		if entry != null:
+			entry.store_edges(move, _ledges[info.id])
+		_add_room_time(info.id, started)
 		return
+	if entry != null and _restore_edges(entry, _ledges[info.id], move):
+		cache.stats["edge_rooms_cached"] += 1
+		_ground_ready[info.id] = true
+		_add_room_time(info.id, started)
+		return
+	_begin_plans(info, "")
 	var geo := geometry_of(info)
 	for ledge: Ledge in _ledges[info.id]:
 		if ledge.moving:
@@ -945,9 +1071,11 @@ func _ensure_edges(info: RoomInfo) -> void:
 						try_plan(info, geo, ledge, near, x, speed, input, hold, true, -1, tick)
 			walk_off(info, geo, ledge, near, -1, tick)
 	if entry != null:
-		entry.store_edges(_ledges[info.id])
+		entry.store_edges(move, _ledges[info.id])
 		cache.stats["edge_rooms_solved"] += 1
-	_edge_usec += Time.get_ticks_usec() - started
+	_ground_ready[info.id] = true
+	_end_plans()
+	_add_room_time(info.id, started)
 
 
 ## The jumps that need double jump: every ground jump (and walk off a ledge)
@@ -955,15 +1083,20 @@ func _ensure_edges(info: RoomInfo) -> void:
 ## and used only while the abilities have an air jump, so the rounds before a
 ## 3TM gives it stay as they were. Worked out the first time a solve needs them.
 func _ensure_air_edges(info: RoomInfo) -> void:
-	if _air_solved.has(info.id):
+	var move := abilities.movement_key()
+	var memo := "%s|%s" % [info.id, move]
+	if _air_solved.has(memo):
 		return
-	_air_solved[info.id] = true
+	if info.id != info.base():
+		_ensure_air_edges(_rooms[info.base()])
+	_air_solved[memo] = true
 	var started := Time.get_ticks_usec()
 	var entry: SolverCache.Entry = cache.entry_for(info) if cache != null else null
-	if entry != null and _restore_air_edges(entry, _ledges[info.id]):
+	if entry != null and _restore_air_edges(entry, _ledges[info.id], move):
 		cache.stats["air_rooms_cached"] += 1
-		_edge_usec += Time.get_ticks_usec() - started
+		_add_room_time(info.id + " air", started)
 		return
+	_begin_plans(info, " air")
 	var geo := geometry_of(info)
 	for ledge: Ledge in _ledges[info.id]:
 		if ledge.moving:
@@ -986,32 +1119,74 @@ func _ensure_air_edges(info: RoomInfo) -> void:
 								try_plan(info, geo, ledge, near, x, speed, input, hold, true, -1, tick, NAN, -1, frame, air_hold)
 			walk_off(info, geo, ledge, near, -1, tick, true)
 	if entry != null:
-		entry.store_air_edges(_ledges[info.id])
+		entry.store_air_edges(move, _ledges[info.id])
 		cache.stats["air_rooms_solved"] += 1
-	_edge_usec += Time.get_ticks_usec() - started
+	_end_plans()
+	_add_room_time(info.id + " air", started)
 
 
-func _restore_air_edges(entry: SolverCache.Entry, ledges: Array) -> bool:
-	if not entry.has_air or entry.air_edges.size() != ledges.size():
+## Sets up counting, the platform-free paths and the wall-state records for
+## working out `info`'s plans (`kind` is "" for its jumps, " air" for its air
+## jumps).
+func _begin_plans(info: RoomInfo, kind: String) -> void:
+	_plan_key = info.id + kind
+	_free_runs.clear()
+	_room_phases[_plan_key] = phases(info).size() if not info.movers.is_empty() else 1
+	_recording = null
+	_reusing = null
+	_changed.clear()
+	if info.id == info.base():
+		if not info.breakables.is_empty():
+			_recording = {}
+			_records[info.id + kind] = _recording
+		return
+	_reusing = _records.get(info.base() + kind)
+	var margin := reuse_margin()
+	for wall_id in info.broken:
+		for cell: Vector2i in info.breakables.get(wall_id, []):
+			_changed.append(Grid.cell_rect(Rect2i(cell, Vector2i.ONE)).grow(margin))
+
+
+func _end_plans() -> void:
+	_plan_key = IMPRINT_PLANS
+	_free_runs.clear()
+	_recording = null
+	_reusing = null
+	_changed.clear()
+
+
+## Whether a path whose centre stayed in `bounds` came near a broken wall of the
+## room being worked out (`_changed` is already grown by reuse_margin).
+func _meets_changed(bounds: Rect2) -> bool:
+	for rect in _changed:
+		if rect.intersects(bounds):
+			return true
+	return false
+
+
+func _restore_air_edges(entry: SolverCache.Entry, ledges: Array, key: String) -> bool:
+	var data: Variant = entry.air_edges.get(key)
+	if not data is Dictionary or data.size() != ledges.size():
 		return false
 	for ledge: Ledge in ledges:
-		if not entry.air_edges.get(str(ledge.index)) is Dictionary:
+		if not data.get(str(ledge.index)) is Dictionary:
 			return false
 	for ledge: Ledge in ledges:
-		SolverCache.unpack(ledge, entry.air_edges[str(ledge.index)], true)
+		SolverCache.unpack(ledge, data[str(ledge.index)], true)
 	return true
 
 
 ## Fills the room's ledges from the cache. False, and nothing touched, if the
 ## cache has no answer for every one of them.
-func _restore_edges(entry: SolverCache.Entry, ledges: Array) -> bool:
-	if not entry.has_edges or entry.edges.size() != ledges.size():
+func _restore_edges(entry: SolverCache.Entry, ledges: Array, key: String) -> bool:
+	var data: Variant = entry.edges.get(key)
+	if not data is Dictionary or data.size() != ledges.size():
 		return false
 	for ledge: Ledge in ledges:
-		if not entry.edges.get(str(ledge.index)) is Dictionary:
+		if not data.get(str(ledge.index)) is Dictionary:
 			return false
 	for ledge: Ledge in ledges:
-		SolverCache.unpack(ledge, entry.edges[str(ledge.index)])
+		SolverCache.unpack(ledge, data[str(ledge.index)])
 	return true
 
 
@@ -1115,10 +1290,56 @@ func _off_plans(info: RoomInfo, geo: Geometry, ledge: Ledge, near: Array[Rect2],
 ## With a `tick` of 0 or more the room's moving platforms are there, at that
 ## tick when the path starts, and `top` and `riding` say where the body starts:
 ## the height of what it stands on, and the platform it is on, or -1.
+##
+## A body that starts off the platforms and whose path never comes near any of
+## them moves exactly as it would with no platforms at all, whatever moment it
+## starts at. So that path is simulated once without them (and kept in
+## `_free_runs` for the room's other moments) and only a path that does come
+## near them is simulated at `tick`. The plans are still tried in the same
+## order, so what is recorded is what simulating every moment records.
 func try_plan(info: RoomInfo, geo: Geometry, ledge: Ledge, near: Array[Rect2], x: float, speed: float, input: float, hold: int, jump: bool, limit := -1, tick := -1, top := NAN, riding := -1, air_frame := -1, air_hold := 0) -> void:
+	_room_plans[_plan_key] = int(_room_plans.get(_plan_key, 0)) + 1
 	var start := Vector2(x, (ledge.top if is_nan(top) else top) - float(Grid.CELL) * 0.5)
-	var movers: Movers = geo.movers if tick >= 0 else null
-	var result := MovementSim.simulate_jump(_cfg, near, start, Vector2(speed, 0.0), input, hold, true, jump, geo.triggers, geo.bounds, geo.hazards, geo.things, NAN, 0, frame_limit if limit < 0 else limit, false, movers, maxi(tick, 0), riding, 1 if air_frame >= 0 else 0, air_frame, air_hold)
+	var plan := JumpPlan.new(near, start, Vector2(speed, 0.0), input, hold)
+	plan.jump = jump
+	plan.triggers = geo.triggers
+	plan.bounds = geo.bounds
+	plan.hazards = geo.hazards
+	plan.collect = geo.things
+	plan.limit = frame_limit if limit < 0 else limit
+	if air_frame >= 0:
+		plan.air_jumps = 1
+		plan.air_frame = air_frame
+		plan.air_hold = air_hold
+	var ticks_allowed := plan.limit
+	var result: Dictionary
+	var record_key := ""
+	if _recording != null or _reusing != null:
+		record_key = "%d|%d|%d|%s|%s|%s|%d|%s|%s|%s|%d|%s|%d|%d|%s|%d|%d|%d" % [ledge.row, ledge.x0, ledge.x1, ledge.lo, ledge.hi, ledge.moving, ledge.path, x, speed, input, hold, jump, ticks_allowed, tick, top, riding, air_frame, air_hold]
+	if _reusing != null:
+		var kept: Variant = _reusing.get(record_key)
+		if kept != null and not _meets_changed(kept["bounds"]):
+			_room_from_base[_plan_key] = int(_room_from_base.get(_plan_key, 0)) + 1
+			result = kept
+	if result.is_empty() and tick >= 0 and riding < 0 and not geo.movers.is_empty():
+		var key := "%d|%s|%s|%s|%d|%s|%d|%s|%d|%d" % [ledge.get_instance_id(), x, speed, input, hold, jump, ticks_allowed, top, air_frame, air_hold]
+		var free: Variant = _free_runs.get(key)
+		if free == null:
+			free = MovementSim.run(_cfg, plan)
+			if _meets_movers(geo, free["bounds"]):
+				free = false
+			_free_runs[key] = free
+		if free is Dictionary:
+			_room_reused[_plan_key] = int(_room_reused.get(_plan_key, 0)) + 1
+			result = free
+	if result.is_empty():
+		if tick >= 0:
+			plan.movers = geo.movers
+			plan.start_tick = tick
+			plan.start_riding = riding
+		result = MovementSim.run(_cfg, plan)
+	if _recording != null:
+		_recording[record_key] = {"collected": result["collected"], "hazard": result["hazard"], "trigger": result["trigger"], "position": result["position"], "velocity": result["velocity"], "landed": result["landed"], "riding": result["riding"], "bounds": result["bounds"]}
 	var air := air_frame >= 0
 	# A pickup is taken even on a path that then dies on spikes.
 	for index in result["collected"]:
@@ -1136,6 +1357,25 @@ func try_plan(info: RoomInfo, geo: Geometry, ledge: Ledge, near: Array[Rect2], x
 			target = ledge_at_position(info, result["position"])
 		if target != null and target != ledge:
 			ledge.add_ledge(target.index, air)
+
+
+## How far from a path's centre box a body can touch something in one tick:
+## half its size, the furthest a tick can move it, the ledge and ceiling
+## forgiveness (MovementSim.corner_correct) that probes past that, and a pixel
+## to spare. Anything further away cannot change the path.
+func reuse_margin() -> float:
+	var fastest := maxf(maxf(_cfg.run_speed, _cfg.max_fall_speed), maxf(_cfg.jump_speed, _cfg.air_jump_speed))
+	return MovementSim.HALF.x + ceilf(fastest / float(Mover.TICKS_PER_SECOND)) + ceilf(_cfg.corner_correction) + 1.0
+
+
+## Whether a path whose centre stayed in `bounds` could have touched a body of
+## one of the room's movers at any moment.
+func _meets_movers(geo: Geometry, bounds: Rect2) -> bool:
+	var reach := bounds.grow(reuse_margin())
+	for space in geo.mover_space:
+		if space.intersects(reach):
+			return true
+	return false
 
 
 ## The moments a room's moving platforms are tried at, in ticks from when the
@@ -1270,6 +1510,8 @@ class Run extends RefCounted:
 	## touches are waiting for it.
 	var locked := {}
 	var held := {}
+	## provider -> (room key -> true), for the rooms it has prepared this run.
+	var prepared := {}
 
 
 class Geometry extends RefCounted:
@@ -1282,6 +1524,8 @@ class Geometry extends RefCounted:
 	## The room's moving platforms, in room pixels, and where each keeps clear.
 	var movers := Movers.new()
 	var keep_outs: Array[Rect2] = []
+	## For each mover, the box its bodies stay in over its whole trip.
+	var mover_space: Array[Rect2] = []
 
 
 ## A body touching a door: which door, and where and how fast, in room pixels.
@@ -1358,6 +1602,19 @@ class Ledge extends RefCounted:
 		return "Room %s: the ledge on row %d, cells %d-%d" % [base(), row, x0, x1]
 
 
+## One thing the search can take, and whether a path reached it.
+class PickupReport extends RefCounted:
+	var id := ""
+	var type := ""
+	var room := ""
+	var upgrade := ""
+	var value := ""
+	var reached := false
+
+	func row() -> Dictionary:
+		return {"id": id, "type": type, "room": room, "upgrade": upgrade, "value": value, "reached": reached}
+
+
 class Report extends RefCounted:
 	var errors: Array[String] = []
 	var warnings: Array[String] = []
@@ -1369,8 +1626,8 @@ class Report extends RefCounted:
 	var one_way: Array[Ledge] = []
 	## [room_id, Door] pairs.
 	var unreached_doors: Array = []
-	## One entry per pickup: {id, room, upgrade, value, reached}.
-	var pickups: Array[Dictionary] = []
+	## One entry per pickup, token, 3TM and save machine.
+	var pickups: Array[PickupReport] = []
 	## Every ledge that was reached, and the ids of the rooms that were.
 	var reached := {}
 	var reached_rooms := {}

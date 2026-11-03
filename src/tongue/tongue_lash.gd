@@ -18,17 +18,17 @@ extends Node2D
 ## warping clear it. Turning round, or the world going busy, cuts it short.
 
 ## The tip moves in steps no longer than this, so a fast one cannot skip a cell.
-const STEP := 4.0
+const STEP := TongueReach.STEP
 ## Half the body's width, in pixels: the tongue's length is counted from the
 ## front of the body.
-const FRONT := 5.0
+const FRONT := TongueReach.FRONT
 ## The mouth's height above the body's centre, in pixels. The hit is made here
 ## whatever picture is on show; only the drawing follows the picture.
-const MOUTH_RISE := 1.5
+const MOUTH_RISE := TongueReach.MOUTH_RISE
 ## The size of the tip's box, in pixels.
-const TIP := Vector2(3.0, 1.0)
+const TIP := TongueReach.TIP
 ## The tip's box going up, in pixels.
-const TIP_UP := Vector2(1.0, 3.0)
+const TIP_UP := TongueReach.TIP_UP
 const PINK := Color("ff6fa8")
 
 ## The three parts of a lash. OUT is the creep and the snap; STICK holds the tip on
@@ -152,7 +152,8 @@ func _physics_process(delta: float) -> void:
 
 
 func _process(_delta: float) -> void:
-	queue_redraw()
+	if active:
+		queue_redraw()
 
 
 func _draw() -> void:
@@ -239,21 +240,20 @@ func _hit() -> bool:
 		_puff(at)
 		_struck = true
 		return true
-	var solid := false
-	for rect in room.world_rects():
-		if rect.intersects(box):
-			solid = true
-			break
-	if not solid:
-		for platform in _world.imprint.platforms:
-			if platform.rect.intersects(box):
-				solid = true
-				break
-	if not solid:
-		for rect in room.mover_rects():
-			if rect.intersects(box):
-				solid = true
-				break
+	var extra: Array[Rect2] = []
+	var origin := room.position
+	# The room's own solids are tested cell by cell in box_hit; only what is
+	# not in them is passed along: door blocks, Imprint platforms and movers.
+	for rect in room.block_rects():
+		extra.append(Rect2(rect.position - origin, rect.size))
+	for platform in _world.imprint.platforms:
+		extra.append(Rect2(platform.rect.position - origin, platform.rect.size))
+	for rect in room.mover_rects():
+		extra.append(Rect2(rect.position - origin, rect.size))
+	var local := Rect2(box.position - origin, box.size)
+	# The room has already moved its platforms to this tick, which is where the
+	# player finished the step, so the tongue tests the same moment the body does.
+	var solid := bool(TongueReach.box_hit(room.info, local, extra)["solid"])
 	if solid:
 		_puff(at)
 		_struck = true

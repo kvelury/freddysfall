@@ -8,12 +8,13 @@ Run from the repo root.
 
 | Command | What it does |
 | --- | --- |
-| `tools/check.sh` | The complete automated gate before a pull request: imports once, runs all 32 headless tests, validates the world without cache, builds the release web export, and checks its room data and cache-tagged files. CI runs this command too. It leaves `build/web/` ready for `tools/serve.sh` and the user's playthrough. |
+| `tools/check.sh` | The complete automated gate before a pull request: imports once, runs every `tests/*_test.gd` in parallel (one Godot process each, `JOBS` at a time, logs in `build/test-logs/`), validates the world with every ledge reachable (a fresh solver cache, warmed by one process per core), builds the release web export, and checks its room data and cache-tagged files. CI runs this command too. It leaves `build/web/` ready for `tools/serve.sh` and the user's playthrough. |
 | `tools/validate.sh` | Loads every room and solves the world, with Imprint, taking pickups and tokens as it goes. A room is not done until this exits 0. It also prints what each room, ledge and pickup needs, and where the time went. What it works out about each room is kept in `build/solver-cache/`, so a run after editing one room only redoes that room (landing checks are not cached; timings depend on the layout); `--no-cache` ignores it, and deleting `build/` clears it. |
+| `tools/solver_diff.sh <ref>` | Solves the world at `<ref>` and in the working tree without the cache, and diffs everything the solver worked out. Empty output means the two agree. A solver change meant to be exact (a speed-up, a refactor) must leave it empty; paste `validate.sh`'s slowest-rooms table from before and after into the pull request. |
 | `tools/pixel_check.sh` | Draws scripted scenarios with a renderer (it uses `xvfb-run` with no display) and checks the world is on whole world pixels and equal to the baseline (kept as 320×180 world pixels). Run it after any change to how something is drawn. When the look is meant to change, record a new baseline with `--baseline` on the commit that changes it and say so in the pull request. Not part of `check.sh`. |
 | `tools/render.sh [ids]` | PNGs of rooms and the world map in `build/renders/`. Read them to see what you built. |
 | `tools/snap.sh <id>` | A real in-game frame of a room in `build/snaps/`. Opens a window for a second, so run it on the user's machine. |
-| `godot --headless --path . --script tests/<name>.gd` | Run one test; each file in `tests/` is one (`tools/check.sh` lists the 32 it runs). Prints a pass line and exits 0. |
+| `godot --headless --path . --script tests/<name>.gd` | Run one test; each file in `tests/` is one (`tools/check.sh` runs every `tests/*_test.gd`; `tools/check.sh --tests-only` runs just them). Prints a pass line and exits 0. |
 | `godot --path . -- --room=<id>` | Play starting in a room. In the browser, `?room=<id>`. A `--room` or `--dev` launch skips the main menu and boots straight into the world, as does `?dev=1`. Use `--dev --room=<id>` or `?dev=1&room=<id>` for tools; F2 opens the panel, F4 the protected room picker and F7 slows the game (dev tests only). |
 | `tools/build_web.sh` then `tools/serve.sh` | The browser build at http://localhost:8060. |
 | `tools/stage_site.sh` | Turns `build/web` into `build/site`, the folder published to GitHub Pages (real files instead of symlinks, no unused untagged copies). `deploy.yml` runs it after `tools/check.sh` on every merge to `main`. `tools/serve.sh site` serves it. |
@@ -73,7 +74,8 @@ the same PR. An intentionally unsupported feature needs an explicit reason.
   types are `bool`, `int`, `float`, `effects`, and `unsupported` (requires `reason`).
   Numeric controls declare bounds, step and units; effects distinguish implemented
   names from planned names. Do not expose a planned name as a functioning power.
-- Register ability fields in `Abilities.STATS`, `to_dict`, `from_dict`, and the dev
+- Register ability fields as a `var` on `Abilities` (`stats()`, `to_dict` and
+  `from_dict` follow from those lines; a floor goes in `CLAMPS`) and in the dev
   catalog. `dev_catalog_test` checks registry coverage, serialization, and actual
   ability properties; do not remove these checks to get a new feature through.
 - Add custom resources/commands through the shared dev catalog/session boundary.

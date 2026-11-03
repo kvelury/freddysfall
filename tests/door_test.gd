@@ -1,4 +1,4 @@
-extends SceneTree
+extends TestCase
 
 ## The real player walks through a door and back. Touching a door has to change
 ## rooms exactly once, put the player on their feet inside the next room, and
@@ -6,11 +6,7 @@ extends SceneTree
 
 
 func _initialize() -> void:
-	# A script error inside a coroutine leaves the test waiting forever.
-	create_timer(90.0).timeout.connect(func() -> void:
-		print("FAIL timed out")
-		quit(1)
-	)
+	watchdog()
 	_run()
 
 
@@ -30,14 +26,14 @@ func _run() -> void:
 	player.place(room.position + Grid.cell_center(Vector2i(29, 8)), room.world_rects())
 	var ok := true
 	player.scripted_x = 1.0
-	ok = _check(await _until(world, "3"), "walking right through room 2's door arrives in room 3") and ok
+	ok = check(await _until(world, "3"), "walking right through room 2's door arrives in room 3") and ok
 	player.scripted_x = 0.0
 	var landed := Grid.world_to_cell(player.global_position - world.current.position)
-	ok = _check(_standing(world) and landed.y == 8 and landed.x <= 8, "the player crosses level onto room 3's entrance ledge (%s)" % landed) and ok
-	ok = _check(camera.position.x >= 800.0 - 0.5, "the camera has slid to room 3 (%s)" % camera.position) and ok
+	ok = check(_standing(world) and landed.y == 8 and landed.x <= 8, "the player crosses level onto room 3's entrance ledge (%s)" % landed) and ok
+	ok = check(camera.position.x >= 800.0 - 0.5, "the camera has slid to room 3 (%s)" % camera.position) and ok
 	player.scripted_x = 0.0
 	await _frames(90)
-	ok = _check(_room() == "3", "the player is not thrown back out of room 3") and ok
+	ok = check(_room() == "3", "the player is not thrown back out of room 3") and ok
 
 	# Back off room 3's entrance ledge, up onto room 2's.
 	player.scripted_x = -1.0
@@ -46,14 +42,13 @@ func _run() -> void:
 		if _room() == "2":
 			break
 	player.scripted_x = 0.0
-	ok = _check(await _until(world, "2"), "walking left through room 3's door arrives back in room 2") and ok
-	ok = _check(_standing(world), "the player is standing on floor inside room 2") and ok
+	ok = check(await _until(world, "2"), "walking left through room 3's door arrives back in room 2") and ok
+	ok = check(_standing(world), "the player is standing on floor inside room 2") and ok
 	player.scripted_x = 0.0
 	await _frames(90)
-	ok = _check(_room() == "2", "the player is not thrown back out of room 2") and ok
+	ok = check(_room() == "2", "the player is not thrown back out of room 2") and ok
 	root.get_node("GameState").reset()
-	print("DOOR %s" % ("pass" if ok else "fail"))
-	quit(0 if ok else 1)
+	finish("DOOR", ok)
 
 
 ## Waits until the world is in `id` with control handed back, up to 8 seconds.
@@ -80,8 +75,3 @@ func _standing(world: Node) -> bool:
 
 func _room() -> String:
 	return String(root.get_node("GameState").current_room_id)
-
-
-func _check(cond: bool, label: String) -> bool:
-	print(("ok   " if cond else "FAIL ") + label)
-	return cond
