@@ -982,7 +982,13 @@ func warm(room_id: String) -> void:
 		return
 	var info: RoomInfo = _rooms[room_id]
 	_ensure_edges(info)
+	# Air edges are only asked for once the player has an air jump, so they are
+	# kept under that key. Warming with the starting abilities would file them
+	# where a solve never looks.
+	var jumps := abilities.air_jumps
+	abilities.air_jumps = maxi(jumps, 1)
 	_ensure_air_edges(info)
+	abilities.air_jumps = jumps
 	var walls: Array[String] = []
 	for wall_id in info.breakables:
 		walls.append(String(wall_id))
@@ -1009,7 +1015,9 @@ func warm(room_id: String) -> void:
 		if variant == null:
 			return
 		_ensure_edges(variant)
+		abilities.air_jumps = maxi(jumps, 1)
 		_ensure_air_edges(variant)
+		abilities.air_jumps = jumps
 
 
 func _ensure_edges(info: RoomInfo) -> void:
