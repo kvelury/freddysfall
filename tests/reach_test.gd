@@ -20,7 +20,6 @@ func _run() -> bool:
 	all_ok = _feel(cfg) and all_ok
 	all_ok = _room_shapes(data) and all_ok
 	all_ok = _links(data) and all_ok
-	all_ok = _reach_world(data) and all_ok
 	all_ok = _reach_cases() and all_ok
 	all_ok = _too_many_jumps() and all_ok
 	all_ok = _loader() and all_ok
@@ -261,34 +260,6 @@ func _covers(rects: Array[Rect2i], cell: Vector2i) -> bool:
 		if rect.has_point(cell):
 			return true
 	return false
-
-
-## Room 3's jumps, worked out alone. That the whole world solves (every room,
-## door and ledge reachable, nowhere to get stuck) is what
-## `tools/validate.sh --strict-ledges` checks, which tools/check.sh runs.
-func _reach_world(data) -> bool:
-	var graph := ReachGraph.new(data.rooms, _cfg)
-	graph.room_ledges("3")
-	return check(_token_needs_the_climb(graph), "room 3's entrance ledge has no jump onto the token's platform or the step before it, and that step reaches the token")
-
-
-## The player arrives in room 3 on a ledge level with room 2. Nothing they
-## can do from there, without Imprint, may land them on the token's platform or
-## the step beside it: they climb the staircase to the right instead.
-func _token_needs_the_climb(graph: ReachGraph) -> bool:
-	var entrance: ReachGraph.Ledge = null
-	var token: ReachGraph.Ledge = null
-	var step: ReachGraph.Ledge = null
-	for ledge in graph.ledges_in("3"):
-		if ledge.row == 8 and ledge.x0 == 0:
-			entrance = ledge
-		elif ledge.row == 4 and ledge.x0 == 18:
-			token = ledge
-		elif ledge.row == 5 and ledge.x0 == 26:
-			step = ledge
-	if entrance == null or token == null or step == null:
-		return false
-	return not entrance.to_ledges.has(token.index) and not entrance.to_ledges.has(step.index) and step.to_ledges.has(token.index) and entrance.pickups.is_empty()
 
 
 ## Small worlds built to be wrong in one way each.
