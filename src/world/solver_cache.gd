@@ -17,7 +17,9 @@ extends RefCounted
 ## The tests do not use it: they leave `ReachGraph.cache` empty.
 
 ## Goes up when the shape of the files changes.
-const FORMAT := 2
+## 3: a room's jumps are kept per Abilities.movement_key, so a jump worked out
+## with one set of movement stats is never reused for another.
+const FORMAT := 3
 
 ## Everything a jump's result depends on.
 const SOLVER_FILES: Array[String] = [
@@ -137,13 +139,11 @@ func entry_for(info: RoomInfo) -> Entry:
 			var legs = data.get("legs")
 			if edges is Dictionary:
 				entry.edges = edges
-				entry.has_edges = true
 			if legs is Dictionary:
 				entry.legs = legs
 			var air_edges = data.get("air_edges")
 			if air_edges is Dictionary:
 				entry.air_edges = air_edges
-				entry.has_air = true
 	_rooms[info.id] = entry
 	return entry
 
@@ -202,29 +202,27 @@ static func pack(ledge: ReachGraph.Ledge, air := false) -> Dictionary:
 class Entry extends RefCounted:
 	var room_id := ""
 	var fingerprint := ""
-	## Ledge index (as text) -> what it reaches, once the room's ledges are done.
+	## movement_key -> (ledge index as text -> what it reaches).
 	var edges := {}
-	var has_edges := false
 	## The same for what needs an air jump, worked out only when a solve has one.
 	var air_edges := {}
-	var has_air := false
 	## "x|y|width|limit" of a platform -> what a body standing on it reaches.
 	var legs := {}
 	var dirty := false
 
-	func store_edges(ledges: Array) -> void:
-		edges = {}
-		for ledge: ReachGraph.Ledge in ledges:
-			edges[str(ledge.index)] = SolverCache.pack(ledge)
-		has_edges = true
+	func store_edges(key: String, ledges: Array) -> void:
+		edges[key] = _pack_ledges(ledges, false)
 		dirty = true
 
-	func store_air_edges(ledges: Array) -> void:
-		air_edges = {}
-		for ledge: ReachGraph.Ledge in ledges:
-			air_edges[str(ledge.index)] = SolverCache.pack(ledge, true)
-		has_air = true
+	func store_air_edges(key: String, ledges: Array) -> void:
+		air_edges[key] = _pack_ledges(ledges, true)
 		dirty = true
+
+	func _pack_ledges(ledges: Array, air: bool) -> Dictionary:
+		var packed := {}
+		for ledge: ReachGraph.Ledge in ledges:
+			packed[str(ledge.index)] = SolverCache.pack(ledge, air)
+		return packed
 
 	func store_leg(key: String, ledge: ReachGraph.Ledge) -> void:
 		legs[key] = SolverCache.pack(ledge)

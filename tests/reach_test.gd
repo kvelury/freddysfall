@@ -22,6 +22,7 @@ func _run() -> bool:
 	all_ok = _links(data) and all_ok
 	all_ok = _reach_world(data) and all_ok
 	all_ok = _reach_cases() and all_ok
+	all_ok = _too_many_jumps() and all_ok
 	all_ok = _loader() and all_ok
 	all_ok = _crossing(data) and all_ok
 	all_ok = _camera() and all_ok
@@ -363,6 +364,19 @@ func _reach_cases() -> bool:
 	ok = check(taken == {"floor": true, "hop": true, "high": false}, "a pickup on the floor or a hop up is reached, one eight cells up is not %s" % [taken]) and ok
 	ok = check(_has_line(report.errors, "pickup high"), "and the one out of reach is an error %s" % [report.errors]) and ok
 	return ok
+
+
+## Two air jumps is more than the solver's plans cover, so a solve says so
+## instead of reporting a world those jumps would open as shut.
+func _too_many_jumps() -> bool:
+	var built := _world([_entry("1", Vector2i(0, 0), _box())])
+	var graph := ReachGraph.new(built["rooms"], _cfg)
+	graph.abilities.air_jumps = 2
+	var report := graph.solve("1")
+	var said := false
+	for line in report.errors:
+		said = said or String(line).contains("at most one air jump")
+	return check(said, "two air jumps is reported, not solved as one (%s)" % [report.errors])
 
 
 func _solve(entries: Array) -> ReachGraph.Report:

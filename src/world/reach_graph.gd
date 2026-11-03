@@ -72,6 +72,11 @@ var _ledges := {}
 var _geometry := {}
 var _solved := {}
 var _air_solved := {}
+## Room ids whose ground jumps are already on their ledges. Those jumps do not
+## read air_jumps or tongue_length, so a later movement_key copies them instead
+## of simulating again. A stat that changes a ground jump must stop this reuse
+## and be named in Abilities.movement_key.
+var _ground_ready := {}
 ## The solver's copies of rooms with walls broken: key (see RoomInfo.key_for)
 ## -> room, and base room id -> its keys. A copy's ledges are in `_ledges`
 ## under its key, like any room's.
@@ -227,8 +232,11 @@ func solve(start_room: String) -> Report:
 	# and proves that nothing else opens.
 	var max_rounds := _things.size() + 1
 	var converged := false
+	var too_many_jumps := 0
 	for round in max_rounds:
 		abilities = _with(base, taken.keys())
+		if abilities.air_jumps > 1:
+			too_many_jumps = abilities.air_jumps
 		report = _analyze(start_room)
 		for ledge in report.reached:
 			# A copy of a room with walls broken is not a place of its own.
@@ -255,6 +263,8 @@ func solve(start_room: String) -> Report:
 			break
 	if not converged:
 		report.errors.append("Progression search did not converge after %d rounds (%d things in the world)" % [max_rounds, _things.size()])
+	if too_many_jumps > 1:
+		report.errors.append("the solver models at most one air jump; an upgrade gives %d" % too_many_jumps)
 	report.trap_lines = trap_lines
 	_append_capped(report.errors, report.trap_lines)
 	# What each thing needs: the pickups taken in earlier rounds, cut down to
@@ -986,16 +996,24 @@ static func _space_of(mover: Mover) -> Rect2:
 
 
 func _ensure_edges(info: RoomInfo) -> void:
-	if _solved.has(info.id):
+	var move := abilities.movement_key()
+	var memo := "%s|%s" % [info.id, move]
+	if _solved.has(memo):
 		return
 	if info.id != info.base():
 		# A copy with walls broken reuses the plans of the room as loaded.
 		_ensure_edges(_rooms[info.base()])
-	_solved[info.id] = true
+	_solved[memo] = true
 	var started := Time.get_ticks_usec()
 	var entry: SolverCache.Entry = cache.entry_for(info) if cache != null else null
-	if entry != null and _restore_edges(entry, _ledges[info.id]):
+	if _ground_ready.has(info.id):
+		if entry != null:
+			entry.store_edges(move, _ledges[info.id])
+		_add_room_time(info.id, started)
+		return
+	if entry != null and _restore_edges(entry, _ledges[info.id], move):
 		cache.stats["edge_rooms_cached"] += 1
+		_ground_ready[info.id] = true
 		_add_room_time(info.id, started)
 		return
 	_begin_plans(info, "")
@@ -1019,8 +1037,9 @@ func _ensure_edges(info: RoomInfo) -> void:
 						try_plan(info, geo, ledge, near, x, speed, input, hold, true, -1, tick)
 			walk_off(info, geo, ledge, near, -1, tick)
 	if entry != null:
-		entry.store_edges(_ledges[info.id])
+		entry.store_edges(move, _ledges[info.id])
 		cache.stats["edge_rooms_solved"] += 1
+	_ground_ready[info.id] = true
 	_end_plans()
 	_add_room_time(info.id, started)
 
@@ -1030,14 +1049,16 @@ func _ensure_edges(info: RoomInfo) -> void:
 ## and used only while the abilities have an air jump, so the rounds before a
 ## 3TM gives it stay as they were. Worked out the first time a solve needs them.
 func _ensure_air_edges(info: RoomInfo) -> void:
-	if _air_solved.has(info.id):
+	var move := abilities.movement_key()
+	var memo := "%s|%s" % [info.id, move]
+	if _air_solved.has(memo):
 		return
 	if info.id != info.base():
 		_ensure_air_edges(_rooms[info.base()])
-	_air_solved[info.id] = true
+	_air_solved[memo] = true
 	var started := Time.get_ticks_usec()
 	var entry: SolverCache.Entry = cache.entry_for(info) if cache != null else null
-	if entry != null and _restore_air_edges(entry, _ledges[info.id]):
+	if entry != null and _restore_air_edges(entry, _ledges[info.id], move):
 		cache.stats["air_rooms_cached"] += 1
 		_add_room_time(info.id + " air", started)
 		return
@@ -1064,7 +1085,7 @@ func _ensure_air_edges(info: RoomInfo) -> void:
 								try_plan(info, geo, ledge, near, x, speed, input, hold, true, -1, tick, NAN, -1, frame, air_hold)
 			walk_off(info, geo, ledge, near, -1, tick, true)
 	if entry != null:
-		entry.store_air_edges(_ledges[info.id])
+		entry.store_air_edges(move, _ledges[info.id])
 		cache.stats["air_rooms_solved"] += 1
 	_end_plans()
 	_add_room_time(info.id + " air", started)
@@ -1109,27 +1130,29 @@ func _meets_changed(bounds: Rect2) -> bool:
 	return false
 
 
-func _restore_air_edges(entry: SolverCache.Entry, ledges: Array) -> bool:
-	if not entry.has_air or entry.air_edges.size() != ledges.size():
+func _restore_air_edges(entry: SolverCache.Entry, ledges: Array, key: String) -> bool:
+	var data: Variant = entry.air_edges.get(key)
+	if not data is Dictionary or data.size() != ledges.size():
 		return false
 	for ledge: Ledge in ledges:
-		if not entry.air_edges.get(str(ledge.index)) is Dictionary:
+		if not data.get(str(ledge.index)) is Dictionary:
 			return false
 	for ledge: Ledge in ledges:
-		SolverCache.unpack(ledge, entry.air_edges[str(ledge.index)], true)
+		SolverCache.unpack(ledge, data[str(ledge.index)], true)
 	return true
 
 
 ## Fills the room's ledges from the cache. False, and nothing touched, if the
 ## cache has no answer for every one of them.
-func _restore_edges(entry: SolverCache.Entry, ledges: Array) -> bool:
-	if not entry.has_edges or entry.edges.size() != ledges.size():
+func _restore_edges(entry: SolverCache.Entry, ledges: Array, key: String) -> bool:
+	var data: Variant = entry.edges.get(key)
+	if not data is Dictionary or data.size() != ledges.size():
 		return false
 	for ledge: Ledge in ledges:
-		if not entry.edges.get(str(ledge.index)) is Dictionary:
+		if not data.get(str(ledge.index)) is Dictionary:
 			return false
 	for ledge: Ledge in ledges:
-		SolverCache.unpack(ledge, entry.edges[str(ledge.index)])
+		SolverCache.unpack(ledge, data[str(ledge.index)])
 	return true
 
 

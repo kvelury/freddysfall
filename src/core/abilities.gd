@@ -114,6 +114,14 @@ static func stats() -> Array[String]:
 	return out
 
 
+## What about these abilities changes how a body moves or what it can touch, as
+## far as the solver's cache is concerned. A stat that changes a jump (a higher
+## jump, a dash) has to be named in here, or a cached jump from before the
+## player had it would be reused. Air jumps past the first are not modelled.
+func movement_key() -> String:
+	return "aj%d|tl%.1f" % [mini(air_jumps, 1), tongue_length]
+
+
 func to_dict() -> Dictionary:
 	var out := {}
 	for stat in stats():
