@@ -87,7 +87,7 @@ All text is Pixel Operator 8 by Jayvee Enaguas (CC0; `assets/fonts/LICENSE.txt`)
 
 The Web preset in `export_presets.cfg` turns thread support off, so the page does not need cross-origin isolation headers. A static server is enough.
 
-Room files are plain text. The preset's `include_filter` is `*.txt` so those files are packed into the export. Without that, `res://data/rooms/` is missing from the web build.
+Room files are plain text. The preset's `include_filter` is `*.txt` so those files are packed into the export. Without that, `res://data/rooms/` is missing from the web build. Its `exclude_filter` keeps `tests/`, `tools/`, `docs/` and `build/` out, so the pack holds only the game (and test fixture rooms are never shipped); `check.sh` fails if any of them gets in.
 
 ```sh
 ./tools/build_web.sh
@@ -122,10 +122,11 @@ Limits: a 1 GB site, about 100 GB of bandwidth a month (soft), a 10-minute deplo
 
 ## Checking your work
 
-Run `tools/check.sh` before opening a pull request. It imports the project, runs all 32 headless tests, validates the whole world without the solver cache, builds the release web export, and checks that the room data and cache-tagged browser files are present. CI runs the same command. After it passes, serve that build and play the affected route yourself; the automated checks do not judge movement feel, room readability or visual feedback.
+Run `tools/check.sh` before opening a pull request. It imports the project once, runs every `tests/*_test.gd` in parallel (one Godot process each, `JOBS` at a time, the machine's cores unless set; each test's output is in `build/test-logs/<name>.log`, and the logs of the ones that failed are printed), validates the whole world without the solver cache and with every ledge reachable, builds the release web export, and checks that the room data and cache-tagged browser files are present. CI runs the same command. After it passes, serve that build and play the affected route yourself; the automated checks do not judge movement feel, room readability or visual feedback.
 
 ```sh
 tools/check.sh                 # the complete automated gate and a fresh web build
+tools/check.sh --tests-only    # just the tests, in parallel (JOBS=n to choose how many at once)
 tools/serve.sh                 # serve that build at http://localhost:8060 for the playthrough
 tools/validate.sh              # the whole world, solved: a room is not done until this exits 0
 tools/validate.sh --no-cache   # the same, without the solver's cache
