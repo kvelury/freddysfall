@@ -477,27 +477,14 @@ func _lash_ledges(ledge: Ledge, info: RoomInfo) -> Array[Ledge]:
 	return out
 
 
-## The cells above a body standing in cell (`cx`, `row`) that its tongue reaches
-## going straight up, from the one above the head to `tongue_length` past the
-## top of the body.
-func _up_reach_cells() -> int:
-	return maxi(1, ceili(abilities.tongue_length / float(Grid.CELL)))
-
-
 ## The id of the wall that stands in the way going straight up from cell
 ## (`cx`, `row`), within the tongue's reach, or "" if the first solid is not a
 ## wall, or there is none.
 func _wall_above(info: RoomInfo, cx: int, row: int) -> String:
-	for dy in range(1, _up_reach_cells() + 1):
-		var y := row - dy
-		if y < 0:
-			return ""
-		var wall := info.standing_wall_at(Vector2i(cx, y))
-		if not wall.is_empty():
-			return wall
-		if info.is_solid(cx, y):
-			return ""
-	return ""
+	var cell := float(Grid.CELL)
+	var center := Vector2((float(cx) + 0.5) * cell, (float(row) + 0.5) * cell)
+	var dir := Vector2(0.0, -1.0)
+	return String(TongueReach.first_hit(info, TongueReach.mouth(center, dir), dir, abilities.tongue_length)["wall"])
 
 
 ## The walls a rider on side-to-side mover `ledge` can lash up at: over every
@@ -528,8 +515,8 @@ func _lashes_from(ledge: Ledge, info: RoomInfo) -> Array:
 	if _lash_cache.has(key):
 		return _lash_cache[key]
 	var out := []
-	var width := info.cell_size.x
 	var rise := _rise_cells(air)
+	var cell := float(Grid.CELL)
 	for cx in range(ledge.x0, ledge.x1 + 1):
 		for height in rise + 1:
 			var row := ledge.row - height
@@ -538,17 +525,12 @@ func _lashes_from(ledge: Ledge, info: RoomInfo) -> Array:
 			var above := _wall_above(info, cx, row)
 			if not above.is_empty() and not out.any(func(s: Array) -> bool: return s[0] == above and s[1] == cx):
 				out.append([above, cx])
-			for way in [-1, 1]:
-				var x: int = cx + way
-				while x >= 0 and x < width:
-					var wall := info.standing_wall_at(Vector2i(x, row))
-					if not wall.is_empty():
-						if not out.any(func(s: Array) -> bool: return s[0] == wall and s[1] == cx):
-							out.append([wall, cx])
-						break
-					if info.is_solid(x, row):
-						break
-					x += way
+			var center := Vector2((float(cx) + 0.5) * cell, (float(row) + 0.5) * cell)
+			for way in [-1.0, 1.0]:
+				var dir := Vector2(way, 0.0)
+				var wall := String(TongueReach.first_hit(info, TongueReach.mouth(center, dir), dir, abilities.tongue_length)["wall"])
+				if not wall.is_empty() and not out.any(func(s: Array) -> bool: return s[0] == wall and s[1] == cx):
+					out.append([wall, cx])
 	_lash_cache[key] = out
 	return out
 

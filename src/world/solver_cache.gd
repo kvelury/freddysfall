@@ -29,6 +29,7 @@ const SOLVER_FILES: Array[String] = [
 	"res://src/world/solver/air_moves.gd",
 	"res://src/world/solver/lash_moves.gd",
 	"res://src/world/solver/imprint_moves.gd",
+	"res://src/tongue/tongue_reach.gd",
 	"res://src/world/imprint_search.gd",
 	"res://src/imprint/imprint_rules.gd",
 	"res://src/imprint/imprint_platform.gd",
