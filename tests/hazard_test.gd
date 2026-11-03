@@ -83,7 +83,7 @@ func _imprint_loop(world: Node, player: Player) -> bool:
 	for i in 15:
 		await physics_frame
 	ok = check(player.is_on_floor() and player.global_position.y < room.position.y + 150.0, "the player stands on it (%s)" % player.global_position) and ok
-	ok = check(world._safe[-1]["position"].distance_to(floor_spot) < 1.0, "but the safe spot is still the real floor (%s)" % world._safe[-1]["position"]) and ok
+	ok = check(world.safe.spots[-1]["position"].distance_to(floor_spot) < 1.0, "but the safe spot is still the real floor (%s)" % world.safe.spots[-1]["position"]) and ok
 
 	tool.platforms[0].lifetime = 0.05
 	var deaths := await _count_deaths(player, 400)
