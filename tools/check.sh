@@ -88,6 +88,9 @@ wasm = web / "index.wasm"
 pck_bytes = pck.read_bytes()
 if b"data/rooms/s1.txt" not in pck_bytes:
     sys.exit("index.pck does not contain data/rooms/s1.txt")
+for folder in (b"res://tests/", b"res://tools/", b"res://docs/"):
+    if folder in pck_bytes:
+        sys.exit(f"index.pck contains {folder.decode()}; the Web preset's exclude_filter should keep it out")
 if hashlib.sha256(pck_bytes).hexdigest()[:12] != digest:
     sys.exit("index.html cache tag does not match index.pck")
 
