@@ -15,6 +15,7 @@ func _initialize() -> void:
 	ok = _parser() and ok
 	ok = _path() and ok
 	ok = _sim() and ok
+	ok = _facing() and ok
 	finish("SPINNER", ok)
 
 
@@ -90,6 +91,22 @@ func _path() -> bool:
 			always = always and r.position == r.position.round() and r.size == Vector2(10, 10)
 	ok = check(always, "every block is a 10 px square on a whole pixel at every tick") and ok
 	ok = check(path.radius > 55.0 and path.radius < 57.0 and path.sweeps(Vector2i(10, 8)) and not path.sweeps(Vector2i(3, 3)), "its sweep is the circle the corners make (%.1f)" % path.radius) and ok
+	return ok
+
+
+func _facing() -> bool:
+	var ok := true
+	var path := SpinnerPath.new("s", Rect2i(10, 8, 11, 2), 4.0, false, PackedStringArray(["bottom", "top_left"]))
+	var view := SpinnerView.new(path)
+	# Counter-clockwise, the bottom row's teeth go down, right, up, left; the top row's the opposite.
+	var want := {0: Vector2i.DOWN, 60: Vector2i.RIGHT, 120: Vector2i.UP, 180: Vector2i.LEFT}
+	var bottom := path.offsets[path.body_count() - 1]
+	var top := path.offsets[0]
+	for tick: int in want:
+		var down: Vector2i = want[tick]
+		ok = check(view.facing_at(tick, bottom) == down, "bottom-row teeth point away from the bar at tick %d" % tick) and ok
+		ok = check(view.facing_at(tick, top) == -down, "top-row teeth point away from the bar at tick %d" % tick) and ok
+	view.free()
 	return ok
 
 

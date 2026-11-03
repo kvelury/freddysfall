@@ -33,3 +33,15 @@ static func draw(canvas: CanvasItem, name: String, at: Vector2, color := Color.W
 		_cache[name] = rects(shape["rows"], shape["offset"])
 	for box: Rect2 in _cache[name]:
 		canvas.draw_rect(Rect2(at + box.position, box.size), color)
+
+
+## The picture of a cell's spikes with their points toward `facing`.
+static func spikes_name(facing: Vector2i) -> String:
+	match facing:
+		Vector2i.LEFT:
+			return "spikes_left"
+		Vector2i.RIGHT:
+			return "spikes_right"
+		Vector2i.DOWN:
+			return "spikes_down"
+	return "spikes_up"

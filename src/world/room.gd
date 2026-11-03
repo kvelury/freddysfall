@@ -367,18 +367,7 @@ class RoomChunk extends Node2D:
 		# Spikes: two teeth a cell, pointing away from the solid they sit against.
 		for i in hazards.size():
 			var facing := facings[i] if i < facings.size() else Vector2i.UP
-			PixelArt.draw(self, _spikes(facing), Grid.cell_to_world(hazards[i]))
-
-	## The picture of a cell's teeth pointing `facing`.
-	static func _spikes(facing: Vector2i) -> String:
-		match facing:
-			Vector2i.LEFT:
-				return "spikes_left"
-			Vector2i.RIGHT:
-				return "spikes_right"
-			Vector2i.DOWN:
-				return "spikes_down"
-		return "spikes_up"
+			PixelArt.draw(self, PixelArt.spikes_name(facing), Grid.cell_to_world(hazards[i]))
 
 
 ## A shaded block that fills a doorway while the room's exit rule is unmet:
