@@ -113,6 +113,8 @@ var _room_from_base := {}
 var _plan_key := IMPRINT_PLANS
 ## Every pickup, token and 3TM in the world by id.
 var _things := {}
+## How the player can move, in the order they are tried: ground, air, lash, imprint.
+var _providers: Array[MoveProvider] = []
 
 
 ## `ability_set` is what the player has, the starting abilities if left out.
@@ -122,6 +124,7 @@ func _init(rooms: Dictionary, movement: MovementConfig, ability_set: Abilities =
 	_rooms = rooms
 	_cfg = movement
 	abilities = ability_set if ability_set != null else Abilities.new()
+	_providers = [GroundMoves.new(self), AirMoves.new(self), LashMoves.new(self), ImprintMoves.new(self)]
 	for id in rooms:
 		_ledges[id] = _find_ledges(rooms[id])
 		for def in _things_of(rooms[id]):
@@ -573,24 +576,15 @@ func _flood(run: Run) -> void:
 	while not run.queue.is_empty():
 		var ledge: Ledge = run.queue.pop_back()
 		var info: RoomInfo = _info_of(ledge.room_id)
-		_ensure_edges(info)
-		var air := abilities != null and abilities.air_jumps > 0
-		if air:
-			_ensure_air_edges(info)
 		var next: Array[Ledge] = []
-		for index in ledge.to_ledges:
-			next.append(_ledges[ledge.room_id][index])
-		if air:
-			for index in ledge.air_to_ledges:
-				next.append(_ledges[ledge.room_id][index])
-		if abilities != null and abilities.tongue_unlocked:
-			next.append_array(_lash_ledges(ledge, info))
-		next.append_array(run.extra_to.get(ledge, []))
 		var touches: Array[Touch] = []
-		touches.append_array(ledge.touches)
-		if air:
-			touches.append_array(ledge.air_touches)
-		touches.append_array(run.extra_touches.get(ledge, []))
+		for provider in _providers:
+			if not provider.applies(abilities):
+				continue
+			provider.prepare(info)
+			var moves := provider.next(ledge, info, run)
+			next.append_array(moves.ledges)
+			touches.append_array(moves.touches)
 		# The doors of a locked room are blocks: its touches wait until it opens.
 		if run.locked.has(ledge.base()) and not touches.is_empty():
 			if not run.held.has(ledge.base()):
@@ -616,8 +610,9 @@ func _flood(run: Run) -> void:
 func _settle(run: Run) -> void:
 	while true:
 		_flood(run)
-		if abilities.imprint_unlocked:
-			_place_imprints(run)
+		for provider in _providers:
+			if provider.applies(abilities):
+				provider.expand(run)
 		if not _open_locks(run):
 			return
 
@@ -790,7 +785,10 @@ func _reached_in_a_state(run: Run, ledge: Ledge) -> bool:
 func _pickup_on(run: Run, ledge: Ledge, index: int) -> bool:
 	if not run.reached.has(ledge):
 		return false
-	return ledge.pickups.has(index) or (abilities.air_jumps > 0 and ledge.air_pickups.has(index)) or run.extra_pickups.get(ledge, []).has(index)
+	for provider in _providers:
+		if provider.applies(abilities) and provider.picked(ledge, run, index):
+			return true
+	return false
 
 
 func _append_capped(into: Array[String], lines: Array[String]) -> void:
@@ -993,6 +991,44 @@ static func _space_of(mover: Mover) -> Rect2:
 			out = rect if first else out.merge(rect)
 			first = false
 	return out
+
+
+## Works out every jump of `room_id`, and of each set of its breakable walls
+## broken, and keeps them in the cache. The search that joins rooms is not part
+## of this, so several rooms can be warmed at once, one process each.
+func warm(room_id: String) -> void:
+	if not _rooms.has(room_id):
+		return
+	var info: RoomInfo = _rooms[room_id]
+	_ensure_edges(info)
+	_ensure_air_edges(info)
+	var walls: Array[String] = []
+	for wall_id in info.breakables:
+		walls.append(String(wall_id))
+	walls.sort()
+	var subsets: Array = [[]]
+	for wall_id in walls:
+		var grown: Array = []
+		for existing in subsets:
+			var next: Array = (existing as Array).duplicate()
+			next.append(wall_id)
+			grown.append(next)
+		for extra in grown:
+			subsets.append(extra)
+			if subsets.size() >= MAX_WALL_STATES:
+				break
+		if subsets.size() >= MAX_WALL_STATES:
+			break
+	for broken in subsets:
+		if (broken as Array).is_empty():
+			continue
+		var names: Array[String] = []
+		names.assign(broken)
+		var variant := _variant_for(room_id, names)
+		if variant == null:
+			return
+		_ensure_edges(variant)
+		_ensure_air_edges(variant)
 
 
 func _ensure_edges(info: RoomInfo) -> void:
