@@ -225,6 +225,14 @@ func world_rects() -> Array[Rect2]:
 	return _world_rects_cache
 
 
+## The blocks of a locked room's doors, in world pixels.
+func block_rects() -> Array[Rect2]:
+	var out: Array[Rect2] = []
+	for block in _blocks:
+		out.append(Rect2(block.position + position, block.size))
+	return out
+
+
 ## Opens the doors if the exit rule is now met: the blocks shatter and the
 ## halos appear. Says whether it did. `flags` is what the player has done.
 func recheck_exits(flags: Dictionary) -> bool:

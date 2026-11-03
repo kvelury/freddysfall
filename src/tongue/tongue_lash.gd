@@ -242,7 +242,9 @@ func _hit() -> bool:
 		return true
 	var extra: Array[Rect2] = []
 	var origin := room.position
-	for rect in room.world_rects():
+	# The room's own solids are tested cell by cell in box_hit; only what is
+	# not in them is passed along: door blocks, Imprint platforms and movers.
+	for rect in room.block_rects():
 		extra.append(Rect2(rect.position - origin, rect.size))
 	for platform in _world.imprint.platforms:
 		extra.append(Rect2(platform.rect.position - origin, platform.rect.size))
