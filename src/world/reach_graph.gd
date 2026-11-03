@@ -40,13 +40,15 @@ const MACHINE_COST := TokenMachine.COST
 ## The most ticks between the moments a moving platform is tried at. A slower
 ## platform is tried at the moments it has moved a cell, if that is sooner.
 const MAX_PHASE_STEP := 12
+## Where the plans the Imprint search simulates are counted (see timing()).
+const IMPRINT_PLANS := "(imprint)"
+## Most states (sets of walls broken in one visit) the solver keeps for a room.
+## More than this is an error: split the room.
+const MAX_WALL_STATES := 16
 ## The air jumps the solver tries, from a ground jump held for each of
 ## AIR_FIRST_HOLDS ticks: the second press at each of AIR_FRAMES (ticks after
 ## the first), held for each of AIR_HOLDS. A walk off a ledge uses the later
 ## frames only (AIR_OFF_FRAMES), because the early ones are still its coyote jump.
-## Most states (sets of walls broken in one visit) the solver keeps for a room.
-## More than this is an error: split the room.
-const MAX_WALL_STATES := 16
 const AIR_FIRST_HOLDS: Array[int] = [8, 90]
 const AIR_FRAMES: Array[int] = [10, 18, 26, 40]
 const AIR_OFF_FRAMES: Array[int] = [16, 24, 36]
@@ -82,6 +84,13 @@ var _landings := {}
 var _imprint: ImprintSearch
 ## Microseconds spent building the jumps of every ledge.
 var _edge_usec := 0
+## The same, by room key (a copy with walls broken has its own), and how many
+## plans were simulated and how many moments its platforms were tried at.
+var _room_usec := {}
+var _room_plans := {}
+var _room_phases := {}
+## The room key whose plans are being counted, set while its jumps are worked out.
+var _plan_key := IMPRINT_PLANS
 ## Every pickup, token and 3TM in the world by id.
 var _things := {}
 
@@ -113,7 +122,18 @@ func timing() -> Dictionary:
 		out["legs"] = float(_imprint.stats["legs"]) / 1000.0
 		out["candidates"] = _imprint.stats["candidates"]
 		out["legs_made"] = _imprint.stats["legs_made"]
+	var rooms: Array[Dictionary] = []
+	for key in _room_usec:
+		rooms.append({"key": String(key), "ms": float(_room_usec[key]) / 1000.0, "plans": int(_room_plans.get(key, 0)), "phases": int(_room_phases.get(key, 1))})
+	rooms.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return a["ms"] > b["ms"])
+	out["rooms"] = rooms
 	return out
+
+
+func _add_room_time(key: String, started: int) -> void:
+	var spent := Time.get_ticks_usec() - started
+	_edge_usec += spent
+	_room_usec[key] = int(_room_usec.get(key, 0)) + spent
 
 
 func room_info(room_id: String) -> RoomInfo:
@@ -923,8 +943,10 @@ func _ensure_edges(info: RoomInfo) -> void:
 	var entry: SolverCache.Entry = cache.entry_for(info) if cache != null else null
 	if entry != null and _restore_edges(entry, _ledges[info.id]):
 		cache.stats["edge_rooms_cached"] += 1
-		_edge_usec += Time.get_ticks_usec() - started
+		_add_room_time(info.id, started)
 		return
+	_plan_key = info.id
+	_room_phases[info.id] = phases(info).size() if not info.movers.is_empty() else 1
 	var geo := geometry_of(info)
 	for ledge: Ledge in _ledges[info.id]:
 		if ledge.moving:
@@ -947,7 +969,8 @@ func _ensure_edges(info: RoomInfo) -> void:
 	if entry != null:
 		entry.store_edges(_ledges[info.id])
 		cache.stats["edge_rooms_solved"] += 1
-	_edge_usec += Time.get_ticks_usec() - started
+	_plan_key = IMPRINT_PLANS
+	_add_room_time(info.id, started)
 
 
 ## The jumps that need double jump: every ground jump (and walk off a ledge)
@@ -962,8 +985,10 @@ func _ensure_air_edges(info: RoomInfo) -> void:
 	var entry: SolverCache.Entry = cache.entry_for(info) if cache != null else null
 	if entry != null and _restore_air_edges(entry, _ledges[info.id]):
 		cache.stats["air_rooms_cached"] += 1
-		_edge_usec += Time.get_ticks_usec() - started
+		_add_room_time(info.id + " air", started)
 		return
+	_plan_key = info.id + " air"
+	_room_phases[_plan_key] = phases(info).size() if not info.movers.is_empty() else 1
 	var geo := geometry_of(info)
 	for ledge: Ledge in _ledges[info.id]:
 		if ledge.moving:
@@ -988,7 +1013,8 @@ func _ensure_air_edges(info: RoomInfo) -> void:
 	if entry != null:
 		entry.store_air_edges(_ledges[info.id])
 		cache.stats["air_rooms_solved"] += 1
-	_edge_usec += Time.get_ticks_usec() - started
+	_plan_key = IMPRINT_PLANS
+	_add_room_time(info.id + " air", started)
 
 
 func _restore_air_edges(entry: SolverCache.Entry, ledges: Array) -> bool:
@@ -1116,6 +1142,7 @@ func _off_plans(info: RoomInfo, geo: Geometry, ledge: Ledge, near: Array[Rect2],
 ## tick when the path starts, and `top` and `riding` say where the body starts:
 ## the height of what it stands on, and the platform it is on, or -1.
 func try_plan(info: RoomInfo, geo: Geometry, ledge: Ledge, near: Array[Rect2], x: float, speed: float, input: float, hold: int, jump: bool, limit := -1, tick := -1, top := NAN, riding := -1, air_frame := -1, air_hold := 0) -> void:
+	_room_plans[_plan_key] = int(_room_plans.get(_plan_key, 0)) + 1
 	var start := Vector2(x, (ledge.top if is_nan(top) else top) - float(Grid.CELL) * 0.5)
 	var movers: Movers = geo.movers if tick >= 0 else null
 	var result := MovementSim.simulate_jump(_cfg, near, start, Vector2(speed, 0.0), input, hold, true, jump, geo.triggers, geo.bounds, geo.hazards, geo.things, NAN, 0, frame_limit if limit < 0 else limit, false, movers, maxi(tick, 0), riding, 1 if air_frame >= 0 else 0, air_frame, air_hold)

@@ -6,6 +6,13 @@ extends SceneTree
 ## tools/validate.sh runs this. What the solver works out about each room is
 ## kept in build/solver-cache/ between runs, so a run after editing one room
 ## only redoes that room. `--no-cache` ignores and does not write it.
+##
+## `--dump=<path>` also writes everything the solver worked out, sorted, for
+## tools/solver_diff.sh. `--strict-ledges` makes a ledge nobody reaches an
+## error, as CI runs it.
+
+## How many room keys the timing table lists, slowest first.
+const SLOWEST_SHOWN := 10
 
 
 func _initialize() -> void:
@@ -25,11 +32,17 @@ func _initialize() -> void:
 	var cfg := load("res://src/player/movement.tres") as MovementConfig
 	var graph := ReachGraph.new(data.rooms, cfg)
 	var cache: SolverCache = null
-	if not OS.get_cmdline_user_args().has("--no-cache"):
+	if not _has_flag("--no-cache"):
 		cache = SolverCache.new("res://build/solver-cache")
 		graph.cache = cache
 	var report := graph.solve(data.start_room)
 	var written := cache.save() if cache != null else 0
+	if _has_flag("--strict-ledges"):
+		for ledge in report.unreached:
+			report.errors.append("%s cannot be reached (--strict-ledges)" % ledge.describe())
+	var dump_path := _flag_value("--dump")
+	if not dump_path.is_empty():
+		_write_dump(dump_path, graph, report)
 	for message in report.errors:
 		print("FAIL ", message)
 	for message in report.warnings:
@@ -64,6 +77,12 @@ func _initialize() -> void:
 		timing["candidates"],
 		timing["legs_made"],
 	])
+	var slowest: Array = timing.get("rooms", [])
+	if not slowest.is_empty():
+		print("slowest rooms:")
+		for i in mini(slowest.size(), SLOWEST_SHOWN):
+			var row: Dictionary = slowest[i]
+			print("  %-16s %8.1f s  %7d plans  %3d phases" % [row["key"], row["ms"] / 1000.0, row["plans"], row["phases"]])
 	if cache != null:
 		print("cache: %d rooms' ledges from it and %d worked out, %d legs from it and %d worked out, %d files written" % [cache.stats["edge_rooms_cached"], cache.stats["edge_rooms_solved"], cache.stats["legs_cached"], cache.stats["legs_solved"], written])
 	else:
@@ -74,3 +93,34 @@ func _initialize() -> void:
 	else:
 		print("validate fail: %d problems, %s" % [report.errors.size(), summary])
 	quit(0 if report.errors.is_empty() else 1)
+
+
+func _has_flag(name: String) -> bool:
+	return OS.get_cmdline_user_args().has(name)
+
+
+## The value of `name=value` among the arguments after `--`, or "".
+func _flag_value(name: String) -> String:
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with(name + "="):
+			return arg.substr(name.length() + 1)
+	return ""
+
+
+func _write_dump(path: String, graph: ReachGraph, report: ReachGraph.Report) -> void:
+	var pickups := []
+	for pickup in report.pickups:
+		pickups.append(pickup)
+	pickups.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return String(a["id"]) < String(b["id"]))
+	var errors := report.errors.duplicate()
+	errors.sort()
+	var warnings := report.warnings.duplicate()
+	warnings.sort()
+	var data := {"graph": preload("res://tests/lib/solver_dump.gd").dump(graph), "needs": report.needs, "errors": errors, "warnings": warnings, "pickups": pickups}
+	var file := FileAccess.open(path, FileAccess.WRITE)
+	if file == null:
+		print("FAIL could not write the dump to %s" % path)
+		return
+	file.store_string(JSON.stringify(data, "  ", true))
+	file.close()
+	print("dump: %s" % path)
