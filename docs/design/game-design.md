@@ -348,6 +348,15 @@ For testing, the game can begin in any room: `--room=<id>` on the command line, 
 ### Dev playtesting
 
 F2, or Dev tools in the pause menu, opens a paused panel with Player, Rooms and Loadouts tabs.
+
+The Player tab is grouped into collapsible sections so it stays short: **Tokens & hearts**
+(open when the panel is first shown), **Movement**, **Tongue Lash** (its switch and tuning,
+and Wall strength), **Imprint** (its switch and tuning, and Classic Imprint) and **Debug view**
+(token marks, slow motion). The rest start folded. A folded section keeps its values and still
+applies them, and the panel remembers which are open while it is shown again in the same run.
+Every control belongs to one section: an upgrade names it in its `dev.section`, and
+`DevCatalog.SECTIONS` is the one list of them, so a new control either joins one or adds a section
+there. Sections are only layout: they are not saved, not in named loadouts and not read by the game.
 Tools are always available in editor/debug runs. The browser release uses
 `?dev=1` (for example `?dev=1&room=7`), and native exports use `--dev`. Without the
 opt-in, exported gameplay has no cheat UI. F3 remains the performance readout;
@@ -760,6 +769,15 @@ A write never replaces the save in place: it writes `save.json.tmp` whole, flush
 
 ### Dev implementation (`dev/`, `ui/dev_panel.gd`)
 
+**Sections.** `DevCatalog.SECTIONS` (ordered `{id, title}`) names the Player tab's groups;
+`RESOURCES` entries and every upgrade's `dev` block carry a `section`, and `DevCatalog.problems()`
+reports a missing or unknown one, so `dev_catalog_test` fails a control that is not sorted.
+`DevPanel._build_player` makes one `FoldableContainer` per section (`_section`, bodies in
+`_sections`), places each field in its declared section with a power's switch first, and puts the
+session switches (Classic Imprint, token marks, slow motion, wall strength) by hand. `UiTheme`
+styles `FoldableContainer` (bordered title bar, unframed body, 5 x 5 pixel arrows) so the page
+still fits the 312-wide window.
+
 `DevSession` is an always-processing autoload with normal, room-test and dev-test
 modes. All cheats pass through its validated methods; the UI never mutates game
 progression directly. `apply` patches only edited fields, updating both live
@@ -1006,6 +1024,7 @@ What was decided, in the order it came up, with the reason. Pull requests are na
 - **Retry the original test, with the latest explicit tuning.** Cross-room attempts reset progression to their baseline, while duration/width/resource edits remain selected. This avoids replaying the game and avoids silently saving depleted resources as the next loadout.
 - **Door bypass and automatic death retry are optional, initially off.** They are separate from real room requirements and ordinary health behavior.
 - **Future mechanics must include their dev path.** Registration, setup/removal, retries, loadouts, tests and docs are part of completion, enforced by agent guidance and coverage tests.
+- **The Player tab is grouped into collapsible sections, and the section is data (2026-11-03).** The flat list had grown past what fits a screen (a dozen Tongue Lash fields alone), with Wall strength far from Lash and Classic Imprint far from Imprint. Each control now names a `section` from `DevCatalog.SECTIONS`, and `DevCatalog.problems()` fails one that has none or an unknown one, so a new control cannot arrive unsorted; a section is added to that list when none fits. Sections fold with Godot's `FoldableContainer`, themed in `UiTheme`, and start folded except Tokens & hearts. They are layout only, so loadouts, saves and the catalog's validation are unchanged.
 
 **Imprint lockout (PR on `game-tweaks`)**
 - **No replacing.** While the limit's worth of platforms stands, a click is refused. Before this, the next click replaced the oldest platform, so a player could keep one alive for ever and walk around any puzzle meant to fit in a platform's life.

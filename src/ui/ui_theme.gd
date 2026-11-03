@@ -44,6 +44,18 @@ static func build() -> Theme:
 			pixels.set_pixel(11, y, Color.WHITE)
 		pixels.fill_rect(Rect2i(7 if on else 2, 2, 3, 2), Color.WHITE)
 		out.set_icon("checked" if on else "unchecked", "CheckButton", ImageTexture.create_from_image(pixels))
+	# A folding group: its title is a bordered bar, its body sits unframed under it.
+	var body := StyleBoxFlat.new()
+	body.bg_color = Color.BLACK
+	body.set_border_width_all(0)
+	body.content_margin_left = 3
+	for style in ["title_panel", "title_collapsed_panel", "title_hover_panel", "focus"]:
+		out.set_stylebox(style, "FoldableContainer", box)
+	out.set_stylebox("panel", "FoldableContainer", body)
+	for color in ["title_font_color", "title_hover_font_color", "title_collapsed_font_color", "font_outline_color"]:
+		out.set_color(color, "FoldableContainer", Color.WHITE)
+	for arrow in ["expanded_arrow", "expanded_arrow_mirrored", "folded_arrow", "folded_arrow_mirrored"]:
+		out.set_icon(arrow, "FoldableContainer", _arrow(arrow.begins_with("expanded")))
 	var item := StyleBoxFlat.new()
 	item.bg_color = Color.WHITE
 	item.border_color = Color.WHITE
@@ -60,6 +72,17 @@ static func build() -> Theme:
 	for color in ["font_hover_color", "font_pressed_color", "font_focus_color", "font_hover_pressed_color"]:
 		out.set_color(color, "MenuItem", Color.BLACK)
 	return out
+
+
+## A 5 x 5 white triangle: pointing down for an open group, right for a closed one.
+static func _arrow(open: bool) -> ImageTexture:
+	var pixels := Image.create(5, 5, false, Image.FORMAT_RGBA8)
+	for row in 5:
+		var length := 5 - 2 * row if open else (row + 1 if row < 3 else 5 - row)
+		var start := row if open else 0
+		for x in maxi(length, 0):
+			pixels.set_pixel(start + x, row, Color.WHITE)
+	return ImageTexture.create_from_image(pixels)
 
 
 ## Big centred bold text, all capitals, with a black outline, for the game's
