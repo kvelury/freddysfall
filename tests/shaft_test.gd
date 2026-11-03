@@ -1,4 +1,4 @@
-extends SceneTree
+extends TestCase
 
 ## The real player goes down the shaft from room 3 to room 4 and climbs back
 ## up, so up and down doors keep their place and their speed and land the
@@ -6,11 +6,7 @@ extends SceneTree
 
 
 func _initialize() -> void:
-	# A script error inside a coroutine leaves the test waiting forever.
-	create_timer(90.0).timeout.connect(func() -> void:
-		print("FAIL timed out")
-		quit(1)
-	)
+	watchdog()
 	_run()
 
 
@@ -27,10 +23,10 @@ func _run() -> void:
 	var room: Room = world.current
 	player.place(room.position + Grid.cell_center(Vector2i(3, 16)), room.world_rects())
 	player.scripted_x = 1.0
-	ok = _check(await _until(world, "4"), "walking into room 3's floor hole arrives in room 4") and ok
-	ok = _check(player.velocity.x > 60.0, "the player keeps running right through the door (%s)" % player.velocity) and ok
+	ok = check(await _until(world, "4"), "walking into room 3's floor hole arrives in room 4") and ok
+	ok = check(player.velocity.x > 60.0, "the player keeps running right through the door (%s)" % player.velocity) and ok
 	player.scripted_x = 0.0
-	ok = _check(await _settles(world), "the player lands on their feet in room 4") and ok
+	ok = check(await _settles(world), "the player lands on their feet in room 4") and ok
 
 	# Up: jump straight up from the top platform into the ceiling hole at columns 5 to 10.
 	room = world.current
@@ -42,15 +38,14 @@ func _run() -> void:
 		await physics_frame
 		if _room() == "3":
 			break
-	ok = _check(await _until(world, "3"), "jumping into room 4's ceiling hole arrives in room 3") and ok
-	ok = _check(player.velocity.y <= -Door.UP_BOOST + 0.01, "the player leaves at least the minimum rise (%s)" % player.velocity) and ok
+	ok = check(await _until(world, "3"), "jumping into room 4's ceiling hole arrives in room 3") and ok
+	ok = check(player.velocity.y <= -Door.UP_BOOST + 0.01, "the player leaves at least the minimum rise (%s)" % player.velocity) and ok
 	player.scripted_jump_held = false
 	player.scripted_x = 1.0
-	ok = _check(await _settles(world), "steering onto the floor, the player lands in room 3 and stays") and ok
+	ok = check(await _settles(world), "steering onto the floor, the player lands in room 3 and stays") and ok
 	ok = await _merged_drop(world) and ok
 	world.queue_free()
-	print("SHAFT %s" % ("pass" if ok else "fail"))
-	quit(0 if ok else 1)
+	finish("SHAFT", ok)
 
 
 ## Sample the real viewport camera at display rates above and below the
@@ -67,7 +62,7 @@ func _camera_follow(world: Node) -> bool:
 		player.place(room.position + Vector2(75, 220), room.world_rects())
 		player.velocity = Vector2(0, player.config.max_fall_speed)
 		var previous := player.global_position
-		var ticks := 0
+		var tick_count := 0
 		var last_ticks := -1
 		var last_camera: Vector2 = world.camera.position
 		var between_ticks := 0
@@ -76,12 +71,12 @@ func _camera_follow(world: Node) -> bool:
 		var unchanged := true
 		for frame in range(1, 61):
 			var time := float(frame) * 60.0 / float(fps)
-			while ticks < floori(time):
+			while tick_count < floori(time):
 				previous = player.global_position
 				room._physics_process(1.0 / 60.0)
 				world._physics_process(1.0 / 60.0)
 				player._physics_process(1.0 / 60.0)
-				ticks += 1
+				tick_count += 1
 			var fraction := time - floorf(time)
 			var physics_pose := player.global_position
 			var velocity := player.velocity
@@ -92,37 +87,37 @@ func _camera_follow(world: Node) -> bool:
 			worst = maxf(worst, absf(on_screen.y - viewport.get_visible_rect().get_center().y) / float(Display.RENDER_SCALE))
 			crisp = crisp and world.camera.position == world.camera.position.round()
 			unchanged = unchanged and player.global_position == physics_pose and player.velocity == velocity
-			if ticks == last_ticks and world.camera.position != last_camera:
+			if tick_count == last_ticks and world.camera.position != last_camera:
 				between_ticks += 1
-			last_ticks = ticks
+			last_ticks = tick_count
 			last_camera = world.camera.position
-		ok = _check(worst <= 0.5001 and crisp and unchanged, "fall camera at %d FPS stays within half a world pixel, crisp, without changing physics (%.3f px)" % [fps, worst]) and ok
-		ok = _check(fps == 60 or between_ticks > 0, "display-frame updates at %d FPS include sub-tick motion (%d frames)" % [fps, between_ticks]) and ok
+		ok = check(worst <= 0.5001 and crisp and unchanged, "fall camera at %d FPS stays within half a world pixel, crisp, without changing physics (%.3f px)" % [fps, worst]) and ok
+		ok = check(fps == 60 or between_ticks > 0, "display-frame updates at %d FPS include sub-tick motion (%d frames)" % [fps, between_ticks]) and ok
 		world._process(0.0)
 		var expected := Grid.camera_focus(room.position, room.info.pixel_size, previous.lerp(player.global_position, Engine.get_physics_interpolation_fraction()))
-		ok = _check(world.camera.position == expected, "the actual frame callback follows the displayed pose at %d FPS" % fps) and ok
+		ok = check(world.camera.position == expected, "the actual frame callback follows the displayed pose at %d FPS" % fps) and ok
 	# Placement/retry resets both poses. The room clamps still apply at each end.
 	var room: Room = world.current
 	for y in [20.0, 700.0]:
 		player.place(room.position + Vector2(75, y), room.world_rects())
 		for fraction in [0.0, 0.5, 1.0]:
 			world._update_camera(fraction)
-			ok = _check(world.camera.position == Grid.camera_focus(room.position, room.info.pixel_size, player.global_position), "placement resets interpolation and clamps at y %.0f, phase %.1f" % [y, fraction]) and ok
+			ok = check(world.camera.position == Grid.camera_focus(room.position, room.info.pixel_size, player.global_position), "placement resets interpolation and clamps at y %.0f, phase %.1f" % [y, fraction]) and ok
 	var before: Vector2 = world.camera.position
 	world._follow = false
 	player.place(room.position + Vector2(75, 300), room.world_rects())
 	world._update_camera(0.5)
-	ok = _check(world.camera.position == before, "a door slide retains camera ownership") and ok
+	ok = check(world.camera.position == before, "a door slide retains camera ownership") and ok
 	world._follow = true
 	# With interpolation disabled, display and camera use the live physics pose.
 	player.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 	player._physics_process(1.0 / 60.0)
 	world._update_camera(0.0)
-	ok = _check(world.camera.position == Grid.camera_focus(room.position, room.info.pixel_size, player.global_position), "disabled player interpolation does not leave the camera a tick behind") and ok
+	ok = check(world.camera.position == Grid.camera_focus(room.position, room.info.pixel_size, player.global_position), "disabled player interpolation does not leave the camera a tick behind") and ok
 	player.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_ON
 	world.warp_to("3")
 	world._update_camera(0.5)
-	ok = _check(world.camera.position == Grid.camera_focus(world.current.position, world.current.info.pixel_size, player.global_position), "a one-screen room remains centred") and ok
+	ok = check(world.camera.position == Grid.camera_focus(world.current.position, world.current.info.pixel_size, player.global_position), "a one-screen room remains centred") and ok
 	world.process_mode = mode
 	return ok
 
@@ -144,12 +139,12 @@ func _merged_drop(world: Node) -> bool:
 			var entered := await _until(world, "7")
 			var landed := entered and await _settles(world)
 			var local: Vector2 = player.global_position - world.current.position
-			ok = _check(landed and world.current.info.id == "7" and state.health == 1 and player.riding() == -1 and (is_equal_approx(local.y, 705.0) or (is_equal_approx(local.y, 665.0) and local.x >= 85.0)) and local.x + MovementSim.HALF.x <= 140.0, "drop x %.0f, vx %.0f lands on the floor or the step, left of the wall, without steering (%s, health %d)" % [x, vx, local, state.health]) and ok
+			ok = check(landed and world.current.info.id == "7" and state.health == 1 and player.riding() == -1 and (is_equal_approx(local.y, 705.0) or (is_equal_approx(local.y, 665.0) and local.x >= 85.0)) and local.x + MovementSim.HALF.x <= 140.0, "drop x %.0f, vx %.0f lands on the floor or the step, left of the wall, without steering (%s, health %d)" % [x, vx, local, state.health]) and ok
 			if not entered or state.health != 1:
 				return false
 	# The landing connects to the existing save room through its left door.
 	player.scripted_x = -1.0
-	ok = _check(await _until(world, "s2"), "the landing floor leads left into save room s2") and ok
+	ok = check(await _until(world, "s2"), "the landing floor leads left into save room s2") and ok
 	player.scripted_x = 0.0
 	return ok
 
@@ -180,8 +175,3 @@ func _settles(world: Node) -> bool:
 
 func _room() -> String:
 	return String(root.get_node("GameState").current_room_id)
-
-
-func _check(cond: bool, label: String) -> bool:
-	print(("ok   " if cond else "FAIL ") + label)
-	return cond

@@ -1,4 +1,4 @@
-extends SceneTree
+extends TestCase
 
 ## Save rooms. s1 holds its door shut until the player has used its save
 ## machine, a split sphere: walking into its zone hops the player into the
@@ -13,11 +13,7 @@ const TEMP := "user://save_room_test.json"
 
 
 func _initialize() -> void:
-	# A script error inside a coroutine leaves the test waiting forever.
-	create_timer(90.0).timeout.connect(func() -> void:
-		print("FAIL timed out")
-		quit(1)
-	)
+	watchdog()
 	_run()
 
 
@@ -35,34 +31,34 @@ func _run() -> void:
 	player.scripted = true
 	var room: Room = world.current
 	var machine := _machine(room)
-	ok = _check(room.info.id == "s1" and room.info.is_save_room(), "a new game starts in save room s1") and ok
-	ok = _check(machine != null and machine.openness == 1.0 and not machine.used, "the room has its save machine, standing open") and ok
-	ok = _check(state.save_room == "s1", "entering a save room makes it the save room") and ok
-	ok = _check(room.locked and _blocks(room) == 1, "its door is blocked until the machine is used (%d blocks)" % _blocks(room)) and ok
-	ok = _check(not FileAccess.file_exists(TEMP), "nothing has been saved yet") and ok
+	ok = check(room.info.id == "s1" and room.info.is_save_room(), "a new game starts in save room s1") and ok
+	ok = check(machine != null and machine.openness == 1.0 and not machine.used, "the room has its save machine, standing open") and ok
+	ok = check(state.save_room == "s1", "entering a save room makes it the save room") and ok
+	ok = check(room.locked and _blocks(room) == 1, "its door is blocked until the machine is used (%d blocks)" % _blocks(room)) and ok
+	ok = check(not FileAccess.file_exists(TEMP), "nothing has been saved yet") and ok
 
 	# Enter the zone at the platform's left end.
 	var door_rects := room.world_rects().size()
 	var left := room.position + Grid.cell_center(Vector2i(14, 8))
 	var right := room.position + Grid.cell_center(Vector2i(18, 8))
 	var run := await _save_from(player, room, left)
-	ok = _check(run["held"], "entering the machine's zone takes control from the player") and ok
-	ok = _check(run["released"] and run["pause"] >= 1.1 and run["pause"] < 1.6, "and gives it back about 1.2 s later (%.2f s)" % run["pause"]) and ok
-	ok = _check(run["hidden"] and run["shut"], "the player is inside while it is shut round them") and ok
-	ok = _check(run["top"] < machine.centre().y - 3.0, "they hop in on an arc (highest point %.1f, the middle is %.1f)" % [run["top"], machine.centre().y]) and ok
+	ok = check(run["held"], "entering the machine's zone takes control from the player") and ok
+	ok = check(run["released"] and run["pause"] >= 1.1 and run["pause"] < 1.6, "and gives it back about 1.2 s later (%.2f s)" % run["pause"]) and ok
+	ok = check(run["hidden"] and run["shut"], "the player is inside while it is shut round them") and ok
+	ok = check(run["top"] < machine.centre().y - 3.0, "they hop in on an arc (highest point %.1f, the middle is %.1f)" % [run["top"], machine.centre().y]) and ok
 	await _frames(12)
-	ok = _check(machine.used and machine.openness == 0.0, "the machine is used, and closes behind them") and ok
-	ok = _check(player.visible and player.is_on_floor(), "the player is back, standing") and ok
-	ok = _check(player.global_position.distance_to(machine.global_position + Vector2(20, 0)) < 1.0, "popped out on the far side, to the right of where they came in from the left (%s)" % player.global_position) and ok
-	ok = _check(state.has_flag("save:s1_save"), "the save is remembered in the flags") and ok
+	ok = check(machine.used and machine.openness == 0.0, "the machine is used, and closes behind them") and ok
+	ok = check(player.visible and player.is_on_floor(), "the player is back, standing") and ok
+	ok = check(player.global_position.distance_to(machine.global_position + Vector2(20, 0)) < 1.0, "popped out on the far side, to the right of where they came in from the left (%s)" % player.global_position) and ok
+	ok = check(state.has_flag("save:s1_save"), "the save is remembered in the flags") and ok
 	var toast: Label = world.get_node("Toast").get_child(1)
-	ok = _check(toast.visible and toast.text == "Game Saved", "a centred line says the game was saved (%s)" % toast.text) and ok
-	ok = _check(not room.locked and _blocks(room) == 0, "the door opens, as room 2's does for its token") and ok
-	ok = _check(player.solids.size() == door_rects - 1, "and the player no longer collides with the block (%d to %d)" % [door_rects, player.solids.size()]) and ok
-	ok = _check(FileAccess.file_exists(TEMP), "the game was written to the save file") and ok
+	ok = check(toast.visible and toast.text == "Game Saved", "a centred line says the game was saved (%s)" % toast.text) and ok
+	ok = check(not room.locked and _blocks(room) == 0, "the door opens, as room 2's does for its token") and ok
+	ok = check(player.solids.size() == door_rects - 1, "and the player no longer collides with the block (%d to %d)" % [door_rects, player.solids.size()]) and ok
+	ok = check(FileAccess.file_exists(TEMP), "the game was written to the save file") and ok
 	var written: Variant = JSON.parse_string(FileAccess.get_file_as_string(TEMP))
 	var spot := Grid.cell_center(room.info.save_cell())
-	ok = _check(written is Dictionary and written["room"] == "s1" and written["save_room"] == "s1" and Vector2(float(written["position"][0]), float(written["position"][1])) == spot and written["flags"].has("save:s1_save"), "which resumes at the machine (%s)" % [written]) and ok
+	ok = check(written is Dictionary and written["room"] == "s1" and written["save_room"] == "s1" and Vector2(float(written["position"][0]), float(written["position"][1])) == spot and written["flags"].has("save:s1_save"), "which resumes at the machine (%s)" % [written]) and ok
 
 	# Once a visit: walking back through the zone leaves the player alone.
 	var held := false
@@ -71,16 +67,16 @@ func _run() -> void:
 		await physics_frame
 		held = held or not player.input_enabled
 	player.scripted_x = 0.0
-	ok = _check(not held and machine.openness == 0.0, "walking back through the zone does nothing, and the machine stays shut") and ok
+	ok = check(not held and machine.openness == 0.0, "walking back through the zone does nothing, and the machine stays shut") and ok
 
 	# A new visit builds it open and unused, and from the right it pops out on the left.
 	world.warp_to("s1")
 	room = world.current
 	machine = _machine(room)
-	ok = _check(machine.openness == 1.0 and not machine.used and not room.locked, "entering the room again finds it open and unused, with the door open") and ok
+	ok = check(machine.openness == 1.0 and not machine.used and not room.locked, "entering the room again finds it open and unused, with the door open") and ok
 	run = await _save_from(player, room, right)
-	ok = _check(run["held"] and run["released"] and run["pause"] >= 1.1 and run["pause"] < 1.6, "so it works again (%.2f s)" % run["pause"]) and ok
-	ok = _check(player.global_position.distance_to(machine.global_position + Vector2(-20, 0)) < 1.0, "and entered from the right it pops them out on the left (%s)" % player.global_position) and ok
+	ok = check(run["held"] and run["released"] and run["pause"] >= 1.1 and run["pause"] < 1.6, "so it works again (%.2f s)" % run["pause"]) and ok
+	ok = check(player.global_position.distance_to(machine.global_position + Vector2(-20, 0)) < 1.0, "and entered from the right it pops them out on the left (%s)" % player.global_position) and ok
 
 	# A reload resumes inside the machine, and it lets the player out.
 	world.queue_free()
@@ -91,14 +87,14 @@ func _run() -> void:
 	player.scripted = true
 	room = world.current
 	machine = _machine(room)
-	ok = _check(room.info.id == "s1" and state.has_flag("save:s1_save"), "a reload resumes in s1 with the machine used") and ok
-	ok = _check(world.is_busy() and not player.visible and machine.used and machine.openness == 0.0, "the player is inside it, shut") and ok
+	ok = check(room.info.id == "s1" and state.has_flag("save:s1_save"), "a reload resumes in s1 with the machine used") and ok
+	ok = check(world.is_busy() and not player.visible and machine.used and machine.openness == 0.0, "the player is inside it, shut") and ok
 	var emerged := await _emerge(world, player, machine)
-	ok = _check(emerged["spun"], "it spins, as it does for a save") and ok
-	ok = _check(emerged["time"] >= 0.75 and emerged["time"] < 1.2, "then opens and pops them out, in about 0.9 s (%.2f s)" % emerged["time"]) and ok
-	ok = _check(player.global_position.distance_to(machine.global_position + Vector2(20, 0)) < 1.0 and player.is_on_floor(), "to the right of it, standing (%s)" % player.global_position) and ok
+	ok = check(emerged["spun"], "it spins, as it does for a save") and ok
+	ok = check(emerged["time"] >= 0.75 and emerged["time"] < 1.2, "then opens and pops them out, in about 0.9 s (%.2f s)" % emerged["time"]) and ok
+	ok = check(player.global_position.distance_to(machine.global_position + Vector2(20, 0)) < 1.0 and player.is_on_floor(), "to the right of it, standing (%s)" % player.global_position) and ok
 	await _frames(12)
-	ok = _check(machine.openness == 0.0 and not room.locked, "it is shut again, with the door open") and ok
+	ok = check(machine.openness == 0.0 and not room.locked, "it is shut again, with the door open") and ok
 
 	# Dying with no health goes back into the machine, and it lets the player out
 	# without saving again.
@@ -109,24 +105,24 @@ func _run() -> void:
 	room = world.current
 	machine = _machine(room)
 	await _frames(12)
-	ok = _check(room.info.id == "s1", "dying on the last heart sends the player to the save room (%s)" % room.info.id) and ok
-	ok = _check(player.global_position.distance_to(machine.global_position + Vector2(20, 0)) < 1.0, "popped out to the right of the machine (%s)" % player.global_position) and ok
-	ok = _check(machine.used and machine.openness == 0.0 and not room.locked, "which has been used already, so it stays shut and the door open") and ok
-	ok = _check(not FileAccess.file_exists(TEMP), "and nothing was saved again") and ok
+	ok = check(room.info.id == "s1", "dying on the last heart sends the player to the save room (%s)" % room.info.id) and ok
+	ok = check(player.global_position.distance_to(machine.global_position + Vector2(20, 0)) < 1.0, "popped out to the right of the machine (%s)" % player.global_position) and ok
+	ok = check(machine.used and machine.openness == 0.0 and not room.locked, "which has been used already, so it stays shut and the door open") and ok
+	ok = check(not FileAccess.file_exists(TEMP), "and nothing was saved again") and ok
 	var wait := 0
 	player.scripted_x = -1.0
 	for i in 30:
 		await physics_frame
 		wait += 0 if player.input_enabled else 1
 	player.scripted_x = 0.0
-	ok = _check(wait == 0, "and walking back through its zone does nothing") and ok
+	ok = check(wait == 0, "and walking back through its zone does nothing") and ok
 
 	# Dying with a pip spends it and comes back on safe floor.
 	state.health = 2
 	state.max_health = 3
 	world.warp_to("5")
 	ok = await _die_in_5(world, player) and ok
-	ok = _check(world.current.info.id == "5" and state.health == 1, "dying with a spare heart spends it and stays in the room (%s, %d health)" % [world.current.info.id, state.health]) and ok
+	ok = check(world.current.info.id == "5" and state.health == 1, "dying with a spare heart spends it and stays in the room (%s, %d health)" % [world.current.info.id, state.health]) and ok
 
 	# No save room entered yet: the start room's start.
 	state.reset()
@@ -134,8 +130,8 @@ func _run() -> void:
 	ok = await _die_in_5(world, player) and ok
 	room = world.current
 	var start := Grid.cell_center(room.info.spawn_cell)
-	ok = _check(room.info.id == "s1" and player.global_position.distance_to(room.position + start) < 1.0, "with no save room entered, death goes to the start (%s at %s)" % [room.info.id, player.global_position]) and ok
-	ok = _check(room.locked and _machine(room).openness == 1.0, "where the machine has not been used, so it is open and the door is shut") and ok
+	ok = check(room.info.id == "s1" and player.global_position.distance_to(room.position + start) < 1.0, "with no save room entered, death goes to the start (%s at %s)" % [room.info.id, player.global_position]) and ok
+	ok = check(room.locked and _machine(room).openness == 1.0, "where the machine has not been used, so it is open and the door is shut") and ok
 
 	# Back on a machine that was never used (the save room was only entered): it
 	# saves first, then lets the player out.
@@ -147,16 +143,15 @@ func _run() -> void:
 	room = world.current
 	machine = _machine(room)
 	await _frames(12)
-	ok = _check(room.info.id == "s1" and state.has_flag("save:s1_save") and not room.locked, "dying with the save room only entered saves in the machine and opens the door") and ok
-	ok = _check(FileAccess.file_exists(TEMP) and machine.used and machine.openness == 0.0, "which writes the game and leaves it shut") and ok
+	ok = check(room.info.id == "s1" and state.has_flag("save:s1_save") and not room.locked, "dying with the save room only entered saves in the machine and opens the door") and ok
+	ok = check(FileAccess.file_exists(TEMP) and machine.used and machine.openness == 0.0, "which writes the game and leaves it shut") and ok
 
 	world.queue_free()
 	await process_frame
 	DirAccess.remove_absolute(TEMP)
 	save.enabled = false
 	state.reset()
-	print("SAVEROOM %s" % ("pass" if ok else "fail"))
-	quit(0 if ok else 1)
+	finish("SAVEROOM", ok)
 
 
 ## Puts the player at `at`, inside the machine's zone, and watches the save.
@@ -167,9 +162,10 @@ func _save_from(player: Player, room: Room, at: Vector2) -> Dictionary:
 	var machine := _machine(room)
 	var out := {"held": false, "released": false, "pause": 0.0, "hidden": false, "shut": false, "top": INF}
 	player.place(at, player.solids)
-	var begun := Time.get_ticks_msec()
+	var frames := 0
 	for i in 240:
 		await physics_frame
+		frames += 1
 		if not player.input_enabled:
 			out["held"] = true
 			out["top"] = minf(out["top"], player.global_position.y)
@@ -179,7 +175,7 @@ func _save_from(player: Player, room: Room, at: Vector2) -> Dictionary:
 		elif out["held"]:
 			out["released"] = true
 			break
-	out["pause"] = float(Time.get_ticks_msec() - begun) / 1000.0
+	out["pause"] = float(frames) / TICKS_PER_SECOND
 	return out
 
 
@@ -187,13 +183,14 @@ func _save_from(player: Player, room: Room, at: Vector2) -> Dictionary:
 ## them control. Returns how long that took in seconds, and whether it spun.
 func _emerge(world: Node, player: Player, machine: SaveMachine) -> Dictionary:
 	var out := {"time": 0.0, "spun": false}
-	var begun := Time.get_ticks_msec()
+	var frames := 0
 	for i in 240:
 		await physics_frame
+		frames += 1
 		out["spun"] = out["spun"] or (machine.phase > 0.0 and machine.openness == 0.0 and not player.visible)
 		if player.input_enabled and not world.is_busy():
 			break
-	out["time"] = float(Time.get_ticks_msec() - begun) / 1000.0
+	out["time"] = float(frames) / TICKS_PER_SECOND
 	return out
 
 
@@ -216,7 +213,7 @@ func _die_in_5(world: Node, player: Player) -> bool:
 			if player.visible and player.input_enabled:
 				back = true
 				break
-	return _check(died and back, "the player dies in room 5's spikes and comes back")
+	return check(died and back, "the player dies in room 5's spikes and comes back")
 
 
 func _machine(room: Room) -> SaveMachine:
@@ -241,8 +238,3 @@ func _world() -> Node:
 	await process_frame
 	world.game_over.scripted = true
 	return world
-
-
-func _check(cond: bool, label: String) -> bool:
-	print(("ok   " if cond else "FAIL ") + label)
-	return cond

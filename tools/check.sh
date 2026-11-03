@@ -11,7 +11,9 @@ godot --headless --path . --import
 export SKIP_IMPORT=1
 
 # Every tests/*_test.gd runs, each in its own Godot process, JOBS at a time
-# (the machine's cores unless set). The slowest start first so none is left
+# (the machine's cores unless set), with --fixed-fps 60: each frame is exactly
+# 1/60 s of game time, so timers, tweens and waits do not depend on the machine
+# and cost no real time. The slowest start first so none is left
 # running alone at the end. Each writes build/test-logs/<name>.log, and the
 # log of every test that failed is printed at the end.
 JOBS="${JOBS:-$(nproc 2>/dev/null || echo 2)}"
@@ -35,7 +37,7 @@ echo "==> $COUNT tests, $JOBS at a time"
 xargs -P "$JOBS" -n 1 sh -c '
 	name="$1"
 	begun=$(date +%s)
-	if godot --headless --path . --script "tests/$name.gd" > "build/test-logs/$name.log" 2>&1; then
+	if godot --headless --path . --fixed-fps 60 --script "tests/$name.gd" > "build/test-logs/$name.log" 2>&1; then
 		result=pass
 	else
 		result=FAIL

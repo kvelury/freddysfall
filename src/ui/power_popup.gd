@@ -13,7 +13,9 @@ var opened := false
 var _world: Node
 var _name: Label
 var _view: ControlsView
-var _opened_at := 0
+## Seconds it has been open, counted in frames (it runs while the game is
+## paused, and slow motion does not stretch it).
+var _open_for := 0.0
 var _mouse_before := Input.MOUSE_MODE_VISIBLE
 
 
@@ -62,7 +64,7 @@ func open(id: String) -> bool:
 	for row_id in def.get("controls", []):
 		rows.append(Controls.get_row(String(row_id)))
 	_view.show_rows(rows)
-	_opened_at = Time.get_ticks_msec()
+	_open_for = 0.0
 	_mouse_before = Input.mouse_mode
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	opened = true
@@ -79,8 +81,9 @@ func dismiss() -> void:
 	_world.release_modal(OWNER)
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	if opened:
+		_open_for += delta / maxf(Engine.time_scale, 0.001)
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
 
@@ -93,7 +96,7 @@ func _input(event: InputEvent) -> void:
 	if not wanted:
 		return
 	get_viewport().set_input_as_handled()
-	if float(Time.get_ticks_msec() - _opened_at) / 1000.0 >= MIN_SHOW:
+	if _open_for >= MIN_SHOW:
 		dismiss()
 
 

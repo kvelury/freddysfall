@@ -28,7 +28,9 @@ var _title: Label
 var _prompt: Label
 var _tween: Tween
 var _waiting := false
-var _shown_at := 0
+## Seconds the screen has waited for a key, counted in frames (so a frozen or
+## slowed game, and a test at a fixed frame rate, count the same).
+var _shown_for := 0.0
 var _mouse_before := Input.MOUSE_MODE_VISIBLE
 var _mouse_held := false
 
@@ -127,7 +129,7 @@ func _stop() -> void:
 
 func _ready_for_key() -> void:
 	_waiting = true
-	_shown_at = Time.get_ticks_msec()
+	_shown_for = 0.0
 	if scripted:
 		_continue()
 
@@ -141,6 +143,11 @@ func _continue() -> void:
 	continued.emit()
 
 
+func _process(delta: float) -> void:
+	if _waiting:
+		_shown_for += delta / maxf(Engine.time_scale, 0.001)
+
+
 func _input(event: InputEvent) -> void:
 	if not active or not event.is_pressed() or event.is_echo():
 		return
@@ -152,5 +159,5 @@ func _input(event: InputEvent) -> void:
 	if not wanted:
 		return
 	get_viewport().set_input_as_handled()
-	if _waiting and float(Time.get_ticks_msec() - _shown_at) / 1000.0 >= MIN_SHOW:
+	if _waiting and _shown_for >= MIN_SHOW:
 		_continue()

@@ -1,15 +1,11 @@
-extends SceneTree
+extends TestCase
 
 ## Spikes and falling out of the world put the player back on the last safe
 ## floor, after a short shatter.
 
 
 func _initialize() -> void:
-	# A script error inside a coroutine leaves the test waiting forever.
-	create_timer(90.0).timeout.connect(func() -> void:
-		print("FAIL timed out")
-		quit(1)
-	)
+	watchdog()
 	_run()
 
 
@@ -36,16 +32,16 @@ func _run() -> void:
 		if not player.visible:
 			died = true
 			break
-	ok = _check(died, "walking into spikes kills the player") and ok
-	ok = _check(not player.input_enabled, "control is taken while the shards fly") and ok
+	ok = check(died, "walking into spikes kills the player") and ok
+	ok = check(not player.input_enabled, "control is taken while the shards fly") and ok
 	var shards := 0
 	for child in world.get_children():
 		if child is Shatter:
 			shards += 1
-	ok = _check(shards == 1, "a shatter plays (%d)" % shards) and ok
+	ok = check(shards == 1, "a shatter plays (%d)" % shards) and ok
 	player.scripted_x = 0.0
-	ok = _check(await _respawned(player), "the player comes back") and ok
-	ok = _check(_standing_right_of_spikes(world, player), "they come back standing on the safe floor right of the spikes (%s)" % player.global_position) and ok
+	ok = check(await _respawned(player), "the player comes back") and ok
+	ok = check(_standing_right_of_spikes(world, player), "they come back standing on the safe floor right of the spikes (%s)" % player.global_position) and ok
 
 	# Out of the world: dropped far below the room. Respawning built a new room.
 	room = world.current
@@ -56,14 +52,13 @@ func _run() -> void:
 		if not player.visible:
 			fell = true
 			break
-	ok = _check(fell, "falling out of the room kills the player") and ok
-	ok = _check(await _respawned(player), "the player comes back from the fall") and ok
+	ok = check(fell, "falling out of the room kills the player") and ok
+	ok = check(await _respawned(player), "the player comes back from the fall") and ok
 	room = world.current
 	var bounds := Rect2(room.position, Vector2(320, 180))
-	ok = _check(bounds.has_point(player.global_position), "and is back inside the room (%s)" % player.global_position) and ok
+	ok = check(bounds.has_point(player.global_position), "and is back inside the room (%s)" % player.global_position) and ok
 	ok = await _imprint_loop(world, player) and ok
-	print("HAZARD %s" % ("pass" if ok else "fail"))
-	quit(0 if ok else 1)
+	finish("HAZARD", ok)
 
 
 ## An Imprint over spikes breaks under the player. They must come back on the
@@ -82,29 +77,29 @@ func _imprint_loop(world: Node, player: Player) -> bool:
 		await physics_frame
 
 	tool.scripted_cell = Vector2i(14, 15)
-	ok = _check(tool.place(), "an Imprint goes in just above the spikes") and ok
+	ok = check(tool.place(), "an Imprint goes in just above the spikes") and ok
 	player.global_position = room.position + Vector2(150.0, 145.0)
 	player.velocity = Vector2.ZERO
 	for i in 15:
 		await physics_frame
-	ok = _check(player.is_on_floor() and player.global_position.y < room.position.y + 150.0, "the player stands on it (%s)" % player.global_position) and ok
-	ok = _check(world._safe[-1]["position"].distance_to(floor_spot) < 1.0, "but the safe spot is still the real floor (%s)" % world._safe[-1]["position"]) and ok
+	ok = check(player.is_on_floor() and player.global_position.y < room.position.y + 150.0, "the player stands on it (%s)" % player.global_position) and ok
+	ok = check(world._safe[-1]["position"].distance_to(floor_spot) < 1.0, "but the safe spot is still the real floor (%s)" % world._safe[-1]["position"]) and ok
 
 	tool.platforms[0].lifetime = 0.05
 	var deaths := await _count_deaths(player, 400)
-	ok = _check(deaths == 1, "it breaks, the player drops onto the spikes and dies once (%d)" % deaths) and ok
+	ok = check(deaths == 1, "it breaks, the player drops onto the spikes and dies once (%d)" % deaths) and ok
 	room = world.current
 	var local := player.global_position - room.position
-	ok = _check(player.visible and player.is_on_floor() and local.x > 200.0 and absf(local.y - 165.0) < 0.6, "and comes back on the floor right of the spikes (%s)" % local) and ok
+	ok = check(player.visible and player.is_on_floor() and local.x > 200.0 and absf(local.y - 165.0) < 0.6, "and comes back on the floor right of the spikes (%s)" % local) and ok
 
 	# A spot that was never real: in the air over the spikes.
 	world._record_safe(room.info.id, room.position + Vector2(150.0, 145.0))
 	player.global_position = room.position + Vector2(150.0, 165.0)
 	deaths = await _count_deaths(player, 600)
-	ok = _check(deaths == 2, "a bad spot kills once more and then it is given up (%d deaths)" % deaths) and ok
+	ok = check(deaths == 2, "a bad spot kills once more and then it is given up (%d deaths)" % deaths) and ok
 	room = world.current
 	local = player.global_position - room.position
-	ok = _check(player.visible and player.is_on_floor() and local.x > 200.0 and absf(local.y - 165.0) < 0.6, "and the player is back on the floor they really stood on (%s)" % local) and ok
+	ok = check(player.visible and player.is_on_floor() and local.x > 200.0 and absf(local.y - 165.0) < 0.6, "and the player is back on the floor they really stood on (%s)" % local) and ok
 	state.abilities.imprint_unlocked = false
 	return ok
 
@@ -136,8 +131,3 @@ func _standing_right_of_spikes(world: Node, player: Player) -> bool:
 	var room: Room = world.current
 	var local := player.global_position - room.position
 	return player.is_on_floor() and local.x > 215.0 and local.x < 300.0 and not room.touches_hazard(player.body_rect())
-
-
-func _check(cond: bool, label: String) -> bool:
-	print(("ok   " if cond else "FAIL ") + label)
-	return cond
