@@ -30,13 +30,60 @@ func _files() -> bool:
 		if not FileAccess.file_exists(path):
 			missing.append(path)
 	ok = check(missing.is_empty(), "every file the solver's fingerprint covers exists %s" % [missing]) and ok
-	for name in ["reach_graph.gd", "imprint_search.gd", "movement_sim.gd", "movement.tres", "movement_config.gd", "door.gd", "imprint_rules.gd", "room_info.gd", "grid.gd"]:
+	for name in ["reach_graph.gd", "imprint_search.gd", "movement_sim.gd", "movement.tres", "movement_config.gd", "door.gd", "imprint_rules.gd", "imprint_platform.gd", "jump_plan.gd", "room_info.gd", "grid.gd"]:
 		var listed := false
 		for path in SolverCache.SOLVER_FILES:
 			listed = listed or path.ends_with("/" + name)
 		ok = check(listed, "the fingerprint covers %s" % name) and ok
 	ok = check(SolverCache.solver_fingerprint() == SolverCache.solver_fingerprint() and SolverCache.solver_fingerprint().length() == 64, "and it is a stable hash") and ok
+	ok = _closure() and ok
 	return ok
+
+
+## Every script the solver's code names, followed from reach_graph.gd, is in
+## SOLVER_FILES or named in FINGERPRINT_EXEMPT with a reason. ui, autoload and
+## dev code is not followed.
+func _closure() -> bool:
+	var classes := {}
+	for entry in ProjectSettings.get_global_class_list():
+		classes[String(entry["class"])] = String(entry["path"])
+	var ident := RegEx.create_from_string("\\b[A-Z][A-Za-z0-9]+\\b")
+	var literal := RegEx.create_from_string("\"(res://[^\"]+)\"")
+	var seen := {}
+	var queue: Array[String] = ["res://src/world/reach_graph.gd"]
+	while not queue.is_empty():
+		var path: String = queue.pop_front()
+		if seen.has(path) or _outside(path) or not FileAccess.file_exists(path):
+			continue
+		seen[path] = true
+		var text := FileAccess.get_file_as_string(path)
+		for found in ident.search_all(text):
+			var name := found.get_string()
+			if classes.has(name):
+				queue.append(String(classes[name]))
+		for found in literal.search_all(text):
+			var named := found.get_string(1)
+			if named.ends_with(".gd") or named.ends_with(".tres"):
+				queue.append(named)
+	var missing: Array[String] = []
+	var stale: Array[String] = []
+	for path in seen:
+		if SolverCache.SOLVER_FILES.has(path) or SolverCache.FINGERPRINT_EXEMPT.has(path):
+			continue
+		missing.append(path)
+	for path in SolverCache.FINGERPRINT_EXEMPT:
+		if not seen.has(path):
+			stale.append(path)
+		elif String(SolverCache.FINGERPRINT_EXEMPT[path]).is_empty():
+			stale.append(path)
+	missing.sort()
+	stale.sort()
+	var ok := check(missing.is_empty(), "the fingerprint covers everything the solver reaches %s" % [missing])
+	return check(stale.is_empty(), "every exemption is reached and has a reason %s" % [stale]) and ok
+
+
+func _outside(path: String) -> bool:
+	return path.begins_with("res://src/ui/") or path.begins_with("res://src/autoload/") or path.begins_with("res://src/dev/")
 
 
 ## A run with the cache, cold and then warm, says what a run without it says.

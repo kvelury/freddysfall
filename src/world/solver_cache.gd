@@ -24,6 +24,7 @@ const SOLVER_FILES: Array[String] = [
 	"res://src/world/reach_graph.gd",
 	"res://src/world/imprint_search.gd",
 	"res://src/imprint/imprint_rules.gd",
+	"res://src/imprint/imprint_platform.gd",
 	"res://src/player/movement_sim.gd",
 	"res://src/player/jump_plan.gd",
 	"res://src/player/movement_config.gd",
@@ -41,7 +42,41 @@ const SOLVER_FILES: Array[String] = [
 	"res://src/world/entities/save_machine.gd",
 	"res://src/world/entities/pickup.gd",
 	"res://src/core/grid.gd",
+	"res://src/core/display.gd",
+	"res://src/world/solver_cache.gd",
 ]
+
+## Reached from the solver, but a change to it cannot change a cached jump.
+## The test that checks the fingerprint's closure (cache_test) allows these and
+## fails on anything else it reaches that is not in SOLVER_FILES. A stat that
+## changes how a body moves belongs in Abilities.movement_key, not in this list.
+const FINGERPRINT_EXEMPT := {
+	"res://src/core/abilities.gd": "which jumps get used depends on the abilities, not how one jump moves; a stat that changes the movement goes in Abilities.movement_key",
+	"res://src/core/upgrades.gd": "names which stat a pickup raises; the jumps themselves do not read it",
+	"res://src/core/controls.gd": "the controls page; upgrades.gd only checks that a row id exists",
+	"res://src/core/palette.gd": "colours for drawing, which a jump never reads",
+	"res://src/core/pixel_art.gd": "drawing pictures, which a jump never reads",
+	"res://src/core/pixel_shapes.gd": "drawing pictures, which a jump never reads",
+	"res://src/player/freddy_sprites.gd": "the player's pictures",
+	"res://src/player/inventory_marks.gd": "marks drawn on the player",
+	"res://src/player/player.gd": "the running player; the solver calls MovementSim, not this node",
+	"res://src/player/player_animator.gd": "which picture the player shows",
+	"res://src/player/player_body.gd": "drawing the player",
+	"res://src/tongue/tongue_lash.gd": "the running tongue; the solver's lash is its own reach in reach_graph.gd",
+	"res://src/tongue/tongue_motion.gd": "the running tongue's curves, which the solver's lash does not use",
+	"res://src/world/entities/breakable_wall.gd": "the wall's node; the solver reads its cells from RoomInfo",
+	"res://src/world/entities/emitter_view.gd": "drawing an emitter; the solver reads EmitterPath",
+	"res://src/world/entities/health_pip.gd": "the pip's node; the solver uses Pickup's touch size",
+	"res://src/world/entities/moving_platform.gd": "drawing a platform; the solver reads PlatformPath",
+	"res://src/world/entities/spinner_view.gd": "drawing a spinner; the solver reads SpinnerPath",
+	"res://src/world/entities/token.gd": "the token's node; the solver uses Pickup's touch size",
+	"res://src/world/exit_halo.gd": "the glow in a doorway",
+	"res://src/world/exit_rules.gd": "decides when a room opens during the search, after the jumps are worked out",
+	"res://src/world/entity_def.gd": "a thing's id and props, hashed in the room fingerprint",
+	"res://src/world/room.gd": "the running room; the solver reads RoomInfo",
+	"res://src/world/room_parser.gd": "its output is the RoomInfo the room fingerprint hashes",
+	"res://src/world/shatter.gd": "the burst of shards when something breaks",
+}
 
 ## The directory the files are in.
 var directory := ""
