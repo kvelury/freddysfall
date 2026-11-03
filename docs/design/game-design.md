@@ -751,6 +751,8 @@ Touching spikes, or leaving the room's outline by 60 px, calls `_die`: the world
 
 Writes happen on entering a room, after a pickup, token, 3TM or save machine, and when the map is closed after the zoom changed (`World.save_now`). Every write puts the resume point (`World._resume_point`) in `room` and `position`, whatever the player was doing, and the rest of the state as it stands.
 
+A write never replaces the save in place: it writes `save.json.tmp` whole, flushes and closes it (on the web, closing a `user://` file is what has it synced to IndexedDB), and only then renames it over `save.json`, so a tab closed or a crash in the middle of a write leaves the last save as it was. A `.tmp` left with no `save.json` beside it was written whole and stopped just before the rename, so `load_game` and `has_game` put it in place first; one left beside a `save.json` is a write whose rename failed, and is dropped. `erase` removes both. `DevLoadouts` writes its file the same way.
+
 ### Dev implementation (`dev/`, `ui/dev_panel.gd`)
 
 `DevSession` is an always-processing autoload with normal, room-test and dev-test

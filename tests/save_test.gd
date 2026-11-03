@@ -11,7 +11,8 @@ func _initialize() -> void:
 	var ok := true
 	ok = _abilities() and ok
 	ok = _file() and ok
-	for path in [TEMP, TEMP + ".bad"]:
+	ok = _atomic() and ok
+	for path in [TEMP, TEMP + ".bad", TEMP + ".tmp"]:
 		DirAccess.remove_absolute(path)
 	finish("SAVE", ok)
 
@@ -190,6 +191,55 @@ func _file() -> bool:
 	save.enabled = false
 	state.reset()
 	return ok
+
+
+## A save is written beside the old one and renamed into place, so a write
+## that stops half way never leaves a broken save.
+func _atomic() -> bool:
+	var ok := true
+	var save: Node = root.get_node("Save")
+	var state: Node = root.get_node("GameState")
+	save.path = TEMP
+	save.enabled = true
+	for path in [TEMP, TEMP + ".bad", TEMP + ".tmp"]:
+		DirAccess.remove_absolute(path)
+	state.reset()
+	state.tokens = 2
+	ok = check(save.write("3", Vector2(15, 25)), "a save is written") and ok
+	ok = check(FileAccess.file_exists(TEMP) and not FileAccess.file_exists(TEMP + ".tmp"), "and nothing is left beside it") and ok
+	state.reset()
+	var where: Dictionary = save.load_game()
+	ok = check(where.get("room") == "3" and state.tokens == 2, "and it reads back") and ok
+
+	# Stopped after writing, before the rename: the whole new save is put in place.
+	DirAccess.rename_absolute(TEMP, TEMP + ".tmp")
+	ok = check(save.has_game() and FileAccess.file_exists(TEMP) and not FileAccess.file_exists(TEMP + ".tmp"), "a written save that was never renamed is recovered") and ok
+	state.reset()
+	ok = check(save.load_game().get("room") == "3" and state.tokens == 2, "and loads") and ok
+
+	# A rename that failed: the save in place is kept and the other dropped.
+	_write_to(TEMP + ".tmp", "half a sa")
+	ok = check(save.load_game().get("room") == "3" and not FileAccess.file_exists(TEMP + ".tmp") and not FileAccess.file_exists(TEMP + ".bad"), "a stray file beside a good save is dropped and the save loads") and ok
+
+	# A write that cannot happen leaves the old save alone.
+	var before := FileAccess.get_file_as_string(TEMP)
+	save.path = "user://no_such_folder_for_save_test/save.json"
+	ok = check(not save.write("4", Vector2.ZERO), "a save that cannot be written says so") and ok
+	save.path = TEMP
+	ok = check(FileAccess.get_file_as_string(TEMP) == before, "and the old save is untouched") and ok
+
+	_write_to(TEMP + ".tmp", "{}")
+	save.erase()
+	ok = check(not FileAccess.file_exists(TEMP) and not FileAccess.file_exists(TEMP + ".tmp"), "erase removes the save and anything beside it") and ok
+	save.enabled = false
+	state.reset()
+	return ok
+
+
+func _write_to(path: String, text: String) -> void:
+	var file := FileAccess.open(path, FileAccess.WRITE)
+	file.store_string(text)
+	file.close()
 
 
 func _cap(state: Node) -> int:
