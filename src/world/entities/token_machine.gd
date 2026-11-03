@@ -19,7 +19,6 @@ const SLOTS: Array[Vector2] = [Vector2(-9, -20), Vector2(0, -20), Vector2(9, -20
 var def: EntityDef
 ## How many slots are filled.
 var filled := 0
-var _age := 0.0
 var _flash := 0.0
 var _dispensing := -1.0
 var _drawn := ""
@@ -81,12 +80,12 @@ func dispense() -> void:
 
 
 func _process(delta: float) -> void:
-	_age += delta
 	_flash = maxf(0.0, _flash - delta)
 	if _dispensing >= 0.0:
 		_dispensing += delta
-	var lift := roundi(sin(_age * 3.0) * 1.5)
-	var mark := "%d|%s|%d" % [lift, _flash > 0.0, int(_dispensing / 0.05) if _dispensing >= 0.0 else -2]
+	# Everything _draw reads: the flash, the shake step, the slots and whether
+	# it is spent. (Nothing it draws bobs, so the age is not part of it.)
+	var mark := "%s|%d|%d|%s" % [_flash > 0.0, int(_dispensing / 0.05) if _dispensing >= 0.0 else -2, filled, spent]
 	if mark != _drawn:
 		_drawn = mark
 		queue_redraw()

@@ -36,6 +36,8 @@ var _preview_cell := Vector2i.ZERO
 var _key := ""
 var _mouse_seen := false
 var _hidden_cursor := false
+## Whether the last frame drew anything, so the frame after it can wipe it.
+var _was_showing := false
 
 
 func _ready() -> void:
@@ -105,6 +107,7 @@ func clear(effects: bool) -> void:
 	platforms.clear()
 	cooldown_left = 0.0
 	_forget()
+	queue_redraw()
 
 
 ## Works out the preview now, for the cell under the cursor.
@@ -141,8 +144,11 @@ func _physics_process(delta: float) -> void:
 
 func _process(_delta: float) -> void:
 	_set_cursor_hidden(is_active() and not scripted)
-	if is_active() or not platforms.is_empty():
+	var showing := is_active() or not platforms.is_empty()
+	# One more redraw after the last thing is gone, so it is wiped from the screen.
+	if showing or _was_showing:
 		queue_redraw()
+	_was_showing = showing
 
 
 func _input(event: InputEvent) -> void:

@@ -13,6 +13,9 @@ var path: SpinnerPath
 var _tick := 0
 var _current: Array[Vector2] = []
 var _previous: Array[Vector2] = []
+## Whether any block moved on the last tick; _draw interpolates, so it has to
+## run every frame while one does.
+var _moving := false
 
 
 func _init(spinner_path: SpinnerPath, tick := 0) -> void:
@@ -29,8 +32,16 @@ func move_to(tick: int) -> void:
 	for body in path.body_count():
 		_previous[body] = _current[body]
 		_current[body] = path.rect_at(tick, body).position
+	_moving = false
+	for body in path.body_count():
+		if _previous[body] != _current[body]:
+			_moving = true
 	queue_redraw()
 
+
+func _process(_delta: float) -> void:
+	if _moving:
+		queue_redraw()
 
 
 func shown_at(body: int, fraction: float) -> Vector2:
