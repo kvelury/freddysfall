@@ -82,7 +82,7 @@ const FINGERPRINT_EXEMPT := {
 	"res://src/player/player.gd": "the running player; the solver calls MovementSim, not this node",
 	"res://src/player/player_animator.gd": "which picture the player shows",
 	"res://src/player/player_body.gd": "drawing the player",
-	"res://src/tongue/tongue_lash.gd": "the running tongue; the solver's lash is its own reach in reach_graph.gd",
+	"res://src/tongue/tongue_lash.gd": "the running tongue; the solver's lash and this one share TongueReach, which is in the fingerprint",
 	"res://src/tongue/tongue_motion.gd": "the running tongue's curves, which the solver's lash does not use",
 	"res://src/world/entities/breakable_wall.gd": "the wall's node; the solver reads its cells from RoomInfo",
 	"res://src/world/entities/emitter_view.gd": "drawing an emitter; the solver reads EmitterPath",
