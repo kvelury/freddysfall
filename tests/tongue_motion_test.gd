@@ -73,8 +73,8 @@ func _stats() -> void:
 	check(is_equal_approx(a.tongue_creep, 0.065) and is_equal_approx(a.tongue_creep_reach, 3.0) and is_equal_approx(a.tongue_ramp, 0.08) and is_equal_approx(a.tongue_strike, 3.0) and a.tongue_settle == 1.0 and is_equal_approx(a.tongue_stick, 0.1) and a.tongue_pad and is_equal_approx(a.tongue_snap, 2.0) and is_equal_approx(a.tongue_cooldown, 0.05) and is_equal_approx(a.tongue_speed, 220.0), "the starting values are the chosen frog's tongue: a 4-tick creep over 3 px, an 0.08 s ramp to 3 times 220 px/s, a 6-tick stick with a pad, a spring return at a 2x snap, a 0.05 s cooldown")
 	var d := a.to_dict()
 	for stat in ["tongue_creep", "tongue_creep_reach", "tongue_ramp", "tongue_strike", "tongue_settle", "tongue_stick", "tongue_pad"]:
-		check(Abilities.STATS.has(stat) and d.has(stat), "%s is registered and serialized" % stat)
-	check(not Abilities.STATS.has("tongue_wobble") and not d.has("tongue_wobble"), "the wobble, which the chosen tongue does not use, is gone")
+		check(Abilities.stats().has(stat) and d.has(stat), "%s is registered and serialized" % stat)
+	check(not Abilities.stats().has("tongue_wobble") and not d.has("tongue_wobble"), "the wobble, which the chosen tongue does not use, is gone")
 	var odd := Abilities.from_dict({"tongue_creep": -1.0, "tongue_creep_reach": -2.0, "tongue_ramp": -0.5, "tongue_strike": 0.2, "tongue_settle": 5.0, "tongue_stick": -1.0})
 	check(odd.tongue_creep == 0.0 and odd.tongue_creep_reach == 0.0 and odd.tongue_ramp == 0.0 and odd.tongue_strike == 1.0 and odd.tongue_stick == 0.0, "a save cannot hold a negative time or distance or a strike under 1")
 	var steady := Abilities.from_dict(STEADY)

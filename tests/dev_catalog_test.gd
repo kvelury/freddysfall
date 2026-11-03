@@ -12,16 +12,20 @@ func _initialize() -> void:
 	check(not DevCatalog.problems(definitions).is_empty(), "a new upgrade without dev metadata fails coverage")
 	definitions["forgotten"]["dev"] = {"type": "int", "min": 1, "step": 1}
 	check(DevCatalog.problems(definitions).is_empty() and DevCatalog.controls(definitions)["imprint_width"]["type"] == "int", "registered upgrades generate controls without a new widget")
-	var stats: Array = Abilities.STATS.duplicate()
+	var stats: Array = Abilities.stats().duplicate()
 	stats.append("future_stat")
 	check(not DevCatalog.problems({}, stats).is_empty(), "an unregistered ability stat fails coverage")
 	var state: Node = root.get_node("GameState")
 	check(DevCatalog.RESOURCES["tokens"]["max"] == state.TOKEN_CAP, "dev token bounds match the gameplay cap")
 	var ability := Abilities.new()
+	var controls := DevCatalog.controls()
+	check(ability.to_dict().keys() == Abilities.stats(), "to_dict writes exactly the declared stats")
+	for stat in Abilities.stats():
+		check(controls.has(stat), "stat %s has a dev control" % stat)
 	for property in ability.get_property_list():
 		if property["usage"] & PROPERTY_USAGE_SCRIPT_VARIABLE:
 			var key: String = property["name"]
-			check(Abilities.STATS.has(key) and ability.to_dict().has(key), "ability property %s is registered and serialized" % key)
+			check(Abilities.stats().has(key) and ability.to_dict().has(key), "ability property %s is registered and serialized" % key)
 			var changed := Abilities.new()
 			var value: Variant = changed.get(key)
 			if value is bool:

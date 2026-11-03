@@ -33,7 +33,8 @@ static func controls(definitions: Dictionary = {}) -> Dictionary:
 
 
 ## Every upgrade and every serialized ability needs an explicit dev decision.
-static func problems(definitions: Dictionary = {}, stats: Array = Abilities.STATS) -> Array[String]:
+## `stats` left empty means every stat Abilities declares.
+static func problems(definitions: Dictionary = {}, stats: Array = []) -> Array[String]:
 	if definitions.is_empty():
 		definitions = Upgrades.all()
 	var errors: Array[String] = []
@@ -48,6 +49,8 @@ static func problems(definitions: Dictionary = {}, stats: Array = Abilities.STAT
 			errors.append("Upgrade %s has an unknown dev control type." % id)
 		if control.get("type") == "unsupported" and String(control.get("reason", "")).is_empty():
 			errors.append("Upgrade %s needs a reason for missing dev support." % id)
+	if stats.is_empty():
+		stats = Abilities.stats()
 	for stat in stats:
 		if not known.has(stat):
 			errors.append("Ability %s needs a dev control or an explicit exception." % stat)

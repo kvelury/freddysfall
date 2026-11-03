@@ -2,9 +2,29 @@ class_name Abilities
 extends RefCounted
 
 ## What the player can do. The values here are the starting ones; upgrades
-## raise them. Each name in STATS is a stat that data/upgrades.json may name.
+## raise them. The `var` lines are the stats: `stats()`, `to_dict` and
+## `from_dict` follow from them, so a new stat is one line. A floor (or a
+## ceiling) goes in CLAMPS. A name an old save used goes in LEGACY.
 
-const STATS: Array[String] = ["air_jumps", "tongue_unlocked", "tongue_cooldown", "tongue_speed", "tongue_snap", "tongue_length", "tongue_creep", "tongue_creep_reach", "tongue_ramp", "tongue_strike", "tongue_settle", "tongue_stick", "tongue_pad", "imprint_unlocked", "imprint_width", "imprint_duration", "imprint_max_active", "imprint_cooldown", "imprint_effects"]
+## [lowest, highest] kept when a save is read. Null is no limit on that side.
+## Only the floor is held here; the dev controls hold the top of each range.
+const CLAMPS := {
+	"air_jumps": [0, null],
+	"tongue_snap": [1.0, null],
+	"tongue_creep": [0.0, null],
+	"tongue_creep_reach": [0.0, null],
+	"tongue_ramp": [0.0, null],
+	"tongue_strike": [1.0, null],
+	"tongue_settle": [0.0, null],
+	"tongue_stick": [0.0, null],
+}
+
+## A stat's old names, tried when a save has no key of its own. The gun became
+## the tongue; its cooldown and shot speed were never upgraded, so they are not
+## carried over.
+const LEGACY := {
+	"tongue_unlocked": ["gun_unlocked"],
+}
 
 ## Jumps the player can make in mid-air before landing. 0 until they find double jump.
 var air_jumps := 0
@@ -85,59 +105,63 @@ func copy() -> Abilities:
 	return Abilities.from_dict(to_dict())
 
 
+## The stats, in the order they are declared. A `var` on this script is a stat.
+static func stats() -> Array[String]:
+	var out: Array[String] = []
+	for property in (Abilities as Script).get_script_property_list():
+		if int(property["usage"]) & PROPERTY_USAGE_SCRIPT_VARIABLE:
+			out.append(String(property["name"]))
+	return out
+
+
 func to_dict() -> Dictionary:
-	return {
-		"air_jumps": air_jumps,
-		"tongue_unlocked": tongue_unlocked,
-		"tongue_cooldown": tongue_cooldown,
-		"tongue_speed": tongue_speed,
-		"tongue_snap": tongue_snap,
-		"tongue_length": tongue_length,
-		"tongue_creep": tongue_creep,
-		"tongue_creep_reach": tongue_creep_reach,
-		"tongue_ramp": tongue_ramp,
-		"tongue_strike": tongue_strike,
-		"tongue_settle": tongue_settle,
-		"tongue_stick": tongue_stick,
-		"tongue_pad": tongue_pad,
-		"imprint_unlocked": imprint_unlocked,
-		"imprint_width": imprint_width,
-		"imprint_duration": imprint_duration,
-		"imprint_max_active": imprint_max_active,
-		"imprint_cooldown": imprint_cooldown,
-		"imprint_effects": imprint_effects.duplicate(),
-	}
+	var out := {}
+	for stat in stats():
+		var value: Variant = get(stat)
+		out[stat] = (value as Array).duplicate() if value is Array else value
+	return out
 
 
-## Reads a dictionary written by to_dict. Missing and unknown stats are left
-## at their starting values or ignored, so an old save still loads.
+## Reads a dictionary written by to_dict. A missing stat stays at its starting
+## value, an unknown one is ignored, and a value under its floor is lifted, so
+## an old save still loads.
 static func from_dict(data: Dictionary) -> Abilities:
 	var out := Abilities.new()
-	out.air_jumps = maxi(0, int(data.get("air_jumps", out.air_jumps)))
-	# A save from the gun's days keeps the power it found. Its cooldown and shot
-	# speed are dropped: no upgrade ever changed them.
-	out.tongue_unlocked = bool(data.get("tongue_unlocked", data.get("gun_unlocked", out.tongue_unlocked)))
-	out.tongue_cooldown = float(data.get("tongue_cooldown", out.tongue_cooldown))
-	out.tongue_speed = float(data.get("tongue_speed", out.tongue_speed))
-	out.tongue_snap = maxf(1.0, float(data.get("tongue_snap", out.tongue_snap)))
-	out.tongue_length = float(data.get("tongue_length", out.tongue_length))
-	# Only the floor is held here; the dev controls hold the top of each range.
-	out.tongue_creep = maxf(0.0, float(data.get("tongue_creep", out.tongue_creep)))
-	out.tongue_creep_reach = maxf(0.0, float(data.get("tongue_creep_reach", out.tongue_creep_reach)))
-	out.tongue_ramp = maxf(0.0, float(data.get("tongue_ramp", out.tongue_ramp)))
-	out.tongue_strike = maxf(1.0, float(data.get("tongue_strike", out.tongue_strike)))
-	out.tongue_settle = maxf(0.0, float(data.get("tongue_settle", out.tongue_settle)))
-	out.tongue_stick = maxf(0.0, float(data.get("tongue_stick", out.tongue_stick)))
-	out.tongue_pad = bool(data.get("tongue_pad", out.tongue_pad))
-	out.imprint_unlocked = bool(data.get("imprint_unlocked", out.imprint_unlocked))
-	out.imprint_width = int(data.get("imprint_width", out.imprint_width))
-	out.imprint_duration = float(data.get("imprint_duration", out.imprint_duration))
-	out.imprint_max_active = int(data.get("imprint_max_active", out.imprint_max_active))
-	out.imprint_cooldown = float(data.get("imprint_cooldown", out.imprint_cooldown))
-	var effects = data.get("imprint_effects", [])
-	if effects is Array:
-		for effect in effects:
-			out.imprint_effects.append(String(effect))
+	for stat in stats():
+		var found := false
+		var value: Variant = null
+		if data.has(stat):
+			found = true
+			value = data[stat]
+		else:
+			for old_name in LEGACY.get(stat, []):
+				if data.has(String(old_name)):
+					found = true
+					value = data[old_name]
+					break
+		if not found:
+			continue
+		var sample: Variant = out.get(stat)
+		if sample is Array:
+			if value is Array:
+				var effects: Array[String] = []
+				for effect in value:
+					effects.append(str(effect))
+				out.set(stat, effects)
+			continue
+		if sample is bool:
+			value = bool(value)
+		elif sample is int:
+			value = int(value)
+		elif sample is float:
+			value = float(value)
+		var bounds: Array = CLAMPS.get(stat, [])
+		if bounds.size() == 2:
+			if bounds[0] != null and value < bounds[0]:
+				value = bounds[0]
+			if bounds[1] != null and value > bounds[1]:
+				value = bounds[1]
+		out.set(stat, value)
 	return out
 
 

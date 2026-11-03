@@ -60,6 +60,9 @@ func _abilities() -> bool:
 	var plain := Abilities.new()
 	plain.imprint_unlocked = true
 	ok = check(e.describe().contains("0.2 s cooldown") and not plain.describe().contains("cooldown"), "describe names a cooldown only when there is one") and ok
+	ok = check(a.to_dict().keys() == Abilities.stats(), "to_dict writes each declared stat and nothing else") and ok
+	var old_gun := Abilities.from_dict({"gun_unlocked": true, "air_jumps": -4, "tongue_snap": 0.25, "tongue_strike": 0.2, "tongue_creep": -1.0, "imprint_effects": ["bounce"], "not_a_stat": 9})
+	ok = check(old_gun.tongue_unlocked and not old_gun.to_dict().has("gun_unlocked") and old_gun.air_jumps == 0 and is_equal_approx(old_gun.tongue_snap, 1.0) and is_equal_approx(old_gun.tongue_strike, 1.0) and is_zero_approx(old_gun.tongue_creep) and old_gun.imprint_effects == ["bounce"] and is_equal_approx(old_gun.tongue_length, Abilities.new().tongue_length), "a save from the gun keeps the power, a value under its floor is lifted, and an unknown stat is ignored") and ok
 	return ok
 
 

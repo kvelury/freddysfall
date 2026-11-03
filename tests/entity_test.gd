@@ -279,7 +279,7 @@ func _upgrade_file() -> bool:
 	var ok := check(Upgrades.problems().is_empty(), "data/upgrades.json is valid %s" % [Upgrades.problems()])
 	for id in Upgrades.all():
 		var def: Dictionary = Upgrades.all()[id]
-		ok = check(Abilities.STATS.has(def["stat"]) and Abilities.new().get(def["stat"]) != null, "upgrade %s changes a real ability (%s)" % [id, def["stat"]]) and ok
+		ok = check(Abilities.stats().has(def["stat"]) and Abilities.new().get(def["stat"]) != null, "upgrade %s changes a real ability (%s)" % [id, def["stat"]]) and ok
 	return ok
 
 

@@ -74,7 +74,8 @@ the same PR. An intentionally unsupported feature needs an explicit reason.
   types are `bool`, `int`, `float`, `effects`, and `unsupported` (requires `reason`).
   Numeric controls declare bounds, step and units; effects distinguish implemented
   names from planned names. Do not expose a planned name as a functioning power.
-- Register ability fields in `Abilities.STATS`, `to_dict`, `from_dict`, and the dev
+- Register ability fields as a `var` on `Abilities` (`stats()`, `to_dict` and
+  `from_dict` follow from those lines; a floor goes in `CLAMPS`) and in the dev
   catalog. `dev_catalog_test` checks registry coverage, serialization, and actual
   ability properties; do not remove these checks to get a new feature through.
 - Add custom resources/commands through the shared dev catalog/session boundary.

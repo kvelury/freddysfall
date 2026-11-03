@@ -90,8 +90,8 @@ static func _load() -> void:
 			if bad:
 				_problems.append("%s: upgrade \"%s\" has controls that are not ids of rows in %s" % [PATH, id, Controls.PATH])
 				continue
-		if not Abilities.STATS.has(def["stat"]):
-			_problems.append("%s: upgrade \"%s\" changes \"%s\", which is not an ability (%s)" % [PATH, id, def["stat"], ", ".join(Abilities.STATS)])
+		if not Abilities.stats().has(def["stat"]):
+			_problems.append("%s: upgrade \"%s\" changes \"%s\", which is not an ability (%s)" % [PATH, id, def["stat"], ", ".join(Abilities.stats())])
 			continue
 		if not KINDS.has(def["kind"]):
 			_problems.append("%s: upgrade \"%s\" has kind \"%s\"; it must be one of %s" % [PATH, id, def["kind"], ", ".join(KINDS)])
