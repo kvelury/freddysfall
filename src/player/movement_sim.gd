@@ -319,7 +319,10 @@ static func resolve(position: Vector2, velocity: Vector2, rects: Array, delta: f
 ## means no limit. `movers` are the room's moving platforms, at `start_tick` on
 ## the first frame. `start_riding` is the one the body starts standing on, or
 ## -1. The result's "riding" is the one it landed on, or -1, and a body that
-## is crushed counts as a hazard.
+## is crushed counts as a hazard. "bounds" is the box the body's centre stayed
+## in, from the start to where it stopped: grown by the body and what a tick
+## can move or probe (see ReachGraph.reuse_margin), it is everything the path
+## could have touched.
 static func simulate_jump(
 	cfg: MovementConfig,
 	rects: Array,
@@ -354,6 +357,8 @@ static func simulate_jump(
 	s.coyote = cfg.coyote_time if grounded_start else 0.0
 	var delta := 1.0 / 60.0
 	var min_feet := s.position.y + HALF.y
+	var low := s.position
+	var high := s.position
 	var landed := false
 	var airborne := false
 	var trigger := -1
@@ -374,6 +379,8 @@ static func simulate_jump(
 		if record:
 			path.append(s.position)
 		min_feet = minf(min_feet, s.position.y + HALF.y)
+		low = low.min(s.position)
+		high = high.max(s.position)
 		if not s.grounded:
 			airborne = true
 		if s.crushed or _touching(s.position, HALF, hazards) >= 0:
@@ -404,6 +411,7 @@ static func simulate_jump(
 		"path": path,
 		"riding": s.riding if landed else -1,
 		"tick": start_tick + frames,
+		"bounds": Rect2(low, high - low),
 	}
 
 

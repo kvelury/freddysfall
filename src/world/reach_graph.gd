@@ -937,9 +937,25 @@ func geometry_of(info: RoomInfo) -> Geometry:
 		geo.movers = Movers.new(info.movers)
 		for mover in info.movers:
 			geo.keep_outs.append(mover.keep_out())
+			geo.mover_space.append(_space_of(mover))
 		geo.bounds = Rect2(Vector2(-40.0, -120.0), info.pixel_size + Vector2(80.0, 160.0))
 		_geometry[info.id] = geo
 	return _geometry[info.id]
+
+
+## The box every body of `mover` stays in while it is there, over one whole
+## period (it repeats exactly after that).
+static func _space_of(mover: Mover) -> Rect2:
+	var out := Rect2()
+	var first := true
+	for tick in mover.period():
+		for body in mover.body_count():
+			if not mover.alive_at(tick, body):
+				continue
+			var rect := mover.rect_at(tick, body)
+			out = rect if first else out.merge(rect)
+			first = false
+	return out
 
 
 func _ensure_edges(info: RoomInfo) -> void:
@@ -1316,6 +1332,8 @@ class Geometry extends RefCounted:
 	## The room's moving platforms, in room pixels, and where each keeps clear.
 	var movers := Movers.new()
 	var keep_outs: Array[Rect2] = []
+	## For each mover, the box its bodies stay in over its whole trip.
+	var mover_space: Array[Rect2] = []
 
 
 ## A body touching a door: which door, and where and how fast, in room pixels.
