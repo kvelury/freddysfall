@@ -216,9 +216,18 @@ func _atomic() -> bool:
 
 	# Stopped after writing, before the rename: the whole new save is put in place.
 	DirAccess.rename_absolute(TEMP, TEMP + ".tmp")
-	ok = check(save.has_game() and FileAccess.file_exists(TEMP) and not FileAccess.file_exists(TEMP + ".tmp"), "a written save that was never renamed is recovered") and ok
+	ok = check(save.has_game() and not FileAccess.file_exists(TEMP), "a written save that was never renamed counts as a save, and asking moves nothing") and ok
 	state.reset()
-	ok = check(save.load_game().get("room") == "3" and state.tokens == 2, "and loads") and ok
+	ok = check(save.load_game().get("room") == "3" and state.tokens == 2 and FileAccess.file_exists(TEMP) and not FileAccess.file_exists(TEMP + ".tmp"), "and loading puts it in place") and ok
+
+	# A first save cut off half way: there is no save to continue, and it goes.
+	DirAccess.remove_absolute(TEMP)
+	_write_to(TEMP + ".tmp", "{\"version\": 3, \"ro")
+	ok = check(not save.has_game(), "a first save cut off half way is not a save to continue") and ok
+	ok = check(save.load_game().is_empty() and not FileAccess.file_exists(TEMP) and not FileAccess.file_exists(TEMP + ".tmp") and not FileAccess.file_exists(TEMP + ".bad"), "and loading drops it") and ok
+	state.reset()
+	state.tokens = 2
+	save.write("3", Vector2(15, 25))
 
 	# A rename that failed: the save in place is kept and the other dropped.
 	_write_to(TEMP + ".tmp", "half a sa")
