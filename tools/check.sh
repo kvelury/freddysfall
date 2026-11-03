@@ -45,8 +45,8 @@ for test in $TESTS; do
 	godot --headless --path . --script "tests/$test"
 done
 
-echo "==> validate (no cache)"
-./tools/validate.sh --no-cache
+echo "==> validate (no cache, every ledge reachable)"
+./tools/validate.sh --no-cache --strict-ledges
 
 echo "==> web export"
 ./tools/build_web.sh

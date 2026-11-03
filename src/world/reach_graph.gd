@@ -140,6 +140,13 @@ func room_info(room_id: String) -> RoomInfo:
 	return _info_of(room_id)
 
 
+## The ledges of `room_id` with their jumps, walks and door touches worked
+## out, without solving the world. Door landings are not: they need a solve.
+func room_ledges(room_id: String) -> Array[Ledge]:
+	_ensure_edges(_info_of(room_id))
+	return ledges_in(room_id)
+
+
 func ledges_in(room_id: String) -> Array[Ledge]:
 	var out: Array[Ledge] = []
 	out.assign(_ledges.get(room_id, []))
