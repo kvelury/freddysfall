@@ -89,6 +89,21 @@ var _edge_usec := 0
 var _room_usec := {}
 var _room_plans := {}
 var _room_phases := {}
+## Paths without the room's platforms, by plan, for the room being worked out
+## (see try_plan), and how many plans each room key took from them.
+var _free_runs := {}
+var _room_reused := {}
+## What every plan of a room with breakable walls came to, by plan, kept while
+## the room as loaded is worked out ("<id>" and "<id> air"): a copy of it with
+## walls broken takes each plan whose path stays clear of those walls from here
+## instead of simulating it again. `_recording` is the table being filled, and
+## `_reusing` with `_changed` (the broken walls' cells, in pixels) the one being
+## read, while a room is worked out; both are empty otherwise.
+var _records := {}
+var _recording: Variant = null
+var _reusing: Variant = null
+var _changed: Array[Rect2] = []
+var _room_from_base := {}
 ## The room key whose plans are being counted, set while its jumps are worked out.
 var _plan_key := IMPRINT_PLANS
 ## Every pickup, token and 3TM in the world by id.
@@ -124,7 +139,7 @@ func timing() -> Dictionary:
 		out["legs_made"] = _imprint.stats["legs_made"]
 	var rooms: Array[Dictionary] = []
 	for key in _room_usec:
-		rooms.append({"key": String(key), "ms": float(_room_usec[key]) / 1000.0, "plans": int(_room_plans.get(key, 0)), "phases": int(_room_phases.get(key, 1))})
+		rooms.append({"key": String(key), "ms": float(_room_usec[key]) / 1000.0, "plans": int(_room_plans.get(key, 0)), "reused": int(_room_reused.get(key, 0)), "from_base": int(_room_from_base.get(key, 0)), "phases": int(_room_phases.get(key, 1))})
 	rooms.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return a["ms"] > b["ms"])
 	out["rooms"] = rooms
 	return out
@@ -961,6 +976,9 @@ static func _space_of(mover: Mover) -> Rect2:
 func _ensure_edges(info: RoomInfo) -> void:
 	if _solved.has(info.id):
 		return
+	if info.id != info.base():
+		# A copy with walls broken reuses the plans of the room as loaded.
+		_ensure_edges(_rooms[info.base()])
 	_solved[info.id] = true
 	var started := Time.get_ticks_usec()
 	var entry: SolverCache.Entry = cache.entry_for(info) if cache != null else null
@@ -968,8 +986,7 @@ func _ensure_edges(info: RoomInfo) -> void:
 		cache.stats["edge_rooms_cached"] += 1
 		_add_room_time(info.id, started)
 		return
-	_plan_key = info.id
-	_room_phases[info.id] = phases(info).size() if not info.movers.is_empty() else 1
+	_begin_plans(info, "")
 	var geo := geometry_of(info)
 	for ledge: Ledge in _ledges[info.id]:
 		if ledge.moving:
@@ -992,7 +1009,7 @@ func _ensure_edges(info: RoomInfo) -> void:
 	if entry != null:
 		entry.store_edges(_ledges[info.id])
 		cache.stats["edge_rooms_solved"] += 1
-	_plan_key = IMPRINT_PLANS
+	_end_plans()
 	_add_room_time(info.id, started)
 
 
@@ -1003,6 +1020,8 @@ func _ensure_edges(info: RoomInfo) -> void:
 func _ensure_air_edges(info: RoomInfo) -> void:
 	if _air_solved.has(info.id):
 		return
+	if info.id != info.base():
+		_ensure_air_edges(_rooms[info.base()])
 	_air_solved[info.id] = true
 	var started := Time.get_ticks_usec()
 	var entry: SolverCache.Entry = cache.entry_for(info) if cache != null else null
@@ -1010,8 +1029,7 @@ func _ensure_air_edges(info: RoomInfo) -> void:
 		cache.stats["air_rooms_cached"] += 1
 		_add_room_time(info.id + " air", started)
 		return
-	_plan_key = info.id + " air"
-	_room_phases[_plan_key] = phases(info).size() if not info.movers.is_empty() else 1
+	_begin_plans(info, " air")
 	var geo := geometry_of(info)
 	for ledge: Ledge in _ledges[info.id]:
 		if ledge.moving:
@@ -1036,8 +1054,47 @@ func _ensure_air_edges(info: RoomInfo) -> void:
 	if entry != null:
 		entry.store_air_edges(_ledges[info.id])
 		cache.stats["air_rooms_solved"] += 1
-	_plan_key = IMPRINT_PLANS
+	_end_plans()
 	_add_room_time(info.id + " air", started)
+
+
+## Sets up counting, the platform-free paths and the wall-state records for
+## working out `info`'s plans (`kind` is "" for its jumps, " air" for its air
+## jumps).
+func _begin_plans(info: RoomInfo, kind: String) -> void:
+	_plan_key = info.id + kind
+	_free_runs.clear()
+	_room_phases[_plan_key] = phases(info).size() if not info.movers.is_empty() else 1
+	_recording = null
+	_reusing = null
+	_changed.clear()
+	if info.id == info.base():
+		if not info.breakables.is_empty():
+			_recording = {}
+			_records[info.id + kind] = _recording
+		return
+	_reusing = _records.get(info.base() + kind)
+	var margin := reuse_margin()
+	for wall_id in info.broken:
+		for cell: Vector2i in info.breakables.get(wall_id, []):
+			_changed.append(Grid.cell_rect(Rect2i(cell, Vector2i.ONE)).grow(margin))
+
+
+func _end_plans() -> void:
+	_plan_key = IMPRINT_PLANS
+	_free_runs.clear()
+	_recording = null
+	_reusing = null
+	_changed.clear()
+
+
+## Whether a path whose centre stayed in `bounds` came near a broken wall of the
+## room being worked out (`_changed` is already grown by reuse_margin).
+func _meets_changed(bounds: Rect2) -> bool:
+	for rect in _changed:
+		if rect.intersects(bounds):
+			return true
+	return false
 
 
 func _restore_air_edges(entry: SolverCache.Entry, ledges: Array) -> bool:
@@ -1164,11 +1221,43 @@ func _off_plans(info: RoomInfo, geo: Geometry, ledge: Ledge, near: Array[Rect2],
 ## With a `tick` of 0 or more the room's moving platforms are there, at that
 ## tick when the path starts, and `top` and `riding` say where the body starts:
 ## the height of what it stands on, and the platform it is on, or -1.
+##
+## A body that starts off the platforms and whose path never comes near any of
+## them moves exactly as it would with no platforms at all, whatever moment it
+## starts at. So that path is simulated once without them (and kept in
+## `_free_runs` for the room's other moments) and only a path that does come
+## near them is simulated at `tick`. The plans are still tried in the same
+## order, so what is recorded is what simulating every moment records.
 func try_plan(info: RoomInfo, geo: Geometry, ledge: Ledge, near: Array[Rect2], x: float, speed: float, input: float, hold: int, jump: bool, limit := -1, tick := -1, top := NAN, riding := -1, air_frame := -1, air_hold := 0) -> void:
 	_room_plans[_plan_key] = int(_room_plans.get(_plan_key, 0)) + 1
 	var start := Vector2(x, (ledge.top if is_nan(top) else top) - float(Grid.CELL) * 0.5)
-	var movers: Movers = geo.movers if tick >= 0 else null
-	var result := MovementSim.simulate_jump(_cfg, near, start, Vector2(speed, 0.0), input, hold, true, jump, geo.triggers, geo.bounds, geo.hazards, geo.things, NAN, 0, frame_limit if limit < 0 else limit, false, movers, maxi(tick, 0), riding, 1 if air_frame >= 0 else 0, air_frame, air_hold)
+	var ticks_allowed := frame_limit if limit < 0 else limit
+	var air_jumps := 1 if air_frame >= 0 else 0
+	var result: Dictionary
+	var record_key := ""
+	if _recording != null or _reusing != null:
+		record_key = "%d|%d|%d|%s|%s|%s|%d|%s|%s|%s|%d|%s|%d|%d|%s|%d|%d|%d" % [ledge.row, ledge.x0, ledge.x1, ledge.lo, ledge.hi, ledge.moving, ledge.path, x, speed, input, hold, jump, ticks_allowed, tick, top, riding, air_frame, air_hold]
+	if _reusing != null:
+		var kept: Variant = _reusing.get(record_key)
+		if kept != null and not _meets_changed(kept["bounds"]):
+			_room_from_base[_plan_key] = int(_room_from_base.get(_plan_key, 0)) + 1
+			result = kept
+	if result.is_empty() and tick >= 0 and riding < 0 and not geo.movers.is_empty():
+		var key := "%d|%s|%s|%s|%d|%s|%d|%s|%d|%d" % [ledge.get_instance_id(), x, speed, input, hold, jump, ticks_allowed, top, air_frame, air_hold]
+		var free: Variant = _free_runs.get(key)
+		if free == null:
+			free = MovementSim.simulate_jump(_cfg, near, start, Vector2(speed, 0.0), input, hold, true, jump, geo.triggers, geo.bounds, geo.hazards, geo.things, NAN, 0, ticks_allowed, false, null, 0, -1, air_jumps, air_frame, air_hold)
+			if _meets_movers(geo, free["bounds"]):
+				free = false
+			_free_runs[key] = free
+		if free is Dictionary:
+			_room_reused[_plan_key] = int(_room_reused.get(_plan_key, 0)) + 1
+			result = free
+	if result.is_empty():
+		var movers: Movers = geo.movers if tick >= 0 else null
+		result = MovementSim.simulate_jump(_cfg, near, start, Vector2(speed, 0.0), input, hold, true, jump, geo.triggers, geo.bounds, geo.hazards, geo.things, NAN, 0, ticks_allowed, false, movers, maxi(tick, 0), riding, air_jumps, air_frame, air_hold)
+	if _recording != null:
+		_recording[record_key] = {"collected": result["collected"], "hazard": result["hazard"], "trigger": result["trigger"], "position": result["position"], "velocity": result["velocity"], "landed": result["landed"], "riding": result["riding"], "bounds": result["bounds"]}
 	var air := air_frame >= 0
 	# A pickup is taken even on a path that then dies on spikes.
 	for index in result["collected"]:
@@ -1186,6 +1275,25 @@ func try_plan(info: RoomInfo, geo: Geometry, ledge: Ledge, near: Array[Rect2], x
 			target = ledge_at_position(info, result["position"])
 		if target != null and target != ledge:
 			ledge.add_ledge(target.index, air)
+
+
+## How far from a path's centre box a body can touch something in one tick:
+## half its size, the furthest a tick can move it, the ledge and ceiling
+## forgiveness (MovementSim.corner_correct) that probes past that, and a pixel
+## to spare. Anything further away cannot change the path.
+func reuse_margin() -> float:
+	var fastest := maxf(maxf(_cfg.run_speed, _cfg.max_fall_speed), maxf(_cfg.jump_speed, _cfg.air_jump_speed))
+	return MovementSim.HALF.x + ceilf(fastest / float(Mover.TICKS_PER_SECOND)) + ceilf(_cfg.corner_correction) + 1.0
+
+
+## Whether a path whose centre stayed in `bounds` could have touched a body of
+## one of the room's movers at any moment.
+func _meets_movers(geo: Geometry, bounds: Rect2) -> bool:
+	var reach := bounds.grow(reuse_margin())
+	for space in geo.mover_space:
+		if space.intersects(reach):
+			return true
+	return false
 
 
 ## The moments a room's moving platforms are tried at, in ticks from when the

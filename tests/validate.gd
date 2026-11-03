@@ -82,7 +82,7 @@ func _initialize() -> void:
 		print("slowest rooms:")
 		for i in mini(slowest.size(), SLOWEST_SHOWN):
 			var row: Dictionary = slowest[i]
-			print("  %-16s %8.1f s  %7d plans  %3d phases" % [row["key"], row["ms"] / 1000.0, row["plans"], row["phases"]])
+			print("  %-28s %8.1f s  %7d plans  %7d run once for every moment  %3d phases" % [row["key"], row["ms"] / 1000.0, row["plans"], row.get("reused", 0), row["phases"]])
 	if cache != null:
 		print("cache: %d rooms' ledges from it and %d worked out, %d legs from it and %d worked out, %d files written" % [cache.stats["edge_rooms_cached"], cache.stats["edge_rooms_solved"], cache.stats["legs_cached"], cache.stats["legs_solved"], written])
 	else:
