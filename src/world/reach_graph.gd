@@ -73,9 +73,9 @@ var _geometry := {}
 var _solved := {}
 var _air_solved := {}
 ## Room ids whose ground jumps are already on their ledges. Those jumps do not
-## read air_jumps or tongue_length, so a later movement_key copies them instead
-## of simulating again. A stat that changes a ground jump must stop this reuse
-## and be named in Abilities.movement_key.
+## read air_jumps, so a later movement_key copies them instead of simulating
+## again. A stat that changes a ground jump must stop this reuse and be named
+## in Abilities.movement_key.
 var _ground_ready := {}
 ## The solver's copies of rooms with walls broken: key (see RoomInfo.key_for)
 ## -> room, and base room id -> its keys. A copy's ledges are in `_ledges`
@@ -287,6 +287,9 @@ func solve(start_room: String) -> Report:
 				return false
 			)
 	abilities = base
+	# The plans kept for walls-broken copies are only a speed-up while rooms
+	# are being worked out; a copy made later simulates in full.
+	_records.clear()
 	return report
 
 
@@ -566,7 +569,12 @@ func _flood(run: Run) -> void:
 		for provider in _providers:
 			if not provider.applies(abilities):
 				continue
-			provider.prepare(info)
+			# Abilities do not change within a run, so a provider prepares a
+			# room once per run, not once per ledge.
+			var prepared: Dictionary = run.prepared.get_or_add(provider, {})
+			if not prepared.has(info.id):
+				prepared[info.id] = true
+				provider.prepare(info)
 			var moves := provider.next(ledge, info, run)
 			next.append_array(moves.ledges)
 			touches.append_array(moves.touches)
@@ -1013,11 +1021,12 @@ func warm(room_id: String) -> void:
 		names.assign(broken)
 		var variant := _variant_for(room_id, names)
 		if variant == null:
-			return
+			break
 		_ensure_edges(variant)
 		abilities.air_jumps = maxi(jumps, 1)
 		_ensure_air_edges(variant)
 		abilities.air_jumps = jumps
+	_records.clear()
 
 
 func _ensure_edges(info: RoomInfo) -> void:
@@ -1501,6 +1510,8 @@ class Run extends RefCounted:
 	## touches are waiting for it.
 	var locked := {}
 	var held := {}
+	## provider -> (room key -> true), for the rooms it has prepared this run.
+	var prepared := {}
 
 
 class Geometry extends RefCounted:

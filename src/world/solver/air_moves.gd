@@ -12,10 +12,6 @@ func applies(abilities: Abilities) -> bool:
 	return abilities != null and abilities.air_jumps > 0
 
 
-func cache_key(abilities: Abilities) -> String:
-	return abilities.movement_key()
-
-
 func prepare(info: RoomInfo) -> void:
 	graph._ensure_air_edges(info)
 
