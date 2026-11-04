@@ -117,42 +117,38 @@ func _run() -> void:
 
 func _layout(hud: Node) -> void:
 	var H: GDScript = hud.get_script()
-	var left: Vector2 = H.ORIGIN + H.LEFT
-	check(hud.pip_rect(0) == Rect2(left + Vector2(H.HEART_GAP, -3), Vector2(7, 6)), "the first heart starts a gap right of the frame's left point")
+	var origin: Vector2 = H.ORIGIN
+	check(hud.pip_rect(0) == Rect2(origin + Vector2(1, 1), Vector2(7, 6)), "the first heart is one unit in from the rectangle's top and left")
 	check(hud.pip_rect(1).position.x - hud.pip_rect(0).position.x == 9.0, "hearts are 9 units apart")
-	check(hud.pip_rect(H.WRAP).position == hud.pip_rect(0).position + Vector2(0, H.ROW_STEP), "the frame wraps under itself")
-	check(left == H.ORIGIN + Vector2(5, 6), "the frame's left point is 5 right and 6 down from the origin")
-	check(hud.slot_centre(0).y == left.y, "slot 0 is the middle, level with the frame's tip")
-	check(hud.slot_centre(0).x + 2.0 + 1.0 == left.x, "slot 0's right point is directly left of the tip")
-	check(hud.slot_centre(1) - hud.slot_centre(0) == Vector2(0, -4) and hud.slot_centre(2) - hud.slot_centre(0) == Vector2(0, 4), "slot 1 is the top and slot 2 the bottom, touching tip to tip")
-	check(hud.slot_centre(1).y - 2.0 == H.ORIGIN.y and hud.slot_centre(1).x - 2.0 == H.ORIGIN.x, "the top diamond's top pixel is at the origin row")
-	check(hud.bounds(0) == hud.bounds(1) and hud.bounds(0).size.y >= 14.0 and hud.bounds(0).position.y == H.ORIGIN.y - 1.0, "the bounds cover the diamond column with no hearts or tokens")
-	check(hud.bounds(4).end.x == H.ORIGIN.x + H.LEFT.x + 9.0 * 4 + H.HEART_GAP + H.POINT + 1.0, "four hearts make the frame 9 units longer each")
-	check(H.FRAME_HEIGHT == 10 and H.ROW_STEP == H.FRAME_HEIGHT + 1.0, "the frame is 10 units tall and wrapped frames leave one clear row")
-	check(hud.bounds(31).end.y == H.ORIGIN.y + H.LEFT.y - H.POINT + H.ROW_STEP + H.FRAME_HEIGHT, "a wrapped frame's bounds reach the second frame's bottom line")
-	check(hud.bounds(100).end.x < 320.0 and hud.bounds(100).end.y < 180.0, "a long frame stays on the screen")
+	check(hud.pip_rect(H.WRAP).position == hud.pip_rect(0).position + Vector2(0, H.ROW_STEP), "the rectangle wraps under itself")
+	check(H.BAR_HEIGHT == 8.0 and H.PAD == 1.0, "the rectangle is 8 units tall, with one unit of bar around the hearts")
+	var rects: Array[Rect2] = hud.frame_rects(0, 9)
+	check(rects[1] == Rect2(origin, Vector2(9, 8)), "one heart makes a 9 x 8 rectangle: 7 units of heart and one at each side")
+	check(rects[0] == Rect2(origin - Vector2.ONE, Vector2(9, 8)), "the shadow is the same size, one unit up and left, so the bottom and right edges are clean")
+	var heart0: Rect2 = hud.pip_rect(0)
+	check(heart0.position.x - rects[1].position.x == 1.0 and rects[1].end.x - heart0.end.x == 1.0 and heart0.position.y - rects[1].position.y == 1.0 and rects[1].end.y - heart0.end.y == 1.0, "a heart has one unit of bar on every side")
+	check(hud.frame_rects(0, 9 * 5)[1].size.x == 45.0, "five hearts make the rectangle 45 units wide")
+	check(hud.slot_centre(0) == origin + Vector2(1, 10), "slot 0's diamond sits level with the rectangle's left edge, one clear unit under it")
+	check(hud.slot_centre(1) - hud.slot_centre(0) == Vector2(4, 0) and hud.slot_centre(2) - hud.slot_centre(0) == Vector2(8, 0), "slots 1 and 2 follow to the right, 4 units apart, so a unit of black shows between diamonds")
+	check(hud.slot_centre(0).y - 1.0 == rects[1].end.y + 1.0, "the token row is one unit under the bar")
+	check(H.ROW_STEP >= H.BAR_HEIGHT + H.TOKEN_GAP + H.TOKEN_SIZE + 2.0, "a wrapped rectangle's shadow clears the token row")
+	check(hud.bounds(0) == hud.bounds(1) and hud.bounds(0).position == origin - Vector2.ONE, "the bounds start at the shadow, with no hearts or tokens")
+	check(hud.bounds(1).end.y == origin.y + 8.0 + 1.0 + 3.0 + 1.0, "the bounds cover the token row, held or not, and its one unit bump")
+	check(hud.bounds(4).end.x == origin.x + 9.0 * 4, "four hearts make the rectangle 9 units longer each")
+	check(hud.bounds(31).end.y == origin.y + H.ROW_STEP + H.BAR_HEIGHT, "a wrapped rectangle's bounds reach the second rectangle's bottom")
+	check(hud.bounds(100).end.x < 320.0 and hud.bounds(100).end.y < 180.0, "a long rectangle stays on the screen")
+	check(hud.bounds(100).position.x >= 10.0 and hud.bounds(100).position.y >= 10.0, "the shadow stays clear of a room's outer wall")
 	check(hud._fill_colour("t0", true) == H.GOLD and hud._fill_colour("p0", true) == H.RED, "a token fills gold and a full heart red")
 	hud._effects["t0"] = {"kind": &"pop", "left": 1.0}
 	hud._effects["p0"] = {"kind": &"pop", "left": 1.0}
 	check(hud._fill_colour("t0", true) == Color.WHITE and hud._fill_colour("p0", true) == Color.WHITE, "a landing token or heart flashes white first")
 	hud._effects.clear()
 	check(hud._fill_colour("p0", false) == Color.BLACK, "an empty heart is black inside")
-	# The bar is solid red and the hearts are black on it.
-	var rects: Array[Rect2] = hud.frame_rects(0, 9)
-	var steps := true
-	for i in rects.size():
-		steps = steps and rects[i].size.y == 1.0 and rects[i].position.y == left.y - float(H.POINT) + float(i)
-		if i > 0 and i < H.POINT:
-			steps = steps and rects[i].size.x == rects[i - 1].size.x + 2.0
-	check(rects.size() == H.FRAME_HEIGHT and steps, "the bar is one rect for each of its 10 rows, each 2 units wider than the one above down to the tip")
-	check(rects[4].position == Vector2(left.x, left.y - 1.0) and rects[5].position == left, "the 2 unit tip is level with the frame's left point")
-	check(rects[0].position.x == left.x + 4.0 and rects[0].size.x == rects[4].size.x - 8.0 and rects[9].size.x == rects[0].size.x, "the top and bottom lines are 8 units shorter than the tip rows")
-	check(rects[0].end.x == rects[4].end.x - 4.0, "the right end mirrors the left")
 	check(hud.heart_look(0) == ["hud_heart_empty", H.INK] and hud.heart_look(1) == ["hud_heart", H.INK], "a full heart is a black outline over the red bar and an empty heart is solid black")
 	hud._effects["p0"] = {"kind": &"pop", "left": 1.0}
 	check(hud.heart_look(0) == ["hud_heart", Color.WHITE], "a landing heart flashes solid white")
 	hud._effects.clear()
-	check(hud.shown_tokens == 0 and hud.slot_centre(1).y < hud.slot_centre(0).y and hud.slot_centre(0).y < hud.slot_centre(2).y, "with no token held nothing is drawn, and diamonds fill middle, then top, then bottom")
+	check(hud.shown_tokens == 0 and hud.slot_centre(0).x < hud.slot_centre(1).x and hud.slot_centre(1).x < hud.slot_centre(2).x, "with no token held nothing is drawn, and diamonds fill left to right")
 
 
 func _settle(hud: Node) -> void:
