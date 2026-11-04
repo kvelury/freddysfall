@@ -275,7 +275,7 @@ panel render is a layout check, not a completed human browser playthrough.
 
 Nobody has played these. Headless tests prove the logic, not how they look or feel. Use `tools/build_web.sh` and `tools/serve.sh`, then http://localhost:8060 (and the published site after the merge).
 
-- [ ] **The cursor.** It shows in the main menu, the pause menu and the F2 panel, and is hidden while playing (after Resume, after the panel closes, after a popup or Game Over). The game never reacts to the mouse in play.
+- [ ] **The cursor.** It is visible everywhere: the main menu, the pause menu, the F2 panel and while playing (after Resume, after the panel closes, after a popup or Game Over). The game never reacts to the mouse in play: moving or clicking over the canvas does nothing.
 - [ ] **The main menu.** It shows first, with "Freddy's Fall" and the items. Mouse hover selects (inverted box) and a click picks. Up / Down / W / S move and wrap, Enter and Space pick.
 - [ ] **Start Game, Continue, New Game.** With no save: Start Game and Controls. With a save: Continue (resumes at the last save machine), New Game (asks first, No is selected, Esc answers No; Yes starts over) and Controls.
 - [ ] **`?new-game=1`** erases the save and shows the menu with Start Game. `?room=7` and `?dev=1&room=4` skip the menu.

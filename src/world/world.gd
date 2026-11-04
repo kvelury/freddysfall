@@ -65,8 +65,9 @@ var _carried := Vector2.ZERO
 
 func _ready() -> void:
 	WorldData.ensure_loaded()
-	# The mouse is only for menus (and the legacy Imprint preview in dev tools).
-	Input.mouse_mode = Input.MOUSE_MODE_HIDDEN
+	# The mouse is only for menus, but the cursor is never hidden: a pointer that
+	# vanishes over the game in a browser tab is confusing.
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	camera.position_smoothing_enabled = false
 	# The picture is Display.RENDER_SCALE screen pixels to a world pixel.
 	camera.zoom = Vector2.ONE * Display.RENDER_SCALE

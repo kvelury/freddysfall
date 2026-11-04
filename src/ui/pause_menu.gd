@@ -15,7 +15,6 @@ var opened := false
 var _world: Node
 var _pending := false
 var _on_controls := false
-var _mouse_before := Input.MOUSE_MODE_VISIBLE
 var _panel: PanelContainer
 var _heading: Label
 var _status: Label
@@ -123,8 +122,6 @@ func open() -> void:
 	if opened or not _world.acquire_modal(OWNER):
 		return
 	opened = true
-	_mouse_before = Input.mouse_mode
-	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	_show_list()
 	show()
 
@@ -138,7 +135,6 @@ func close() -> void:
 	opened = false
 	_pending = false
 	hide()
-	Input.mouse_mode = _mouse_before
 	get_viewport().gui_release_focus()
 	_world.release_modal(OWNER)
 
@@ -147,8 +143,6 @@ func _process(_delta: float) -> void:
 	if _pending and not _world.is_busy() and _world.modal_owner.is_empty():
 		_pending = false
 		open()
-	if opened:
-		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
 
 func _unhandled_input(event: InputEvent) -> void:

@@ -44,8 +44,6 @@ func _process(_delta: float) -> void:
 		var tab := _pending
 		_pending = -1
 		open_panel(tab)
-	if opened:
-		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
 
 func _input(event: InputEvent) -> void:
@@ -103,7 +101,6 @@ func open_panel(tab := 0) -> void:
 		_wall.text = str(DevSession.wall_strength())
 		_status.text = _store.error
 	_tabs.current_tab = tab
-	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	if tab == 1:
 		_room.grab_focus()
 		_room.select_all()
@@ -115,8 +112,6 @@ func close_panel() -> void:
 	opened = false
 	_window.hide()
 	get_viewport().gui_release_focus()
-	# The mouse is only for menus: back to no cursor in play.
-	Input.mouse_mode = Input.MOUSE_MODE_HIDDEN
 	_world.release_modal("dev")
 
 
