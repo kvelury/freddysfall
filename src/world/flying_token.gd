@@ -58,5 +58,5 @@ func _draw() -> void:
 	if _spark:
 		draw_rect(Display.snap_rect(Rect2(-1.5, -1.5, 3, 3)), Color.WHITE)
 	else:
-		# A little bigger than the token in the world, so it reads as leaving the body.
+		# The same picture as the token in a room, so it reads as that token leaving the body.
 		PixelArt.draw(self, "flying_token", Vector2.ZERO, Palette.GOLD)

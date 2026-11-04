@@ -305,3 +305,11 @@ Nobody has played these yet. Start a normal game (`http://localhost:8060`) for G
 - [ ] **With a spare heart.** Set two hearts in F2 and die: no screen, back on the safe floor with one. Die again: the screen.
 - [ ] **Early deaths.** Before room 7's pip, every death in rooms 3 to 6 shows the screen. Is that too much?
 - [ ] **Dev retry.** "Retry on death" in F2 skips the screen.
+
+## Red HUD bar and bigger pickups
+
+Not played by a person yet. Use `?dev=1&room=7` (F2 "Max hearts" for a long or wrapped bar).
+
+- [ ] **How the bar reads.** Is a black outline (full) against solid black (empty) on the red bar easy to tell apart at a glance? Does a death's blink read, and does the save room's refill?
+- [ ] **A pip landing.** The red bar grows a heart's width, then a white heart settles into a black outline.
+- [ ] **Sizes in a room.** The health pip (11×9) and the token (11×12) look about the same size next to each other. Is the token too big beside a 3TM's openings or the upgrade pickup?

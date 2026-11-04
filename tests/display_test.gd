@@ -71,7 +71,7 @@ func _snapping() -> void:
 
 
 func _pictures() -> void:
-	var counts := {"spikes_up": 34, "spikes_down": 34, "spikes_left": 34, "spikes_right": 34, "token": 32, "flying_token": 72, "slot": 16, "hud_heart": 27, "hud_heart_empty": 14, "hud_token": 13}
+	var counts := {"spikes_up": 34, "spikes_down": 34, "spikes_left": 34, "spikes_right": 34, "token": 32, "flying_token": 72, "slot": 16, "hud_heart": 27, "hud_heart_empty": 14, "hud_token": 13, "pip": 63}
 	check(PixelShapes.SHAPES.size() == counts.size(), "every shape that was a polygon has a picture")
 	for name in counts:
 		var shape: Dictionary = PixelShapes.SHAPES[name]
@@ -92,6 +92,11 @@ func _pictures() -> void:
 	var flipped := token.duplicate()
 	flipped.reverse()
 	check(token == flipped, "the token diamond is the same upside down")
+	var pip: Array = PixelShapes.SHAPES["pip"]["rows"]
+	var mirrored := true
+	for row: String in pip:
+		mirrored = mirrored and row.reverse() == row
+	check(mirrored and (pip[0] as String).length() == 11, "the room's health pip is an 11 wide heart that mirrors left to right")
 	var up: Array = PixelShapes.SHAPES["spikes_up"]["rows"]
 	var down: Array = PixelShapes.SHAPES["spikes_down"]["rows"]
 	var up_flipped := up.duplicate()

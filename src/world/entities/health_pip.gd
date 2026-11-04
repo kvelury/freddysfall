@@ -23,7 +23,7 @@ static func flag_for(entity: EntityDef) -> String:
 
 ## The area that collects it, in world pixels.
 func rect() -> Rect2:
-	return Rect2(global_position - Vector2(Pickup.HALF, Pickup.HALF), Vector2(Pickup.HALF, Pickup.HALF) * 2.0)
+	return Rect2(global_position - Vector2(Pickup.HALF, Pickup.HALF + Token.RAISE), Vector2(Pickup.HALF, Pickup.HALF) * 2.0)
 
 
 func collect() -> void:
@@ -41,14 +41,7 @@ func _process(delta: float) -> void:
 		queue_redraw()
 
 
-## The HUD's red heart, bobbing, centred on the bob point, so it reads as the
-## heart it becomes.
+## A red heart, 1.5 times the HUD's, bobbing, centred on the bob point, so it
+## reads as the heart it becomes.
 func _draw() -> void:
-	var c := Vector2(0.0, _lift)
-	draw_heart(self, c + Vector2(-3, -3))
-
-
-## The heart shape, with its top-left at `at`, drawn onto `canvas`. The HUD's
-## flying pip uses it too, so every pip looks the same.
-static func draw_heart(canvas: CanvasItem, at: Vector2, color := Palette.RED) -> void:
-	PixelArt.draw(canvas, "hud_heart", at, color)
+	PixelArt.draw(self, "pip", Vector2(0.0, _lift - Token.RAISE), Palette.RED)

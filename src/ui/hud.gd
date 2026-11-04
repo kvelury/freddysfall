@@ -2,8 +2,9 @@ class_name Hud
 extends CanvasLayer
 
 ## The hearts and token HUD, fixed in the top-left corner, from the user's
-## drawing. A red hexagon frame holds one heart for each hit point: a full heart
-## is solid red and an empty one is a red outline with black inside. A column of
+## drawing. A solid red hexagon bar holds one black heart for each hit point: a
+## full heart is a black outline with the red bar inside it and an empty one is
+## solid black. A column of
 ## diamonds runs down the left, centred on the frame, the middle one touching the
 ## frame's left tip, and a diamond is drawn only for a token carried: solid gold
 ## with no outline, filling the middle first, then the top, then the bottom. Nothing is drawn for a token not held, and the frame never moves.
@@ -15,8 +16,10 @@ extends CanvasLayer
 const RED := Palette.RED
 ## Tokens are gold everywhere: in a room, flying, in a 3TM and here.
 const GOLD := Palette.GOLD
-## An empty heart is black inside its red outline. There is no plate.
+## An empty heart is solid black. There is no plate.
 const EMPTY := Color.BLACK
+## The ink of every heart, on the red bar.
+const INK := Color.BLACK
 ## Where the HUD's top-left sits, in 320 x 180 UI units: clear of a room's
 ## one-cell outer wall, since nothing is drawn behind the HUD.
 const ORIGIN := Vector2(14, 14)
@@ -268,35 +271,43 @@ func _draw_hud() -> void:
 		_draw_flight(flight)
 
 
-## One hexagon row, `length` units of hearts long: the left tip (2 units tall,
-## rows y-1 and y) sits right of the middle diamond's point, 45 degree edges rise
-## and fall to the top and bottom lines, and the right end mirrors the left.
-func _draw_frame(row: int, length: int) -> void:
+## One hexagon row, `length` units of hearts long, as filled rects: one for each
+## of the FRAME_HEIGHT rows. The left tip (2 units tall, rows y-1 and y of the
+## left point) sits right of the middle diamond's point, 45 degree edges rise and
+## fall to the top and bottom lines, and the right end mirrors the left.
+func frame_rects(row: int, length: int) -> Array[Rect2]:
 	var left := ORIGIN + LEFT + Vector2(0, ROW_STEP * row)
 	var top := left.y - float(POINT)
-	var edge := left.x + HEART_GAP - 1.0
 	var end := left.x + HEART_GAP - 2.0 + float(length)
-	for dy in [-1.0, 0.0]:
-		_canvas.draw_rect(Rect2(Vector2(left.x, left.y + dy), Vector2.ONE), RED)
-		_canvas.draw_rect(Rect2(Vector2(end + POINT, left.y + dy), Vector2.ONE), RED)
-	for k in POINT - 1:
-		var up := left.y - 2.0 - k
-		var down := left.y + 1.0 + k
-		for y in [up, down]:
-			_canvas.draw_rect(Rect2(Vector2(left.x + 1.0 + k, y), Vector2.ONE), RED)
-			_canvas.draw_rect(Rect2(Vector2(end + POINT - 1.0 - k, y), Vector2.ONE), RED)
-	_canvas.draw_rect(Rect2(Vector2(edge, top), Vector2(end - edge + 1.0, 1.0)), RED)
-	_canvas.draw_rect(Rect2(Vector2(edge, top + FRAME_HEIGHT - 1.0), Vector2(end - edge + 1.0, 1.0)), RED)
+	var out: Array[Rect2] = []
+	for r in FRAME_HEIGHT:
+		var inset := float(POINT - 1 - r) if r < POINT else float(r - POINT)
+		var x0 := left.x + inset
+		var x1 := end + POINT - inset
+		out.append(Rect2(Vector2(x0, top + float(r)), Vector2(x1 - x0 + 1.0, 1.0)))
+	return out
 
 
-## Heart `index`: solid red when full, a red outline when empty.
-func _draw_heart(index: int) -> void:
+func _draw_frame(row: int, length: int) -> void:
+	for box in frame_rects(row, length):
+		_canvas.draw_rect(box, RED)
+
+
+## How heart `index` is drawn: the picture and its colour, from its fill
+## colour. A full heart is a black outline over the bar, an empty one is solid
+## black, and a landing one flashes solid white.
+func heart_look(index: int) -> Array:
 	var colour := _fill_colour("p%d" % index, index < shown_health)
-	var at := pip_rect(index).position
 	if colour == EMPTY:
-		PixelArt.draw(_canvas, "hud_heart_empty", at, RED)
-	else:
-		PixelArt.draw(_canvas, "hud_heart", at, colour)
+		return ["hud_heart", INK]
+	if colour == RED:
+		return ["hud_heart_empty", INK]
+	return ["hud_heart", colour]
+
+
+func _draw_heart(index: int) -> void:
+	var look := heart_look(index)
+	PixelArt.draw(_canvas, look[0], pip_rect(index).position, look[1])
 
 
 ## A pickup on its way in: gold for a token, red for a pip, with no edge. It

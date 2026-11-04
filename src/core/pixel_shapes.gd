@@ -104,6 +104,22 @@ const SHAPES := {
 			"...##...",
 		],
 	},
+	# A health pip lying in a room: the heart at 1.5 times the HUD's size,
+	# centred on the anchor, so it matches the flying token's width.
+	"pip": {
+		"offset": Vector2i(-5, -4),
+		"rows": [
+			".###...###.",
+			"#####.#####",
+			"###########",
+			"###########",
+			".#########.",
+			"..#######..",
+			"...#####...",
+			"....###....",
+			".....#.....",
+		],
+	},
 	# The HUD's hearts (UI units, top-left at the anchor): a full one and the
 	# same outline hollow.
 	"hud_heart": {

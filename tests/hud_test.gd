@@ -137,6 +137,21 @@ func _layout(hud: Node) -> void:
 	check(hud._fill_colour("t0", true) == Color.WHITE and hud._fill_colour("p0", true) == Color.WHITE, "a landing token or heart flashes white first")
 	hud._effects.clear()
 	check(hud._fill_colour("p0", false) == Color.BLACK, "an empty heart is black inside")
+	# The bar is solid red and the hearts are black on it.
+	var rects: Array[Rect2] = hud.frame_rects(0, 9)
+	var steps := true
+	for i in rects.size():
+		steps = steps and rects[i].size.y == 1.0 and rects[i].position.y == left.y - float(H.POINT) + float(i)
+		if i > 0 and i < H.POINT:
+			steps = steps and rects[i].size.x == rects[i - 1].size.x + 2.0
+	check(rects.size() == H.FRAME_HEIGHT and steps, "the bar is one rect for each of its 10 rows, each 2 units wider than the one above down to the tip")
+	check(rects[4].position == Vector2(left.x, left.y - 1.0) and rects[5].position == left, "the 2 unit tip is level with the frame's left point")
+	check(rects[0].position.x == left.x + 4.0 and rects[0].size.x == rects[4].size.x - 8.0 and rects[9].size.x == rects[0].size.x, "the top and bottom lines are 8 units shorter than the tip rows")
+	check(rects[0].end.x == rects[4].end.x - 4.0, "the right end mirrors the left")
+	check(hud.heart_look(0) == ["hud_heart_empty", H.INK] and hud.heart_look(1) == ["hud_heart", H.INK], "a full heart is a black outline over the red bar and an empty heart is solid black")
+	hud._effects["p0"] = {"kind": &"pop", "left": 1.0}
+	check(hud.heart_look(0) == ["hud_heart", Color.WHITE], "a landing heart flashes solid white")
+	hud._effects.clear()
 	check(hud.shown_tokens == 0 and hud.slot_centre(1).y < hud.slot_centre(0).y and hud.slot_centre(0).y < hud.slot_centre(2).y, "with no token held nothing is drawn, and diamonds fill middle, then top, then bottom")
 
 
