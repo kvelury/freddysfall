@@ -14,6 +14,9 @@ extends CanvasLayer
 ## in whole UI units, by switching pixels and never by fading.
 
 const RED := Palette.RED
+## The bar the hearts sit on: a deeper blood red than the heart colour, which
+## still shows in flights and a landing heart.
+const BAR := Color("8a1414")
 ## Tokens are gold everywhere: in a room, flying, in a 3TM and here.
 const GOLD := Palette.GOLD
 ## An empty heart is solid black. There is no plate.
@@ -290,7 +293,7 @@ func frame_rects(row: int, length: int) -> Array[Rect2]:
 
 func _draw_frame(row: int, length: int) -> void:
 	for box in frame_rects(row, length):
-		_canvas.draw_rect(box, RED)
+		_canvas.draw_rect(box, BAR)
 
 
 ## How heart `index` is drawn: the picture and its colour, from its fill
