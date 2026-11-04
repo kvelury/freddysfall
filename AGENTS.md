@@ -63,6 +63,69 @@ The user draws rooms on graph paper, numbers each one, and shares a photo. The s
 - **The mouse is only for menus.** Gameplay uses the keyboard; the cursor is hidden in play. Any key (not the mouse, not a function key) closes a popup such as Game Over or a new power, and its text says "Press any key to continue".
 
 
+## Code review guidance
+
+Apply this guidance to every Freddy's Fall code review, including PR comments.
+It also governs fixes made when addressing review comments.
+
+- Give each actionable finding a severity, exact file and line, concrete trigger,
+  observed failure and intended behavior. Verify the relevant callers and state
+  transitions; distinguish reproduced failures from risks inferred from code.
+- Include exact fix details: name the functions and shared boundaries to change,
+  describe the state/collision/data changes and their ordering, and specify the
+  regression cases and expected results. Use a small suggested patch when it is
+  unambiguous. "Handle collisions" or "reset state" alone is not sufficient.
+- Ground fixes in the current README, design implementation reference and decision
+  log, and cite the existing implementation that establishes the pattern. Prefer
+  the shared movement, collision, ability registry, dev-session and save boundaries
+  over duplicated formulas, room-specific exceptions or a second source of truth.
+  Explain when an established pattern itself needs to change.
+- Design fixes to work as powers combine and rooms grow: use data-driven upgrades
+  and room definitions, stable entity IDs and explicit ability/session state.
+  Check unlock/removal, bounds, old saves/loadouts, retry, death, warp and room
+  transitions where affected. Exercise relevant combinations of movement, attack,
+  solids, movers and hazards, including supported maximum speeds and values.
+  Keep runtime and solver behavior consistent for modeled mechanics; honor
+  explicitly agreed solver limitations and require support before content depends
+  on an unmodeled power. Keep pure simulation independent of scene/autoload state.
+- Prefer the smallest robust fix that leaves clear extension points for later
+  power-ups and levels. Explain material tradeoffs; do not propose speculative
+  frameworks or redesign agreed gameplay. Include required dev controls, reset,
+  loadout support and documentation in the proposed fix's scope.
+- **Browser-window playability is a requirement for every proposed fix.** Preserve
+  the release web export and static hosting assumptions, keyboard gameplay,
+  focus/input handling, pause/overlays, save isolation and whole-pixel presentation.
+  Check window resizing/scaling and practical web performance when affected. Do
+  not require fullscreen, native-only APIs, threads or server features to play.
+- Name the checks that prove the fix: a focused regression that fails beforehand,
+  relevant combination/boundary tests, and the repository gates appropriate to
+  the change (`tools/check.sh`, solver diff for exact solver changes, pixel checks
+  for drawing changes). For browser/input/export changes, include a served release
+  web-build check in an ordinary browser window. Report what actually ran and any
+  incomplete checks; a headless pass alone does not establish browser playability.
+
+### Addressing review comments
+
+When the user asks to address code review comments, carry the work through to
+the existing PR: implement, verify, commit and push to its head branch, then
+resolve each fully addressed review thread. That request authorizes pushing the
+fixes and resolving the addressed threads; do not stop at local edits.
+
+- Read each full thread and inspect the current PR head before editing. Follow
+  the comment's proposed fix and validation guidance as closely as possible,
+  applying the codebase, extensibility and browser-playability rules above.
+- If the suggested approach conflicts with current code, established invariants
+  or another requested fix, implement the closest correct solution and explain
+  the specific deviation in the thread. Do not blindly apply a stale suggestion.
+- Run the relevant regression checks and required repository gates. Push the
+  verified fix to the PR's head branch, preserving unrelated work; never force
+  push or merge merely to address comments.
+- After confirming the pushed commit contains the fix, reply in the thread with
+  the commit, what changed and validation results, then resolve it. These replies
+  are part of the authorized review-comment workflow. Leave partially addressed,
+  disputed or blocked threads open and report what remains; do not resolve a
+  comment merely because a local edit was made.
+
 ## Dev tools are part of every gameplay feature
 
 This requirement always applies to work on abilities, upgrades, effects, resources
