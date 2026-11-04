@@ -11,7 +11,7 @@ const SECTIONS := [
 	{"id": "movement", "title": "Movement"},
 	{"id": "lash", "title": "Tongue Lash"},
 	{"id": "climb", "title": "Tongue Climb"},
-	{"id": "imprint", "title": "Imprint"},
+	{"id": "imprint", "title": "Imprint (legacy)"},
 	{"id": "debug", "title": "Debug view"},
 ]
 

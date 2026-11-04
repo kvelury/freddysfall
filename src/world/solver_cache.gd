@@ -3,8 +3,7 @@ extends RefCounted
 
 ## What the solver works out about a room that depends on nothing but the room
 ## and the solver itself, kept on disk between runs of tools/validate.sh. Most
-## of a run is this work (every ledge's jumps, and the jumps from every
-## platform Imprint could put down), so a run after editing one room only
+## of a run is this work (every ledge's jumps), so a run after editing one room only
 ## redoes that room.
 ##
 ## A room's file is used only if both fingerprints match what was saved:
@@ -28,11 +27,8 @@ const SOLVER_FILES: Array[String] = [
 	"res://src/world/solver/ground_moves.gd",
 	"res://src/world/solver/air_moves.gd",
 	"res://src/world/solver/lash_moves.gd",
-	"res://src/world/solver/imprint_moves.gd",
 	"res://src/tongue/tongue_reach.gd",
-	"res://src/world/imprint_search.gd",
 	"res://src/imprint/imprint_rules.gd",
-	"res://src/imprint/imprint_platform.gd",
 	"res://src/player/movement_sim.gd",
 	"res://src/player/jump_plan.gd",
 	"res://src/player/movement_config.gd",
@@ -103,7 +99,7 @@ var directory := ""
 ## The solver's fingerprint. Public so a test can change it.
 var solver := ""
 ## How much came from the cache and how much was worked out, for the report.
-var stats := {"edge_rooms_cached": 0, "edge_rooms_solved": 0, "legs_cached": 0, "legs_solved": 0, "air_rooms_cached": 0, "air_rooms_solved": 0}
+var stats := {"edge_rooms_cached": 0, "edge_rooms_solved": 0, "air_rooms_cached": 0, "air_rooms_solved": 0}
 var _rooms := {}
 
 
@@ -127,8 +123,6 @@ static func room_fingerprint(info: RoomInfo) -> String:
 	text += "\n".join(info.rows) + "\n"
 	for door in info.exits:
 		text += "door %s %s %s %s %s\n" % [door.edge, door.rect, door.screen, door.dest_id, door.dest_rect]
-	for cell in info.no_imprint:
-		text += "no_imprint %s\n" % cell
 	for wall_id in info.broken:
 		text += "broken %s\n" % wall_id
 	for def in info.entities:
@@ -154,11 +148,8 @@ func entry_for(info: RoomInfo) -> Entry:
 		var data = parser.data if parser.parse(FileAccess.get_file_as_string(path)) == OK else null
 		if data is Dictionary and int(data.get("format", -1)) == FORMAT and data.get("solver") == solver and data.get("room") == entry.fingerprint:
 			var edges = data.get("edges")
-			var legs = data.get("legs")
 			if edges is Dictionary:
 				entry.edges = edges
-			if legs is Dictionary:
-				entry.legs = legs
 			var air_edges = data.get("air_edges")
 			if air_edges is Dictionary:
 				entry.air_edges = air_edges
@@ -182,7 +173,7 @@ func save() -> int:
 		var file := FileAccess.open(_path(id), FileAccess.WRITE)
 		if file == null:
 			continue
-		var data := {"format": FORMAT, "solver": solver, "room": entry.fingerprint, "edges": entry.edges, "legs": entry.legs, "air_edges": entry.air_edges}
+		var data := {"format": FORMAT, "solver": solver, "room": entry.fingerprint, "edges": entry.edges, "air_edges": entry.air_edges}
 		file.store_string(JSON.stringify(data, "", true, true))
 		entry.dirty = false
 		written += 1
@@ -224,8 +215,6 @@ class Entry extends RefCounted:
 	var edges := {}
 	## The same for what needs an air jump, worked out only when a solve has one.
 	var air_edges := {}
-	## "x|y|width|limit" of a platform -> what a body standing on it reaches.
-	var legs := {}
 	var dirty := false
 
 	func store_edges(key: String, ledges: Array) -> void:
@@ -242,6 +231,3 @@ class Entry extends RefCounted:
 			packed[str(ledge.index)] = SolverCache.pack(ledge, air)
 		return packed
 
-	func store_leg(key: String, ledge: ReachGraph.Ledge) -> void:
-		legs[key] = SolverCache.pack(ledge)
-		dirty = true

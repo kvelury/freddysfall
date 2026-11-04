@@ -162,8 +162,12 @@ func _popup() -> bool:
 	popup._input(_key(KEY_ENTER))
 	ok = check(popup.opened, "input in the first moments does not dismiss") and ok
 	await create_timer(popup.MIN_SHOW + 0.1, true, false, true).timeout
-	popup._input(_key(KEY_ENTER))
-	ok = check(not popup.opened and not paused, "Enter dismisses it and the game runs") and ok
+	popup._input(_click(MOUSE_BUTTON_LEFT))
+	popup._input(_key(KEY_F3))
+	ok = check(popup.opened, "a mouse click and a dev key do not dismiss it") and ok
+	ok = check(popup._prompt.text == "Press any key to continue", "and it says any key does") and ok
+	popup._input(_key(KEY_X))
+	ok = check(not popup.opened and not paused, "any other key (X) dismisses it and the game runs") and ok
 
 	world._announce(_gs().grant("tongue_cooldown", "0.1"))
 	await physics_frame
@@ -208,6 +212,13 @@ func _menu_node() -> Node:
 		if child.has_method("_start"):
 			return child
 	return null
+
+
+func _click(button: MouseButton) -> InputEventMouseButton:
+	var event := InputEventMouseButton.new()
+	event.button_index = button
+	event.pressed = true
+	return event
 
 
 func _key(code: Key) -> InputEventKey:

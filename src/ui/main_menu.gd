@@ -22,6 +22,7 @@ var _controls_list: MenuList
 
 func _ready() -> void:
 	layer = 0
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	# The UI is laid out in 320 x 180 units and drawn at the screen's finer resolution.
 	scale = Vector2.ONE * Display.RENDER_SCALE
 	if not _booted:

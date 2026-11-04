@@ -327,7 +327,7 @@ func _reach_cases() -> bool:
 
 	# Pickups: one on the floor and one a jump above it are collected; one
 	# eight cells up is not, and that is an error.
-	var legend := "legend:\n  U = pickup id=floor upgrade=imprint_width value=3\n  V = pickup id=hop upgrade=imprint_duration value=6\n  W = pickup id=high upgrade=imprint_max_active value=2\n---\n"
+	var legend := "legend:\n  U = pickup id=floor upgrade=tongue_cooldown value=0.5\n  V = pickup id=hop upgrade=tongue_speed value=700\n  W = pickup id=high upgrade=tongue_length value=120\n---\n"
 	report = _solve([_entry("1", Vector2i(0, 0), legend + _box({Vector2i(10, 16): "U", Vector2i(20, 13): "V", Vector2i(26, 8): "W"}))])
 	var taken := {}
 	for pickup in report.pickups:

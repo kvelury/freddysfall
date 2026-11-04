@@ -113,6 +113,23 @@ static func _combo_groups(row: Dictionary) -> Array:
 	return out
 
 
+## Whether `event` dismisses a popup (the power popup, Game Over): any key or
+## gamepad button going down. The mouse never does, because it is only for
+## menus. Function keys (the dev tools: F2, F3, F4, F7) and modifier keys on
+## their own do not, so a popup can be open while a tool is used.
+static func dismisses(event: InputEvent) -> bool:
+	if not event.is_pressed() or event.is_echo():
+		return false
+	if event is InputEventJoypadButton:
+		return true
+	if not event is InputEventKey:
+		return false
+	var code: Key = event.keycode if event.keycode != KEY_NONE else event.physical_keycode
+	if code >= KEY_F1 and code <= KEY_F35:
+		return false
+	return not code in [KEY_SHIFT, KEY_CTRL, KEY_ALT, KEY_META, KEY_CAPSLOCK, KEY_NUMLOCK, KEY_SCROLLLOCK, KEY_NONE]
+
+
 static func _key_text(event: InputEvent) -> String:
 	if event is InputEventKey:
 		var code: Key = event.physical_keycode if event.physical_keycode != KEY_NONE else event.keycode

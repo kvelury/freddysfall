@@ -12,6 +12,8 @@ var message := ""
 var has_message := false
 var controls: Array = []
 var has_controls := false
+## Legacy upgrades that dev tools can still set but no room may give.
+var dev_only := false
 
 
 static func from_raw(upgrade_id: String, raw: Dictionary) -> UpgradeDef:
@@ -23,6 +25,7 @@ static func from_raw(upgrade_id: String, raw: Dictionary) -> UpgradeDef:
 	out.has_message = raw.has("message")
 	out.message = String(raw.get("message", ""))
 	out.has_controls = raw.has("controls")
+	out.dev_only = bool(raw.get("dev_only", false))
 	if raw.get("controls") is Array:
 		out.controls = (raw["controls"] as Array).duplicate()
 	return out

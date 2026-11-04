@@ -40,8 +40,8 @@ const MACHINE_COST := TokenMachine.COST
 ## The most ticks between the moments a moving platform is tried at. A slower
 ## platform is tried at the moments it has moved a cell, if that is sooner.
 const MAX_PHASE_STEP := 12
-## Where the plans the Imprint search simulates are counted (see timing()).
-const IMPRINT_PLANS := "(imprint)"
+## Where plans are counted when no room's jumps are being worked out (see timing()).
+const NO_ROOM := "(none)"
 ## Most states (sets of walls broken in one visit) the solver keeps for a room.
 ## More than this is an error: split the room.
 const MAX_WALL_STATES := 16
@@ -63,8 +63,7 @@ var abilities: Abilities
 ## worked out from scratch, as the tests do.
 var cache: SolverCache = null
 ## How many ticks a simulated path may run, unless the caller gives its own
-## limit. The Imprint search gives each leg off a platform a shorter one, so a
-## platform placed for a jump is still there at the end of it.
+## limit.
 var frame_limit := 180
 var _cfg: MovementConfig
 var _rooms: Dictionary
@@ -86,7 +85,6 @@ var _lash_cache := {}
 var _rise := {}
 var _state_errors: Array[String] = []
 var _landings := {}
-var _imprint: ImprintSearch
 ## Microseconds spent building the jumps of every ledge.
 var _edge_usec := 0
 ## The same, by room key (a copy with walls broken has its own), and how many
@@ -110,21 +108,20 @@ var _reusing: Variant = null
 var _changed: Array[Rect2] = []
 var _room_from_base := {}
 ## The room key whose plans are being counted, set while its jumps are worked out.
-var _plan_key := IMPRINT_PLANS
+var _plan_key := NO_ROOM
 ## Every pickup, token and 3TM in the world by id.
 var _things := {}
-## How the player can move, in the order they are tried: ground, air, lash, imprint.
+## How the player can move, in the order they are tried: ground, air, lash.
 var _providers: Array[MoveProvider] = []
 
 
 ## `ability_set` is what the player has, the starting abilities if left out.
-## With Imprint unlocked the search also puts platforms down (see ImprintSearch),
-## using the width and duration it holds. `solve` swaps it as it collects.
+## `solve` swaps it as it collects.
 func _init(rooms: Dictionary, movement: MovementConfig, ability_set: Abilities = null) -> void:
 	_rooms = rooms
 	_cfg = movement
 	abilities = ability_set if ability_set != null else Abilities.new()
-	_providers = [GroundMoves.new(self), AirMoves.new(self), LashMoves.new(self), ImprintMoves.new(self)]
+	_providers = [GroundMoves.new(self), AirMoves.new(self), LashMoves.new(self)]
 	for id in rooms:
 		_ledges[id] = _find_ledges(rooms[id])
 		for def in _things_of(rooms[id]):
@@ -136,15 +133,9 @@ func movement() -> MovementConfig:
 
 
 ## Where the time went so far: milliseconds for the ledges' jumps, and for the
-## Imprint search's three parts, and how many platforms it looked at.
+## room's jumps.
 func timing() -> Dictionary:
-	var out := {"edges": float(_edge_usec) / 1000.0, "arcs": 0.0, "lands": 0.0, "legs": 0.0, "candidates": 0, "legs_made": 0}
-	if _imprint != null:
-		out["arcs"] = float(_imprint.stats["arcs"]) / 1000.0
-		out["lands"] = float(_imprint.stats["lands"]) / 1000.0
-		out["legs"] = float(_imprint.stats["legs"]) / 1000.0
-		out["candidates"] = _imprint.stats["candidates"]
-		out["legs_made"] = _imprint.stats["legs_made"]
+	var out := {"edges": float(_edge_usec) / 1000.0}
 	var rooms: Array[Dictionary] = []
 	for key in _room_usec:
 		rooms.append({"key": String(key), "ms": float(_room_usec[key]) / 1000.0, "plans": int(_room_plans.get(key, 0)), "reused": int(_room_reused.get(key, 0)), "from_base": int(_room_from_base.get(key, 0)), "phases": int(_room_phases.get(key, 1))})
@@ -359,15 +350,8 @@ func _analyze(start_room: String) -> Report:
 	var forward := run.forward
 
 	# Walking the same edges backwards from the start finds every ledge that
-	# can still get home. A reached ledge that cannot is a trap, unless an
-	# Imprint platform put down from it gets it home.
+	# can still get home. A reached ledge that cannot is a trap.
 	var home := _home(run, start)
-	if abilities.imprint_unlocked:
-		home = _place_imprints_to_get_home(run, start, home)
-		# A platform put down on the way home may have reached what a locked room waits for.
-		while _open_locks(run):
-			_settle(run)
-			home = _place_imprints_to_get_home(run, start, _home(run, start))
 	var reached_rooms := {}
 	for ledge in reached:
 		reached_rooms[ledge.base()] = true
@@ -558,8 +542,7 @@ func _rise_cells(air: int) -> int:
 
 
 ## Spreads out from the ledges in the queue, following jumps, drops, walks and
-## the doors the player touches, until nothing new is reached. Imprint
-## platforms found by `_place_imprints` are extra edges, kept in `run`.
+## the doors the player touches, until nothing new is reached.
 func _flood(run: Run) -> void:
 	while not run.queue.is_empty():
 		var ledge: Ledge = run.queue.pop_back()
@@ -598,7 +581,7 @@ func _flood(run: Run) -> void:
 				run.queue.append(target)
 
 
-## Floods, then (with Imprint) searches for platforms, and opens any room whose
+## Floods, then lets each provider search, and opens any room whose
 ## exit rule has become met, until nothing more changes.
 func _settle(run: Run) -> void:
 	while true:
@@ -629,39 +612,6 @@ func _open_locks(run: Run) -> bool:
 	return opened
 
 
-## With Imprint, a platform put down from a ledge can bring more places within
-## a jump. Every reached ledge is searched once for platforms that help reach
-## something still out of reach, and the new places are flooded, until nothing
-## more opens up.
-func _place_imprints(run: Run) -> void:
-	if _imprint == null:
-		_imprint = ImprintSearch.new(self)
-	while true:
-		var targets := _unreached_targets(run)
-		if targets.is_empty():
-			return
-		var opened := false
-		for ledge in run.reached.keys():
-			if run.expanded.has(ledge):
-				continue
-			run.expanded[ledge] = true
-			var found := _imprint.expand(ledge, targets.get(ledge.room_id, []))
-			if found["ledges"].is_empty() and found["touches"].is_empty() and found["pickups"].is_empty():
-				continue
-			opened = true
-			if not run.extra_to.has(ledge):
-				run.extra_to[ledge] = []
-				run.extra_touches[ledge] = []
-				run.extra_pickups[ledge] = []
-			run.extra_to[ledge].append_array(found["ledges"])
-			run.extra_touches[ledge].append_array(found["touches"])
-			run.extra_pickups[ledge].append_array(found["pickups"])
-			run.queue.append(ledge)
-		_flood(run)
-		if not opened and not _has_unexpanded(run):
-			return
-
-
 ## The ledges from which the start can still be reached.
 func _home(run: Run, start: Ledge) -> Dictionary:
 	var back := {}
@@ -679,73 +629,6 @@ func _home(run: Run, start: Ledge) -> Dictionary:
 				home[source] = true
 				home_queue.append(source)
 	return home
-
-
-## A ledge with no way home may have one with a platform. Each such ledge is
-## searched once, for platforms that bring it within a jump of a ledge that is
-## home or of a door.
-func _place_imprints_to_get_home(run: Run, start: Ledge, home: Dictionary) -> Dictionary:
-	if _imprint == null:
-		_imprint = ImprintSearch.new(self)
-	var tried := {}
-	while true:
-		var opened := false
-		for ledge in run.reached.keys():
-			if home.has(ledge) or tried.has(ledge):
-				continue
-			tried[ledge] = true
-			var targets: Array[Rect2] = []
-			for other: Ledge in _ledges[ledge.room_id]:
-				if home.has(other):
-					targets.append(Rect2(other.lo - 5.0, other.top - 10.0, other.hi - other.lo + 10.0, 10.0))
-			for door in _info_of(ledge.room_id).exits:
-				targets.append(door.trigger_rect())
-			var found := _imprint.expand(ledge, targets)
-			if found["ledges"].is_empty() and found["touches"].is_empty():
-				continue
-			opened = true
-			if not run.extra_to.has(ledge):
-				run.extra_to[ledge] = []
-				run.extra_touches[ledge] = []
-				run.extra_pickups[ledge] = []
-			run.extra_to[ledge].append_array(found["ledges"])
-			run.extra_touches[ledge].append_array(found["touches"])
-			run.extra_pickups[ledge].append_array(found["pickups"])
-			run.queue.append(ledge)
-		if not opened:
-			return home
-		_flood(run)
-		home = _home(run, start)
-	return home
-
-
-func _has_unexpanded(run: Run) -> bool:
-	for ledge in run.reached:
-		if not run.expanded.has(ledge):
-			return true
-	return false
-
-
-## Places nobody has reached yet, as room pixels per room: ledges to stand on,
-## door triggers, pickups.
-func _unreached_targets(run: Run) -> Dictionary:
-	var out := {}
-	for id in _rooms:
-		var info: RoomInfo = _rooms[id]
-		var list: Array[Rect2] = []
-		for ledge: Ledge in _ledges[id]:
-			if not run.reached.has(ledge):
-				list.append(Rect2(ledge.lo - 5.0, ledge.top - 10.0, ledge.hi - ledge.lo + 10.0, 10.0))
-		for i in info.exits.size():
-			if not run.reached_doors.has("%s#%d" % [id, i]):
-				list.append(info.exits[i].trigger_rect())
-		var geo := geometry_of(info)
-		for i in geo.things.size():
-			if not _pickup_reached(run, id, i):
-				list.append(geo.things[i])
-		if not list.is_empty():
-			out[id] = list
-	return out
 
 
 func _pickup_reached(run: Run, room_id: String, index: int) -> bool:
@@ -1148,7 +1031,7 @@ func _begin_plans(info: RoomInfo, kind: String) -> void:
 
 
 func _end_plans() -> void:
-	_plan_key = IMPRINT_PLANS
+	_plan_key = NO_ROOM
 	_free_runs.clear()
 	_recording = null
 	_reusing = null
@@ -1502,10 +1385,6 @@ class Run extends RefCounted:
 	var reached_doors := {}
 	var door_landings := {}
 	var forward := {}
-	var expanded := {}
-	var extra_to := {}
-	var extra_touches := {}
-	var extra_pickups := {}
 	## Rooms whose exit rule is not met yet, and for each the ledges whose door
 	## touches are waiting for it.
 	var locked := {}

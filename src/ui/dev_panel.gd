@@ -115,6 +115,8 @@ func close_panel() -> void:
 	opened = false
 	_window.hide()
 	get_viewport().gui_release_focus()
+	# The mouse is only for menus: back to no cursor in play.
+	Input.mouse_mode = Input.MOUSE_MODE_HIDDEN
 	_world.release_modal("dev")
 
 
