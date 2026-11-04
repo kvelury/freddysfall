@@ -487,7 +487,11 @@ func _shapes() -> void:
 	var token := Token.new()
 	token.position = Vector2(30, 90)
 	stage.add_child(token)
-	shapes["token"] = [token.position, Rect2i(-6, -6, 12, 12)]
+	shapes["token"] = [token.position, Rect2i(-8, -8, 16, 16)]
+	var health := HealthPip.new()
+	health.position = Vector2(120, 90)
+	stage.add_child(health)
+	shapes["pip"] = [health.position, Rect2i(-8, -8, 16, 16)]
 	var pickup := Pickup.new()
 	pickup.position = Vector2(60, 90)
 	stage.add_child(pickup)

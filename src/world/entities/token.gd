@@ -5,6 +5,12 @@ extends Node2D
 ## GameState.TOKEN_CAP. Tokens are spent at a 3TM. Taking one is kept in the
 ## flags, so the room builds without it from then on, even once it is spent.
 
+## A token and a health pip float half a cell above the cell they are placed in:
+## the picture and the area that collects it both move up, and the bob is
+## unchanged. Half a cell is still inside the cell, so a player standing on the
+## floor beside one walks into it.
+const RAISE := float(Grid.CELL) * 0.5
+
 var def: EntityDef
 var _age := 0.0
 var _lift := 0.0
@@ -22,7 +28,7 @@ static func flag_for(entity: EntityDef) -> String:
 
 ## The area that collects it, in world pixels.
 func rect() -> Rect2:
-	return Rect2(global_position - Vector2(Pickup.HALF, Pickup.HALF), Vector2(Pickup.HALF, Pickup.HALF) * 2.0)
+	return Rect2(global_position - Vector2(Pickup.HALF, Pickup.HALF + RAISE), Vector2(Pickup.HALF, Pickup.HALF) * 2.0)
 
 
 func collect() -> void:
@@ -40,12 +46,14 @@ func _process(delta: float) -> void:
 		queue_redraw()
 
 
-## A solid gold diamond that bobs, so it reads apart from the hollow upgrade pickup.
+## A solid gold diamond that bobs, so it reads apart from the hollow upgrade
+## pickup. It is the flying token's 11 x 12 picture, as wide as a room's health
+## pip.
 func _draw() -> void:
-	draw_token(self, Vector2(0.0, _lift))
+	PixelArt.draw(self, "flying_token", Vector2(0.0, _lift - RAISE), Palette.GOLD)
 
 
-## The token shape, centred on `at`, drawn onto `canvas`. The 3TM and the
-## flying token use it too, so every token looks the same.
+## The small token shape, centred on `at`, drawn onto `canvas`. The 3TM's
+## openings use it, so a token fits in one.
 static func draw_token(canvas: CanvasItem, at: Vector2, color := Palette.GOLD) -> void:
 	PixelArt.draw(canvas, "token", at, color)

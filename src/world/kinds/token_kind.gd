@@ -28,3 +28,9 @@ func create(def: EntityDef, _fills: Dictionary) -> Node2D:
 
 func solver_effect(_def: EntityDef, ledger: Dictionary) -> void:
 	ledger["tokens"] = int(ledger["tokens"]) + 1
+
+
+## A raised thing is collected where it is drawn, half a cell above its cell.
+func touch_rect(def: EntityDef) -> Rect2:
+	var area := super.touch_rect(def)
+	return Rect2(area.position - Vector2(0.0, Token.RAISE), area.size)
