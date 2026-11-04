@@ -84,6 +84,10 @@ class State extends RefCounted:
 	## wherever in the fall, is a full jump, and the one after is the air jump.
 	## Landing, or starting a climb, takes it away.
 	var spare_jump := false
+	## Set by step(): the area the body passed through while it was pulled to its
+	## wall this tick (its box at the start joined to its box at the end), so a
+	## fast pull cannot skip over spikes. Empty on any other tick.
+	var climb_swept := Rect2()
 
 
 ## One physics tick: read input, apply forces, round corners, collide.
@@ -102,6 +106,7 @@ static func step(
 ) -> void:
 	var was_riding := s.riding
 	s.released = false
+	s.climb_swept = Rect2()
 	if s.climb != CLIMB_NONE:
 		match _climb_tick(cfg, s, rects, jump_pressed, delta, movers, tick):
 			_CLIMB_DONE:
@@ -249,8 +254,37 @@ static func _climb_tick(cfg: MovementConfig, s: State, rects: Array, jump_presse
 	var holding := s.climb == CLIMB_HOLD
 	if s.climb == CLIMB_ZIP:
 		var to := s.climb_anchor - s.position
-		var reach := s.zip_speed * delta
-		if to.length() <= reach:
+		var dist := to.length()
+		var reach := minf(s.zip_speed * delta, dist)
+		var start := s.position
+		var cleared := true
+		if reach > 0.0:
+			# Pulled in steps no longer than the tongue's, against the room and
+			# the moving platforms as they will be, so neither can be skipped.
+			var solid: Array = rects
+			if movers != null and not movers.is_empty():
+				solid = rects + movers.rects(tick + 1)
+			var along := to / dist
+			var done := 0.0
+			while done < reach - 0.0001:
+				var piece := minf(reach - done, CLIMB_STEP)
+				var next := _shift(s.position, along * piece, solid)
+				var moved := (next - s.position).length()
+				s.position = next
+				done += piece
+				if movers != null and not movers.is_empty() and _touches_hazard_body(s.position, movers, tick + 1):
+					s.crushed = true
+					cleared = false
+					break
+				if moved < piece - 0.001:
+					cleared = false
+					break
+		s.climb_swept = Rect2(start - HALF, HALF * 2.0).merge(Rect2(s.position - HALF, HALF * 2.0))
+		if not cleared:
+			# Something is in the way of the pull: he stops there and lets go.
+			release_climb(s)
+			return _CLIMB_DONE if s.crushed else _CLIMB_FALL
+		if reach >= dist - 0.0001:
 			s.position = s.climb_anchor
 			if s.climb_abort:
 				release_climb(s)
@@ -258,8 +292,6 @@ static func _climb_tick(cfg: MovementConfig, s: State, rects: Array, jump_presse
 			s.climb = CLIMB_HOLD
 			s.climb_left = s.climb_hold
 			s.air_left = s.air_jumps
-		else:
-			s.position += to / to.length() * reach
 	if s.climb == CLIMB_HOLD:
 		if s.buffer > 0.0:
 			var wall := s.climb_dir.y == 0.0

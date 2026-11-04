@@ -78,6 +78,8 @@ Nobody has played this yet. No room gives it. `?dev=1&room=7` (or any room), F2,
 - [ ] **Breakable walls.** Room 7's wall from the exit-2 ledge: the first lash sticks and cracks it, the second breaks it and you fall. Switch off Stick to breakable walls: it only takes the hit.
 - [ ] **Ceilings.** Hold W or Up and lash at a ceiling within 50 px: he hangs from it. Jump drops him, and during the fall he has a full jump and then the double jump (also if the time runs out); landing resets it. Switch off Hang from ceilings: the old up-lash.
 - [ ] **Other surfaces.** An Imprint platform and a moving platform stop the tongue but he does not stick.
+- [ ] **Turning it off mid-climb.** Set Climb hold to 5 s, hang, open F2, turn Tongue Climb off and Apply, then Resume: he drops at once and the tongue goes back; the first jump is the air jump. The same for the ceilings and breakable-wall switches while hanging on those, and for Tongue Lash.
+- [ ] **Platforms in the way.** Lash a wall across a moving platform that is at body height but below the tongue: he is pulled up to it and drops, instead of being crushed. Try Climb pull speed at 2000.
 - [ ] **Dangers.** A pull through spikes still kills him. Being pushed by a moving platform lets go. Leaving the room, dying and retry (F2) all clear the hang.
 - [ ] **Loadouts and retry.** Save the settings in a named loadout and load them; a retry keeps them. Ending the playtest leaves the normal game without Tongue Climb.
 

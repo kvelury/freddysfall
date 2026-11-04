@@ -165,7 +165,7 @@ func _physics_process(_delta: float) -> void:
 		power_popup.open(_popups.pop_front())
 	if not is_busy():
 		var body := player.body_rect()
-		if current.touches_hazard(body) or current.is_outside(player.global_position) or player.crushed():
+		if current.touches_hazard(player.hazard_rect()) or current.is_outside(player.global_position) or player.crushed():
 			_die()
 		else:
 			for thing in current.touched_things(body):

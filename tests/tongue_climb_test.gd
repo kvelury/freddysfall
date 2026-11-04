@@ -235,12 +235,88 @@ func _run() -> void:
 	# Something other than the tongue's wall in the way: pulled as far as he can go, then he lets go.
 	ok = _blocked_short() and ok
 
+	# Taking the power away in the dev tools drops him at once: nothing is given back.
+	tongue.clear()
+	var hold_was := ab.climb_hold
+	ab.climb_hold = 5.0
+	_put(world, Vector2i(17, 12))
+	tongue.lash()
+	await until(func() -> bool: return player.hanging(), 60)
+	var loadout: Dictionary = DevCatalog.capture(state.to_dict())
+	loadout["abilities"]["tongue_climb"] = false
+	state.set_loadout(loadout)
+	ab = state.abilities
+	await physics_frame
+	ok = check(not player.climbing() and not tongue.active or tongue.phase != CLIMB_PHASE, "turning Tongue Climb off in the dev tools while he hangs drops him and the tongue goes back") and ok
+	first = await _press(player)
+	second = await _press(player)
+	ok = check(first == "air" and second == "none", "with no grace jump, and the double jump he got from sticking kept (%s, %s)" % [first, second]) and ok
+	ab.tongue_climb = true
+	ab.climb_zip_speed = 100.0
+	tongue.clear()
+	_put(world, Vector2i(16, 12))
+	tongue.lash()
+	await until(func() -> bool: return player.climbing() and not player.hanging(), 60)
+	ok = check(player.climbing() and not player.hanging(), "caught while being pulled") and ok
+	ab.tongue_climb = false
+	state.abilities_changed.emit()
+	await physics_frame
+	ok = check(not player.climbing(), "turning it off during the pull drops him too") and ok
+	ab.tongue_climb = true
+	ab.climb_zip_speed = 400.0
+	tongue.clear()
+	_put(world, Vector2i(17, 12))
+	tongue.lash()
+	await until(func() -> bool: return player.hanging(), 60)
+	ab.tongue_unlocked = false
+	state.abilities_changed.emit()
+	await physics_frame
+	ok = check(not player.climbing() and not tongue.active, "taking Tongue Lash away clears the tongue and drops him") and ok
+	ab.tongue_unlocked = true
+	tongue.clear()
+	_put(world, Vector2i(12, 5))
+	tongue.lash(true)
+	await until(func() -> bool: return player.hanging() and player.climbing_ceiling(), 60)
+	ab.climb_ceiling = false
+	state.abilities_changed.emit()
+	await physics_frame
+	ok = check(not player.climbing(), "turning ceilings off drops him from a ceiling") and ok
+	first = await _press(player)
+	ok = check(first == "air", "with no spare jump (%s)" % first) and ok
+	ab.climb_ceiling = true
+	tongue.clear()
+	_put(world, Vector2i(23, 16))
+	tongue.lash()
+	await until(func() -> bool: return player.hanging(), 60)
+	ab.climb_breakable = false
+	state.abilities_changed.emit()
+	await physics_frame
+	ok = check(not player.climbing(), "turning breakable walls off drops him from one") and ok
+	ab.climb_breakable = true
+	ab.climb_hold = hold_was
+
 	# Letting go from outside.
 	_put(world, Vector2i(17, 12))
 	tongue.lash()
 	await until(func() -> bool: return player.hanging(), 60)
 	tongue.clear()
 	ok = check(not player.climbing() and not tongue.active, "clearing the tongue (room change, death, warp, retry) lets him go") and ok
+
+	# A fast pull over spikes still kills him: the whole path is tested, not just where he ends.
+	tongue.clear()
+	ab.climb_zip_speed = 2000.0
+	_put(world, Vector2i(16, 3))
+	var spike_room: Room = world.current
+	tongue.lash()
+	var touched := false
+	var end_alone := false
+	for i in 30:
+		await physics_frame
+		if spike_room.touches_hazard(player.hazard_rect()):
+			touched = true
+			end_alone = spike_room.touches_hazard(player.body_rect())
+			break
+	ok = check(touched and not end_alone, "a pull that passes over spikes touches them although he ends clear of them") and ok
 
 	finish("TONGUE CLIMB", ok)
 
@@ -261,10 +337,36 @@ func _blocked_short() -> bool:
 			released = true
 			break
 	ok = check(released and s.climb == MovementSim.CLIMB_NONE and is_equal_approx(s.position.x, 180.0), "he is pulled up to it (x %.1f) and then lets go" % s.position.x) and ok
+	ok = _platform_in_the_way() and ok
 	var free := MovementSim.State.new()
 	free.position = Vector2(150.0, 150.0)
 	ok = check(MovementSim.start_climb(free, [wall], Vector2(201.0, 148.5), Vector2.RIGHT, 0.5, 400.0, false) and not free.climb_abort, "with nothing in the way the pull is for the wall") and ok
 	ok = check(not MovementSim.start_climb(free, [wall], Vector2(201.0, 148.5), Vector2.RIGHT, 0.5, 400.0, false), "and a body already climbing cannot start another") and ok
+	return ok
+
+
+## The review's case: the tongue (y = 148.5) clears a 10 x 10 platform at
+## (170, 150), but the body, 145 to 155, cannot. The climb is started knowing only
+## the room's solids (as it was in the review), so the pull itself has to meet the
+## platform: it stops there and lets go (never crushed, never inside it), at any
+## pull speed.
+func _platform_in_the_way() -> bool:
+	var cfg := load("res://src/player/movement.tres") as MovementConfig
+	var wall := Rect2(200.0, 0.0, 10.0, 300.0)
+	var movers := Movers.new([PlatformPath.new("p", Rect2i(17, 15, 1, 1), Vector2i.DOWN, 1, 10.0, 100.0)])
+	var ok := true
+	for speed in [400.0, 2000.0]:
+		var s := MovementSim.State.new()
+		s.position = Vector2(160.0, 150.0)
+		var started := MovementSim.start_climb(s, [wall], Vector2(201.0, 148.5), Vector2.RIGHT, 0.5, speed, false)
+		var released := false
+		for tick in 30:
+			MovementSim.step(cfg, s, [wall], 0.0, false, false, 1.0 / 60.0, movers, tick)
+			if s.released:
+				released = true
+				break
+		var box := Rect2(s.position - MovementSim.HALF, MovementSim.HALF * 2.0)
+		ok = check(started and released and not s.crushed and not box.intersects(movers.rects(1)[0]), "a platform the tongue clears but the body cannot stops the pull at %.0f px/s (x %.1f, crushed %s)" % [speed, s.position.x, s.crushed]) and ok
 	return ok
 
 

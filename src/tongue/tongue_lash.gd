@@ -73,6 +73,9 @@ var _struck := false
 ## Whether what the tip struck is something Freddy can hang from: a plain
 ## solid or door block, or a breakable wall still standing after the hit.
 var _climbable := false
+## Whether the strike was on a breakable wall, and whether the hang is on one.
+var _struck_wall := false
+var _stuck_breakable := false
 ## Where the tip stuck, for a climb, in world pixels.
 var _stuck_tip := Vector2.ZERO
 ## Where the tip stuck, as a world coordinate along the tongue: x going sideways,
@@ -90,6 +93,7 @@ func _ready() -> void:
 	physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 	_world = get_parent()
 	_player = _world.get_node("Player")
+	GameState.abilities_changed.connect(_reconcile_abilities)
 
 
 ## Whether a press sends the tongue out now: Tongue Lash has been found, none is
@@ -189,6 +193,7 @@ func _reset_phase() -> void:
 	_back_duration = 0.0
 	_struck = false
 	_climbable = false
+	_struck_wall = false
 
 
 ## The tip has stopped going out. If it hit something and the tongue sticks, it
@@ -223,6 +228,7 @@ func _try_climb() -> bool:
 	phase = Phase.CLIMB
 	_time = 0.0
 	_stuck_tip = at
+	_stuck_breakable = _struck_wall
 	return true
 
 
@@ -282,6 +288,7 @@ func _move(delta: float) -> void:
 func _hit() -> bool:
 	_struck = false
 	_climbable = false
+	_struck_wall = false
 	var room: Room = _world.current
 	var at := tip()
 	var size := TIP_UP if up else TIP
@@ -291,6 +298,7 @@ func _hit() -> bool:
 		var broke := room.hit_wall(wall, DevSession.wall_strength())
 		_puff(at)
 		_struck = true
+		_struck_wall = true
 		_climbable = GameState.abilities.climb_breakable and not broke
 		return true
 	var extra: Array[Rect2] = []
@@ -315,6 +323,25 @@ func _hit() -> bool:
 		_climbable = bool(TongueReach.box_hit(room.info, local, _block_extra(room))["solid"])
 		return true
 	return not Rect2(room.position, room.info.pixel_size).has_point(at)
+
+
+## The abilities have changed (the dev tools, a pickup, a loadout): if what the
+## hang depends on has been taken away, he drops at once and the tongue goes
+## back in, with nothing given back. Numbers (the hold, the pull) apply from the
+## next climb.
+func _reconcile_abilities() -> void:
+	if not active:
+		return
+	var abilities := GameState.abilities
+	if not abilities.tongue_unlocked:
+		_player.cancel_climb()
+		clear()
+		return
+	if phase != Phase.CLIMB:
+		return
+	if not abilities.tongue_climb or (up and not abilities.climb_ceiling) or (_stuck_breakable and not abilities.climb_breakable):
+		_player.cancel_climb()
+		_start_back()
 
 
 ## The door blocks, in room pixels, as `TongueReach` takes them.

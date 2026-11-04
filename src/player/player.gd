@@ -115,7 +115,11 @@ func crushed() -> bool:
 ## `MovementSim.start_climb`). False if he is already climbing or must land first.
 func begin_climb(tip: Vector2, dir: Vector2, hold: float, wiggle: float, zip_speed: float, relock: bool) -> bool:
 	_state.position = global_position
-	if not MovementSim.start_climb(_state, solids, tip, dir, hold, zip_speed, relock):
+	var rects: Array = solids
+	if room != null and is_instance_valid(room) and not room.movers.is_empty():
+		# The moving platforms where the body collides with them this tick.
+		rects = solids + room.movers.rects(room.tick)
+	if not MovementSim.start_climb(_state, rects, tip, dir, hold, zip_speed, relock):
 		return false
 	climb_wiggle = wiggle
 	velocity = Vector2.ZERO
@@ -129,6 +133,23 @@ func end_climb() -> void:
 		return
 	MovementSim.drop_climb(config, _state)
 	velocity = Vector2.ZERO
+
+
+## Drops him at once because the power was taken away (the dev tools): nothing
+## is given back, no coyote time and no spare jump. Does nothing if he is not
+## climbing.
+func cancel_climb() -> void:
+	if not climbing():
+		return
+	MovementSim.release_climb(_state)
+	_state.spare_jump = false
+	velocity = Vector2.ZERO
+
+
+## The box the world tests against spikes: where the body is, or, on a tick he
+## was pulled to a wall, everything he passed through.
+func hazard_rect() -> Rect2:
+	return _state.climb_swept if _state.climb_swept.has_area() else body_rect()
 
 
 ## Whether he is being pulled to a wall or hanging on one.
