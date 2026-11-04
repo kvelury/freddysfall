@@ -17,6 +17,9 @@ const CLAMPS := {
 	"tongue_strike": [1.0, null],
 	"tongue_settle": [0.0, null],
 	"tongue_stick": [0.0, null],
+	"climb_hold": [0.05, null],
+	"climb_wiggle": [0.0, null],
+	"climb_zip_speed": [10.0, null],
 }
 
 ## A stat's old names, tried when a save has no key of its own. The gun became
@@ -58,6 +61,22 @@ var tongue_settle := 1.0
 var tongue_stick := 0.1
 ## Whether the tip is drawn as a pad (3 pixels tall) while it is stuck.
 var tongue_pad := true
+## Whether the player has found Tongue Climb. With it, a lash that hits a wall
+## pulls Freddy to it and he hangs there by his tongue (see `MovementSim.start_climb`).
+## Until then a lash only hits. No room awards it yet; the dev tools turn it on.
+var tongue_climb := false
+## Seconds he hangs on the wall, wiggle included, before he lets go.
+var climb_hold := 0.5
+## The last seconds of `climb_hold` in which he wiggles, so the player knows he is about to drop.
+var climb_wiggle := 0.2
+## How fast he is pulled to the wall, in pixels a second.
+var climb_zip_speed := 400.0
+## Whether he sticks to a breakable wall (the hit still lands) as well as to plain walls.
+var climb_breakable := true
+## Whether an up-lash at a ceiling pulls him up to hang there.
+var climb_ceiling := true
+## Whether, after dropping off because the time ran out, he must touch the ground before he can stick again.
+var climb_land_to_restick := false
 ## Whether the player has found Imprint. Until they do, the cursor is just a cursor.
 var imprint_unlocked := false
 ## Imprint platform width in cells.
@@ -179,6 +198,8 @@ func describe() -> String:
 	var jumps := "" if air_jumps <= 0 else ("double jump, " if air_jumps == 1 else "%d air jumps, " % air_jumps)
 	if tongue_unlocked:
 		jumps += "tongue lash, "
+	if tongue_climb:
+		jumps += "tongue climb, "
 	if not imprint_unlocked:
 		return jumps + "imprint locked"
 	var text := jumps + "imprint %d wide, %.1f s, %d at once" % [imprint_width, imprint_duration, imprint_max_active]

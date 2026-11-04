@@ -10,6 +10,7 @@ const SECTIONS := [
 	{"id": "resources", "title": "Tokens & hearts"},
 	{"id": "movement", "title": "Movement"},
 	{"id": "lash", "title": "Tongue Lash"},
+	{"id": "climb", "title": "Tongue Climb"},
 	{"id": "imprint", "title": "Imprint"},
 	{"id": "debug", "title": "Debug view"},
 ]

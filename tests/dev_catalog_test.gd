@@ -98,6 +98,19 @@ func _initialize() -> void:
 	check(round_trip["error"].is_empty() and round_trip["warnings"].is_empty() and round_trip["loadout"]["abilities"] == sample["abilities"], "a loadout with a tuned tongue comes back as it was")
 	var old_tongue := DevCatalog.reconcile({"abilities": {"tongue_unlocked": true, "tongue_speed": 300.0}})
 	check(old_tongue["error"].is_empty() and is_equal_approx(old_tongue["loadout"]["abilities"]["tongue_strike"], 3.0) and old_tongue["loadout"]["abilities"]["tongue_pad"] == true and old_tongue["loadout"]["abilities"]["tongue_speed"] == 300.0, "a loadout from before the shape stats gets the starting values and keeps its own speed")
+	# Tongue Climb: bounded, in its own section, carried by loadouts, and absent from an old one.
+	for bad in [["climb_hold", 0.0], ["climb_hold", 6.0], ["climb_wiggle", -0.1], ["climb_wiggle", 3.0], ["climb_zip_speed", 5], ["climb_zip_speed", 2500], ["climb_hold", NAN], ["tongue_climb", 1], ["climb_ceiling", "true"], ["climb_breakable", 0], ["climb_land_to_restick", "on"]]:
+		sample = DevCatalog.defaults()
+		sample["abilities"][bad[0]] = bad[1]
+		check(not DevCatalog.validate(sample).is_empty(), "reject %s = %s" % [bad[0], str(bad[1])])
+	for key in ["tongue_climb", "climb_hold", "climb_wiggle", "climb_zip_speed", "climb_breakable", "climb_ceiling", "climb_land_to_restick"]:
+		check(DevCatalog.controls().get(key, {}).get("section") == "climb", "%s is a control in the Tongue Climb section" % key)
+	sample = DevCatalog.defaults()
+	sample["abilities"].merge({"tongue_climb": true, "climb_hold": 1.5, "climb_wiggle": 0.4, "climb_zip_speed": 800.0, "climb_breakable": false, "climb_ceiling": false, "climb_land_to_restick": true}, true)
+	round_trip = DevCatalog.reconcile(sample)
+	check(round_trip["error"].is_empty() and round_trip["warnings"].is_empty() and round_trip["loadout"]["abilities"] == sample["abilities"], "a loadout with Tongue Climb comes back as it was")
+	var before_climb := DevCatalog.reconcile({"abilities": {"tongue_unlocked": true}})
+	check(before_climb["error"].is_empty() and before_climb["loadout"]["abilities"]["tongue_climb"] == false and is_equal_approx(before_climb["loadout"]["abilities"]["climb_hold"], 0.5), "a loadout from before Tongue Climb has it off, with the starting values")
 	_store()
 	for path in [TEMP, TEMP + ".tmp"]:
 		DirAccess.remove_absolute(path)

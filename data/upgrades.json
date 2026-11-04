@@ -164,6 +164,83 @@
       "type": "bool"
     }
   },
+  "tongue_climb": {
+    "name": "Tongue Climb",
+    "stat": "tongue_climb",
+    "kind": "unlock",
+    "message": "Tongue Climb. Lash a wall to stick to it.",
+    "controls": ["lash"],
+    "dev": {
+      "section": "climb",
+      "type": "bool"
+    }
+  },
+  "climb_hold": {
+    "name": "Climb hold",
+    "stat": "climb_hold",
+    "kind": "max",
+    "dev": {
+      "section": "climb",
+      "type": "float",
+      "min": 0.05,
+      "max": 5,
+      "step": 0.05,
+      "unit": "seconds"
+    }
+  },
+  "climb_wiggle": {
+    "name": "Climb wiggle",
+    "stat": "climb_wiggle",
+    "kind": "max",
+    "dev": {
+      "section": "climb",
+      "type": "float",
+      "min": 0,
+      "max": 2,
+      "step": 0.05,
+      "unit": "seconds"
+    }
+  },
+  "climb_zip_speed": {
+    "name": "Climb pull speed",
+    "stat": "climb_zip_speed",
+    "kind": "max",
+    "dev": {
+      "section": "climb",
+      "type": "float",
+      "min": 10,
+      "max": 2000,
+      "step": 20,
+      "unit": "px/s"
+    }
+  },
+  "climb_breakable": {
+    "name": "Stick to breakable walls",
+    "stat": "climb_breakable",
+    "kind": "unlock",
+    "dev": {
+      "section": "climb",
+      "type": "bool"
+    }
+  },
+  "climb_ceiling": {
+    "name": "Hang from ceilings",
+    "stat": "climb_ceiling",
+    "kind": "unlock",
+    "dev": {
+      "section": "climb",
+      "type": "bool"
+    }
+  },
+  "climb_land_to_restick": {
+    "name": "Land before re-stick",
+    "stat": "climb_land_to_restick",
+    "kind": "unlock",
+    "dev": {
+      "section": "climb",
+      "type": "bool"
+    }
+  },
   "imprint": {
     "name": "Imprint",
     "stat": "imprint_unlocked",

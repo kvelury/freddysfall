@@ -137,13 +137,14 @@ func _run() -> void:
 	state.map_zoom = 2
 	check(session.set_classic_imprint(_world, true).is_empty(), "turn Classic Imprint on before a retry")
 	check(session.set_token_marks(_world, true).is_empty(), "and the token marks")
-	check(session.apply(_world, {"abilities": {"tongue_stick": 0.1, "tongue_pad": false}}).is_empty() and session.set_slow_motion(_world, true).is_empty(), "tune the tongue's stick and turn on slow motion before a retry")
+	check(session.apply(_world, {"abilities": {"tongue_stick": 0.1, "tongue_pad": false, "tongue_climb": true, "climb_hold": 1.5, "climb_ceiling": false}}).is_empty() and session.set_slow_motion(_world, true).is_empty(), "tune the tongue's stick and turn on slow motion before a retry")
 	check(session.wall_strength() == 2 and session.set_wall_strength(_world, 5).is_empty() and session.wall_strength() == 5, "wall strength starts at 2 and a dev test can set it")
 	check(not state.to_dict().has("wall_strength") and not session.loadout.has("wall_strength"), "it is in no save or loadout")
 	check(session.retry(_world).is_empty(), "retry after travelling across rooms")
 	await _replacement()
 	check(session.wall_strength() == 5, "wall strength survives a retry")
 	check(not state.abilities.tongue_pad and is_equal_approx(state.abilities.tongue_stick, 0.1), "the tuned tongue survives a retry")
+	check(state.abilities.tongue_climb and is_equal_approx(state.abilities.climb_hold, 1.5) and not state.abilities.climb_ceiling, "Tongue Climb and its tuning survive a retry")
 	check(not session.slow_motion and Engine.time_scale == 1.0, "and slow motion is off again on the rebuilt world")
 	check(session.classic_imprint and session.classic_imprint_active(), "Classic Imprint survives a retry")
 	check(session.token_marks_active() and _world.player._visual.shown_tokens() == state.tokens, "and so do the token marks, on the new body")
@@ -180,6 +181,7 @@ func _run() -> void:
 	check(session.wall_strength() == 2 and session.wall_strength_override == 0, "and the wall strength")
 	check(not session.token_marks and _world.player._visual.shown_tokens() == 0, "and the token marks")
 	check(state.abilities.tongue_pad and is_equal_approx(state.abilities.tongue_stick, 0.1) and not session.slow_motion and Engine.time_scale == 1.0, "and the tongue's tuning and the clock")
+	check(not state.abilities.tongue_climb and is_equal_approx(state.abilities.climb_hold, 0.5) and state.abilities.climb_ceiling, "ending the playtest leaves Tongue Climb off, as in the saved game")
 	check(not session.isolated() and state.health == 7 and state.abilities.imprint_width == 4 and _world.current.info.id == "7", "ending restores normal saved progression")
 	check(FileAccess.get_file_as_string(TEMP) == original, "ending does not save test state")
 	# The independent headless/test disable flag must survive ending a session.

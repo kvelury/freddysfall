@@ -16,6 +16,26 @@ const HALF := Vector2(Grid.CELL * 0.5, Grid.CELL * 0.5)
 ## added to.
 const NO_RECTS: Array = []
 
+## Tongue Climb. A body is not climbing, being pulled to its wall, or hanging
+## there. `Player` and `TongueLash` start it (`start_climb`); `step` runs it.
+const CLIMB_NONE := 0
+const CLIMB_ZIP := 1
+const CLIMB_HOLD := 2
+## The gap, in pixels, between the front of a hanging body and the wall, so the
+## tongue shows between them. A body that was already closer stays where it is.
+const CLIMB_GAP := 4.0
+## How far (px) the tongue's tip may be from the wall face it stuck to. The tip
+## stops within one step (4 px) of the face, and its box is 3 px deep.
+const CLIMB_TIP_BEFORE := 2.5
+const CLIMB_TIP_PAST := 1.5
+## The pull's path is checked in steps of this many pixels (`TongueReach.STEP`).
+const CLIMB_STEP := 4.0
+## What a tick of climbing tells `step` to do next with the rest of the tick.
+const _CLIMB_DONE := 0
+const _CLIMB_FALL := 1
+const _CLIMB_WALL_JUMP := 2
+const _CLIMB_CEILING_DROP := 3
+
 
 ## What a body carries from one tick to the next.
 class State extends RefCounted:
@@ -41,6 +61,33 @@ class State extends RefCounted:
 	## Set by step(): a moving platform pushed the body into something solid, or
 	## it touched a spiked body of a mover. Either way it dies, like spikes.
 	var crushed := false
+	## Tongue Climb: CLIMB_NONE, CLIMB_ZIP (being pulled) or CLIMB_HOLD (hanging).
+	var climb := 0
+	## The unit direction of the wall from the body: (+-1, 0), or (0, -1) for a ceiling.
+	var climb_dir := Vector2.ZERO
+	## Where the body's centre hangs, and how fast it is pulled there (px/s).
+	var climb_anchor := Vector2.ZERO
+	var zip_speed := 0.0
+	## Seconds of the hang left.
+	var climb_left := 0.0
+	## Seconds the hang lasts in all, set when the climb starts.
+	var climb_hold := 0.0
+	## The tongue found something in the way: the body is pulled as far as it
+	## can go, and lets go on arriving.
+	var climb_abort := false
+	## After a hang that ran out, whether the body must land before it may stick again.
+	var climb_relock := false
+	var climb_locked := false
+	## Set by step(): the body let go of the wall or ceiling this tick.
+	var released := false
+	## A ground jump held in hand after dropping from a ceiling: the next press,
+	## wherever in the fall, is a full jump, and the one after is the air jump.
+	## Landing, or starting a climb, takes it away.
+	var spare_jump := false
+	## Set by step(): the area the body passed through while it was pulled to its
+	## wall this tick (its box at the start joined to its box at the end), so a
+	## fast pull cannot skip over spikes. Empty on any other tick.
+	var climb_swept := Rect2()
 
 
 ## One physics tick: read input, apply forces, round corners, collide.
@@ -58,6 +105,16 @@ static func step(
 	tick := 0
 ) -> void:
 	var was_riding := s.riding
+	s.released = false
+	s.climb_swept = Rect2()
+	if s.climb != CLIMB_NONE:
+		match _climb_tick(cfg, s, rects, jump_pressed, delta, movers, tick):
+			_CLIMB_DONE:
+				return
+			_CLIMB_WALL_JUMP:
+				jump_pressed = true
+			_CLIMB_CEILING_DROP:
+				jump_pressed = false
 	# The platforms, where they will be after this tick, are tested after the
 	# room's own solids, as if appended to them.
 	var extra: Array = NO_RECTS
@@ -72,6 +129,8 @@ static func step(
 	if s.grounded:
 		s.launched = false
 		s.cut = false
+		s.climb_locked = false
+		s.spare_jump = false
 		s.air_left = s.air_jumps
 		if movers != null:
 			for i in movers.size():
@@ -84,6 +143,176 @@ static func step(
 	# unless the platform's is to be added.
 	if was_riding >= 0 and not s.grounded and cfg.inherit_platform_velocity:
 		s.velocity += movers.step_of(was_riding, tick) / delta
+
+
+## Starts a climb for a body whose tongue stuck at `tip` in direction `dir` (a
+## wall to the side, or the ceiling above): the body is pulled along the tongue
+## and then hangs for `hold` seconds. The hanging place is worked out here: the
+## body is slid toward the wall until a solid stops it (as `resolve` does), and
+## hangs `CLIMB_GAP` short of that, so the tongue shows. If the solid that stops
+## it is not the tongue's wall (a ledge under its feet, say), it is pulled as
+## far as it can go and then lets go (`climb_abort`). Returns false and changes
+## nothing if the body is already climbing or must land first.
+static func start_climb(s: State, rects: Array, tip: Vector2, dir: Vector2, hold: float, zip_speed: float, relock: bool) -> bool:
+	if s.climb != CLIMB_NONE or s.climb_locked:
+		return false
+	var remaining := (tip - (s.position + dir * HALF.x)).dot(dir)
+	var asked := maxf(remaining + CLIMB_TIP_PAST + 1.5, 0.0)
+	# Slid in steps no longer than the tongue's, so a thin ledge cannot be skipped.
+	var flush := s.position
+	var left := asked
+	var stopped := false
+	while left > 0.0:
+		var step := minf(left, CLIMB_STEP)
+		var next := _shift(flush, dir * step, rects)
+		var moved := (next - flush).dot(dir)
+		flush = next
+		left -= step
+		if moved < step - 0.001:
+			stopped = true
+			break
+	var travelled := (flush - s.position).dot(dir)
+	s.climb_abort = not stopped or travelled < remaining - CLIMB_TIP_BEFORE
+	var anchor := flush if s.climb_abort else flush - dir * CLIMB_GAP
+	if (anchor - s.position).dot(dir) < 0.0:
+		anchor = s.position
+	s.climb = CLIMB_ZIP
+	s.spare_jump = false
+	s.climb_dir = dir
+	s.climb_anchor = anchor
+	s.zip_speed = zip_speed
+	s.climb_hold = hold
+	s.climb_left = hold
+	s.climb_relock = relock
+	s.grounded = false
+	s.floor_rect = Rect2()
+	s.riding = -1
+	s.velocity = Vector2.ZERO
+	return true
+
+
+## Lets go: the body keeps no speed, and falls from this tick on.
+static func release_climb(s: State) -> void:
+	if s.climb == CLIMB_NONE:
+		return
+	s.climb = CLIMB_NONE
+	s.climb_abort = false
+	s.velocity = Vector2.ZERO
+	s.released = true
+
+
+## Lets go because the hang is over, not because of a jump, and keeps both
+## jumps for the player. Off a wall the body gets a ledge's coyote time, so a
+## press as it lets go (the end of the wiggle) is a full jump off the wall and
+## the air jump is kept. From a ceiling there is no jumping straight away, so it
+## gets a spare ground jump to use at any point in the fall, and the air jump
+## is ready too.
+static func drop_climb(cfg: MovementConfig, s: State) -> void:
+	if s.climb == CLIMB_NONE:
+		return
+	var wall := s.climb_dir.y == 0.0
+	var hung := s.climb == CLIMB_HOLD
+	release_climb(s)
+	if not hung:
+		# Let go on the way there: he never stuck, so nothing is given back.
+		return
+	if wall:
+		s.coyote = cfg.coyote_time
+	else:
+		s.spare_jump = true
+		s.air_left = s.air_jumps
+
+
+## Whether the body is hanging with the wiggle due: the last `wiggle` seconds of the hang.
+static func wiggling(s: State, wiggle: float) -> bool:
+	return s.climb == CLIMB_HOLD and wiggle > 0.0 and s.climb_left <= wiggle + 0.0001
+
+
+## One tick of a body that is being pulled to its wall or hanging on it. Returns
+## what `step` does with the rest of the tick: nothing (the body stayed on the
+## wall), or fall through to the ordinary movement as it is, as a ground jump
+## from the wall, or without a jump press (a drop from the ceiling).
+static func _climb_tick(cfg: MovementConfig, s: State, rects: Array, jump_pressed: bool, delta: float, movers: Movers, tick: int) -> int:
+	s.crushed = false
+	s.jumped = false
+	s.air_jumped = false
+	s.grounded = false
+	s.floor_rect = Rect2()
+	s.riding = -1
+	s.velocity = Vector2.ZERO
+	if jump_pressed:
+		s.buffer = cfg.jump_buffer
+	else:
+		s.buffer = maxf(0.0, s.buffer - delta)
+	if movers != null and not movers.is_empty():
+		var before := s.position
+		move_with(s, rects, movers, tick)
+		if s.crushed or s.position != before:
+			# A platform pushed the body off the wall.
+			drop_climb(cfg, s)
+			return _CLIMB_FALL
+	var holding := s.climb == CLIMB_HOLD
+	if s.climb == CLIMB_ZIP:
+		var to := s.climb_anchor - s.position
+		var dist := to.length()
+		var reach := minf(s.zip_speed * delta, dist)
+		var start := s.position
+		var cleared := true
+		if reach > 0.0:
+			# Pulled in steps no longer than the tongue's, against the room and
+			# the moving platforms as they will be, so neither can be skipped.
+			var solid: Array = rects
+			if movers != null and not movers.is_empty():
+				solid = rects + movers.rects(tick + 1)
+			var along := to / dist
+			var done := 0.0
+			while done < reach - 0.0001:
+				var piece := minf(reach - done, CLIMB_STEP)
+				var next := _shift(s.position, along * piece, solid)
+				var moved := (next - s.position).length()
+				s.position = next
+				done += piece
+				if movers != null and not movers.is_empty() and _touches_hazard_body(s.position, movers, tick + 1):
+					s.crushed = true
+					cleared = false
+					break
+				if moved < piece - 0.001:
+					cleared = false
+					break
+		s.climb_swept = Rect2(start - HALF, HALF * 2.0).merge(Rect2(s.position - HALF, HALF * 2.0))
+		if not cleared:
+			# Something is in the way of the pull: he stops there and lets go.
+			release_climb(s)
+			return _CLIMB_DONE if s.crushed else _CLIMB_FALL
+		if reach >= dist - 0.0001:
+			s.position = s.climb_anchor
+			if s.climb_abort:
+				release_climb(s)
+				return _CLIMB_FALL
+			s.climb = CLIMB_HOLD
+			s.climb_left = s.climb_hold
+			s.air_left = s.air_jumps
+	if s.climb == CLIMB_HOLD:
+		if s.buffer > 0.0:
+			var wall := s.climb_dir.y == 0.0
+			release_climb(s)
+			if wall:
+				s.coyote = cfg.coyote_time
+				return _CLIMB_WALL_JUMP
+			s.coyote = 0.0
+			s.buffer = 0.0
+			s.air_left = s.air_jumps
+			s.spare_jump = true
+			return _CLIMB_CEILING_DROP
+		if holding:
+			s.climb_left -= delta
+		if s.climb_left <= 0.0001:
+			s.climb_locked = s.climb_relock
+			drop_climb(cfg, s)
+			return _CLIMB_FALL
+	if movers != null and not movers.is_empty() and _touches_hazard_body(s.position, movers, tick + 1):
+		s.crushed = true
+	return _CLIMB_DONE
 
 
 ## The moving platforms' share of a tick, before the body's own: the one it
@@ -196,6 +425,7 @@ static func _integrate(cfg: MovementConfig, s: State, input_x: float, jump_press
 	var cut := s.cut
 	var air_jumps := s.air_jumps
 	var air_left := s.air_left
+	var spare := s.spare_jump
 	var target := 0.0
 	var accel := cfg.ground_friction if grounded else cfg.air_friction
 	if absf(input_x) > 0.01:
@@ -224,6 +454,15 @@ static func _integrate(cfg: MovementConfig, s: State, input_x: float, jump_press
 		launched = true
 		cut = false
 		coyote = 0.0
+		buffer = 0.0
+	elif jump_pressed and spare:
+		# The ground jump a ceiling drop left in hand: as strong as a ground
+		# jump, and the air jump is still to come.
+		velocity.y = -cfg.jump_speed
+		jumped = true
+		launched = true
+		cut = false
+		spare = false
 		buffer = 0.0
 	elif jump_pressed and air_left > 0:
 		# A fresh press in the air, with no ground or coyote jump to use: a
@@ -259,6 +498,7 @@ static func _integrate(cfg: MovementConfig, s: State, input_x: float, jump_press
 	s.jumped = jumped
 	s.air_jumped = air_jumped
 	s.air_left = air_left
+	s.spare_jump = spare
 
 
 ## Moves the body in `s` by its velocity for `delta`, along x and then y, and
