@@ -1,8 +1,12 @@
 extends TestCase
 
-## The solver with Imprint. A room behind a pit of spikes too wide to jump is
-## open only to a player who has found Imprint, and the validator says which
-## pickup it needs. Worlds are built from strings.
+## The solver, on worlds built from strings. A room behind a pit of spikes too
+## wide to jump is open only to a player who has found double jump, and the
+## validator says which pickup it needs. (Imprint, which used to be the key
+## here, is a legacy dev-tools feature the solver does not model.)
+
+## Nine upgrades that each raise a different stat, so each one counts.
+const NINE: Array[String] = ["tongue_speed", "tongue_snap", "tongue_length", "tongue_creep", "tongue_creep_reach", "tongue_ramp", "tongue_strike", "tongue_settle", "tongue_stick"]
 
 var _cfg: MovementConfig
 
@@ -10,52 +14,16 @@ var _cfg: MovementConfig
 func _initialize() -> void:
 	_cfg = load("res://src/player/movement.tres")
 	var ok := true
-	ok = _gate() and ok
 	ok = _double_jump() and ok
 	ok = _lash() and ok
 	ok = _progression() and ok
 	ok = _many_rounds() and ok
-	ok = _forbidden() and ok
 	ok = _locks() and ok
 	ok = _saved_lock() and ok
 	ok = _machines() and ok
 	ok = _one_way() and ok
 	ok = _tall_fall() and ok
-	ok = _barrier() and ok
-	ok = _not_last_block() and ok
-	ok = _second_simulation() and ok
-	ok = _room_six() and ok
-	ok = _from_a_mover() and ok
-	finish("IMPRINTSOLVER", ok)
-
-
-func _gate() -> bool:
-	var ok := true
-	var rooms := _world({})
-	var locked := ReachGraph.new(rooms, _cfg).analyze("1")
-	ok = check(_has(locked.errors, "Room 2 cannot be reached"), "without Imprint the room past the pit is out of reach %s" % [locked.errors]) and ok
-
-	var abilities := Abilities.new()
-	abilities.imprint_unlocked = true
-	var started := Time.get_ticks_msec()
-	var open := ReachGraph.new(rooms, _cfg, abilities).analyze("1")
-	var seconds := float(Time.get_ticks_msec() - started) / 1000.0
-	ok = check(open.errors.is_empty(), "with Imprint it is reachable, using a platform over the spikes %s" % [open.errors]) and ok
-	ok = check(seconds < 10.0, "and the search is fast enough (%.1f s)" % seconds) and ok
-
-	# A platform that breaks too soon is no use: each jump has to fit in its life.
-	abilities.imprint_duration = 1.0
-	var brief := ReachGraph.new(rooms, _cfg, abilities).analyze("1")
-	ok = check(_has(brief.errors, "Room 2 cannot be reached"), "a platform that lasts one second is not enough to cross %s" % [brief.errors]) and ok
-
-	# So short that it is gone before a jump can land on it: nothing to search.
-	abilities.imprint_duration = 0.5
-	var gone := ReachGraph.new(rooms, _cfg, abilities).analyze("1")
-	ok = check(_has(gone.errors, "Room 2 cannot be reached"), "a platform gone before a jump lands on it crosses nothing %s" % [gone.errors]) and ok
-
-	# The starting duration is the one that has to be enough.
-	ok = check(is_equal_approx(Abilities.new().imprint_duration, 1.5), "the starting duration is 1.5 seconds, which crossed the pit above") and ok
-	return ok
+	finish("SOLVER", ok)
 
 
 ## The air jump: a pit of 10 cells is crossable with one and not without, a pit
@@ -63,7 +31,7 @@ func _gate() -> bool:
 ## room 2 needs.
 func _double_jump() -> bool:
 	var ok := true
-	var narrow := {Vector2i(19, 16): ".", Vector2i(20, 16): "."}
+	var narrow := {}
 	var rooms := _world(narrow)
 	var abilities := Abilities.new()
 	abilities.air_jumps = 1
@@ -108,7 +76,7 @@ func _double_jump() -> bool:
 ## wall to lash is shut, and the cap on states is an error.
 func _lash() -> bool:
 	var ok := true
-	var header := "legend:\n  U = pickup id=gem upgrade=imprint_width value=3\n  B = breakable id=wall\n---\n"
+	var header := "legend:\n  U = pickup id=gem upgrade=tongue_cooldown value=0.5\n  B = breakable id=wall\n---\n"
 	var marks := {}
 	for x in range(9, 21):
 		marks[Vector2i(x, 16)] = "."
@@ -132,7 +100,7 @@ func _lash() -> bool:
 	ok = check(with_lash.reached_ledges == with_lash.total_ledges, "the ledge inside the box counts as reached, and no state counts as a place of its own (%d of %d)" % [with_lash.reached_ledges, with_lash.total_ledges]) and ok
 
 	# A progression: Tongue Lash is a pickup on the near side, and the pickup needs it.
-	var chain := _world(marks.merged({Vector2i(4, 16): "G"}), "legend:\n  U = pickup id=gem upgrade=imprint_width value=3\n  B = breakable id=wall\n  G = pickup id=lashpick upgrade=tongue_lash\n---\n")
+	var chain := _world(marks.merged({Vector2i(4, 16): "G"}), "legend:\n  U = pickup id=gem upgrade=tongue_cooldown value=0.5\n  B = breakable id=wall\n  G = pickup id=lashpick upgrade=tongue_lash\n---\n")
 	var report := ReachGraph.new(chain, _cfg).solve("1")
 	ok = check(report.errors.is_empty() and report.needs.get("pickup|gem") == ["lashpick"], "a pickup that gives Tongue Lash is what the one behind the wall needs (%s %s)" % [report.errors, report.needs.get("pickup|gem")]) and ok
 
@@ -147,7 +115,7 @@ func _lash() -> bool:
 	var sealed := marks.duplicate()
 	for y in range(14, 17):
 		sealed[Vector2i(22, y)] = "#"
-	var solid := ReachGraph.new(_world(sealed, "legend:\n  U = pickup id=gem upgrade=imprint_width value=3\n---\n"), _cfg, armed).analyze("1")
+	var solid := ReachGraph.new(_world(sealed, "legend:\n  U = pickup id=gem upgrade=tongue_cooldown value=0.5\n---\n"), _cfg, armed).analyze("1")
 	ok = check(_has(solid.errors, "pickup gem"), "a box of plain solid stays shut with Tongue Lash") and ok
 
 	# The copy of the room with the wall broken is cached under its own key.
@@ -169,23 +137,23 @@ func _lash() -> bool:
 
 func _progression() -> bool:
 	var ok := true
-	# The pickup that gives Imprint is on the near side.
-	var rooms := _world({Vector2i(4, 16): "U"}, "legend:\n  U = pickup id=key upgrade=imprint\n---\n")
+	# The pickup that gives double jump is on the near side.
+	var rooms := _world({Vector2i(4, 16): "U"}, "legend:\n  U = pickup id=key upgrade=double_jump value=1\n---\n")
 	var base := Abilities.new()
 	var graph := ReachGraph.new(rooms, _cfg, base)
 	var report := graph.solve("1")
 	ok = check(report.errors.is_empty(), "taking the pickup opens the way %s" % [report.errors]) and ok
 	ok = check(report.needs.get("1") == [], "room 1 needs nothing (%s)" % [report.needs.get("1")]) and ok
-	ok = check(report.needs.get("2") == ["key"], "room 2 needs the pickup that gives Imprint (%s)" % [report.needs.get("2")]) and ok
-	ok = check(not base.imprint_unlocked and not graph.abilities.imprint_unlocked, "and solving leaves the starting abilities alone") and ok
+	ok = check(report.needs.get("2") == ["key"], "room 2 needs the pickup that gives double jump (%s)" % [report.needs.get("2")]) and ok
+	ok = check(base.air_jumps == 0 and graph.abilities.air_jumps == 0, "and solving leaves the starting abilities alone") and ok
 
-	# A reward on the far side needs Imprint too, and says so.
-	rooms = _world({Vector2i(4, 16): "U", Vector2i(26, 16): "V"}, "legend:\n  U = pickup id=key upgrade=imprint\n  V = pickup id=wide upgrade=imprint_width value=3\n---\n")
+	# A reward on the far side needs double jump too, and says so.
+	rooms = _world({Vector2i(4, 16): "U", Vector2i(26, 16): "V"}, "legend:\n  U = pickup id=key upgrade=double_jump value=1\n  V = pickup id=wide upgrade=tongue_cooldown value=0.5\n---\n")
 	report = ReachGraph.new(rooms, _cfg).solve("1")
-	ok = check(report.errors.is_empty() and report.needs.get("pickup|wide") == ["key"] and not report.needs.has("pickup|key"), "a pickup across the pit needs the Imprint pickup, which needs nothing (%s)" % [report.needs]) and ok
+	ok = check(report.errors.is_empty() and report.needs.get("pickup|wide") == ["key"] and not report.needs.has("pickup|key"), "a pickup across the pit needs the double jump pickup, which needs nothing (%s)" % [report.needs]) and ok
 
 	# The same pickup on the far side can never be taken.
-	rooms = _world({Vector2i(26, 16): "U"}, "legend:\n  U = pickup id=key upgrade=imprint\n---\n")
+	rooms = _world({Vector2i(26, 16): "U"}, "legend:\n  U = pickup id=key upgrade=double_jump value=1\n---\n")
 	report = ReachGraph.new(rooms, _cfg).solve("1")
 	ok = check(_has(report.errors, "Room 2 cannot be reached") and _has(report.errors, "pickup key"), "a pickup behind its own gate is an error %s" % [report.errors]) and ok
 	return ok
@@ -193,7 +161,7 @@ func _progression() -> bool:
 
 ## Nine ability-changing pickups in sequence need more rounds than the old
 ## fixed limit allowed. Reachability is scripted so this tests the progression
-## loop and real upgrade application without nine expensive Imprint searches.
+## loop and real upgrade application without nine expensive solves.
 func _many_rounds() -> bool:
 	var glyphs := "ABCDEFGHIJ"
 	var spots: Array[Vector2i] = [
@@ -208,13 +176,12 @@ func _many_rounds() -> bool:
 	for i in 9:
 		var glyph := glyphs.substr(i, 1)
 		var id := "effect_%d" % (i + 1)
-		var effect := "step_%d" % (i + 1)
 		marks[spots[i]] = glyph
-		legend.append("  %s = pickup id=%s upgrade=imprint_effect value=%s" % [glyph, id, effect])
+		legend.append("  %s = pickup id=%s upgrade=%s value=1000" % [glyph, id, NINE[i]])
 		chain.append(id)
 	var goal_glyph := glyphs.substr(9, 1)
 	marks[spots[9]] = goal_glyph
-	legend.append("  %s = pickup id=goal upgrade=imprint_effect value=step_9" % goal_glyph)
+	legend.append("  %s = pickup id=goal upgrade=%s value=1000" % [goal_glyph, NINE[8]])
 	legend.append("---")
 	chain.append("goal")
 
@@ -231,23 +198,7 @@ func _many_rounds() -> bool:
 	ok = check(report.errors.is_empty(), "a progression chain longer than eight rounds has no errors %s" % [report.errors]) and ok
 	ok = check(goal_reached, "the pickup after nine sequential upgrades is reached") and ok
 	ok = check(report.needs.get("pickup|goal") == expected, "the final pickup needs all nine earlier upgrades (%s)" % [report.needs.get("pickup|goal")]) and ok
-	ok = check(base.imprint_effects.is_empty() and graph.abilities.imprint_effects.is_empty(), "the long solve leaves the starting abilities alone") and ok
-	return ok
-
-
-func _forbidden() -> bool:
-	var ok := true
-	# ~ cells over the whole pit leave no place for a platform.
-	var marks := {}
-	for y in range(8, 17):
-		for x in range(9, 21):
-			if y != 16:
-				marks[Vector2i(x, y)] = "~"
-	var rooms := _world(marks)
-	var abilities := Abilities.new()
-	abilities.imprint_unlocked = true
-	var report := ReachGraph.new(rooms, _cfg, abilities).analyze("1")
-	ok = check(_has(report.errors, "Room 2 cannot be reached"), "~ cells over the pit forbid the platform, and the room stays shut %s" % [report.errors]) and ok
+	ok = check(base.to_dict() == Abilities.new().to_dict() and graph.abilities.to_dict() == Abilities.new().to_dict(), "the long solve leaves the starting abilities alone") and ok
 	return ok
 
 
@@ -316,25 +267,25 @@ func _locks() -> bool:
 	return ok
 
 
-## Three tokens and a 3TM that gives Imprint, on the near side of the pit. The
+## Three tokens and a 3TM that gives double jump, on the near side of the pit. The
 ## machine only pays out once all three are taken.
 func _machines() -> bool:
 	var ok := true
-	var legend := "legend:\n  A = token id=t1\n  B = token id=t2\n  C = token id=t3\n  M = machine id=m upgrade=imprint\n---\n"
+	var legend := "legend:\n  A = token id=t1\n  B = token id=t2\n  C = token id=t3\n  M = machine id=m upgrade=double_jump value=1\n---\n"
 	var marks := {Vector2i(3, 16): "A", Vector2i(4, 16): "B", Vector2i(4, 13): "C", Vector2i(6, 16): "M"}
 	var report := ReachGraph.new(_world(marks, legend), _cfg).solve("1")
-	ok = check(report.errors.is_empty(), "three tokens and a 3TM give Imprint, which opens the pit %s" % [report.errors]) and ok
+	ok = check(report.errors.is_empty(), "three tokens and a 3TM give double jump, which opens the pit %s" % [report.errors]) and ok
 	ok = check(report.needs.get("2") == ["m", "t1", "t2", "t3"], "room 2 needs all three tokens and the machine (%s)" % [report.needs.get("2")]) and ok
 	ok = check(report.needs.get("1") == [], "room 1 needs nothing (%s)" % [report.needs.get("1")]) and ok
 
 	marks.erase(Vector2i(4, 13))
-	legend = "legend:\n  A = token id=t1\n  B = token id=t2\n  M = machine id=m upgrade=imprint\n---\n"
+	legend = "legend:\n  A = token id=t1\n  B = token id=t2\n  M = machine id=m upgrade=double_jump value=1\n---\n"
 	report = ReachGraph.new(_world(marks, legend), _cfg).solve("1")
 	ok = check(_has(report.errors, "Room 2 cannot be reached"), "two tokens are not enough, and the room stays shut %s" % [report.errors]) and ok
 
 	# A 3TM nobody can touch is reported like any other thing out of reach.
 	marks = {Vector2i(3, 16): "A", Vector2i(4, 16): "B", Vector2i(4, 13): "C", Vector2i(6, 6): "M"}
-	legend = "legend:\n  A = token id=t1\n  B = token id=t2\n  C = token id=t3\n  M = machine id=m upgrade=imprint\n---\n"
+	legend = "legend:\n  A = token id=t1\n  B = token id=t2\n  C = token id=t3\n  M = machine id=m upgrade=double_jump value=1\n---\n"
 	report = ReachGraph.new(_world(marks, legend), _cfg).solve("1")
 	ok = check(_has(report.errors, "machine m"), "a 3TM up where nobody can touch it is an error %s" % [report.errors]) and ok
 	return ok
@@ -377,238 +328,6 @@ func _tall_fall() -> bool:
 	return ok
 
 
-## Room 6's shape: a hole in the floor that a wall and a roof cover on the side
-## the player comes from. The wall is six cells tall, more than a jump, so only
-## an Imprint platform gets the player over it.
-func _barrier() -> bool:
-	var ok := true
-	var marks := {Vector2i(28, 16): "P"}
-	for x in range(6, 11):
-		marks[Vector2i(x, 11)] = "#"
-	for y in range(12, 17):
-		marks[Vector2i(10, y)] = "#"
-	var ceiling := {}
-	for x in range(2, 10):
-		marks[Vector2i(x, 17)] = "X"
-		ceiling[Vector2i(x, 0)] = "X"
-	var rooms := _rooms([[marks, ""], [ceiling, "trap: allowed\n---\n"]], true)
-	var shut := ReachGraph.new(rooms, _cfg).analyze("1")
-	ok = check(_has(shut.errors, "Room 2 cannot be reached"), "a wall six cells tall keeps the player from the hole %s" % [shut.errors]) and ok
-	var abilities := Abilities.new()
-	abilities.imprint_unlocked = true
-	var open := ReachGraph.new(rooms, _cfg, abilities).analyze("1")
-	ok = check(open.errors.is_empty(), "and an Imprint platform gets them over %s" % [open.errors]) and ok
-
-	# At four cells the wall is a plain jump.
-	for y in range(11, 13):
-		for x in range(6, 11):
-			marks.erase(Vector2i(x, y)) if y == 11 else null
-	marks.clear()
-	marks[Vector2i(28, 16)] = "P"
-	for x in range(6, 11):
-		marks[Vector2i(x, 13)] = "#"
-	for y in range(14, 17):
-		marks[Vector2i(10, y)] = "#"
-	for x in range(2, 10):
-		marks[Vector2i(x, 17)] = "X"
-	var low := ReachGraph.new(_rooms([[marks, ""], [ceiling, "trap: allowed\n---\n"]], true), _cfg).analyze("1")
-	ok = check(low.errors.is_empty(), "a wall four cells tall is just a jump %s" % [low.errors]) and ok
-	return ok
-
-
-## The solver counts only the block that lasts as footing, and which block that
-## is depends on where the player stood to place it: the jump's start. A jump
-## that comes down on any other block is not counted, even though the block is
-## there when it lands, because it goes first. A platform of one, whose only
-## block is the last, counts the same landing. Found by looking, on a plain floor.
-func _not_last_block() -> bool:
-	var ok := true
-	var fixture := _floor_fixture(3)
-	var search: ImprintSearch = fixture["search"]
-	var narrow: Dictionary = _floor_fixture(1)
-	var limit := 80
-	var found: ImprintSearch.Candidate = null
-	var block := Vector2i.ZERO
-	for row in range(16, 11, -1):
-		for column in range(2, 28):
-			var cell := Vector2i(column, row)
-			var full: Array[Rect2] = fixture["near"].duplicate()
-			full.append(Grid.cell_rect(Rect2i(cell, Vector2i(3, 1))))
-			for arc: ImprintSearch.Arc in search._arcs_of(fixture["ledge"], fixture["info"], fixture["geo"]):
-				var lasts: Array[Vector2i] = search._last_cells(cell, 3, arc.start.x)
-				if lasts.size() != 1:
-					continue
-				var last := Grid.cell_rect(Rect2i(lasts[0], Vector2i(1, 1)))
-				var on_last: Vector2 = search._landing(fixture["geo"], arc, full, last, limit)
-				if on_last.x == on_last.x:
-					continue
-				for k in 3:
-					var other := Vector2i(column + k, row)
-					if other == lasts[0]:
-						continue
-					var rect := Grid.cell_rect(Rect2i(other, Vector2i(1, 1)))
-					var on_full: Vector2 = search._landing(fixture["geo"], arc, full, rect, limit)
-					var alone: Array[Rect2] = fixture["near"].duplicate()
-					alone.append(rect)
-					var on_alone: Vector2 = search._landing(fixture["geo"], arc, alone, rect, limit)
-					if on_full.x == on_full.x and on_alone.x == on_alone.x and on_full.distance_to(on_alone) < 0.5:
-						found = ImprintSearch.Candidate.new()
-						found.cell = cell
-						found.arcs.append(arc)
-						block = other
-						break
-				if found != null:
-					break
-			if found != null:
-				break
-		if found != null:
-			break
-	ok = check(found != null, "a jump that lands only on a block that goes before the last one exists") and ok
-	ok = check(found != null and not search._lands_on(fixture["info"], fixture["geo"], fixture["ledge"], found, limit), "and with a platform of three it is not counted") and ok
-	if found != null:
-		var one := ImprintSearch.Candidate.new()
-		one.cell = block
-		one.arcs = found.arcs
-		var narrow_search: ImprintSearch = narrow["search"]
-		ok = check(narrow_search._lands_on(narrow["info"], narrow["geo"], narrow["ledge"], one, limit) and one.last == block, "while a platform of one on that block counts it") and ok
-
-	# Which block lasts, from where the player stands: the nearest, or either of two on a tie.
-	ok = check(search._last_cells(Vector2i(10, 12), 3, 50.0) == [Vector2i(10, 12)], "a player to the left: the left block lasts") and ok
-	ok = check(search._last_cells(Vector2i(10, 12), 3, 300.0) == [Vector2i(12, 12)], "a player to the right: the right block lasts") and ok
-	ok = check(search._last_cells(Vector2i(10, 12), 3, 115.0) == [Vector2i(11, 12)], "a player under the middle: the middle lasts") and ok
-	ok = check(search._last_cells(Vector2i(10, 12), 2, 110.0) == [Vector2i(11, 12), Vector2i(10, 12)], "on a tie either block may last, as the player may face either way (%s)" % [search._last_cells(Vector2i(10, 12), 2, 110.0)]) and ok
-	return ok
-
-
-## A plain floor with the start on the left, and the solver parts for a platform
-## of `width`: the graph, the search, the room, its geometry, the start ledge and
-## the solids near it.
-func _floor_fixture(width: int) -> Dictionary:
-	var abilities := Abilities.new()
-	abilities.imprint_unlocked = true
-	abilities.imprint_width = width
-	var rooms := _rooms([[{Vector2i(3, 16): "P"}, ""]])
-	var graph := ReachGraph.new(rooms, _cfg, abilities)
-	var info := graph.room_info("1")
-	var geo := graph.geometry_of(info)
-	var ledge: ReachGraph.Ledge = graph.ledges_in("1")[0]
-	return {"graph": graph, "search": ImprintSearch.new(graph), "info": info, "geo": geo, "ledge": ledge, "near": graph.near_solids(geo.rects, ledge)}
-
-
-## A jump that lands on the last block only because the platform's other blocks
-## are there (it brushes one, and is carried onto the last) is no use once they
-## have gone. `_lands_on` runs the jump again with the last block alone and
-## drops it. Found by looking: on a plain floor, a platform of three, the jumps
-## from the start ledge that land on the last block with the whole platform
-## there, and where they land with the last block alone.
-func _second_simulation() -> bool:
-	var ok := true
-	var fixture := _floor_fixture(3)
-	var search: ImprintSearch = fixture["search"]
-	var info: RoomInfo = fixture["info"]
-	var geo: ReachGraph.Geometry = fixture["geo"]
-	var ledge: ReachGraph.Ledge = fixture["ledge"]
-	var near: Array[Rect2] = fixture["near"]
-	var limit := 80
-	var carried: ImprintSearch.Candidate = null
-	var steady: ImprintSearch.Candidate = null
-	for row in range(16, 11, -1):
-		for column in range(2, 28):
-			var cell := Vector2i(column, row)
-			var full: Array[Rect2] = near.duplicate()
-			full.append(Grid.cell_rect(Rect2i(cell, Vector2i(3, 1))))
-			for arc: ImprintSearch.Arc in search._arcs_of(ledge, info, geo):
-				if carried != null and steady != null:
-					break
-				var lasts: Array[Vector2i] = search._last_cells(cell, 3, arc.start.x)
-				if lasts.size() != 1:
-					continue
-				var last := Grid.cell_rect(Rect2i(lasts[0], Vector2i(1, 1)))
-				var with_all: Vector2 = search._landing(geo, arc, full, last, limit)
-				if with_all.x != with_all.x:
-					continue
-				var alone: Array[Rect2] = near.duplicate()
-				alone.append(last)
-				var by_itself: Vector2 = search._landing(geo, arc, alone, last, limit)
-				var made := ImprintSearch.Candidate.new()
-				made.cell = cell
-				made.arcs.append(arc)
-				if by_itself.x != by_itself.x and carried == null:
-					carried = made
-				elif by_itself.x == by_itself.x and with_all.distance_to(by_itself) < 0.5 and steady == null:
-					steady = made
-			if carried != null and steady != null:
-				break
-		if carried != null and steady != null:
-			break
-	ok = check(carried != null, "a jump that lands on the last block only because of the others exists") and ok
-	ok = check(carried != null and not search._lands_on(info, geo, ledge, carried, limit), "and it is not counted") and ok
-	ok = check(steady != null and search._lands_on(info, geo, ledge, steady, limit), "while a jump that lands the same with the last block alone is") and ok
-	return ok
-
-
-## The real room 6 and room 7, lifted out of the world: without Imprint the
-## wall keeps the player from the hole, and with it they get over.
-func _room_six() -> bool:
-	var ok := true
-	var six := FileAccess.get_file_as_string("res://data/rooms/6.txt").split("\n")
-	# Row 16 of the grid, below the header (a `trap:` line and a divider) if there is one.
-	var top := six.find("---") + 1
-	six[top + 16] = six[top + 16].substr(0, 28) + "P" + six[top + 16].substr(29)
-	var seven := FileAccess.get_file_as_string("res://data/rooms/7.txt")
-	var errors: Array[String] = []
-	var built := RoomParser.build([
-		{"id": "6", "grid_pos": Vector2i(0, 0), "text": "\n".join(six)},
-		{"id": "7", "grid_pos": Vector2i(0, 1), "text": seven},
-	], "6", errors)
-	ok = check(errors.is_empty(), "room 6 and 7 load on their own %s" % [errors]) and ok
-	var shut := ReachGraph.new(built["rooms"], _cfg).analyze("6")
-	ok = check(_has(shut.errors, "Room 7 cannot be reached"), "room 6's wall keeps the player from the hole without Imprint %s" % [shut.errors]) and ok
-	var abilities := Abilities.new()
-	abilities.imprint_unlocked = true
-	var open := ReachGraph.new(built["rooms"], _cfg, abilities).analyze("6")
-	ok = check(open.errors.size() == 1 and open.reached_rooms.has("7"), "and with Imprint they drop into room 7 %s" % [open.errors]) and ok
-	# Without room 11 beyond exit 2, nothing in room 7 gets up to its health
-	# pip, with a platform 2 or 3 wide: it is reached only by the drop.
-	ok = check(_has(open.errors, "health r7_health"), "room 7's pip is out of reach from below with a 2-wide Imprint %s" % [open.errors]) and ok
-	abilities.imprint_width = 3
-	var wide := ReachGraph.new(built["rooms"], _cfg, abilities).analyze("6")
-	ok = check(_has(wide.errors, "health r7_health"), "and with a 3-wide one %s" % [wide.errors]) and ok
-	return ok
-
-
-## A rider can put an Imprint down. Room 1's floor ends at spikes; a platform
-## slides right over them, and a door is high in the far wall, eight rows above
-## the rider: out of a jump, and out of reach from the floor even with Imprint.
-## Only a platform placed while riding gets there.
-func _from_a_mover() -> bool:
-	var ok := true
-	var marks := {Vector2i(2, 16): "P"}
-	for x in range(5, 31):
-		marks[Vector2i(x, 16)] = "^"
-	for x in range(5, 10):
-		marks[Vector2i(x, 13)] = "L"
-	for x in range(10, 21):
-		marks[Vector2i(x, 13)] = "-"
-	for x in range(24, 31):
-		marks[Vector2i(x, 5)] = "#"
-	for y in range(2, 5):
-		marks[Vector2i(31, y)] = "X"
-	var errors: Array[String] = []
-	var rooms: Dictionary = RoomParser.build([
-		{"id": "1", "grid_pos": Vector2i(0, 0), "text": "legend:\n  L = platform id=t_lift speed=60\n---\n" + _room(marks)},
-		{"id": "2", "grid_pos": Vector2i(1, 0), "text": _room({Vector2i(0, 2): "X", Vector2i(0, 3): "X", Vector2i(0, 4): "X", Vector2i(1, 5): "#", Vector2i(2, 5): "#"})},
-	], "1", errors)["rooms"]
-	ok = check(errors.is_empty(), "the moving-platform world loads %s" % [errors]) and ok
-	var plain := ReachGraph.new(rooms, _cfg).analyze("1")
-	ok = check(_has(plain.errors, "Room 2 cannot be reached"), "without Imprint the high door is out of reach %s" % [plain.errors]) and ok
-	var abilities := Abilities.new()
-	abilities.imprint_unlocked = true
-	var open := ReachGraph.new(rooms, _cfg, abilities).analyze("1")
-	ok = check(not _has(open.errors, "Room 2 cannot be reached"), "a platform put down while riding reaches it %s" % [open.errors]) and ok
-	return ok
-
-
 ## One screen wide and `rows` tall, a floor and walls, and a door in the ceiling
 ## at columns 2 to 9 and 6 to 12.
 func _tall(rows: int) -> String:
@@ -636,11 +355,11 @@ func _rooms(parts: Array, vertical := false, ids := []) -> Dictionary:
 	return built["rooms"]
 
 
-## Two rooms side by side. Room 1 is a floor with a pit of spikes 12 cells wide
+## Two rooms side by side. Room 1 is a floor with a pit of spikes 10 cells wide
 ## in it, a start on the left, and a door on the far side that leads to room 2.
 func _world(marks: Dictionary, header := "") -> Dictionary:
 	var first := {Vector2i(2, 16): "P", Vector2i(31, 15): "X", Vector2i(31, 16): "X"}
-	for x in range(9, 21):
+	for x in range(9, 19):
 		first[Vector2i(x, 16)] = "^"
 	first.merge(marks, true)
 	var errors: Array[String] = []

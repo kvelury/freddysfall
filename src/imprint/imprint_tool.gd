@@ -35,7 +35,6 @@ var _reason := ""
 var _preview_cell := Vector2i.ZERO
 var _key := ""
 var _mouse_seen := false
-var _hidden_cursor := false
 ## Whether the last frame drew anything, so the frame after it can wipe it.
 var _was_showing := false
 
@@ -143,7 +142,6 @@ func _physics_process(delta: float) -> void:
 
 
 func _process(_delta: float) -> void:
-	_set_cursor_hidden(is_active() and not scripted)
 	var showing := is_active() or not platforms.is_empty()
 	# One more redraw after the last thing is gone, so it is wiped from the screen.
 	if showing or _was_showing:
@@ -248,13 +246,6 @@ func _local_all(list: Array[ImprintPlatform], room: Room) -> Array[Rect2]:
 	for platform in list:
 		out.append(_local(platform.rect, room))
 	return out
-
-
-func _set_cursor_hidden(hide: bool) -> void:
-	if hide == _hidden_cursor:
-		return
-	_hidden_cursor = hide
-	Input.mouse_mode = Input.MOUSE_MODE_HIDDEN if hide else Input.MOUSE_MODE_VISIBLE
 
 
 func _draw() -> void:

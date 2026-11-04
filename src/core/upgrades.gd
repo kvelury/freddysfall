@@ -42,6 +42,8 @@ static func check(id: String, text: String) -> String:
 	var def := get_def(id)
 	if def.kind.is_empty():
 		return "there is no upgrade \"%s\" (upgrades: %s)" % [id, ", ".join(all().keys())]
+	if def.dev_only:
+		return "upgrade %s is a legacy dev-tools feature; no room may give it" % id
 	if def.kind == "unlock":
 		return "" if text.is_empty() else "upgrade %s takes no value, but was given \"%s\"" % [id, text]
 	if text.is_empty():

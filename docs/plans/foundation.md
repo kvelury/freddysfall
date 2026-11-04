@@ -1,5 +1,7 @@
 # Freddy's Fall — foundation plan before building out the metroidvania
 
+> **Historical.** This plan was written when Imprint was to be the core mechanic. On 2026-11-03 Imprint became a legacy dev-tools feature and the solver stopped modelling it (see the design doc's Decision log). Read the Imprint parts below as history.
+
 > **History.** This is the plan the project was set up from. Its statuses and chunk numbers are out of date: work is called by pull request number now. The current record is `README.md` (code and rules), `docs/design/game-design.md` (the game, how it is built, and the decision log) and `AGENTS.md`.
 > **Current dev workflow:** F2/F4 use isolated sessions; release builds opt in with `?dev=1` / `--dev`. See [Dev playtesting](../design/game-design.md#dev-playtesting) and the mandatory feature-support rule in [AGENTS.md](../../AGENTS.md). The old Chunk 3 F4/save behavior below is historical.
 

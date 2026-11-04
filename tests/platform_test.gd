@@ -77,7 +77,7 @@ func _parser() -> bool:
 	ok = check(_has(errors, "0 or more"), "a pause below 0 is an error") and ok
 	errors = _errors({Vector2i(0, 14): "#.....LLLLL--------............#", Vector2i(0, 13): "#............MMM-----..........#"}, "  L = platform id=p1 speed=60\n  M = platform id=p2 speed=60\n")
 	ok = check(_has(errors, "needs open air in the row above"), "another platform in the row above a track is an error") and ok
-	errors = _errors({Vector2i(0, 14): "#.....LLLLL--------............#", Vector2i(0, 16): "#.........M....................#"}, "  L = platform id=p1 speed=60\n  M = machine id=m1 upgrade=imprint\n")
+	errors = _errors({Vector2i(0, 14): "#.....LLLLL--------............#", Vector2i(0, 16): "#.........M....................#"}, "  L = platform id=p1 speed=60\n  M = machine id=m1 upgrade=tongue_lash\n")
 	ok = check(_has(errors, "in the way of moving platform"), "a 3TM in a platform's way is an error") and ok
 
 	# A door: the track has to stay a cell clear of it.

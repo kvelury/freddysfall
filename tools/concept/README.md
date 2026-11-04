@@ -22,3 +22,5 @@ python3 tools/concept/compose.py
 
 Build mode's slow-motion in the demo is `Engine.time_scale`. That is fine for a
 video but not for the game: see the design doc for why.
+
+> **Shelved (2026-11-03).** Imprint is a legacy dev-tools feature and not a core mechanic, so this aiming concept will not be built unless Imprint comes back. It is kept as a record.

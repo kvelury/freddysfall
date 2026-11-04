@@ -3,7 +3,7 @@ extends RefCounted
 
 ## All of the player's movement. The player and the reach solver both advance
 ## a State with step(), so a jump the solver finds is a jump the player makes.
-## Imprint reachability should call simulate_jump() against a room's
+## Anything that asks whether a jump works (the solver, the legacy Imprint preview) calls simulate_jump() against a room's
 ## rectangles instead of copying these formulas.
 ##
 ## Moving platforms come in as `movers` and the tick they are at. A body

@@ -12,11 +12,11 @@ const OWNER := "power"
 var opened := false
 var _world: Node
 var _name: Label
+var _prompt: Label
 var _view: ControlsView
 ## Seconds it has been open, counted in frames (it runs while the game is
 ## paused, and slow motion does not stretch it).
 var _open_for := 0.0
-var _mouse_before := Input.MOUSE_MODE_VISIBLE
 
 
 func _ready() -> void:
@@ -49,7 +49,8 @@ func _ready() -> void:
 	_view.centered = true
 	_view.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	column.add_child(_view)
-	column.add_child(_text("Enter / click to continue", 8))
+	_prompt = _text("Press any key to continue", 8)
+	column.add_child(_prompt)
 	hide()
 
 
@@ -65,8 +66,6 @@ func open(id: String) -> bool:
 		rows.append(Controls.get_row(String(row_id)))
 	_view.show_rows(rows)
 	_open_for = 0.0
-	_mouse_before = Input.mouse_mode
-	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	opened = true
 	show()
 	return true
@@ -77,23 +76,16 @@ func dismiss() -> void:
 		return
 	opened = false
 	hide()
-	Input.mouse_mode = _mouse_before
 	_world.release_modal(OWNER)
 
 
 func _process(delta: float) -> void:
 	if opened:
 		_open_for += delta / maxf(Engine.time_scale, 0.001)
-		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
 
 func _input(event: InputEvent) -> void:
-	if not opened or not event.is_pressed() or event.is_echo():
-		return
-	var wanted := event.is_action_pressed("ui_accept") or event.is_action_pressed("pause") or event.is_action_pressed("jump") or event.is_action_pressed("look_up")
-	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
-		wanted = true
-	if not wanted:
+	if not opened or not Controls.dismisses(event):
 		return
 	get_viewport().set_input_as_handled()
 	if _open_for >= MIN_SHOW:

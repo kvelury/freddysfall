@@ -132,7 +132,7 @@ The user confirmed the merged room 7 layout and the subsequent falling-performan
 - [ ] **Pause, retry and room changes.** Open/close F2 or the map during the fall, retry, die and respawn, and cross into s2. No camera sweep from an old position or drift during pause.
 - [ ] **Cursor and placement.** Legal positions still show the dotted outline, blocked positions the cross; clicking while an Imprint stands does not replace it or restart its life. Try cooldown and shrinking in F2.
 
-## Imprint lockout
+## Imprint lockout (legacy, dev tools only)
 
 Nobody has played these yet. Headless tests prove the rule, not the feel. Use `?room=5` after the 3TM, or `?dev=1&room=5` with Imprint turned on in F2 (room 4's 3TM now gives double jump, not Imprint).
 
@@ -143,7 +143,7 @@ Nobody has played these yet. Headless tests prove the rule, not the feel. Use `?
 - [ ] **The cooldown at 0.2 s.** In F2 set the cooldown to 0.2 and Apply: after each break the × stays for about a fifth of a second. Does it feel fair, or should it stay at 0 (the default)? Also try 0.5.
 - [ ] **Leaving a room or dying** with a cooldown running: the next room starts with no cooldown.
 
-## Rooms 7 to 11
+## Rooms 7 to 11 (the Imprint steps are legacy: dev tools only)
 
 Start `?dev=1&room=6` with Imprint on in F2 (or later rooms directly with `room=<id>`).
 
@@ -168,7 +168,7 @@ Nobody has played this yet. `?dev=1&room=2` (a token) or `?dev=1&room=7` (the pi
 - [ ] **Nothing fades and nothing is between pixels**, at 1280×720 and fullscreen. The flight is quick and reads as going *into* the HUD.
 - [ ] **A reload, a retry or End playtest** shows the right counts at once with nothing flying.
 
-## Imprint shrinking
+## Imprint shrinking (legacy, dev tools only)
 
 Nobody has played these yet. Headless tests prove the order, the timing and the solver, not the feel. Use `?dev=1&room=5` with Imprint turned on in F2 (or `?room=5` after the 3TM).
 
@@ -258,9 +258,8 @@ panel render is a layout check, not a completed human browser playthrough.
 
 ## The solver
 
-- [ ] **A room that the validator calls shut but that a person can open.** The search leaves out placing a platform in mid-air and using two in a row. If you find a way across with either, we know which one to add. Room 5's pit is the best place to try: it might be crossable from the floor with two platforms in a row.
+- [ ] **A room that the validator calls shut but that a person can open.** The search tries a fixed set of jumps (Imprint is not modelled). If you find a way across it did not try, we know which one to add. Room 5's pit is the best place to try: it might be crossable from the floor with two platforms in a row.
 - [ ] **A room that the validator opens but a person cannot.** The search ignores the limit of three tokens, and does not treat a blocked doorway as a wall for a body falling through a chain of doors.
-- [ ] **A `~` cell in a real room.** None of the rooms use one. Try it on the pit in room 5 or the wall in room 6 to see the solver shut the room again and the cross appear in the game.
 - [ ] **Validator time.** On 2026-10-22, `tools/validate.sh --no-cache` took 13.5 seconds for 7 rooms and a warm cached run took 1.5 seconds. Before the room merge, with 9 rooms and room 8's moving platform it took about 32 seconds cold and 8 warm (main was already at 28 and 8 before the platform). It keeps what it works out about each room in `build/solver-cache/`. Check the numbers again as the world grows. Edit one room and run it again: only that room should be redone (the `cache:` line says how many). If an answer ever looks stale, `tools/validate.sh --no-cache` or deleting `build/solver-cache` gives the answer from scratch.
 
 ## Movement and doors
@@ -275,14 +274,15 @@ panel render is a layout check, not a completed human browser playthrough.
 
 Nobody has played these. Headless tests prove the logic, not how they look or feel. Use `tools/build_web.sh` and `tools/serve.sh`, then http://localhost:8060 (and the published site after the merge).
 
+- [ ] **The cursor.** It shows in the main menu, the pause menu and the F2 panel, and is hidden while playing (after Resume, after the panel closes, after a popup or Game Over). The game never reacts to the mouse in play.
 - [ ] **The main menu.** It shows first, with "Freddy's Fall" and the items. Mouse hover selects (inverted box) and a click picks. Up / Down / W / S move and wrap, Enter and Space pick.
 - [ ] **Start Game, Continue, New Game.** With no save: Start Game and Controls. With a save: Continue (resumes at the last save machine), New Game (asks first, No is selected, Esc answers No; Yes starts over) and Controls.
 - [ ] **`?new-game=1`** erases the save and shows the menu with Start Game. `?room=7` and `?dev=1&room=4` skip the menu.
 - [ ] **Controls and Back.** The page lists Move, Jump, Map, Map zoom and Pause as key pictures with what they do (arrows drawn as arrows). Does it read well at 1280×720 and fullscreen?
-- [ ] **Pause.** Esc and P open the pause menu and close it; the game is frozen and dimmed behind it. Resume, then Space and a click do not lash or place Imprint. During a door slide or a death the pause waits for it to end. It does not open over the map or the F2 panel.
+- [ ] **Pause.** Esc and P open the pause menu and close it; the game is frozen and dimmed behind it. Resume, then Space does not lash or jump. During a door slide or a death the pause waits for it to end. It does not open over the map or the F2 panel.
 - [ ] **Pause, Controls.** The same page, plus a row for each power you own (double jump after room 4's 3TM, Lash after room 9's). Esc or P goes back to the pause list.
 - [ ] **Pause, Main menu** then Continue: back at the last save machine with everything still collected.
-- [ ] **The power popups.** Room 4's 3TM (double jump) and room 9's 3TM (Tongue Lash) pause the game on "NEW POWER" with the key picture. Enter, Space, a click, W or Esc dismisses it after a moment, and play resumes. F2 edits show no popup.
+- [ ] **The power popups.** Room 4's 3TM (double jump) and room 9's 3TM (Tongue Lash) pause the game on "NEW POWER" with the key picture and "Press any key to continue". Any key (a letter, Space, an arrow, Esc) dismisses it after a moment, and play resumes without that key also jumping or lashing. A mouse click and F2/F3 do not dismiss it. F2 edits show no popup.
 - [ ] **The room 7 title card.** The first drop from room 6 shows "Freddy's Fall" as the slide starts and it is gone about as Freddy lands. It does not show again after a reload or a second drop. A new game shows it again. Does the timing feel right, including after a double jump?
 
 ## Published site
@@ -299,7 +299,7 @@ Room 7's title card and its 3TM, gamepad and keyboard aiming, touch input, sound
 Nobody has played these yet. Start a normal game (`http://localhost:8060`) for Game Saved, since test sessions hide it. For Game Over use `?dev=1&room=5`, or walk to room 5's spikes.
 
 - [ ] **Game Saved.** Walk into the sphere in s1: "Game Saved" fades in at the middle of the screen as it closes, holds a moment and fades out, without stopping the spin. Is it readable over the platforms and the sphere? Does it feel too big or too small?
-- [ ] **Game Over.** Touch room 5's spikes on your last heart (the heart blinks out first): after the shatter the screen fades to black, "GAME OVER" and "Enter / click to continue" come up. Does the fade feel too slow?
+- [ ] **Game Over.** Touch room 5's spikes on your last heart (the heart blinks out first): after the shatter the screen fades to black, "GAME OVER" and "Press any key to continue" come up. Does the fade feel too slow? Any letter, Space, an arrow or Esc continues after a moment; a mouse click and F2/F3 do not.
 - [ ] **The keys.** Enter, Space, W, Up, Escape and a left click go on, as on the new power screen (Escape does not also open the pause menu); other keys do nothing. Mashing in the first moments does not skip it.
 - [ ] **Coming back.** The save room fades in from black, the sphere spins and pops you out to the right. The HUD hearts are refilled.
 - [ ] **With a spare heart.** Set two hearts in F2 and die: no screen, back on the safe floor with one. Die again: the screen.

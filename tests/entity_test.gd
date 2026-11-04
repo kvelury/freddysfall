@@ -3,7 +3,7 @@ extends TestCase
 ## The room legend: a valid one gives things with cells and settings, and every
 ## way of writing one wrong is reported, in words, with its line.
 
-const LEGEND_LINE := "  U = pickup id=a upgrade=imprint_width value=3"
+const LEGEND_LINE := "  U = pickup id=a upgrade=double_jump value=3"
 
 
 func _initialize() -> void:
@@ -32,11 +32,11 @@ func _valid() -> bool:
 	if info.entities.size() == 1:
 		var def := info.entities[0]
 		ok = check(def.type == "pickup" and def.id == "a" and def.cell == Vector2i(5, 3), "it is a pickup called a, at cell 5,3 (%s %s %s)" % [def.type, def.id, def.cell]) and ok
-		ok = check(def.props == {"upgrade": "imprint_width", "value": "3"}, "its settings are kept (%s)" % [def.props]) and ok
+		ok = check(def.props == {"upgrade": "double_jump", "value": "3"}, "its settings are kept (%s)" % [def.props]) and ok
 	ok = check(not info.is_solid(5, 3) and not info.is_hazard(5, 3), "the glyph is open air to walk through") and ok
 
 	errors.clear()
-	info = RoomParser.parse_room("7", Vector2i.ZERO, _room(["legend:", "  U = pickup id=a upgrade=imprint"], {Vector2i(5, 3): "U"}), errors)
+	info = RoomParser.parse_room("7", Vector2i.ZERO, _room(["legend:", "  U = pickup id=a upgrade=tongue_lash"], {Vector2i(5, 3): "U"}), errors)
 	ok = check(errors.is_empty() and info.entities.size() == 1, "an unlock pickup needs no value %s" % [errors]) and ok
 
 	errors.clear()
@@ -47,15 +47,19 @@ func _valid() -> bool:
 	info = RoomParser.parse_room("7", Vector2i.ZERO, _room(["legend:", "  T = token id=t1"], {Vector2i(5, 3): "T"}), errors)
 	ok = check(errors.is_empty() and info.entities.size() == 1 and info.entities[0].type == "token", "a token needs only an id %s" % [errors]) and ok
 	errors.clear()
-	RoomParser.parse_room("7", Vector2i.ZERO, _room(["legend:", "  T = token id=t1 upgrade=imprint"], {Vector2i(5, 3): "T"}), errors)
+	RoomParser.parse_room("7", Vector2i.ZERO, _room(["legend:", "  T = token id=t1 upgrade=tongue_lash"], {Vector2i(5, 3): "T"}), errors)
 	ok = check(_has(errors, "upgrade="), "a token with a setting it does not use is an error (%s)" % [errors]) and ok
 
 	errors.clear()
-	info = RoomParser.parse_room("7", Vector2i.ZERO, _room(["legend:", "", "  U   =   pickup   id=a   upgrade=imprint_effect   value=bounce", "  V = pickup id=b upgrade=imprint_duration value=6.5"], {Vector2i(5, 3): "U", Vector2i(9, 3): "V"}), errors)
-	ok = check(errors.is_empty() and info.entities.size() == 2, "extra spaces, blank lines, several things, a float and an effect all load %s" % [errors]) and ok
+	info = RoomParser.parse_room("7", Vector2i.ZERO, _room(["legend:", "", "  U   =   pickup   id=a   upgrade=tongue_lash", "  V = pickup id=b upgrade=tongue_speed value=6.5"], {Vector2i(5, 3): "U", Vector2i(9, 3): "V"}), errors)
+	ok = check(errors.is_empty() and info.entities.size() == 2, "extra spaces, blank lines, several things, a float and an unlock all load %s" % [errors]) and ok
 
 	errors.clear()
-	info = RoomParser.parse_room("7", Vector2i.ZERO, _room(["legend:", "  U = pickup id=a upgrade=imprint_cooldown value=0.5"], {Vector2i(5, 3): "U"}), errors)
+	RoomParser.parse_room("7", Vector2i.ZERO, _room(["legend:", "  U = pickup id=a upgrade=imprint_width value=3"], {Vector2i(5, 3): "U"}), errors)
+	ok = check(_has(errors, "legacy dev-tools"), "a pickup of a dev-only upgrade (Imprint) is an error (%s)" % [errors]) and ok
+
+	errors.clear()
+	info = RoomParser.parse_room("7", Vector2i.ZERO, _room(["legend:", "  U = pickup id=a upgrade=tongue_cooldown value=0.5"], {Vector2i(5, 3): "U"}), errors)
 	ok = check(errors.is_empty() and info.entities.size() == 1, "a pickup that lowers the cooldown loads (a min upgrade takes a number) %s" % [errors]) and ok
 	return ok
 
@@ -64,19 +68,19 @@ func _legend_lines() -> bool:
 	var ok := true
 	var cases := [
 		["an unknown kind of thing", "  U = banana id=a", "banana"],
-		["no id", "  U = pickup upgrade=imprint_width value=3", "id="],
-		["a missing setting", "  U = pickup id=a upgrade=imprint_width", "value="],
-		["a misspelled setting", "  U = pickup id=a upgrade=imprint_width value=3 colour=red", "colour="],
+		["no id", "  U = pickup upgrade=double_jump value=3", "id="],
+		["a missing setting", "  U = pickup id=a upgrade=double_jump", "value="],
+		["a misspelled setting", "  U = pickup id=a upgrade=double_jump value=3 colour=red", "colour="],
 		["an unknown upgrade", "  U = pickup id=a upgrade=fly value=3", "no upgrade \"fly\""],
-		["a fraction where a whole number goes", "  U = pickup id=a upgrade=imprint_width value=2.5", "whole-number"],
-		["words where a number goes", "  U = pickup id=a upgrade=imprint_duration value=long", "numeric"],
-		["words where a cooldown goes", "  U = pickup id=a upgrade=imprint_cooldown value=long", "numeric"],
-		["a value on an upgrade that takes none", "  U = pickup id=a upgrade=imprint value=3", "takes no value"],
-		["a glyph the format already uses", "  X = pickup id=a upgrade=imprint_width value=3", "cannot be a legend glyph"],
-		["a punctuation glyph", "  # = pickup id=a upgrade=imprint_width value=3", "cannot be a legend glyph"],
-		["a two character glyph", "  UU = pickup id=a upgrade=imprint_width value=3", "legend line looks like"],
+		["a fraction where a whole number goes", "  U = pickup id=a upgrade=double_jump value=2.5", "whole-number"],
+		["words where a number goes", "  U = pickup id=a upgrade=tongue_speed value=long", "numeric"],
+		["words where a cooldown goes", "  U = pickup id=a upgrade=tongue_cooldown value=long", "numeric"],
+		["a value on an upgrade that takes none", "  U = pickup id=a upgrade=tongue_lash value=3", "takes no value"],
+		["a glyph the format already uses", "  X = pickup id=a upgrade=double_jump value=3", "cannot be a legend glyph"],
+		["a punctuation glyph", "  # = pickup id=a upgrade=double_jump value=3", "cannot be a legend glyph"],
+		["a two character glyph", "  UU = pickup id=a upgrade=double_jump value=3", "legend line looks like"],
 		["a setting without a value", "  U = pickup id=a upgrade", "key=value"],
-		["a setting given twice", "  U = pickup id=a upgrade=imprint_width upgrade=imprint_width value=3", "given twice"],
+		["a setting given twice", "  U = pickup id=a upgrade=double_jump upgrade=double_jump value=3", "given twice"],
 	]
 	for case in cases:
 		var errors: Array[String] = []
@@ -93,7 +97,7 @@ func _legend_lines() -> bool:
 	ok = check(_has(errors, "banana"), "an unknown kind in a save room is an error, not a crash (%s)" % [errors]) and ok
 
 	errors.clear()
-	RoomParser.parse_room("7", Vector2i.ZERO, _room(["legend:", LEGEND_LINE, "  U = pickup id=b upgrade=imprint_width value=3"], {Vector2i(5, 3): "U"}), errors)
+	RoomParser.parse_room("7", Vector2i.ZERO, _room(["legend:", LEGEND_LINE, "  U = pickup id=b upgrade=double_jump value=3"], {Vector2i(5, 3): "U"}), errors)
 	ok = check(_has(errors, "defined twice"), "the same glyph twice in a legend is an error (%s)" % [errors]) and ok
 
 	errors.clear()
@@ -108,7 +112,7 @@ func _legend_lines() -> bool:
 
 func _machines() -> bool:
 	var ok := true
-	var legend := ["legend:", "  M = machine id=m1 upgrade=imprint"]
+	var legend := ["legend:", "  M = machine id=m1 upgrade=tongue_lash"]
 	var errors: Array[String] = []
 	var info := RoomParser.parse_room("7", Vector2i.ZERO, _room(legend, {Vector2i(5, 16): "M"}), errors)
 	ok = check(errors.is_empty() and info.entities.size() == 1 and info.entities[0].type == "machine", "a 3TM standing on the floor loads %s" % [errors]) and ok
@@ -171,7 +175,7 @@ func _save_rooms() -> bool:
 	RoomParser.parse_room("s2", Vector2i.ZERO, _room(["legend:", "  S = save id=s2_save", "  T = token id=s2_token"], {Vector2i(5, 16): "S", Vector2i(20, 16): "T"}), errors)
 	ok = check(errors.is_empty(), "a save room may hold a token (%s)" % [errors]) and ok
 	errors.clear()
-	RoomParser.parse_room("s2", Vector2i.ZERO, _room(["legend:", "  S = save id=s2_save", "  U = pickup id=s2_pickup upgrade=imprint"], {Vector2i(5, 16): "S", Vector2i(20, 16): "U"}), errors)
+	RoomParser.parse_room("s2", Vector2i.ZERO, _room(["legend:", "  S = save id=s2_save", "  U = pickup id=s2_pickup upgrade=tongue_lash"], {Vector2i(5, 16): "S", Vector2i(20, 16): "U"}), errors)
 	ok = check(_has(errors, "holds nothing but its save machine") and _has(errors, "1 other thing"), "a save room with a pickup in it is an error (%s)" % [errors]) and ok
 	errors.clear()
 	RoomParser.parse_room("s2", Vector2i.ZERO, _room(["legend:", "  S = save id=s2_save", "  H = health id=s2_health"], {Vector2i(5, 16): "S", Vector2i(20, 16): "H"}), errors)
@@ -183,7 +187,7 @@ func _save_rooms() -> bool:
 	RoomParser.parse_room("s2", Vector2i.ZERO, _room(legend, {Vector2i(1, 16): "S"}), errors)
 	ok = check(_has(errors, "save machine s2_save") and _has(errors, "open air"), "one whose footprint reaches the wall is an error (%s)" % [errors]) and ok
 	errors.clear()
-	RoomParser.parse_room("s2", Vector2i.ZERO, _room(["legend:", "  S = save id=s2_save upgrade=imprint"], {Vector2i(5, 16): "S"}), errors)
+	RoomParser.parse_room("s2", Vector2i.ZERO, _room(["legend:", "  S = save id=s2_save upgrade=tongue_lash"], {Vector2i(5, 16): "S"}), errors)
 	ok = check(_has(errors, "upgrade="), "a save machine takes no settings (%s)" % [errors]) and ok
 
 	errors.clear()

@@ -5,7 +5,7 @@
   {"id": "look_up", "label": "Look up", "actions": ["look_up"]},
   {"id": "lash", "label": "Lash your tongue", "actions": ["lash"], "needs": "tongue_unlocked"},
   {"id": "lash_up", "label": "Lash upward", "actions": ["look_up", "lash"], "combo": true, "needs": "tongue_unlocked"},
-  {"id": "imprint", "label": "Place a platform at the cursor", "actions": ["imprint"], "needs": "imprint_unlocked"},
+  {"id": "imprint", "label": "Place a platform at the cursor (legacy, dev tools)", "actions": ["imprint"], "needs": "imprint_unlocked"},
   {"id": "map", "label": "Map (hold)", "actions": ["map"]},
   {"id": "map_zoom", "label": "Zoom the map (while held)", "actions": ["map_zoom_in", "map_zoom_out"]},
   {"id": "pause", "label": "Pause", "actions": ["pause"]}

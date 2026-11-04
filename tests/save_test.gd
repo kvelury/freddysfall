@@ -54,7 +54,8 @@ func _abilities() -> bool:
 	ok = check(is_equal_approx(Abilities.from_dict(e.to_dict()).imprint_cooldown, 0.2), "the cooldown survives to_dict and from_dict") and ok
 	ok = check(is_zero_approx(Abilities.from_dict({"imprint_width": 3}).imprint_cooldown), "a save without a cooldown loads with it off") and ok
 	ok = check(is_equal_approx(Abilities.from_dict({"imprint_duration": 2.5}).imprint_duration, 2.5), "and an old save keeps the duration it stored") and ok
-	ok = check(Upgrades.check("imprint_cooldown", "0.5").is_empty() and not Upgrades.check("imprint_cooldown", "long").is_empty(), "a cooldown pickup takes a number") and ok
+	ok = check(Upgrades.check("tongue_cooldown", "0.5").is_empty() and not Upgrades.check("tongue_cooldown", "long").is_empty(), "a cooldown pickup takes a number") and ok
+	ok = check(not Upgrades.check("imprint_cooldown", "0.5").is_empty(), "and the Imprint one is dev-only, so no room may give it") and ok
 	ok = check(Abilities.new().describe() == "imprint locked" and e.describe() == "imprint locked", "describe is unchanged while Imprint is locked") and ok
 	e.imprint_unlocked = true
 	var plain := Abilities.new()

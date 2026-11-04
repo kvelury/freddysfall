@@ -9,7 +9,7 @@ Run from the repo root.
 | Command | What it does |
 | --- | --- |
 | `tools/check.sh` | The complete automated gate before a pull request: imports once, runs every `tests/*_test.gd` in parallel (one Godot process each, `JOBS` at a time, logs in `build/test-logs/`), validates the world with every ledge reachable (a fresh solver cache, warmed by one process per core), builds the release web export, and checks its room data and cache-tagged files. CI runs this command too. It leaves `build/web/` ready for `tools/serve.sh` and the user's playthrough. |
-| `tools/validate.sh` | Loads every room and solves the world, with Imprint, taking pickups and tokens as it goes. A room is not done until this exits 0. It also prints what each room, ledge and pickup needs, and where the time went. What it works out about each room is kept in `build/solver-cache/`, so a run after editing one room only redoes that room (landing checks are not cached; timings depend on the layout); `--no-cache` ignores it, and deleting `build/` clears it. |
+| `tools/validate.sh` | Loads every room and solves the world, taking pickups and tokens as it goes. A room is not done until this exits 0. It also prints what each room, ledge and pickup needs, and where the time went. What it works out about each room is kept in `build/solver-cache/`, so a run after editing one room only redoes that room (landing checks are not cached; timings depend on the layout); `--no-cache` ignores it, and deleting `build/` clears it. |
 | `tools/solver_diff.sh <ref>` | Solves the world at `<ref>` and in the working tree without the cache, and diffs everything the solver worked out. Empty output means the two agree. A solver change meant to be exact (a speed-up, a refactor) must leave it empty; paste `validate.sh`'s slowest-rooms table from before and after into the pull request. |
 | `tools/pixel_check.sh` | Draws scripted scenarios with a renderer (it uses `xvfb-run` with no display) and checks the world is on whole world pixels and equal to the baseline (kept as 320×180 world pixels). Run it after any change to how something is drawn. When the look is meant to change, record a new baseline with `--baseline` on the commit that changes it and say so in the pull request. Not part of `check.sh`. |
 | `tools/render.sh [ids]` | PNGs of rooms and the world map in `build/renders/`. Read them to see what you built. |
@@ -52,14 +52,15 @@ The user draws rooms on graph paper, numbers each one, and shares a photo. The s
 - If a room is more than one screen, say so ("2 x 1").
 - Mark where the player starts in the first room.
 - Say where the room sits next to the others, or draw an overview sheet with the room numbers.
-- Use a key for anything that is not a wall, a platform or a door (pickups, hazards, no-imprint areas) and keep it the same from drawing to drawing.
+- Use a key for anything that is not a wall, a platform or a door (pickups, hazards) and keep it the same from drawing to drawing.
 
 ## Working on the repo
 
 - Work on a branch and open a pull request. Do not push to `main`.
 - Run `tools/validate.sh` and the tests before opening one.
 - When behavior changes, update `docs/design/game-design.md` in the same pull request, so it stays true.
-- **Imprint is never replaced or refreshed by another click.** While one stands, no other goes down until it has broken (plus `imprint_cooldown`). Any feature touching Imprint, footing, timers or waiting must keep this rule, in the runtime and the solver. See "The Imprint rule" under Guardrails in the design doc. Loosening it is the user's decision. A platform shrinks toward where the player stood when they placed it (the block nearest them lasts, ties go to the block they face), and the solver counts only that last block as footing.
+- **Imprint is a legacy dev-tools feature, not a core mechanic.** The core mechanics are movement and attack (jumps, Tongue Lash, Tongue Climb). Do not build rooms, puzzles or power-ups on Imprint, and a new feature need not model it: the solver does not, and the room parser refuses a pickup or 3TM that gives it. Where the dev-tools Imprint is touched, it keeps its rule (never replaced or refreshed by another click; see "The Imprint rule" under Guardrails in the design doc).
+- **The mouse is only for menus.** Gameplay uses the keyboard; the cursor is hidden in play. Any key (not the mouse, not a function key) closes a popup such as Game Over or a new power, and its text says "Press any key to continue".
 
 
 ## Dev tools are part of every gameplay feature
@@ -72,7 +73,7 @@ the same PR. An intentionally unsupported feature needs an explicit reason.
 
 - Every control belongs to a collapsible section of the panel's Player tab. An upgrade's
   `dev` block names one in `section`; `DevCatalog.SECTIONS` lists them (Tokens & hearts,
-  Movement, Tongue Lash, Imprint, Debug view). Add a section there when none fits; a missing
+  Movement, Tongue Lash, Imprint (legacy), Debug view). Add a section there when none fits; a missing
   or unknown one fails `DevCatalog.problems()`. A session switch with no registry entry
   (Classic Imprint, token marks, slow motion, wall strength) is placed in `_build_player`
   under the section it belongs to.

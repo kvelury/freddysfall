@@ -82,15 +82,7 @@ func _initialize() -> void:
 		print("%s%s needs %s" % [kinds[parts[1]] + " " if parts[0] == "pickup" else "", parts[1], ", ".join(report.needs[key])])
 	var seconds := float(Time.get_ticks_msec() - started) / 1000.0
 	var timing := graph.timing()
-	print("time: ledges' jumps %.1f s, Imprint search %.1f s (jumps %.1f, landings %.1f, platforms' legs %.1f), %d platforms looked at, %d legs worked out" % [
-		timing["edges"] / 1000.0,
-		(timing["arcs"] + timing["lands"] + timing["legs"]) / 1000.0,
-		timing["arcs"] / 1000.0,
-		timing["lands"] / 1000.0,
-		timing["legs"] / 1000.0,
-		timing["candidates"],
-		timing["legs_made"],
-	])
+	print("time: ledges' jumps %.1f s" % (timing["edges"] / 1000.0))
 	var slowest: Array = timing.get("rooms", [])
 	if not slowest.is_empty():
 		print("slowest rooms:")
@@ -107,7 +99,7 @@ func _initialize() -> void:
 			times.store_string(JSON.stringify(totals))
 			times.close()
 	if cache != null:
-		print("cache: %d rooms' ledges from it and %d worked out, %d legs from it and %d worked out, %d files written" % [cache.stats["edge_rooms_cached"], cache.stats["edge_rooms_solved"], cache.stats["legs_cached"], cache.stats["legs_solved"], written])
+		print("cache: %d rooms' ledges from it and %d worked out, %d files written" % [cache.stats["edge_rooms_cached"], cache.stats["edge_rooms_solved"], written])
 	else:
 		print("cache: off")
 	var summary := "%d rooms, %d of %d ledges reachable, %.1f s" % [data.rooms.size(), report.reached_ledges, report.total_ledges, seconds]
