@@ -105,6 +105,23 @@ const LOOK_UP_BODY: Array[String] = [
 	"######yyyy",
 ]
 
+## Standing still and looking down (the look-down key held): the lids come down,
+## so the top row of each eye is body, and the pupils (`LOOK_DOWN_PUPILS`) are
+## half a pixel tall on the bottom of the white row.
+const LOOK_DOWN_BODY: Array[String] = [
+	".###...###",
+	".+++...+++",
+	"##########",
+	"########..",
+	"######yyyy",
+	"######yyyy",
+	"######yyyy",
+	"######yyyy",
+]
+
+## The pixels of the looking-down picture whose lower half is black, facing right.
+const LOOK_DOWN_PUPILS: Array[Vector2i] = [Vector2i(2, 1), Vector2i(8, 1)]
+
 ## Looking up with the mouth open on top, for the tongue going up: the pupils
 ## are in the top row, and the notch (cols 4 and 5 of row 2) is the mouth.
 const LASH_UP_BODY: Array[String] = [
@@ -153,6 +170,10 @@ class Frame:
 	## For a picture with the mouth on top: the notch's left column and its row,
 	## where the tongue goes up from. (-1, -1) if there is none.
 	var mouth_up := Vector2i(-1, -1)
+	## Pixels of the picture (facing right) whose lower half is black: a pupil half
+	## a world pixel tall. They are finer than the world-pixel grid by decision, so
+	## `PlayerBody` draws them apart, in `Display.FINE_GROUP`.
+	var lower_halves: Array[Vector2i] = []
 
 	func _init(at: int, lines: Array, token_slots: Array[Vector2i], line_pixels: Array[Vector2i], up_mouth := Vector2i(-1, -1)) -> void:
 		top = at
@@ -224,6 +245,11 @@ static func _build() -> Dictionary:
 	var look_up_rows: Array = LOOK_UP_BODY.duplicate()
 	look_up_rows.append_array(STAND_LEGS)
 	table[PlayerAnimator.Pose.LOOK_UP] = _animation([Frame.new(0, look_up_rows, STAND_TOKENS, STAND_LINE)])
+	var look_down_rows: Array = LOOK_DOWN_BODY.duplicate()
+	look_down_rows.append_array(STAND_LEGS)
+	var look_down := Frame.new(0, look_down_rows, STAND_TOKENS, STAND_LINE)
+	look_down.lower_halves = LOOK_DOWN_PUPILS
+	table[PlayerAnimator.Pose.LOOK_DOWN] = _animation([look_down])
 	var lash_up_rows: Array = LASH_UP_BODY.duplicate()
 	lash_up_rows.append_array(STAND_LEGS)
 	table[PlayerAnimator.Pose.LASH_UP] = _animation([Frame.new(0, lash_up_rows, STAND_TOKENS, STAND_LINE, LASH_UP_MOUTH)])
@@ -301,6 +327,18 @@ static func rects(pose: PlayerAnimator.Pose, index: int, facing: int, tokens: in
 	if not _drawn.has(key):
 		_drawn[key] = _draw(frames_of[index], facing, tokens, imprint)
 	return _drawn[key]
+
+
+## The half-pixel black pupils of picture `index` of `pose`, facing `facing`, in
+## box pixels: the lower half of each pixel in `Frame.lower_halves`.
+static func fine_rects(pose: PlayerAnimator.Pose, index: int, facing: int) -> Array[Rect2]:
+	var frames_of := animation(pose).frames
+	var picture: Frame = frames_of[posmod(index, frames_of.size())]
+	var out: Array[Rect2] = []
+	for p in picture.lower_halves:
+		var x := p.x if facing >= 0 else SIZE - 1 - p.x
+		out.append(Rect2(float(x), float(picture.top + p.y) + 0.5, 1.0, 0.5))
+	return out
 
 
 static func _draw(picture: Frame, facing: int, tokens: int, imprint: bool) -> Drawn:

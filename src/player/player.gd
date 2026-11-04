@@ -41,6 +41,13 @@ var lashing_up := false
 ## The tests set `scripted_look_up`.
 var looking_up := false
 var scripted_look_up := false
+## The same for the look-down key. Held together, the two cancel and neither shows.
+var looking_down := false
+var scripted_look_down := false
+## How far the view is shifted by looking up or down (`LookAhead`). It only counts
+## while he stands on the ground, whatever the ground is, so not in the air or on
+## a Tongue Climb hang.
+var look := LookAhead.new()
 
 ## Tongue Climb: the last seconds of the hang in which Freddy wiggles. Set when a
 ## climb begins (`begin_climb`).
@@ -84,6 +91,7 @@ func place(world_position: Vector2, rects: Array[Rect2]) -> void:
 	_state.spare_jump = false
 	_state.released = false
 	_was_on_floor = _state.grounded
+	look.reset()
 	reset_physics_interpolation()
 
 
@@ -93,6 +101,12 @@ func render_position(fraction: float) -> Vector2:
 	if not is_physics_interpolated_and_enabled():
 		return global_position
 	return _previous_position.lerp(global_position, fraction)
+
+
+## How far the camera is shifted up (negative) or down by looking, in world px,
+## at `fraction` of the way between physics ticks. Only the camera reads it.
+func look_offset(fraction: float) -> float:
+	return look.offset(fraction)
 
 
 func is_on_floor() -> bool:
@@ -187,6 +201,8 @@ func _physics_process(delta: float) -> void:
 	_previous_position = global_position
 	if not input_enabled:
 		looking_up = false
+		looking_down = false
+		look.step(delta, 0)
 		velocity = Vector2.ZERO
 		# Held still, the player is not carried, so they are not riding when let go.
 		_state.riding = -1
@@ -203,7 +219,10 @@ func _physics_process(delta: float) -> void:
 	if input_x != 0.0 and signf(input_x) != float(facing) and not climbing():
 		facing = int(signf(input_x))
 	scripted_jump_pressed = false
-	looking_up = not blocked and not climbing() and (scripted_look_up if scripted else Input.is_action_pressed("look_up"))
+	var wants_up: bool = not blocked and not climbing() and (scripted_look_up if scripted else Input.is_action_pressed("look_up"))
+	var wants_down: bool = not blocked and not climbing() and (scripted_look_down if scripted else Input.is_action_pressed("look_down"))
+	looking_up = wants_up and not wants_down
+	looking_down = wants_down and not wants_up
 	_state.position = global_position
 	_state.velocity = velocity
 	var movers: Movers = null
@@ -215,6 +234,9 @@ func _physics_process(delta: float) -> void:
 	MovementSim.step(config, _state, solids, input_x, jump_pressed, jump_held, delta, movers, tick)
 	global_position = _state.position
 	velocity = _state.velocity
+	# The view moves only from the ground: a jump, a fall or a hang is no time to
+	# slide it. A moving platform or a breakable wall is ground like any other.
+	look.step(delta, (int(looking_down) - int(looking_up)) if _state.grounded and not climbing() else 0)
 	if _state.air_jumped:
 		_spawn_dust(true)
 	elif _state.jumped and _state.released:
@@ -231,7 +253,7 @@ func _process(delta: float) -> void:
 	var hang := PlayerAnimator.Hang.NONE
 	if climbing():
 		hang = PlayerAnimator.Hang.CEILING if climbing_ceiling() else PlayerAnimator.Hang.WALL
-	animator.advance(delta, _state.grounded, velocity.x, lashing_up, looking_up, hang)
+	animator.advance(delta, _state.grounded, velocity.x, lashing_up, looking_up, hang, looking_down)
 	var fraction := Engine.get_physics_interpolation_fraction() if is_physics_interpolated_and_enabled() else 1.0
 	var index := FreddySprites.animation(animator.pose).index(animator.time_in_pose, animator.distance_in_pose)
 	_visual.show_at(render_position(fraction), animator.pose, index, wiggle_offset())

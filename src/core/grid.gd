@@ -27,7 +27,11 @@ static func cell_rect(cell_rect: Rect2i) -> Rect2:
 ## A room the size of one screen never scrolls. Larger rooms follow the
 ## focus and stop at the room edge. The result is whole pixels so the
 ## integer-scaled view does not shimmer while the camera moves.
-static func camera_focus(room_origin: Vector2, room_size: Vector2, focus: Vector2) -> Vector2:
+## `look_y` is the shift from looking up (negative) or down (`LookAhead`). It
+## is added after the follow is clamped, so it still works with the player
+## against the room's top or bottom, and the view then stops at the edge. A room
+## one screen tall ignores it.
+static func camera_focus(room_origin: Vector2, room_size: Vector2, focus: Vector2, look_y := 0.0) -> Vector2:
 	var half := SCREEN_SIZE * 0.5
 	var cam := focus
 	if room_size.x <= SCREEN_SIZE.x:
@@ -38,4 +42,5 @@ static func camera_focus(room_origin: Vector2, room_size: Vector2, focus: Vector
 		cam.y = room_origin.y + room_size.y * 0.5
 	else:
 		cam.y = clampf(focus.y, room_origin.y + half.y, room_origin.y + room_size.y - half.y)
+		cam.y = clampf(cam.y + look_y, room_origin.y + half.y, room_origin.y + room_size.y - half.y)
 	return cam.round()
