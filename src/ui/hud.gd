@@ -1,13 +1,14 @@
 class_name Hud
 extends CanvasLayer
 
-## The hearts and token HUD, fixed in the top-left corner, from the user's
-## drawing. A solid red hexagon bar holds one black heart for each hit point: a
-## full heart is a black outline with the red bar inside it and an empty one is
-## solid black. A column of
-## diamonds runs down the left, centred on the frame, the middle one touching the
-## frame's left tip, and a diamond is drawn only for a token carried: solid gold
-## with no outline, filling the middle first, then the top, then the bottom. Nothing is drawn for a token not held, and the frame never moves.
+## The hearts and token HUD, fixed in the top-left corner. A solid blood-red
+## rectangle holds one black heart for each hit point: a full heart is a black
+## outline with the heart red inside it and an empty one is solid black. A dark
+## red shadow sits one unit up and left of the rectangle, so its bottom and right
+## edges are clean. Under it, one unit clear, runs a row of small gold diamonds,
+## left to right from the rectangle's left edge, one for each token carried:
+## solid gold with no outline. Nothing is drawn for a token not held, and the
+## rectangle never moves.
 ##
 ## The HUD shows GameState, less what is still flying in: a pickup taken in a
 ## room flies to its slot and only counts when it lands. Every change animates
@@ -23,31 +24,33 @@ const GOLD := Palette.GOLD
 const EMPTY := Color.BLACK
 ## The ink of every heart, on the red bar.
 const INK := Color.BLACK
-## Where the HUD's top-left sits, in 320 x 180 UI units: clear of a room's
-## one-cell outer wall, since nothing is drawn behind the HUD.
+## Where the rectangle's top-left sits, in 320 x 180 UI units: clear of a room's
+## one-cell outer wall (the shadow reaches one unit further up and left), since
+## nothing is drawn behind the HUD.
 const ORIGIN := Vector2(14, 14)
-## The frame's left point (the lower row of its 2 unit tip), from ORIGIN. The
-## frame and hearts are measured from here.
-const LEFT := Vector2(5, 6)
-## The token column's centre line, from ORIGIN.x. A diamond spans ORIGIN.x to
-## ORIGIN.x + 4, so its right point sits directly left of the frame's tip.
-const COLUMN_X := 2.0
-## Diamonds are 5 units tall and step by DIAMOND_STEP, so they touch tip to tip.
-## Slot 0 is the middle (level with the tip), 1 the top, 2 the bottom.
-const DIAMOND_STEP := 4.0
-## The frame is a hexagon FRAME_HEIGHT tall with 45 degree ends that come to a
-## 2 unit flat tip (rows y-1 and y of the left point).
-const FRAME_HEIGHT := 10
-const POINT := 5
-## Hearts start this far right of the left point, and are 7 x 6, PITCH apart.
-const HEART_GAP := 6
+## The shadow behind the rectangle: a dark shade of the bar red, one unit up
+## and left, so the rectangle's bottom and right edges stay solid.
+const SHADOW := Color("3a0a0a")
+const SHADOW_OFFSET := 1.0
+## The rectangle is BAR_HEIGHT tall: one unit of bar above and below the hearts,
+## and PAD of bar at each end. Hearts are 7 x 6, PITCH apart, so n hearts make a
+## rectangle 9n wide.
+const PAD := 1.0
+const BAR_HEIGHT := 8.0
 const HEART_SIZE := Vector2(7, 6)
 const PITCH := 9.0
-## Hearts per row before the frame wraps: each further row is its own frame
-## under the first. There is no heart cap, so the frame never runs off the screen.
+## Token diamonds are 3 x 3, TOKEN_PITCH apart, in a row TOKEN_GAP units under the
+## rectangle and level with its left edge. Slots fill left to right.
+const TOKEN_SIZE := 3.0
+const TOKEN_PITCH := 4.0
+const TOKEN_GAP := 1.0
+## Hearts per row before the rectangle wraps: each further row is its own
+## rectangle under the token row. There is no heart cap, so it never runs off the
+## screen.
 const WRAP := 30
-## One more than FRAME_HEIGHT, so wrapped frames have one clear row between them.
-const ROW_STEP := 11.0
+## From one rectangle's top to the next: the bar, the token row under the first
+## and a clear unit before the next shadow.
+const ROW_STEP := 14.0
 const FLY_TIME := 0.35
 const GROW_TIME := 0.15
 const POP_TIME := 0.08
@@ -108,18 +111,17 @@ func to_ui(world_position: Vector2) -> Vector2:
 	return (get_viewport().canvas_transform * world_position) / float(Display.RENDER_SCALE)
 
 
-## Diamond slot `index`'s centre, in UI units. Slots fill middle (0), top (1),
-## then bottom (2).
+## Token slot `index`'s centre, in UI units: the middle of its 3 x 3 diamond.
+## Slots fill left to right.
 func slot_centre(index: int) -> Vector2:
-	var offsets := [0.0, -DIAMOND_STEP, DIAMOND_STEP]
 	var slot := clampi(index, 0, GameState.TOKEN_CAP - 1)
-	return Vector2(ORIGIN.x + COLUMN_X, ORIGIN.y + LEFT.y + offsets[slot])
+	return Vector2(ORIGIN.x + TOKEN_PITCH * float(slot) + 1.0, ORIGIN.y + BAR_HEIGHT + TOKEN_GAP + 1.0)
 
 
 ## The rect of heart `index`, in UI units.
 func pip_rect(index: int) -> Rect2:
 	var row := floori(float(index) / WRAP)
-	var at := ORIGIN + LEFT + Vector2(HEART_GAP + PITCH * float(index % WRAP), ROW_STEP * row - 3.0)
+	var at := ORIGIN + Vector2(PAD + PITCH * float(index % WRAP), PAD + ROW_STEP * row)
 	return Rect2(at, HEART_SIZE)
 
 
@@ -127,16 +129,18 @@ func pip_centre(index: int) -> Vector2:
 	return pip_rect(maxi(0, index)).get_center().floor()
 
 
-## Everything the HUD covers, for a frame of `pips` hearts. The diamonds' column
-## counts even when no token is held, so the area never changes size, and so
-## does the one unit the column bumps up.
+## Everything the HUD covers, for a frame of `pips` hearts: the shadow, the
+## rectangle and the token row under the first one. The token row counts even when
+## no token is held, so the area never changes size, and so does the unit it
+## bumps down.
 func bounds(pips: int) -> Rect2:
 	var hearts := maxi(pips, 1)
 	var columns := mini(hearts, WRAP)
 	var rows := floori(float(hearts - 1) / WRAP) + 1
-	var box := Rect2(ORIGIN + Vector2(0, -1), Vector2(5, 2.0 * DIAMOND_STEP + 5.0 + 1.0))
-	var frame := Rect2(ORIGIN + Vector2(LEFT.x, LEFT.y - POINT), Vector2(PITCH * columns + HEART_GAP + POINT + 1.0, ROW_STEP * (rows - 1) + FRAME_HEIGHT))
-	return box.merge(frame)
+	var corner := ORIGIN - Vector2.ONE * SHADOW_OFFSET
+	var width := maxf(PITCH * columns, TOKEN_PITCH * (GameState.TOKEN_CAP - 1) + TOKEN_SIZE)
+	var bottom := maxf(ROW_STEP * (rows - 1) + BAR_HEIGHT, BAR_HEIGHT + TOKEN_GAP + TOKEN_SIZE + 1.0)
+	return Rect2(corner, Vector2(width, bottom) + Vector2.ONE * SHADOW_OFFSET)
 
 
 func busy() -> bool:
@@ -249,7 +253,7 @@ func _fill_colour(key: String, held: bool) -> Color:
 
 
 func _draw_hud() -> void:
-	# The frame, one hexagon for each row of hearts, longer while a heart grows.
+	# The rectangle, one for each row of hearts, longer while a heart grows.
 	var units := roundi(PITCH * float(shown_max)) + (roundi(PITCH * _grow) if _grow >= 0.0 else 0)
 	units = maxi(units, roundi(PITCH))
 	var row := 0
@@ -259,9 +263,9 @@ func _draw_hud() -> void:
 		row += 1
 	for i in shown_max:
 		_draw_heart(i)
-	# Diamonds last, beside the frame's left point. A spent token blinks its whole
+	# Diamonds last, in the row under the rectangle. A spent token blinks its whole
 	# diamond and is gone; there is no empty one.
-	var bump := Vector2(0, -1) if _bump > 0.0 else Vector2.ZERO
+	var bump := Vector2(0, 1) if _bump > 0.0 else Vector2.ZERO
 	for i in GameState.TOKEN_CAP:
 		var key := "t%d" % i
 		var held := i < shown_tokens
@@ -274,26 +278,18 @@ func _draw_hud() -> void:
 		_draw_flight(flight)
 
 
-## One hexagon row, `length` units of hearts long, as filled rects: one for each
-## of the FRAME_HEIGHT rows. The left tip (2 units tall, rows y-1 and y of the
-## left point) sits right of the middle diamond's point, 45 degree edges rise and
-## fall to the top and bottom lines, and the right end mirrors the left.
+## One row's rectangle, `length` units of hearts long (9 for each), under its
+## shadow: the shadow first, then the bar, both as filled rects.
 func frame_rects(row: int, length: int) -> Array[Rect2]:
-	var left := ORIGIN + LEFT + Vector2(0, ROW_STEP * row)
-	var top := left.y - float(POINT)
-	var end := left.x + HEART_GAP - 2.0 + float(length)
-	var out: Array[Rect2] = []
-	for r in FRAME_HEIGHT:
-		var inset := float(POINT - 1 - r) if r < POINT else float(r - POINT)
-		var x0 := left.x + inset
-		var x1 := end + POINT - inset
-		out.append(Rect2(Vector2(x0, top + float(r)), Vector2(x1 - x0 + 1.0, 1.0)))
-	return out
+	var top_left := ORIGIN + Vector2(0, ROW_STEP * row)
+	var size := Vector2(float(length), BAR_HEIGHT)
+	return [Rect2(top_left - Vector2.ONE * SHADOW_OFFSET, size), Rect2(top_left, size)]
 
 
 func _draw_frame(row: int, length: int) -> void:
-	for box in frame_rects(row, length):
-		_canvas.draw_rect(box, BAR)
+	var rects := frame_rects(row, length)
+	_canvas.draw_rect(rects[0], SHADOW)
+	_canvas.draw_rect(rects[1], BAR)
 
 
 ## How heart `index` is drawn: the picture and its colour, from its fill
