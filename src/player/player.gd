@@ -81,6 +81,7 @@ func place(world_position: Vector2, rects: Array[Rect2]) -> void:
 	_state.climb = MovementSim.CLIMB_NONE
 	_state.climb_abort = false
 	_state.climb_locked = false
+	_state.spare_jump = false
 	_state.released = false
 	_was_on_floor = _state.grounded
 	reset_physics_interpolation()
@@ -126,7 +127,7 @@ func begin_climb(tip: Vector2, dir: Vector2, hold: float, wiggle: float, zip_spe
 func end_climb() -> void:
 	if not climbing():
 		return
-	MovementSim.release_climb(_state)
+	MovementSim.drop_climb(config, _state)
 	velocity = Vector2.ZERO
 
 

@@ -80,6 +80,10 @@ class State extends RefCounted:
 	var climb_locked := false
 	## Set by step(): the body let go of the wall or ceiling this tick.
 	var released := false
+	## A ground jump held in hand after dropping from a ceiling: the next press,
+	## wherever in the fall, is a full jump, and the one after is the air jump.
+	## Landing, or starting a climb, takes it away.
+	var spare_jump := false
 
 
 ## One physics tick: read input, apply forces, round corners, collide.
@@ -121,6 +125,7 @@ static func step(
 		s.launched = false
 		s.cut = false
 		s.climb_locked = false
+		s.spare_jump = false
 		s.air_left = s.air_jumps
 		if movers != null:
 			for i in movers.size():
@@ -167,6 +172,7 @@ static func start_climb(s: State, rects: Array, tip: Vector2, dir: Vector2, hold
 	if (anchor - s.position).dot(dir) < 0.0:
 		anchor = s.position
 	s.climb = CLIMB_ZIP
+	s.spare_jump = false
 	s.climb_dir = dir
 	s.climb_anchor = anchor
 	s.zip_speed = zip_speed
@@ -188,6 +194,28 @@ static func release_climb(s: State) -> void:
 	s.climb_abort = false
 	s.velocity = Vector2.ZERO
 	s.released = true
+
+
+## Lets go because the hang is over, not because of a jump, and keeps both
+## jumps for the player. Off a wall the body gets a ledge's coyote time, so a
+## press as it lets go (the end of the wiggle) is a full jump off the wall and
+## the air jump is kept. From a ceiling there is no jumping straight away, so it
+## gets a spare ground jump to use at any point in the fall, and the air jump
+## is ready too.
+static func drop_climb(cfg: MovementConfig, s: State) -> void:
+	if s.climb == CLIMB_NONE:
+		return
+	var wall := s.climb_dir.y == 0.0
+	var hung := s.climb == CLIMB_HOLD
+	release_climb(s)
+	if not hung:
+		# Let go on the way there: he never stuck, so nothing is given back.
+		return
+	if wall:
+		s.coyote = cfg.coyote_time
+	else:
+		s.spare_jump = true
+		s.air_left = s.air_jumps
 
 
 ## Whether the body is hanging with the wiggle due: the last `wiggle` seconds of the hang.
@@ -216,7 +244,7 @@ static func _climb_tick(cfg: MovementConfig, s: State, rects: Array, jump_presse
 		move_with(s, rects, movers, tick)
 		if s.crushed or s.position != before:
 			# A platform pushed the body off the wall.
-			release_climb(s)
+			drop_climb(cfg, s)
 			return _CLIMB_FALL
 	var holding := s.climb == CLIMB_HOLD
 	if s.climb == CLIMB_ZIP:
@@ -242,12 +270,13 @@ static func _climb_tick(cfg: MovementConfig, s: State, rects: Array, jump_presse
 			s.coyote = 0.0
 			s.buffer = 0.0
 			s.air_left = s.air_jumps
+			s.spare_jump = true
 			return _CLIMB_CEILING_DROP
 		if holding:
 			s.climb_left -= delta
 		if s.climb_left <= 0.0001:
 			s.climb_locked = s.climb_relock
-			release_climb(s)
+			drop_climb(cfg, s)
 			return _CLIMB_FALL
 	if movers != null and not movers.is_empty() and _touches_hazard_body(s.position, movers, tick + 1):
 		s.crushed = true
@@ -364,6 +393,7 @@ static func _integrate(cfg: MovementConfig, s: State, input_x: float, jump_press
 	var cut := s.cut
 	var air_jumps := s.air_jumps
 	var air_left := s.air_left
+	var spare := s.spare_jump
 	var target := 0.0
 	var accel := cfg.ground_friction if grounded else cfg.air_friction
 	if absf(input_x) > 0.01:
@@ -392,6 +422,15 @@ static func _integrate(cfg: MovementConfig, s: State, input_x: float, jump_press
 		launched = true
 		cut = false
 		coyote = 0.0
+		buffer = 0.0
+	elif jump_pressed and spare:
+		# The ground jump a ceiling drop left in hand: as strong as a ground
+		# jump, and the air jump is still to come.
+		velocity.y = -cfg.jump_speed
+		jumped = true
+		launched = true
+		cut = false
+		spare = false
 		buffer = 0.0
 	elif jump_pressed and air_left > 0:
 		# A fresh press in the air, with no ground or coyote jump to use: a
@@ -427,6 +466,7 @@ static func _integrate(cfg: MovementConfig, s: State, input_x: float, jump_press
 	s.jumped = jumped
 	s.air_jumped = air_jumped
 	s.air_left = air_left
+	s.spare_jump = spare
 
 
 ## Moves the body in `s` by its velocity for `delta`, along x and then y, and

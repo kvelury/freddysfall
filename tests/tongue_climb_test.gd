@@ -164,7 +164,7 @@ func _run() -> void:
 		await physics_frame
 	player.scripted_jump_pressed = true
 	await physics_frame
-	ok = check(is_equal_approx(player.velocity.y, -player.config.air_jump_speed), "with the double jump ready") and ok
+	ok = check(is_equal_approx(player.velocity.y, -player.config.air_jump_speed), "and the next press is a full jump (the spare jump from the ceiling)") and ok
 	tongue.clear()
 	ab.climb_ceiling = false
 	_put(world, Vector2i(7, 16))
@@ -172,6 +172,56 @@ func _run() -> void:
 	saw = await _watch(player, tongue)
 	ok = check(not saw["climbed"], "with ceilings off an up-lash is what it was") and ok
 	ab.climb_ceiling = true
+
+	# Both jumps are kept when he lets go: off a wall a press as the hang runs out is a full jump.
+	tongue.clear()
+	_put(world, Vector2i(17, 12))
+	tongue.lash()
+	await until(func() -> bool: return player.hanging(), 60)
+	await until(func() -> bool: return not player.climbing(), 60)
+	await physics_frame
+	var first := await _press(player)
+	await ticks(4)
+	var second := await _press(player)
+	await ticks(4)
+	var third := await _press(player)
+	ok = check(first == "ground" and second == "air" and third == "none", "pressing as the hang runs out is a full jump, then the double jump, then nothing (%s, %s, %s)" % [first, second, third]) and ok
+	# ...but only for the ledge's coyote time (0.1 s); after that it is the air jump.
+	tongue.clear()
+	_put(world, Vector2i(17, 12))
+	tongue.lash()
+	await until(func() -> bool: return player.hanging(), 60)
+	await until(func() -> bool: return not player.climbing(), 60)
+	await ticks(10)
+	first = await _press(player)
+	await ticks(4)
+	second = await _press(player)
+	ok = check(first == "air" and second == "none", "a press well after he has dropped is only the air jump (%s, %s)" % [first, second]) and ok
+	# From a ceiling he gets a full jump and the double jump, wherever in the fall he presses.
+	for how in ["jump", "time"]:
+		tongue.clear()
+		_put(world, Vector2i(12, 5))
+		tongue.lash(true)
+		await until(func() -> bool: return player.hanging() and player.climbing_ceiling(), 60)
+		if how == "jump":
+			var dropped := await _press(player)
+			ok = check(dropped == "none" and not player.climbing(), "jump under the ceiling drops him and is not itself a jump") and ok
+		else:
+			await until(func() -> bool: return not player.climbing(), 60)
+		await ticks(4)
+		first = await _press(player)
+		await ticks(4)
+		second = await _press(player)
+		await ticks(4)
+		third = await _press(player)
+		ok = check(first == "ground" and second == "air" and third == "none", "dropped from a ceiling by %s: a full jump, the double jump, then nothing (%s, %s, %s)" % [how, first, second, third]) and ok
+	tongue.clear()
+	_put(world, Vector2i(12, 5))
+	tongue.lash(true)
+	await until(func() -> bool: return player.hanging() and player.climbing_ceiling(), 60)
+	await _press(player)
+	await until(func() -> bool: return player.is_on_floor(), 120)
+	ok = check(not player._state.spare_jump, "landing takes the spare jump away") and ok
 
 	# An Imprint platform is not stuck to.
 	tongue.clear()
@@ -233,6 +283,16 @@ func _put(world: Node, cell: Vector2i) -> void:
 	player.scripted_x = 0.0
 	player.place(world.current.position + Grid.cell_center(cell), world.current.world_rects())
 	player.facing = 1
+
+
+## Presses jump for one tick. Says what it did: "ground" (a ground, coyote or
+## spare jump), "air" (the air jump) or "none".
+func _press(player: Player) -> String:
+	player.scripted_jump_pressed = true
+	await physics_frame
+	if player._state.air_jumped:
+		return "air"
+	return "ground" if player._state.jumped else "none"
 
 
 ## Plays on until the tongue is back in; says whether Freddy climbed meanwhile.
