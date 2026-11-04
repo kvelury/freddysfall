@@ -10,7 +10,8 @@ extends RefCounted
 const RENDER_SCALE := 2
 const VIEWPORT := Vector2i(640, 360)
 ## Nodes in this group are meant to be drawn finer than a world pixel, so the
-## pixel check leaves them out. Nothing is in it yet.
+## pixel check leaves them out. The half-pixel pupils of Freddy looking down
+## (`PlayerBody.FinePupils`) are in it.
 const FINE_GROUP := "fine_pixels"
 
 

@@ -77,6 +77,7 @@ const FINGERPRINT_EXEMPT := {
 	"res://src/player/inventory_marks.gd": "marks drawn on the player",
 	"res://src/player/player.gd": "the running player; the solver calls MovementSim, not this node",
 	"res://src/player/player_animator.gd": "which picture the player shows",
+	"res://src/player/look_ahead.gd": "how far the view is shifted by looking up or down; the camera reads it, a jump does not",
 	"res://src/player/player_body.gd": "drawing the player",
 	"res://src/tongue/tongue_lash.gd": "the running tongue; the solver's lash and this one share TongueReach, which is in the fingerprint",
 	"res://src/tongue/tongue_motion.gd": "the running tongue's curves, which the solver's lash does not use",

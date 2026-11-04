@@ -69,7 +69,7 @@ func _input(event: InputEvent) -> void:
 		return
 	if event.is_action_pressed("ui_up") or event.is_action_pressed("look_up"):
 		move(-1)
-	elif event.is_action_pressed("ui_down") or event.is_action_pressed("move_down"):
+	elif event.is_action_pressed("ui_down") or event.is_action_pressed("look_down"):
 		move(1)
 	else:
 		return

@@ -3,6 +3,7 @@
   {"id": "jump", "label": "Jump (hold to go higher)", "actions": ["jump"]},
   {"id": "double_jump", "label": "Jump again in the air", "actions": ["jump"], "needs": "air_jumps"},
   {"id": "look_up", "label": "Look up", "actions": ["look_up"]},
+  {"id": "look_down", "label": "Look down", "actions": ["look_down"]},
   {"id": "lash", "label": "Lash your tongue", "actions": ["lash"], "needs": "tongue_unlocked"},
   {"id": "lash_up", "label": "Lash upward", "actions": ["look_up", "lash"], "combo": true, "needs": "tongue_unlocked"},
   {"id": "imprint", "label": "Place a platform at the cursor (legacy, dev tools)", "actions": ["imprint"], "needs": "imprint_unlocked"},

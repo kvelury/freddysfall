@@ -73,11 +73,11 @@ The camera follows the player’s interpolated display position each rendered fr
 | --- | --- |
 | Move | A / D, or Left / Right |
 | Jump | Space. Once double jump is found, press it again in the air for one more jump. |
-| Look up | W or Up. Standing still, Freddy looks up. Nothing else changes: it does not jump, and walking, jumping and landing keep their pictures. |
+| Look up | W or Up. Standing still, Freddy looks up at once. Held for 1.15 s on the ground, the view also glides up a quarter of a screen in a room taller than one screen (see **Camera**). It never jumps, and walking, jumping and landing keep their pictures. |
+| Look down | S or Down. The same, downward: lowered lids and half-height pupils at once, and the view glides down a quarter of a screen after 1.15 s. |
 | Lash | X, once Tongue Lash has been found. One lash a press, in the way the player faces. |
 | Lash up | W or Up held, then X, once Tongue Lash has been found. The tongue goes straight up out of the top of his head. |
 | Tongue Climb | No key of its own. With Tongue Climb on (dev tools for now), a lash that sticks to a wall pulls Freddy to it; a lash up at a ceiling hangs him from it. Jump lets go. See "Tongue Climb". |
-| Down | S or Down. Reserved. No action is assigned. |
 | Imprint (legacy) | Left mouse button, once Imprint is switched on in dev tools (F2). No room gives it. The only use of the mouse outside menus, and only in dev tools. |
 | Dismiss a popup | Any key. The power popup and Game Over close on any key press (not a mouse click). Function keys (the dev tools) and a modifier on its own do not count. |
 | Map | Hold Tab, or hold M. M exists because a browser may steal Tab for focus. While it is held, Up or W zooms in and Down or S zooms out. |
@@ -462,6 +462,7 @@ The camera shows one screen, and it stays inside the room.
 - A room that is exactly one screen locks the camera to the room's center. It never scrolls.
 - A wider or taller room follows the player, clamped so the 320×180 (world pixel) view never leaves the room, then rounded to whole world pixels.
 - The follow target is the player. During a door slide, follow is off until the slide finishes.
+- **Looking up and down.** Holding `look_up` (W or Up) or `look_down` (S or Down) shows Freddy looking that way at once (standing still only). Once the key has been held 1.15 s (`LookAhead.HOLD_TIME`), the view glides a quarter of a screen (45 world px) that way over 0.25 s, and glides back when the key is let go. It counts only while he is on the ground, any ground: a moving platform and a breakable are ground like the floor, and walking along it does not cancel it. A jump, a fall, a Tongue Climb hang, a door, a death or a warp cancels it and restarts the 1.15 s. Both keys together cancel each other. A room one screen tall never scrolls, and in a taller room the view stops at the room's edge.
 
 ## Map
 
@@ -759,6 +760,8 @@ also lives in `AGENTS.md` so future agents cannot treat cheats as optional clean
 
 `Grid.camera_focus` centres a one-screen room, and otherwise clamps the 320×180 world-pixel view inside the room and rounds to whole world pixels. The camera is zoomed by `Display.RENDER_SCALE`, and the door slide steps it onto whole world pixels each tick. `World._process` follows `Player.render_position(fraction)` using `Engine.get_physics_interpolation_fraction()` on each rendered frame, then calls `Camera2D.force_update_scroll`. The player remembers its position before every physics step, including held steps used by save-machine arcs; `place` resets both positions for warps, respawns and retries. With interpolation disabled, the live physics position is used. The camera’s own interpolation and smoothing stay off, so it samples once and remains pixel-aligned. A door slide owns the camera until following resumes.
 
+**Looking up and down.** `LookAhead` (`player/look_ahead.gd`, pure) holds the key's direction, how long it has been held and the glide's progress from -1 to 1; `step(delta, dir)` once a physics tick and `offset(fraction)` for the camera, eased and interpolated between ticks like the player. `Player._physics_process` steps it after the movement, with `dir` 0 unless `_state.grounded` and not `climbing()`, and with 0 while input is off, so every way of leaving the ground cancels it. `Player.place` resets it, which covers warp, respawn, retry, the dev rebuild and a door crossing. `World._update_camera` passes `Player.look_offset(fraction)` to `Grid.camera_focus(…, look_y)`, which adds it **after** the follow is clamped to the room and clamps again: added to the focus instead, a player standing against the room's bottom would never see below, or above, at the end of a room. `look_up` and `look_down` are the only keys read; `PlayerAnimator.Pose.LOOK_DOWN` is the lowered-lids picture, with pupils half a world pixel tall (`Frame.lower_halves`, the user's drawing). That is finer than the world-pixel grid by decision, so `PlayerBody.FinePupils` draws them in `Display.FINE_GROUP`, which the pixel check leaves out; one screen pixel at 2×, and the rest of the frog stays on whole pixels. They are base controls, not an upgrade, so they have no `data/upgrades.json` or dev catalog entry. F7 slow motion stretches the 1.15 s with everything else.
+
 Previously the camera followed only in `World._physics_process`, before the player stepped. At the 300 px/s fall cap it held still between 5 px updates while the player was interpolated, giving a 5 px oscillation relative to the camera. Render-frame following bounds that mismatch to the half-pixel rounding error. Collision positions, movement timing and the solver are unchanged.
 
 ### Imprint in play (`imprint/`, legacy)
@@ -1049,6 +1052,7 @@ What was decided, in the order it came up, with the reason. Pull requests are na
 - **Space lashes (was: shoots), and jump is W or Up.** The user's choice. Space was jump; it moved so a left-hand-on-the-keys player can act while holding a direction and jumping on W. The planned Imprint pad table has the same change.
 - **Space jumps again, B lashes, W or Up look up, and Up + B lashes up.** The user's choice, so that aiming the lash up and jumping are separate keys: with jump on Up, every up-lash began with a hop, which on a moving platform left Freddy behind. `jump` is Space, `lash` is B, and a new action `look_up` (W and Up) shows him looking up when he stands still (with or without Tongue Lash) and, with B, lashes straight up. The map still zooms on Up or W while it is held, and `move_down` is unchanged. Menus move up on `look_up` and the popups still go on for Space and W or Up. `inherit_platform_velocity` stays off (it was switched on for one build while the up-lash shared jump, and is back off now that the two are apart).
 - **The lash key is X.** The user's choice, after playing B, and B with either Command key, on the same build. `lash` is X alone; the up-lash is `look_up` (W or Up) then X. Command is gone from the map: Cmd+W closes a browser tab, so it was a poor partner for W. (The entry above says B; it was true until this.)
+- **Looking up and down moves the view after a 1.15 s hold, from the ground only.** The user's choice. In a tall room the player could not see above or below. The eyes change at once; the view waits for a deliberate 1.15 s hold (first tried at 3 s, shortened by the user after playing it) so a tap or a walk never moves it, and glides 45 px (a quarter of a screen) over 0.25 s on whole pixels. It is cancelled by anything that leaves the ground (jump, fall, Tongue Climb hang) because sliding the view while the body moves is confusing, but not by walking on it, or by a moving platform or a breakable under him. `move_down` was renamed `look_down` (S, Down); it did nothing before.
 - **Movers are one model.** A moving platform, an emitter and a spinner are each a `Mover`: pure, tick-indexed rects with `alive_at` and `is_hazard`, so the game and the solver agree. The user asked for the more general design so later rooms can mix them. The solver samples a mover at `ReachGraph.phases`, so a route that works only between two of those moments is not found.
 - **A rider is the one who lashes up.** The solver counts an up-lash from a ledge, and from a rider on a side-to-side mover standing in the row it rides, over any column the mover passes. It does not count lashes from a jump off a mover.
 - **Breakable walls are solid and only Tongue Lash (once the gun) breaks them.** They look cracked so they read as destructible, and they act as an ordinary platform to stand on.
@@ -1118,8 +1122,7 @@ Do not: draw anything in the world between world pixels (snap it with `Display.s
 - Whether to delete Imprint entirely (its runtime, `~`, dev controls and tests) once nothing wants it back. It is frozen, not removed, for now.
 - How many tokens an upgrade after double jump should cost, and whether the pocket should ever hold more than three.
 - Whether the shards of each block that goes are too busy.
-- What S / Down does.
-- Whether looking up (W or Up) should also show in the air or while walking, and whether it should scroll the camera up a little. It is a standing picture only for now.
+- Whether looking up or down should also show in the air or while walking. It is a standing picture only for now. (The view shift is in: it needs a 1.15 s hold on the ground.)
 - Room 12's timing: the emitter's interval (3 s) and speed (40 px/s), the spinner's period (8 s), and whether the window to lash up from the platform is fair. All to be tried in playtesting.
 - What a spent 3TM should offer, if anything.
 - Sound, throughout.

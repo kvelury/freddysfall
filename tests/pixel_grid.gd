@@ -47,6 +47,7 @@ func _run() -> void:
 	await _run_and_land()
 	await _death()
 	await _lift()
+	await _look()
 	await _door_slide()
 	await _imprint()
 	await _lash()
@@ -251,6 +252,26 @@ func _lift() -> void:
 			await _grab("lift_%03d" % frame)
 
 
+func _look() -> void:
+	await _start("7")
+	await _frames(2)
+	_stand(Vector2i(17, 27))
+	await _frames(20)
+	await _grab("look_rest")
+	# Eyes at once, then the view glides a quarter of a screen after 1.15 s, and back.
+	player.scripted_look_down = true
+	for frame in 200:
+		await process_frame
+		if frame == 5 or (frame >= 120 and frame % 6 == 0):
+			await _grab("look_down_%03d" % frame)
+	player.scripted_look_down = false
+	player.scripted_look_up = true
+	for frame in 200:
+		await process_frame
+		if frame == 5 or (frame >= 120 and frame % 6 == 0):
+			await _grab("look_up_%03d" % frame)
+
+
 func _door_slide() -> void:
 	await _start("4")
 	await _frames(3)
@@ -328,7 +349,7 @@ func _feed() -> void:
 	await _frames(3)
 	_stand(Vector2i(6, 16))
 	player.scripted_x = 1.0
-	for frame in 260:
+	for frame in 200:
 		await process_frame
 		if frame % 3 == 0:
 			await _grab("feed_%03d" % frame)

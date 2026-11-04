@@ -25,12 +25,30 @@ var facing := 1:
 ## frame, in world pixels. The tongue is drawn to the same tip whatever it is.
 var shake := Vector2.ZERO
 var _state: Node
+var _fine: FinePupils
+
+
+## The pupils that are half a world pixel tall (looking down). Finer than the
+## world-pixel grid by decision, so they are in `Display.FINE_GROUP`, which the
+## pixel check leaves out.
+class FinePupils extends Node2D:
+	var body: PlayerBody
+
+	func _init() -> void:
+		add_to_group(Display.FINE_GROUP)
+
+	func _draw() -> void:
+		for box in FreddySprites.fine_rects(body._pose, body._index, body.facing):
+			draw_rect(box, Color.BLACK)
 
 
 func _init() -> void:
 	# Placed from the player's _process, in world pixels.
 	top_level = true
 	physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
+	_fine = FinePupils.new()
+	_fine.body = self
+	add_child(_fine)
 
 
 func _ready() -> void:
@@ -61,6 +79,7 @@ func _draw() -> void:
 	for layer in drawn.layers:
 		for box in layer.rects:
 			draw_rect(box, layer.colour)
+	_fine.queue_redraw()
 
 
 ## How many tokens are drawn as marks: none, unless a dev test has turned them on.

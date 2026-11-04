@@ -192,7 +192,7 @@ func _process(_delta: float) -> void:
 func _update_camera(fraction: float) -> void:
 	if current == null or not _follow:
 		return
-	camera.position = _camera_focus(current, player.render_position(fraction))
+	camera.position = _camera_focus(current, player.render_position(fraction), player.look_offset(fraction))
 	camera.force_update_scroll()
 
 
@@ -526,8 +526,8 @@ func leave_to_menu() -> void:
 	Scenes.swap.call_deferred(self, load("res://src/ui/main_menu.tscn").instantiate())
 
 
-func _camera_focus(room: Room, focus: Vector2) -> Vector2:
-	return Grid.camera_focus(room.position, room.info.pixel_size, focus)
+func _camera_focus(room: Room, focus: Vector2, look_y := 0.0) -> Vector2:
+	return Grid.camera_focus(room.position, room.info.pixel_size, focus, look_y)
 
 
 ## Only the owner that paused may release the tree. Map fade-outs cannot
@@ -557,7 +557,7 @@ func gameplay_input_blocked() -> bool:
 	if not modal_owner.is_empty():
 		return true
 	if _input_release:
-		for action in ["move_left", "move_right", "move_down", "jump", "look_up", "lash", "imprint", "map"]:
+		for action in ["move_left", "move_right", "look_down", "jump", "look_up", "lash", "imprint", "map"]:
 			if Input.is_action_pressed(action):
 				return true
 		_input_release = false
