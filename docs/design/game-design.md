@@ -15,6 +15,7 @@ Implementation steps for the palette pass live in `docs/plans/soft-duotone-palet
 | Tokens, carried and shown as the HUD's diamonds, and the 3TM | Built |
 | Double jump, the first power-up (room 4's 3TM) | Built, and the solver uses it; not yet tuned beyond the user's first play |
 | Tongue Lash (room 9's 3TM, replacing the gun) and breakable walls (the box round room 7's pip) | Built, and the solver uses them (the pip needs room 9's 3TM) |
+| Tongue Climb (stick to a wall or ceiling by the tongue) | Built, dev tools only (no room gives it); the solver does not model it yet |
 | A `prize=health` 3TM | Built; no room uses it now |
 | Save rooms, the save machine, `exits: saved`, and the hearts that death uses (a base heart for everyone) | Built |
 | Health pips: the pickup (one in room 7), each adding a heart to the HUD's frame, and a save room refilling the hearts | Built; not yet played by a person. A cap is not decided |
@@ -80,6 +81,7 @@ The camera follows the player’s interpolated display position each rendered fr
 | Look up | W or Up. Standing still, Freddy looks up. Nothing else changes: it does not jump, and walking, jumping and landing keep their pictures. |
 | Lash | X, once Tongue Lash has been found. One lash a press, in the way the player faces. |
 | Lash up | W or Up held, then X, once Tongue Lash has been found. The tongue goes straight up out of the top of his head. |
+| Tongue Climb | No key of its own. With Tongue Climb on (dev tools for now), a lash that sticks to a wall pulls Freddy to it; a lash up at a ceiling hangs him from it. Jump lets go. See "Tongue Climb". |
 | Down | S or Down. Reserved. No action is assigned. |
 | Imprint | Left mouse button, once Imprint is unlocked (for now only through the dev panel). Mouse only. |
 | Map | Hold Tab, or hold M. M exists because a browser may steal Tab for focus. While it is held, Up or W zooms in and Down or S zooms out. |
@@ -351,7 +353,8 @@ F2, or Dev tools in the pause menu, opens a paused panel with Player, Rooms and 
 
 The Player tab is grouped into collapsible sections so it stays short: **Tokens & hearts**
 (open when the panel is first shown), **Movement**, **Tongue Lash** (its switch and tuning,
-and Wall strength), **Imprint** (its switch and tuning, and Classic Imprint) and **Debug view**
+and Wall strength), **Tongue Climb** (its switch, the hold, wiggle and pull speed, and the
+breakable-wall, ceiling and land-before-re-stick toggles), **Imprint** (its switch and tuning, and Classic Imprint) and **Debug view**
 (token marks, slow motion). The rest start folded. A folded section keeps its values and still
 applies them, and the panel remembers which are open while it is shown again in the same run.
 Every control belongs to one section: an upgrade names it in its `dev.section`, and
@@ -364,7 +367,7 @@ F4 opens room search. This opt-in is convenience, not a security boundary.
 
 A direct dev launch starts fresh progression and does not access the normal save.
 Entering from normal play copies current progression and leaves the player where
-they are. The panel can set tokens (0–3), hearts held and the frame's length (max hearts, at least 1; more held than the frame is long lengthens it), Tongue Lash (on or off, lash cooldown, speed, snap and tongue length, and the lash's shape: creep, creep reach, ramp, strike, return spring, stick time and the sticky pad), air jumps (0–3; 1 is double jump, and changing it never clears placed Imprints), Imprint unlocked,
+they are. The panel can set tokens (0–3), hearts held and the frame's length (max hearts, at least 1; more held than the frame is long lengthens it), Tongue Lash (on or off, lash cooldown, speed, snap and tongue length, and the lash's shape: creep, creep reach, ramp, strike, return spring, stick time and the sticky pad), Tongue Climb (on or off, hold time, wiggle time, pull speed, and the switches for breakable walls, ceilings and landing before re-stick; these are abilities, so loadouts, retries and the dev-test overlay carry them like the lash stats), air jumps (0–3; 1 is double jump, and changing it never clears placed Imprints), Imprint unlocked,
 width, seconds, active count and cooldown in either direction. Bounce says “Not implemented.”
 Apply commits a validated draft atomically. Resume / Cancel or Escape closes and
 discards unapplied edits. Closing keeps the test active, and the pause menu shows `Dev: not saving` (with the switches that are on).
@@ -684,6 +687,34 @@ Tongue Lash is the second power-up, given by the 3TM in room 9. It replaced the 
 
 **Not built yet:** enemies, per-wall strength (`hits=` in the legend), and upgrades that lengthen or speed up the tongue in the world (only the dev tools change them).
 
+## Tongue Climb
+
+Tongue Climb is a power-up built on Tongue Lash for puzzles over dangerous floors: Freddy lashes a wall, is pulled to it, and hangs there by his tongue for a short time before he drops. **No room gives it yet.** It is `Abilities.tongue_climb`, turned on in the dev tools' **Tongue Climb** section (F2); it is in no room's 3TM and the solver does not model it (see "What the solver and the preview do not model").
+
+**The stick.** With it on, a lash whose tip meets a plain wall (a room solid or a door block) does not turn for home. Freddy is **pulled** along the tongue at `climb_zip_speed` (400 px/s, about 0.12 s for a full 50 px tongue) with gravity off, and the tongue shortens as he goes. He stops `CLIMB_GAP` (4 px) short of the wall, so the tongue stays visible between his mouth and the sticky pad on the wall, and **hangs** there. If he was already within the gap (a lash made pressed to the wall), he stays where he is. The tongue stays drawn, with the pad, for as long as he hangs. If something other than the tongue's wall stops the pull (a ledge by his feet), he is pulled as far as he can go and lets go there.
+
+**The time.** He hangs for `climb_hold` seconds (0.5), and **wiggles** for the last `climb_wiggle` (0.2) of them, so the player knows he is about to drop: his picture shifts 1 px to one side and the other, about every twentieth of a second, on whole world pixels (the tongue's tip stays where it stuck). The wiggle is part of the hold, so he is on the wall 0.5 s in all. Then he lets go and falls with no speed; the tongue goes back in. There is no new picture: on a wall he shows the jump picture (legs wide), and from a ceiling the lash-up picture.
+
+**Leaving the wall.** Jump while stuck is a **ground jump**, steered by left and right (they do nothing else while he is stuck; he keeps facing the wall, and look-up and lash are ignored). Sticking gives back his air jumps, as landing does, so stick, jump, double jump, stick higher is a climb. A press up to 0.12 s before he arrives counts (the jump buffer). Anything that takes him off the wall (a moving platform pushing him, the world going busy, a death, a warp or a room change) lets go.
+
+**Ceilings.** With `climb_ceiling` on (it starts on), a lash up that meets a ceiling hangs him from it the same way. Jump lets go and drops him straight down, steerable, with his air jump ready (there is no room to jump up from a ceiling).
+
+**Sticking again.** There is no limit by default: he can lash straight back onto the wall after a drop or a jump, whenever the tongue is ready (`tongue_cooldown`, 0.05 s). The lash cooldown is the player's only brake, and the user plans to raise it after playtesting. `climb_land_to_restick` (it starts off) makes him touch the ground (or any floor) after a drop caused by the time running out before he can stick again; a jump off the wall never needs a landing.
+
+**Surfaces.** Plain solids and door blocks. A **breakable wall** is stuck to too while `climb_breakable` is on (it starts on): the hit still lands, so each stick is one of its hits, and the hit that breaks it does not stick (there is nothing left). With it off, a breakable wall only takes the hit. An Imprint platform and a moving platform stop the tongue as before and are never stuck to; Imprint is untouched.
+
+| Stat | Starting value | Meaning |
+| --- | --- | --- |
+| `tongue_climb` | off | The power-up. |
+| `climb_hold` | 0.5 s | Time on the wall, wiggle included. |
+| `climb_wiggle` | 0.2 s | The last part of it in which he wiggles. |
+| `climb_zip_speed` | 400 px/s | The pull to the wall. |
+| `climb_breakable` | on | Stick to breakable walls. |
+| `climb_ceiling` | on | Up-lash hangs him from a ceiling. |
+| `climb_land_to_restick` | off | After the time runs out, he must land before he can stick again. |
+
+These are guesses to be tuned in play. A later power-up could raise `climb_hold`.
+
 ## Implementation reference
 
 How each system is built, with the constants that matter. File names are under `src/`. Where a number is a named constant, the name is given, so a change to the number is a change to that line and to this page.
@@ -744,6 +775,14 @@ After any take, `recheck_exits` runs and the game autosaves.
 `RoomInfo.breakables` maps a wall's id to its cells (`register_breakable`, called by the parser, which also checks the cells are connected and not in a moving platform's track). The wall cells are not in `solids`; `is_solid` includes the ones that stand, and `all_solids()` is `solids` plus a cell rect for each. `broken` is the ids broken, and `variant(broken)` is a cheap copy of the room with its own `broken` (everything else shared). `Room.build` takes a variant of the loaded info, so a wall broken in play is broken in that one Room and the loaded room is untouched: that is why walls come back. `Room._solid_rects` (and so `world_rects` and the safe-floor rects), `ReachGraph.geometry_of` and `Door._walled` use `all_solids()`. A broken wall is erased from the room's `_walls`, added to `info.broken`, and `wall_broken` is emitted; the world answers with `imprint.sync_solids()`, which rebuilds the player's collision list. `BreakableWall` (a node at the room's origin) draws its cells and counts hits (`hit(strength)` returns whether it broke, and shatters one `Shatter` per cell). Abilities `tongue_unlocked`, `tongue_cooldown`, `tongue_speed`, `tongue_snap` and `tongue_length` come from the upgrades `tongue_lash`, `tongue_cooldown`, `tongue_speed`, `tongue_snap` and `tongue_length`. `TongueLash._begin_return` turns the tongue round (on a hit, at full reach, or at once against a wall) and sets `_return_speed = tongue_speed` and `_return_accel = 2 * snap * (snap - 1) * speed^2 / extension`, with snap at least 1; each tick `_move` takes off the exact distance of that acceleration (`v * dt + a * dt^2 / 2`) and raises the speed, so the return takes `extension / (snap * speed)` seconds whatever the reach. The return hits nothing, so it has no sub-steps; the way out is unchanged. The solver models neither speed nor snap. A save or named loadout from the gun's days (`gun_unlocked`, `gun_cooldown`, `gun_shot_speed`) still loads: `Abilities.from_dict` keeps the unlock and drops the cooldown and speed, and `DevCatalog.reconcile` carries all three over (`LEGACY_KEYS`). Wall strength is `DevSession.wall_strength()`.
 
 `TongueMotion` (`tongue/tongue_motion.gd`) is pure, with no scene: `out_speed` and `out_distance` (the exact area under the speed over a tick, piecewise for the creep, the ramp and the hold), and `back_duration` and `remaining` (the fraction still out after a fraction of the return: the constant-acceleration curve of PR #67, blended by `tongue_settle` with `((1 + 6u) e^-6u - floor) / (1 - floor)`, which is 1 at the start and 0 at the end). `DevSession.set_slow_motion` sets `Engine.time_scale` to `SLOW_SCALE` (0.25); `_normal_speed` puts it back on `configure`, `reset_to_normal` and every `_replace`. `DevPanel._slow_hotkey` binds F7 and does nothing with the panel open or pending, a modal owner, a busy world or outside a dev test.
+
+### Tongue Climb (`player/movement_sim.gd`, `player/player.gd`, `tongue/tongue_lash.gd`)
+
+The physics are `MovementSim`'s, so the player and the solver can move the same way. `State` carries `climb` (`CLIMB_NONE`, `CLIMB_ZIP`, `CLIMB_HOLD`), `climb_dir` (the unit vector to the wall: (+-1, 0), or (0, -1) for a ceiling), `climb_anchor` (where the body's centre hangs), `zip_speed`, `climb_left`/`climb_hold`, `climb_abort`, `climb_relock`, `climb_locked` and `released` (set for the tick he let go). `start_climb(s, rects, tip, dir, hold, zip_speed, relock)` returns false if he is climbing or locked; otherwise it slides a copy of the body toward the wall in steps of at most `CLIMB_STEP` (4 px, the tongue's step, so a thin ledge is not skipped) until a solid stops it, and sets the anchor `CLIMB_GAP` short of that. If the stop is not within the slack of where the tip stuck (`CLIMB_TIP_BEFORE` 2.5 px short or `CLIMB_TIP_PAST` 1.5 px past, from where the tip's step can end), or nothing stopped it, `climb_abort` is set: he is pulled to the stop and released there. `step` runs `_climb_tick` first when `climb` is set: it zeroes the velocity (no gravity, no input), keeps the jump buffer, lets a moving platform that moves him release him (`move_with`), moves a ZIP straight to the anchor at `zip_speed` and, on arrival, sets HOLD, `climb_left` and `air_left = air_jumps`. In HOLD a buffered jump on a wall releases him and returns `_CLIMB_WALL_JUMP`: `step` carries on with a jump press and coyote time set, so the ordinary `_integrate` makes a ground jump. On a ceiling it releases him with `coyote` 0 and the press dropped (`_CLIMB_CEILING_DROP`), so the next press is the air jump. The timer running out releases him and sets `climb_locked` if `climb_relock`; landing clears it. The non-climbing path of `step` is untouched, which `parity_test` keeps.
+
+`Player.begin_climb`/`end_climb` wrap those; `end_climb` does nothing unless he is climbing (it must not zero the velocity of a body that has just jumped off). While climbing `facing` is locked and `looking_up` is false. `Player.wiggle_offset()` is the 1 px shift (from `animator.time_in_pose`, so slow motion slows it) passed to `PlayerBody.show_at` and kept in `PlayerBody.shake`, which `TongueLash._draw` subtracts from a sideways tongue so its tip stays put. `PlayerAnimator.Hang` (NONE, WALL, CEILING) picks the pose: JUMP on a wall, LASH_UP from a ceiling.
+
+`TongueLash` has a fourth phase, CLIMB. `_hit` records `_climbable`: a breakable wall is climbable when `climb_breakable` is on and the hit did not break it; a solid is when the tip's box also hits the room's solids or door blocks alone (not only an Imprint platform or mover). `_begin_return` first tries `_try_climb`: `tongue_climb` on, the strike climbable, and (going up) `climb_ceiling`; it calls `Player.begin_climb` with the tip and the abilities' hold, zip speed and relock. In CLIMB the tip is held at `_stuck_tip` and `extension` is recomputed each tick as in STICK, so the line shortens as he is pulled; when the player is no longer climbing, or `_surface_holds` says what it stuck to is gone, the tongue returns from where it is. `end()` and `clear()` release him, so a busy world, death, warp and retry let go. The tests are `tests/tongue_climb_test.gd` (a small world in `tests/fixtures/worlds/climb`).
 
 ### Moving platforms (`world/mover.gd`, `world/platform_path.gd`, `world/emitter_path.gd`, `world/spinner_path.gd`, `world/movers.gd`, `world/entities/moving_platform.gd`, `emitter_view.gd`, `spinner_view.gd`)
 
@@ -890,6 +929,7 @@ The solver answers "can a player get here, and get back", using `MovementSim` an
 
 ### What the solver and the preview do not model
 
+- **Tongue Climb.** The solver treats a wall the same with the power-up on or off: it knows no hanging, no pull and no jump off a wall, and `Abilities.movement_key` and the lash cache do not mention it. A room that needs it is reported out of reach, and no room does yet. Teaching the solver is its own change, to be made before the first room that needs it; the physics are already in `MovementSim` (`start_climb`, `step`) for it to call.
 - **Lashing is tried from a ledge only,** along a straight line to a wall. Lashes made while falling or from a moving platform or an Imprint platform are not tried, nor is breaking a wall the player stands on, nor a lash stopped by anything but solid (a door block, a moving platform, an Imprint platform), nor a wall that takes more than one visit to break. The rows a lash may go along are the one the body stands in and those it can jump up to with nothing solid overhead, by the simulator's own jump height (single or, with an air jump, double), and the wall has to be within the tongue's reach. It can only call something unreachable that is reachable, never the reverse.
 - **The air jump** is tried as one extra press, from a ground jump or a walk off a ledge, at a few fixed moments (see `AIR_*` in `ReachGraph`); a second air jump (`air_jumps` above 1), a press with the input changed afterwards, an air jump from an Imprint platform's leg or in an Imprint arc, and one in a fall through a chain of doors are not tried. It is conservative: it can call something unreachable that a double-jumping player reaches.
 - Placing a platform in mid-air, and using two in a row. A room that needs either is reported out of reach.
@@ -1081,6 +1121,17 @@ What was decided, in the order it came up, with the reason. Pull requests are na
 - **Rooms 5 and 6 are `trap: allowed`** (the user's choice) because crossing room 5's pit with double jump is one-way. Take the mark off when a way back is built.
 - **Imprint is dev-only for now, and room 9's 3TM gives a health pip.** Both by the user's instruction, as placeholders. A 3TM takes `upgrade=` (with `value=`) or `prize=health`. Rooms built for Imprint wait for the user's decision before any is changed.
 
+**Tongue Climb (2026-11-03)**
+- **A lash that sticks pulls Freddy to the wall and he hangs from the tongue.** The user's design, for puzzles over dangerous floors. The stick time is 0.5 s to start and is a stat (`climb_hold`), because it may be tuned or raised by a later power-up. Dev tools only until a room gives it.
+- **The wiggle is the last part of the hold, not extra time.** The total stays the stat. It is the existing picture shifted 1 px on whole world pixels, so there is no new sprite and the pixel grid holds; the tongue's tip stays where it stuck.
+- **He hangs 4 px off the wall, not touching it.** The user wanted the tongue to be seen sticking to the wall; flush to it the line would be 0 px long and only the pad would show. The gap is a constant (`CLIMB_GAP`).
+- **Pulled fast along the tongue rather than moved at once.** An instant move reads as a teleport. A pull at 400 px/s is about 0.12 s over the full tongue. A ledge in the way stops the pull and he drops, as the user agreed.
+- **Sticking refills the air jump; a jump off the wall is a ground jump.** So stick, jump, double jump, stick is a climb.
+- **No limit on sticking again, with a toggle.** The user chose to start with none, and to raise the lash cooldown later after playtesting if needed. `climb_land_to_restick` (off) is the alternative: land after a drop from the timer.
+- **Breakable walls and ceilings are switches that start on.** Sticking to a breakable wall still lands its hit, so a second stick breaks it and does not stick. A ceiling hang is the same hang with a drop (not a jump) on the jump key and the air jump ready. Moving platforms and Imprint platforms are never stuck to: Imprint is untouched, and the Imprint rule is not affected, because a hang is not Imprint footing.
+- **Left and right do nothing while stuck but steer the jump;** he keeps facing the wall; lash and look-up are ignored.
+- **The solver does not model it yet,** by agreement: this change is the mechanic, its dev path, tests and docs. The physics are in `MovementSim` for the solver's own change.
+
 **Tongue Lash and breakable walls**
 - **Tongue Lash replaced the gun (stacked on the HUD PR).** The user wanted the power to be a frog's tongue and not a weapon: a pink line out of the notch in the front of the body that goes out and comes back, breaking walls exactly as the shot did (so the rest of this section, written about the gun, still describes how walls and the solver work). Every `gun` name became a `tongue` name (`shoot` is now `lash`, still Space), the pickup text is "Tongue Lash", and old saves and named loadouts carry over (see the implementation reference). The tongue has a **length** from the start (50 px, five cells), unlike the shot, which had no range limit: it is the stat the user plans to upgrade so later puzzles need a longer tongue, and the solver reads it. Speed (400 px/s) and cooldown (0.15 s, from the tongue's return) were chosen so a lash is quick but still a separate act; they are guesses to tune in F2. One tongue is out at a time. The hit is made at a fixed height whatever picture Freddy shows.
 - **The tongue snaps back (2026-10-31).** The user wanted the tongue to leave slowly and come back like a frog's. The way out is now 220 px/s (it was 400 both ways; 280 and a 3x snap were tried first, then tuned to 220 and 3.5 after playtesting), and the return starts at that speed and accelerates, averaging `tongue_snap` (3.5) times it, so a full lash is about 14 ticks out and 4 back. The slower reach brings the lash rate to about 2.2 a second (it was about 2.5), and the cooldown stayed 0.15 s. The ratio is of the *average*, not the peak: that fixes how long a return takes (`extension / (snap * speed)`), so a close hit and a full whiff feel the same and a speed upgrade shortens the snap in step with the reach. A snap of 1 is the old steady return, which is the F2 minimum. `tongue_snap` is a stat with a dev control ("Lash snap", 1 to 10) and is awarded by no room. Old saves were left alone, so they keep the 400 px/s they hold (the 3.5x snap applies to them); the 400 px/s in the entry above is the starting value before this change.
@@ -1143,6 +1194,7 @@ Do not: draw anything in the world between world pixels (snap it with `Display.s
 
 ## Not decided
 
+- Tongue Climb's numbers (a 0.5 s hold, a 0.2 s wiggle, a 400 px/s pull, a 4 px gap, 1 px at 20 Hz for the wiggle), whether it reads at 1x and in F7's slow motion, whether the lash cooldown should be raised so a drop cannot be undone at once, and which power-up lengthens the hold.
 - How the planned palette pass (`mix(background, foreground, luma)`) treats Freddy. As designed it would turn his lime into a shade of the palette's foreground; keeping him lime means drawing him after the pass or exempting him.
 - Whether the chosen tongue (a creep, a snap to 660 px/s, a 6-tick stick with a pad, a spring return) holds up over a whole playthrough, and whether the pink tongue (one pixel high) reads at 1x (tune in F2), and what the first length upgrade should add (the user plans a longer tongue and a faster one; the faster one also speeds the snap, and a future upgrade could raise `tongue_snap` on its own).
 - Per-wall strength (`hits=` in the legend), and walls that stay broken for good.

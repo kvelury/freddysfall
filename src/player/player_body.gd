@@ -21,6 +21,9 @@ var facing := 1:
 		if value != facing:
 			facing = value
 			queue_redraw()
+## Tongue Climb's wiggle: how far the picture is shifted from the body this
+## frame, in world pixels. The tongue is drawn to the same tip whatever it is.
+var shake := Vector2.ZERO
 var _state: Node
 
 
@@ -44,8 +47,8 @@ func _ready() -> void:
 
 
 ## Where the body's centre is shown this frame, and the picture it shows.
-func show_at(center: Vector2, pose: PlayerAnimator.Pose, index := 0) -> void:
-	position = corner(center)
+func show_at(center: Vector2, pose: PlayerAnimator.Pose, index := 0, offset := Vector2.ZERO) -> void:
+	position = corner(center) + offset
 	if pose == _pose and index == _index:
 		return
 	_pose = pose

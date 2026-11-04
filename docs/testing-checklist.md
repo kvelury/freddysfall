@@ -66,6 +66,20 @@ The new room from the user's drawings. Start `?dev=1&room=11`, and in F2 turn To
 - [ ] **The door wall.** Lash the L by the left door (two hits) and walk out into room 7's exit 2.
 - [ ] **Without Tongue Lash.** From room 10's bottom left platform a double jump reaches the door back to room 9 (the user found this in play), so room 10's corner token gets back to room 9's 3TM.
 
+## Tongue Climb
+
+Nobody has played this yet. No room gives it. `?dev=1&room=7` (or any room), F2, **Tongue Climb** section: turn Tongue Climb on (and Tongue Lash, and Air jumps 1), Apply. Use F7 for slow motion.
+
+- [ ] **The stick.** Lash a plain wall from a jump. He is pulled to it quickly, the tongue shortens as he goes and stays pink from his mouth to the wall with the pad on it. Does it read as stuck, and not as a teleport? Is 4 px of tongue enough to see at 1x?
+- [ ] **The time and the wiggle.** He hangs about half a second, wiggles for the last fifth of it, then drops. Does the wiggle warn you in time without looking like a glitch? Try Hold, Wiggle and Pull speed in F2.
+- [ ] **Jumps.** Jump off the wall: a full jump, steerable with left and right, and the double jump still works. Stick, jump, double jump, stick again higher.
+- [ ] **Sticking again.** Right after a drop you can lash back on. Switch on Land before re-stick: after a timer drop you cannot stick until you touch the ground; after a jump you still can.
+- [ ] **Breakable walls.** Room 7's wall from the exit-2 ledge: the first lash sticks and cracks it, the second breaks it and you fall. Switch off Stick to breakable walls: it only takes the hit.
+- [ ] **Ceilings.** Hold W or Up and lash at a ceiling within 50 px: he hangs from it. Jump drops him with the double jump ready. Switch off Hang from ceilings: the old up-lash.
+- [ ] **Other surfaces.** An Imprint platform and a moving platform stop the tongue but he does not stick.
+- [ ] **Dangers.** A pull through spikes still kills him. Being pushed by a moving platform lets go. Leaving the room, dying and retry (F2) all clear the hang.
+- [ ] **Loadouts and retry.** Save the settings in a named loadout and load them; a retry keeps them. Ending the playtest leaves the normal game without Tongue Climb.
+
 ## Tongue Lash and breakable walls
 
 Nobody has played these yet. Headless tests prove the rules, not the feel. Use `?dev=1&room=7`, open F2, turn Tongue Lash on and Apply (add Air jumps 1 if you want to climb), or play to room 9's 3TM, which gives it. This replaced the gun, so nothing here was tested as a tongue.
