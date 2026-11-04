@@ -14,6 +14,9 @@ extends CanvasLayer
 ## in whole UI units, by switching pixels and never by fading.
 
 const RED := Palette.RED
+## The bar the hearts sit on: a deeper blood red than the heart colour, which
+## still shows in flights and a landing heart.
+const BAR := Color("8a1414")
 ## Tokens are gold everywhere: in a room, flying, in a 3TM and here.
 const GOLD := Palette.GOLD
 ## An empty heart is solid black. There is no plate.
@@ -290,11 +293,11 @@ func frame_rects(row: int, length: int) -> Array[Rect2]:
 
 func _draw_frame(row: int, length: int) -> void:
 	for box in frame_rects(row, length):
-		_canvas.draw_rect(box, RED)
+		_canvas.draw_rect(box, BAR)
 
 
 ## How heart `index` is drawn: the picture and its colour, from its fill
-## colour. A full heart is a black outline over the bar, an empty one is solid
+## colour. A full heart is a black outline over a heart-red fill (see `_draw_heart`), an empty one is solid
 ## black, and a landing one flashes solid white.
 func heart_look(index: int) -> Array:
 	var colour := _fill_colour("p%d" % index, index < shown_health)
@@ -307,6 +310,10 @@ func heart_look(index: int) -> Array:
 
 func _draw_heart(index: int) -> void:
 	var look := heart_look(index)
+	# A full heart is filled with the heart red under its black outline, so it
+	# reads against the darker bar.
+	if look[0] == "hud_heart_empty":
+		PixelArt.draw(_canvas, "hud_heart", pip_rect(index).position, RED)
 	PixelArt.draw(_canvas, look[0], pip_rect(index).position, look[1])
 
 
