@@ -13,6 +13,14 @@ extends Node2D
 ## `look_up` (Up or W) held when `lash` (B) is pressed, the tongue goes straight
 ## up out of the top of his head instead, for a wall or platform above him.
 ##
+## Two keys pressed "together" land a frame or two apart, and a press often
+## comes a little before the lash can be made, so the input is lenient. A press
+## that comes while the tongue is out, coming back, cooling down or hanging is
+## kept for `LASH_BUFFER` seconds and made as soon as it may (one press is kept,
+## not a queue). A sideways lash turns to go up if `look_up` is pressed within
+## `UP_GRACE` seconds of it, while the tip is still going out and has hit
+## nothing.
+##
 ## With Tongue Climb (`Abilities.tongue_climb`) a tip that sticks to a plain wall
 ## (or a breakable one that is still standing, or, going up, the ceiling) pulls
 ## Freddy to it instead of coming back: the CLIMB phase. He hangs by the tongue
@@ -37,6 +45,11 @@ const TIP := TongueReach.TIP
 ## The tip's box going up, in pixels.
 const TIP_UP := TongueReach.TIP_UP
 const PINK := Color("ff6fa8")
+## How long a press that came too early is kept, in seconds: the jump buffer's.
+const LASH_BUFFER := 0.12
+## How long after a sideways lash pressing `look_up` still sends it up, in
+## seconds (3 ticks).
+const UP_GRACE := 0.05
 
 ## The parts of a lash. OUT is the creep and the snap; STICK holds the tip on
 ## what it hit; BACK is the return; CLIMB holds the tip while Freddy hangs from it.
@@ -83,6 +96,12 @@ var _stuck_tip := Vector2.ZERO
 var _stuck_at := 0.0
 ## Seconds before another lash may be made. It runs only while the tongue is in.
 var cooldown_left := 0.0
+## A press kept because it came too early: seconds it is still good for, and
+## whether look-up was held with it.
+var buffer_left := 0.0
+var _buffer_up := false
+## Seconds since this lash was sent, for the up grace.
+var _sent_for := 0.0
 
 var _world: Node
 var _player: Player
@@ -99,7 +118,19 @@ func _ready() -> void:
 ## Whether a press sends the tongue out now: Tongue Lash has been found, none is
 ## out, the last has been back long enough, and the player is in control in a room.
 func can_lash() -> bool:
-	return GameState.abilities.tongue_unlocked and not active and not _player.climbing() and cooldown_left <= 0.0 and not _world.gameplay_input_blocked() and _player.input_enabled and _world.current != null and not _world.is_busy()
+	return _lash_allowed() and _tongue_ready()
+
+
+## Whether the player may lash at all just now: the power is found and the
+## player is in control in a room. A press made when this is false is dropped.
+func _lash_allowed() -> bool:
+	return GameState.abilities.tongue_unlocked and not _world.gameplay_input_blocked() and _player.input_enabled and _world.current != null and not _world.is_busy()
+
+
+## Whether the tongue is free: none is out, the last has been back long enough
+## and Freddy is not hanging. A press made when this is false is kept a while.
+func _tongue_ready() -> bool:
+	return not active and not _player.climbing() and cooldown_left <= 0.0
 
 
 ## Lashes if it may. Returns whether it did.
@@ -107,16 +138,22 @@ func lash(upward := false) -> bool:
 	if not can_lash():
 		return false
 	active = true
+	direction = _player.facing
+	_send(upward)
+	return true
+
+
+## Sends the tongue out from the mouth, sideways or up.
+func _send(upward: bool) -> void:
 	up = upward
 	_player.lashing_up = upward
-	direction = _player.facing
 	extension = 0.0
+	_sent_for = 0.0
 	_reset_phase()
 	# A lash against a wall the player is pressed to hits it at once.
 	if _hit():
 		_begin_return()
 	queue_redraw()
-	return true
 
 
 ## Pulls the tongue in at once and starts the wait for the next lash.
@@ -133,8 +170,15 @@ func end() -> void:
 	queue_redraw()
 
 
-## Removes the tongue and the wait for the next lash.
+## Forgets a press that was being kept.
+func drop_buffer() -> void:
+	buffer_left = 0.0
+	_buffer_up = false
+
+
+## Removes the tongue, the wait for the next lash and any kept press.
 func clear() -> void:
+	drop_buffer()
 	active = false
 	up = false
 	if _player != null:
@@ -156,18 +200,32 @@ func tip() -> Vector2:
 func _physics_process(delta: float) -> void:
 	if _world.current == null or _world.is_busy():
 		end()
+		drop_buffer()
 		return
+	var pressed := scripted_lash if scripted else Input.is_action_just_pressed("lash")
+	var upward := scripted_up if scripted else Input.is_action_pressed("look_up")
+	scripted_lash = false
 	if active and not up and _player.facing != direction:
 		end()
+	if active and not up and phase == Phase.OUT and _sent_for < UP_GRACE - 0.001 and upward and _lash_allowed():
+		# Look-up came a moment after the lash: it goes up after all.
+		_send(true)
 	if not active:
 		cooldown_left = maxf(cooldown_left - delta, 0.0)
 	else:
 		_move(delta)
-	var pressed := scripted_lash if scripted else Input.is_action_just_pressed("lash")
-	var upward := scripted_up if scripted else Input.is_action_pressed("look_up")
-	scripted_lash = false
-	if pressed:
-		lash(upward)
+		_sent_for += delta
+	if not _lash_allowed():
+		drop_buffer()
+	elif pressed:
+		if not lash(upward):
+			buffer_left = LASH_BUFFER
+			_buffer_up = upward
+	elif buffer_left > 0.0:
+		if lash(_buffer_up or upward):
+			drop_buffer()
+		else:
+			buffer_left = maxf(buffer_left - delta, 0.0)
 
 
 func _process(_delta: float) -> void:
@@ -250,6 +308,11 @@ func _move(delta: float) -> void:
 				extension = maxf(0.0, _player.global_position.y - _stuck_tip.y - FRONT)
 			else:
 				extension = maxf(0.0, float(direction) * (_stuck_tip.x - _player.global_position.x) - FRONT)
+			if not _player.climbing() and _player.jumped_off_climb():
+				# A jump off the hang pulls the tongue in at once, so the next
+				# lash is only the cooldown away.
+				end()
+				return
 			if not _player.climbing() or not _surface_holds():
 				_player.end_climb()
 				_start_back()

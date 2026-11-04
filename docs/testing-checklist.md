@@ -24,6 +24,17 @@ Nobody has played these yet. `?dev=1&room=s3`, `?dev=1&room=10`, `?dev=1&room=s2
 - [ ] **Room 9's 3TM.** With room 8's, s3's and room 10's tokens it gives Tongue Lash, and room 9 has no token of its own any more.
 - [ ] **s2's walled door.** Without Tongue Lash the left door cannot be reached (no jumping over the roof). With it (F2), two lashes from the floor break the wall and the door leads to room 12. Coming back, the wall has grown back and is lashed again from the doorway.
 
+## Lash input leniency
+
+Nobody has played this yet. `?dev=1&room=12`, then F2 for Tongue Lash, double jump and Tongue Climb. F7 slows the game if it helps to see it.
+
+- [ ] **X a little before W.** Standing or in the air, press X and then W a frame or two later: the lash goes up. Press W well after X (a quarter second): it stays sideways.
+- [ ] **Early presses.** Press X again just before a lash is back in: the next lash comes at once, with no second press. Mashing X lashes no faster than before.
+- [ ] **Hang, jump, up-lash.** Lash to a wall, hang, jump and press W+X straight away: the up-lash fires every time. Pressing W+X during the hang and then jumping does the same.
+- [ ] **Ceiling drop.** Hang from a ceiling, jump to drop and press W+X: it lashes up again.
+- [ ] **The tongue snaps in.** Jumping off a hang, the tongue vanishes into the mouth; when a hang runs out it still eases back.
+- [ ] **No stale lash.** Press X right before entering a door, opening the pause menu or dying: nothing is lashed afterwards.
+
 ## Room 12: emitted platforms, a spinner and lash up
 
 Nobody has played this yet. `?dev=1&room=12`, then F2 for Tongue Lash and double jump.

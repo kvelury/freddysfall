@@ -80,6 +80,9 @@ class State extends RefCounted:
 	var climb_locked := false
 	## Set by step(): the body let go of the wall or ceiling this tick.
 	var released := false
+	## Set by step(): it let go this tick because of a jump press (a wall jump,
+	## or a drop from a ceiling), as against the hang running out or being cut.
+	var left_by_jump := false
 	## A ground jump held in hand after dropping from a ceiling: the next press,
 	## wherever in the fall, is a full jump, and the one after is the air jump.
 	## Landing, or starting a climb, takes it away.
@@ -106,6 +109,7 @@ static func step(
 ) -> void:
 	var was_riding := s.riding
 	s.released = false
+	s.left_by_jump = false
 	s.climb_swept = Rect2()
 	if s.climb != CLIMB_NONE:
 		match _climb_tick(cfg, s, rects, jump_pressed, delta, movers, tick):
@@ -296,6 +300,7 @@ static func _climb_tick(cfg: MovementConfig, s: State, rects: Array, jump_presse
 		if s.buffer > 0.0:
 			var wall := s.climb_dir.y == 0.0
 			release_climb(s)
+			s.left_by_jump = true
 			if wall:
 				s.coyote = cfg.coyote_time
 				return _CLIMB_WALL_JUMP

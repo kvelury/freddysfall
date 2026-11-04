@@ -90,6 +90,7 @@ func place(world_position: Vector2, rects: Array[Rect2]) -> void:
 	_state.climb_locked = false
 	_state.spare_jump = false
 	_state.released = false
+	_state.left_by_jump = false
 	_was_on_floor = _state.grounded
 	look.reset()
 	reset_physics_interpolation()
@@ -184,6 +185,12 @@ func climbing_ceiling() -> bool:
 ## Whether the hang is in its last seconds, when he wiggles.
 func wiggling() -> bool:
 	return MovementSim.wiggling(_state, climb_wiggle)
+
+
+## Whether he let go of a wall or ceiling this tick by jumping (a wall jump or a
+## drop from a ceiling), as against the hang running out or being cut short.
+func jumped_off_climb() -> bool:
+	return _state.left_by_jump
 
 
 ## Whether he must land before he can stick again (Land before re-stick).
