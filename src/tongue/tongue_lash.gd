@@ -48,8 +48,8 @@ const PINK := Color("ff6fa8")
 ## How long a press that came too early is kept, in seconds: the jump buffer's.
 const LASH_BUFFER := 0.12
 ## How long after a sideways lash pressing `look_up` still sends it up, in
-## seconds (3 ticks).
-const UP_GRACE := 0.05
+## seconds (6 ticks).
+const UP_GRACE := 0.1
 
 ## The parts of a lash. OUT is the creep and the snap; STICK holds the tip on
 ## what it hit; BACK is the return; CLIMB holds the tip while Freddy hangs from it.
@@ -102,6 +102,8 @@ var buffer_left := 0.0
 var _buffer_up := false
 ## Seconds since this lash was sent, for the up grace.
 var _sent_for := 0.0
+## The last line the lash input readout said (the dev tools' Show lash input).
+var last_log := ""
 
 var _world: Node
 var _player: Player
@@ -209,6 +211,7 @@ func _physics_process(delta: float) -> void:
 		end()
 	if active and not up and phase == Phase.OUT and _sent_for < UP_GRACE - 0.001 and upward and _lash_allowed():
 		# Look-up came a moment after the lash: it goes up after all.
+		_log("Lash turned up, look-up %d ticks after X" % (roundi(_sent_for * 60.0) + 1))
 		_send(true)
 	if not active:
 		cooldown_left = maxf(cooldown_left - delta, 0.0)
@@ -216,16 +219,50 @@ func _physics_process(delta: float) -> void:
 		_move(delta)
 		_sent_for += delta
 	if not _lash_allowed():
+		if pressed and GameState.abilities.tongue_unlocked:
+			_log("Lash dropped: not in control")
+		elif buffer_left > 0.0:
+			_log("Kept lash dropped: not in control")
 		drop_buffer()
 	elif pressed:
-		if not lash(upward):
+		var why := _busy_reason()
+		if lash(upward):
+			_log("Lash %s · look-up held: %s" % ["UP" if upward else "side", _yes(upward)])
+		else:
 			buffer_left = LASH_BUFFER
 			_buffer_up = upward
+			_log("Lash kept (%s) · look-up held: %s" % [why, _yes(upward)])
 	elif buffer_left > 0.0:
-		if lash(_buffer_up or upward):
+		var aim := _buffer_up or upward
+		if lash(aim):
 			drop_buffer()
+			_log("Kept lash made %s · look-up held: %s" % ["UP" if aim else "side", _yes(upward)])
 		else:
 			buffer_left = maxf(buffer_left - delta, 0.0)
+			if buffer_left <= 0.0:
+				_log("Kept lash ran out (%s)" % _busy_reason())
+
+
+## With the dev tools' Show lash input on, says `text` in the toast line.
+func _log(text: String) -> void:
+	if DevSession.lash_log_active() and _world.get("toast") != null:
+		_world.toast.show_text(text)
+		last_log = text
+
+
+static func _yes(on: bool) -> String:
+	return "yes" if on else "no"
+
+
+## Why the tongue is not free, in a word or two, for the lash input readout.
+func _busy_reason() -> String:
+	if _player.climbing():
+		return "hanging"
+	if active:
+		return "tongue out" if phase == Phase.OUT else "tongue coming back"
+	if cooldown_left > 0.0:
+		return "cooldown"
+	return "ready"
 
 
 func _process(_delta: float) -> void:

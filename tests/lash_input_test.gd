@@ -6,7 +6,7 @@ extends TestCase
 ## made as soon as it may, with look-up held at the press or at the moment it
 ## is made; a press kept longer than that is dropped, and so is one when the
 ## player is not in control. A sideways lash turns to go up if look-up comes
-## within `TongueLash.UP_GRACE` (3 ticks), while the tip is still going out and
+## within `TongueLash.UP_GRACE` (6 ticks), while the tip is still going out and
 ## has hit nothing. A jump off a Tongue Climb hang pulls the tongue in at once,
 ## so a lash pressed with or just before it goes after only the cooldown; a
 ## hang that runs out still lets the tongue ease back.
@@ -44,6 +44,8 @@ func _run() -> void:
 	ok = await _late_up(world, player, tongue) and ok
 	ok = await _climb_chain(world, player, tongue, ab) and ok
 	ok = await _stale(world, player, tongue) and ok
+	ok = await _air_keys(world, player, tongue) and ok
+	ok = await _readout(world, player, tongue) and ok
 	finish("LASH INPUT", ok)
 
 
@@ -126,7 +128,7 @@ func _buffer(world: Node, player: Player, tongue: Node) -> bool:
 
 func _late_up(world: Node, player: Player, tongue: Node) -> bool:
 	var ok := true
-	for late in [1, 2, 3, 4]:
+	for late in [1, 3, 6, 7]:
 		_put(world)
 		await _press(tongue)
 		ok = check(tongue.active and not tongue.up and tongue.phase == OUT, "lash with no look-up goes sideways") and ok
@@ -136,10 +138,10 @@ func _late_up(world: Node, player: Player, tongue: Node) -> bool:
 		await physics_frame
 		tongue.scripted_up = false
 		var above: bool = tongue.tip().y < player.global_position.y - 4.0 and is_equal_approx(tongue.tip().x, player.global_position.x)
-		if late <= 3:
+		if late <= 6:
 			ok = check(tongue.up and above and player.lashing_up, "look-up %d tick(s) after the lash sends it up" % late) and ok
 		else:
-			ok = check(not tongue.up and not player.lashing_up, "look-up 4 ticks after it leaves it sideways") and ok
+			ok = check(not tongue.up and not player.lashing_up, "look-up 7 ticks after it leaves it sideways") and ok
 	# A tip that has already hit something is not sent again.
 	_put(world, Vector2i(19, 16), 1)
 	await _press(tongue)
@@ -231,3 +233,93 @@ func _stale(world: Node, player: Player, tongue: Node) -> bool:
 	tongue.clear()
 	ok = check(tongue.buffer_left == 0.0, "clearing the tongue forgets a kept press") and ok
 	return ok
+
+
+## Lets go of every key the real-key cases press.
+func _release_keys() -> void:
+	for action in ["jump", "lash", "look_up", "move_left", "move_right"]:
+		Input.action_release(action)
+
+
+## The real keys, not the scripted stand-ins: jump, and in the air look-up and
+## lash in any order a player presses them (steering too) lash up, and holding
+## look-up in the air shows the up-lash picture before the lash is made.
+func _air_keys(world: Node, player: Player, tongue: Node) -> bool:
+	var ok := true
+	player.scripted = false
+	tongue.scripted = false
+	# [label, ticks look-up is held before X (-1: one tick after), steering key]
+	var cases := [["look-up held, then X", 5, ""], ["look-up and X on one tick", 0, ""], ["X, then look-up a tick later", -1, ""], ["steering right", 5, "move_right"], ["steering left", 5, "move_left"]]
+	for c in cases:
+		_put(world, Vector2i(12, 16), 1)
+		_release_keys()
+		await ticks(2)
+		Input.action_press("jump")
+		if c[2] != "":
+			Input.action_press(c[2])
+		await ticks(14)
+		var air := not player.is_on_floor()
+		if c[1] > 0:
+			Input.action_press("look_up")
+			await ticks(c[1])
+			ok = check(player.animator.pose == PlayerAnimator.Pose.LASH_UP and not tongue.active, "%s: in the air, look-up shows the up-lash picture before the lash" % c[0]) and ok
+		elif c[1] == 0:
+			Input.action_press("look_up")
+		Input.action_press("lash")
+		await physics_frame
+		if c[1] < 0:
+			Input.action_press("look_up")
+		await ticks(2)
+		ok = check(air and tongue.active and tongue.up and player.animator.pose == PlayerAnimator.Pose.LASH_UP, "%s: in the air, the lash goes up (air %s, up %s)" % [c[0], air, tongue.up]) and ok
+		_release_keys()
+	player.scripted = true
+	tongue.scripted = true
+	_put(world)
+	await ticks(2)
+	return ok
+
+
+## The dev tools' Show lash input says each press in the toast line, and only
+## in a dev test.
+func _readout(world: Node, player: Player, tongue: Node) -> bool:
+	var ok := true
+	var session: Node = root.get_node("DevSession")
+	var mode: int = session.mode
+	session.mode = session.Mode.NORMAL
+	ok = check(not session.set_lash_log(world, true).is_empty() and not session.lash_log, "Show lash input is refused outside a dev test") and ok
+	session.mode = session.Mode.DEV_TEST
+	ok = check(session.set_lash_log(world, true).is_empty() and session.lash_log_active() and session.status_line().contains("lash input"), "and can be turned on in one, and the status line says so") and ok
+	ok = check(not _has_key(root.get_node("GameState").to_dict(), "lash_log") and not _has_key(session.loadout, "lash_log"), "it is in no save or loadout") and ok
+	_put(world)
+	tongue.last_log = ""
+	tongue.scripted_up = true
+	await _press(tongue)
+	ok = check(tongue.last_log.begins_with("Lash UP") and tongue.last_log.contains("look-up held: yes"), "a lash up is said (%s)" % tongue.last_log) and ok
+	tongue.scripted_up = false
+	await _press(tongue)
+	ok = check(tongue.last_log.begins_with("Lash kept (tongue out)") and tongue.last_log.contains("look-up held: no"), "a kept press says why (%s)" % tongue.last_log) and ok
+	await until(func() -> bool: return tongue.active and not tongue.up, 40)
+	ok = check(tongue.last_log.begins_with("Kept lash made side") or tongue.last_log.begins_with("Kept lash ran out"), "and what came of it (%s)" % tongue.last_log) and ok
+	player.input_enabled = false
+	await _press(tongue)
+	ok = check(tongue.last_log == "Lash dropped: not in control", "a press with no control is said to be dropped (%s)" % tongue.last_log) and ok
+	player.input_enabled = true
+	ok = check(session.set_lash_log(world, false).is_empty() and not session.lash_log_active(), "and it turns off") and ok
+	tongue.last_log = ""
+	_put(world)
+	await _press(tongue)
+	ok = check(tongue.last_log == "", "off, nothing is said") and ok
+	session.mode = mode
+	return ok
+
+
+func _has_key(value: Variant, key: String) -> bool:
+	if value is Dictionary:
+		for k in value:
+			if str(k) == key or _has_key(value[k], key):
+				return true
+	elif value is Array:
+		for item in value:
+			if _has_key(item, key):
+				return true
+	return false

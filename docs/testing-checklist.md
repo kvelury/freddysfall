@@ -28,7 +28,9 @@ Nobody has played these yet. `?dev=1&room=s3`, `?dev=1&room=10`, `?dev=1&room=s2
 
 Nobody has played this yet. `?dev=1&room=12`, then F2 for Tongue Lash, double jump and Tongue Climb. F7 slows the game if it helps to see it.
 
-- [ ] **X a little before W.** Standing or in the air, press X and then W a frame or two later: the lash goes up. Press W well after X (a quarter second): it stays sideways.
+- [ ] **Up in the air shows.** Jump and hold Up or W: Freddy shows the up-lash picture in the air, before X. Let go and he shows the jump picture. On a wall hang he keeps the wall picture.
+- [ ] **X a little before W.** Standing or in the air, press X and then W up to about 0.1 s later: the lash goes up. Press W well after X (a quarter second): it stays sideways.
+- [ ] **Show lash input.** In F2 → Debug view, turn on Show lash input. Each X press says what happened (`Lash UP`, `Lash side`, `Lash kept (…)`, `Kept lash ran out`, `Lash dropped`) and whether look-up was held. If a lash goes sideways while you are holding Up, note what the line said.
 - [ ] **Early presses.** Press X again just before a lash is back in: the next lash comes at once, with no second press. Mashing X lashes no faster than before.
 - [ ] **Hang, jump, up-lash.** Lash to a wall, hang, jump and press W+X straight away: the up-lash fires every time. Pressing W+X during the hang and then jumping does the same.
 - [ ] **Ceiling drop.** Hang from a ceiling, jump to drop and press W+X: it lashes up again.
