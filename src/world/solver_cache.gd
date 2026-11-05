@@ -70,6 +70,7 @@ const FINGERPRINT_EXEMPT := {
 	"res://src/core/upgrade_def.gd": "the fields of an upgrade; the jumps themselves do not read it",
 	"res://src/core/progression.gd": "the saved snapshot; a jump does not read it",
 	"res://src/core/controls.gd": "the controls page; upgrades.gd only checks that a row id exists",
+	"res://src/core/pad_labels.gd": "what a controller's buttons are called on screen; controls.gd only names them",
 	"res://src/core/palette.gd": "colours for drawing, which a jump never reads",
 	"res://src/core/pixel_art.gd": "drawing pictures, which a jump never reads",
 	"res://src/core/pixel_shapes.gd": "drawing pictures, which a jump never reads",

@@ -60,7 +60,7 @@ The user draws rooms on graph paper, numbers each one, and shares a photo. The s
 - Run `tools/validate.sh` and the tests before opening one.
 - When behavior changes, update `docs/design/game-design.md` in the same pull request, so it stays true.
 - **Imprint is a legacy dev-tools feature, not a core mechanic.** The core mechanics are movement and attack (jumps, Tongue Lash, Tongue Climb). Do not build rooms, puzzles or power-ups on Imprint, and a new feature need not model it: the solver does not, and the room parser refuses a pickup or 3TM that gives it. Where the dev-tools Imprint is touched, it keeps its rule (never replaced or refreshed by another click; see "The Imprint rule" under Guardrails in the design doc).
-- **The mouse is only for menus.** Gameplay uses the keyboard; the cursor is never hidden (a vanishing pointer in a browser tab is confusing) but does nothing in play. Any key (not the mouse, not a function key) closes a popup such as Game Over or a new power, and its text says "Press any key to continue".
+- **The mouse is only for menus.** Gameplay uses the keyboard or a controller; the cursor is never hidden (a vanishing pointer in a browser tab is confusing) but does nothing in play. Any key or button (not the mouse, not a function key, not a stick) closes a popup such as Game Over or a new power, and its text says "Press any key to continue" ("button" when a controller was used last). New input goes through an InputMap action and `InputBindings`, so it is rebindable in Settings; a stick is digital.
 
 
 ## Code review guidance

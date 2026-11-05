@@ -49,7 +49,7 @@ func _ready() -> void:
 	_view.centered = true
 	_view.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	column.add_child(_view)
-	_prompt = _text("Press any key to continue", 8)
+	_prompt = _text(Controls.press_any(), 8)
 	column.add_child(_prompt)
 	hide()
 
@@ -61,6 +61,7 @@ func open(id: String) -> bool:
 		return false
 	var def := Upgrades.get_def(id)
 	_name.text = def.title
+	_prompt.text = Controls.press_any()
 	var rows: Array = []
 	for row_id in def.controls:
 		rows.append(Controls.get_row(String(row_id)))

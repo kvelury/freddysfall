@@ -45,12 +45,16 @@ func _main_menu() -> bool:
 
 	save.enabled = false
 	var menu := await _menu()
-	ok = check(menu._main_list.item_texts() == ["Start Game", "Controls"], "no save: Start Game and Controls (%s)" % [menu._main_list.item_texts()]) and ok
+	ok = check(menu._main_list.item_texts() == ["Start Game", "Settings"], "no save: Start Game and Settings (%s)" % [menu._main_list.item_texts()]) and ok
 	ok = check(menu._main_list.selected() == 0, "the first item is selected") and ok
 	menu._main_list.get_child(1).pressed.emit()
-	ok = check(menu._controls_page.visible and not menu._main_page.visible, "Controls opens its page") and ok
-	menu._controls_list.get_child(0).pressed.emit()
-	ok = check(menu._main_page.visible and not menu._controls_page.visible, "Back returns to the menu") and ok
+	ok = check(menu._settings_page.visible and not menu._main_page.visible, "Settings opens its page") and ok
+	menu._settings_list.get_child(0).pressed.emit()
+	ok = check(menu._controls_page.visible and not menu._settings_page.visible, "Controls opens the remapping page") and ok
+	menu._remap.back_requested.emit()
+	ok = check(menu._settings_page.visible and not menu._controls_page.visible, "Back from Controls returns to Settings") and ok
+	menu._settings_list.get_child(1).pressed.emit()
+	ok = check(menu._main_page.visible and not menu._settings_page.visible, "Back returns to the menu") and ok
 	menu.free()
 
 	save.enabled = true
@@ -59,7 +63,7 @@ func _main_menu() -> bool:
 	file.store_string("{}")
 	file.close()
 	menu = await _menu()
-	ok = check(menu._main_list.item_texts() == ["Continue", "New Game", "Controls"], "a save: Continue, New Game, Controls (%s)" % [menu._main_list.item_texts()]) and ok
+	ok = check(menu._main_list.item_texts() == ["Continue", "New Game", "Settings"], "a save: Continue, New Game, Settings (%s)" % [menu._main_list.item_texts()]) and ok
 	menu._main_list.get_child(1).pressed.emit()
 	ok = check(menu._confirm_page.visible and menu._confirm_list.selected() == 0, "New Game asks first, with No selected") and ok
 	menu._unhandled_input(_key(KEY_ESCAPE))
@@ -93,9 +97,13 @@ func _pause_menu() -> bool:
 	menu._unhandled_input(_key(KEY_P))
 	ok = check(menu.opened and paused, "P pauses too") and ok
 	menu._list.get_child(1).pressed.emit()
-	ok = check(menu._on_controls and menu._view.get_child_count() == 7, "the pause Controls page shows the base rows (%d)" % menu._view.get_child_count()) and ok
+	ok = check(menu._screen == "settings", "Settings opens its page") and ok
+	menu._settings_list.get_child(0).pressed.emit()
+	ok = check(menu._screen == "controls" and menu._remap.is_visible_in_tree(), "Controls shows the remapping page") and ok
 	menu._unhandled_input(_key(KEY_P))
-	ok = check(menu.opened and not menu._on_controls, "P on the Controls page goes back") and ok
+	ok = check(menu.opened and menu._screen == "settings", "P on the Controls page goes back to Settings") and ok
+	menu._unhandled_input(_key(KEY_P))
+	ok = check(menu.opened and menu._screen == "list", "and P on Settings goes back to the list") and ok
 	menu._list.get_child(0).pressed.emit()
 	ok = check(not menu.opened and not paused, "Resume resumes") and ok
 
@@ -118,12 +126,12 @@ func _pause_menu() -> bool:
 	var session := root.get_node("DevSession")
 	session.mode = session.Mode.NORMAL
 	menu.open()
-	ok = check(menu._list.item_texts() == ["Resume", "Controls", "Dev tools", "Main menu"], "dev available: Dev tools is in the list (%s)" % [menu._list.item_texts()]) and ok
+	ok = check(menu._list.item_texts() == ["Resume", "Settings", "Dev tools", "Main menu"], "dev available: Dev tools is in the list (%s)" % [menu._list.item_texts()]) and ok
 	ok = check(not menu._status.visible, "and there is no status line in a normal game") and ok
 	menu.close()
 	session.available = false
 	menu.open()
-	ok = check(menu._list.item_texts() == ["Resume", "Controls", "Main menu"], "dev not available: no Dev tools (%s)" % [menu._list.item_texts()]) and ok
+	ok = check(menu._list.item_texts() == ["Resume", "Settings", "Main menu"], "dev not available: no Dev tools (%s)" % [menu._list.item_texts()]) and ok
 	menu.close()
 	session.available = true
 	session.mode = session.Mode.DEV_TEST

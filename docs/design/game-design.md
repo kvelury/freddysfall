@@ -32,7 +32,7 @@ Implementation steps for the palette pass live in `docs/plans/soft-duotone-palet
 
 Freddy's Fall is a sidescrolling metroidvania adventure. The player moves through a network of rooms. An ability they do not have yet is what opens the next path.
 
-The core mechanics are movement and attack: jumps (double jump is the first power-up), Tongue Lash, Tongue Climb, and the powers that follow them in the same family. A room's layout is the lock and a movement or attack power is the key. The game is played on the keyboard; the mouse is used only in menus. Imprint, where the mouse cursor became a platform, was an early idea. It is no longer a core mechanic and is not planned for puzzles or power-ups; it stays only as a legacy switch in dev tools (see "Imprint (legacy, dev tools only)").
+The core mechanics are movement and attack: jumps (double jump is the first power-up), Tongue Lash, Tongue Climb, and the powers that follow them in the same family. A room's layout is the lock and a movement or attack power is the key. The game is played on the keyboard or a controller; the mouse is used only in menus. Imprint, where the mouse cursor became a platform, was an early idea. It is no longer a core mechanic and is not planned for puzzles or power-ups; it stays only as a legacy switch in dev tools (see "Imprint (legacy, dev tools only)").
 
 ## Philosophy
 
@@ -69,23 +69,31 @@ The camera follows the player’s interpolated display position each rendered fr
 
 ## Controls
 
-| Action | Keys |
-| --- | --- |
-| Move | A / D, or Left / Right |
-| Jump | Space. Once double jump is found, press it again in the air for one more jump. |
-| Look up | W or Up. Standing still, Freddy looks up at once. Held for 1.15 s on the ground, the view also glides up a quarter of a screen in a room taller than one screen (see **Camera**). It never jumps, and walking, jumping and landing keep their pictures. |
-| Look down | S or Down. The same, downward: lowered lids and half-height pupils at once, and the view glides down a quarter of a screen after 1.15 s. |
-| Lash | X, once Tongue Lash has been found. One lash a press, in the way the player faces. |
-| Lash up | W or Up held, then X, once Tongue Lash has been found. The tongue goes straight up out of the top of his head. |
-| Tongue Climb | Uses the lash key. With Tongue Climb on (dev tools for now), a lash that sticks to a wall pulls Freddy to it only if X is **held** for `climb_press` (0.15 s); a tap is only a lash. Held with look-up, a lash at a ceiling hangs him from it. Jump lets go. See "Tongue Climb". |
-| Imprint (legacy) | Left mouse button, once Imprint is switched on in dev tools (F2). No room gives it. The only use of the mouse outside menus, and only in dev tools. |
-| Dismiss a popup | Any key. The power popup and Game Over close on any key press (not a mouse click). Function keys (the dev tools) and a modifier on its own do not count. |
-| Map | Hold Tab, or hold M. M exists because a browser may steal Tab for focus. While it is held, Up or W zooms in and Down or S zooms out. |
-| Pause | Esc or P. Opens the pause menu (Resume, Controls, Main menu), and closes it. |
-| Palettes | Not assigned. P pauses now, so the palette key is to be chosen when that is built. |
-| Frame rate | F3. Shows FPS and frame time. A development readout, not a player feature. |
-| Dev tools | F2, or Dev tools in the pause menu (no button on the play screen). Editor/debug builds, or exports opted in with `?dev=1` / `--dev`. |
-| Room picker | F4, a room ID (including `s1`), Enter. Starts an isolated test. |
+The game plays with the keyboard or a controller (Mac, PC and the browser, one code path: Godot's joypad layer). The mouse is only for menus. Every binding below is the default; Settings changes them (see "Settings and remapping").
+
+| Action | Keyboard | Controller |
+| --- | --- | --- |
+| Move | A / D, or Left / Right | Left stick, or the D-pad. The stick is digital: past the 0.5 deadzone it runs at full speed, as a key does. |
+| Jump | Space. Once double jump is found, press it again in the air for one more jump. | Bottom face button (A / Cross) |
+| Look up | W or Up. Standing still, Freddy looks up at once. Held for 1.15 s on the ground, the view also glides up a quarter of a screen in a room taller than one screen (see **Camera**). It never jumps, and walking, jumping and landing keep their pictures. | Stick up (needs a firmer 0.7 push than moving, so a run with the stick slanted up is not an up-lash) or D-pad up |
+| Look down | S or Down. The same, downward: lowered lids and half-height pupils at once, and the view glides down a quarter of a screen after 1.15 s. | Stick down or D-pad down |
+| Lash | X, once Tongue Lash has been found. One lash a press, in the way the player faces. | Left face button (X / Square) or R1 |
+| Lash up | W or Up held, then X, once Tongue Lash has been found. The tongue goes straight up out of the top of his head. | Look up held, then lash |
+| Tongue Climb | Uses the lash key. With Tongue Climb on (dev tools for now), a lash that sticks to a wall pulls Freddy to it only if X is **held** for `climb_press` (0.15 s); a tap is only a lash. Held with look-up, a lash at a ceiling hangs him from it. Jump lets go. See "Tongue Climb". | The same lash buttons, held |
+| Imprint (legacy) | Left mouse button, once Imprint is switched on in dev tools (F2). No room gives it. The only use of the mouse outside menus, and only in dev tools. | None |
+| Dismiss a popup | Any key. The power popup and Game Over close on any key press (not a mouse click). Function keys (the dev tools) and a modifier on its own do not count. | Any button (not a stick) |
+| Map | Hold Tab, or hold M. M exists because a browser may steal Tab for focus. While it is held, Up or W zooms in and Down or S zooms out. | Hold L1. While it is held, stick or D-pad up zooms in and down zooms out. |
+| Pause | Esc or P. Opens the pause menu (Resume, Settings, Main menu), and closes it. | Start |
+| Palettes | Not assigned. P pauses now, so the palette key is to be chosen when that is built. | |
+| Frame rate | F3. Shows FPS and frame time. A development readout, not a player feature. | |
+| Dev tools | F2, or Dev tools in the pause menu (no button on the play screen). Editor/debug builds, or exports opted in with `?dev=1` / `--dev`. | Select / Back, in the same builds (the same as F2) |
+| Room picker | F4, a room ID (including `s1`), Enter. Starts an isolated test. | |
+
+Menus take the arrow keys / W S, or the stick or D-pad; Enter, Space or A picks; Esc or B goes back.
+
+### Settings and remapping
+
+Settings is on the main menu and the pause menu. It has one page for now, **Controls**: a Keyboard tab and a Controller tab (Left / Right on the first row switches; it opens on the device last used). Each action has two slots; Up / Down choose an action, Left / Right a slot, Enter or A starts a capture and the next key or button is the binding (Esc, or Start / Back on a controller, cancels). If another action already has that input the two **swap**, so nothing is left unbound; adding a second binding takes the input from an action that has a spare, and is refused if that action would be left with none. A **Reset to defaults** row restores the tab shown. Changes are saved at once. Escape, the function keys (dev tools), modifier keys, Start and Back cannot be bound; the map's zoom is not a row because it follows look up and down. Stick directions, triggers and the D-pad can be bound on the controller tab.
 
 Letting go of jump early is a short hop. Holding it is the full leap. A running jump goes farther than a standing one, because air friction is low and the jump keeps the speed you had on the ground.
 
@@ -821,17 +829,27 @@ The solver answers "can a player get here, and get back", using `MovementSim` an
 
 ### Menus, pause and overlays (`ui/main_menu.gd`, `pause_menu.gd`, `power_popup.gd`, `title_card.gd`, `core/controls.gd`)
 
-**Boot.** The main scene is `MainMenu`. It shows Start Game, or Continue and New Game when `Save.has_game()`, and Controls. A `--room` / `?room=` / `--dev` / `?dev=1` launch swaps straight to the world, so tests, `tools/snap.sh` and dev playtesting boot as before; `?new-game=1` erases the save and then shows the menu. A world the menu starts has `from_menu = true`: it reads no launch arguments and does not reconfigure `DevSession`. `Scenes.swap` replaces the running scene, as `DevSession._replace` does for a dev rebuild.
+**Boot.** The main scene is `MainMenu`. It shows Start Game, or Continue and New Game when `Save.has_game()`, and Settings. A `--room` / `?room=` / `--dev` / `?dev=1` launch swaps straight to the world, so tests, `tools/snap.sh` and dev playtesting boot as before; `?new-game=1` erases the save and then shows the menu. A world the menu starts has `from_menu = true`: it reads no launch arguments and does not reconfigure `DevSession`. `Scenes.swap` replaces the running scene, as `DevSession._replace` does for a dev rebuild.
 
 **The look** is the dev panel's: `UiTheme.build()` (black, 1 px white border, white text) is shared by both. A menu item is a Button with the `MenuItem` variation, whose focused or hovered state is inverted. `MenuList` selects with the mouse (hover), the arrows and W / S (wrapping), and picks with a click, Enter or Space. Every menu layer is a `CanvasLayer` in 320×180 units scaled by `Display.RENDER_SCALE`, and the always-processing ones keep running while the tree is paused.
 
-**Modals.** The pause menu (owner `"pause"`, layer 25) and the power popup (`"power"`, layer 26) use `World.acquire_modal`, so they pause the tree, give way to the map and the dev panel, and release play input only when the keys are let go. Neither opens during an animation (`World.is_busy()`): the pause menu waits and opens when it ends, and the popup waits in `World._popups`. The title card (layer 5) is not a modal and does not process while paused. **Dismissal:** the power popup and `GameOver` close on `Controls.dismisses(event)`: a pressed, non-echo key or gamepad button, but not a mouse button, a function key (F1 to F35, the dev tools) or a modifier or lock key on its own. Both show "Press any key to continue" and ignore input for `MIN_SHOW` (0.4 s). The mouse is for menus only, but the cursor is never hidden: `World._ready` and `MainMenu._ready` set it visible and nothing else changes it.
+**Modals.** The pause menu (owner `"pause"`, layer 25) and the power popup (`"power"`, layer 26) use `World.acquire_modal`, so they pause the tree, give way to the map and the dev panel, and release play input only when the keys are let go. Neither opens during an animation (`World.is_busy()`): the pause menu waits and opens when it ends, and the popup waits in `World._popups`. The title card (layer 5) is not a modal and does not process while paused. **Dismissal:** the power popup and `GameOver` close on `Controls.dismisses(event)`: a pressed, non-echo key or gamepad button, but not a mouse button, a function key (F1 to F35, the dev tools) or a modifier or lock key on its own. Both show "Press any key to continue" ("Press any button to continue" when a controller was used last, `Controls.press_any()`) and ignore input for `MIN_SHOW` (0.4 s). The mouse is for menus only, but the cursor is never hidden: `World._ready` and `MainMenu._ready` set it visible and nothing else changes it.
 
-**Controls.** `data/controls.json` has one row per control, with the input actions it is drawn from and, for a power, the ability stat it `needs`. `Controls.key_groups` reads the keys from the InputMap, so a rebound key changes the page. The Controls page shows the rows the player owns (the main menu, with no game, shows the base rows); a popup shows the rows an upgrade names in its `controls` list.
+**Controls.** `data/controls.json` has one row per control, with the input actions it is drawn from and, for a power, the ability stat it `needs`. `Controls.key_groups` reads the keys or buttons from the InputMap, so a rebound key changes what a power popup shows. A popup shows the rows an upgrade names in its `controls` list. The pause and main menus have Settings, whose Controls page edits the bindings (see "Controller input and remapping").
 
 **Power popups** come from the `GameState.upgrade_granted` signal, which `grant()` emits for a pickup or a 3TM, and never for dev edits, loadouts or loads (`abilities_changed` fires for all of those). When a popup is coming the toast line is skipped.
 
 **Title cards.** A room entry in `world.json` may have a `title` (`text` and `hold`, the seconds between a 0.3 s fade in and a 0.5 s fade out). `World._maybe_title` shows it once per game and remembers it as the flag `title:<room id>`, which nothing else reads. A room or dev test session shows it once per world and sets no flag. Room 7's `hold` is 2.2 s: `title_card_test` measures the fall from the slide's start to landing as 2.983 s and checks the card lasts 3.0 s. The card is a fixed countdown, so a player who slows the fall (a double jump, an Imprint) sees it end early.
+
+### Controller input and remapping (`autoload/input_bindings.gd`, `core/controls.gd`, `core/pad_labels.gd`, `ui/settings_page.gd`)
+
+**One path.** All play input already went through InputMap actions, so a controller is more events on the same actions in `project.godot` (device -1, any pad): left stick and D-pad for move and look, A jump, X and R1 lash, L1 map, Start pause. `look_up` has a 0.7 deadzone, the rest 0.5. `Player` reads `signf(Input.get_axis(...))`, so a half-tilted stick runs at `run_speed` exactly as a key does and the solver's model still holds (`MovementSim` takes -1, 0 or 1).
+
+**`InputBindings`** (autoload) copies the defaults from the InputMap at boot, reads `user://controls.json` over them (`{"version": 1, "bindings": {action: {"keyboard": [...], "controller": [...]}}}`; a binding is `{"t": "key", "code"}`, `{"t": "button", "index"}` or `{"t": "axis", "axis", "sign"}`) and applies the result to the InputMap. An unreadable file, a wrong version, a binding that could not have been made (Esc, a function key, Start) or an action missing from the file leaves the default for that action and device; one input given to two actions by a hand edit is repaired in favour of the earlier action. `ACTIONS` lists what can be rebound; `FOLLOWS` makes `map_zoom_in/out` copy `look_up/down`; `FIXED` holds what cannot change (Esc is always pause). Up to `SLOTS` (2) bindings per action and device. `rebind(action, slot, binding)` is the one way to change one: it validates through `Controls.binding_from_event`'s rules, swaps or takes from another action as described under Settings, applies, saves and emits `bindings_changed`. It is a preference, not progress: not part of `Save`, so `Save.erase()` and New Game leave it, test sessions read and write it normally, and loadouts and retries do not carry it. On the web the file is closed after writing, which syncs `user://` to IndexedDB as the save does. `enabled` and `path` are there for tests.
+
+**Labels.** `Controls.device` ("keyboard" or "controller") and `pad_name` are plain statics, kept up to date by `InputBindings._input` from the last key, button or stick push (the mouse does not count), and `device_changed` fires. `Controls.key_groups(row, kind)` shows the events of that kind (default: the last used), with the two directions of one stick as one cap ("L-Stick"); a row the device has nothing for (the mouse-only Imprint row) is left out of `ControlsView`, which redraws on `device_changed`. `PadLabels` names buttons by family from `Input.get_joy_name`: Xbox (and anything unknown) A B X Y LB RB, PlayStation Cross Circle Square Triangle L1 R1 (`KeyCap` draws the four face buttons as pictures), Nintendo B A Y X L R. The popup prompts use `Controls.press_any()`.
+
+**Settings UI.** `SettingsPage` is one `VBoxContainer` used by `MainMenu` and `PauseMenu`; it handles its own input in `_input` (including `ui_cancel`, so Esc does not also act on the menu around it) and, while capturing, takes every event so none reaches the game. The pause menu's `_screen` is `list`, `settings` or `controls`. `DevPanel._input` opens and closes the panel on `JOY_BUTTON_BACK` as on F2, only where `DevSession.available`.
 
 ### The HUD (`ui/hud.gd`, `core/pixel_shapes.gd`)
 
@@ -1124,6 +1142,16 @@ What was decided, in the order it came up, with the reason. Pull requests are na
 - **In the air, holding look-up shows the up-lash picture.** In play the user found that in the air "freddy is not looking up so the lash / climb doesnt go up": the look-up picture was for standing only, so nothing showed that a lash would go up until it went. Headless runs with the real keys always lashed up in the air, so what was missing was the sign. The user chose the up-lash picture (`Pose.LASH_UP`) over the standing look-up picture or a new drawing. Hangs keep their own pictures.
 - **Show lash input** (Debug view) says each press in the toast line, so a lash that misbehaves in the browser can be read back: whether look-up arrived, and whether the press was kept, made or dropped.
 - **They are fixed input-feel constants on `TongueLash`, like the jump buffer in `MovementConfig`, not abilities,** so they have no `data/upgrades.json` or dev catalog entry. `tests/lash_input_test.gd` covers them.
+
+**Controller support and Settings (2026-11-05)**
+- **Defaults are the user's:** arrows or the left stick move, the bottom face button jumps, the left face button or R1 lashes (and climbs), L1 held is the map. Start pauses, and Select / Back opens the dev tools wherever F2 does.
+- **The stick is digital.** An analog run speed would be a movement nobody can jump-plan and the solver does not model; the stick is a key with a deadzone. Look-up has a firmer deadzone (0.7) than moving (0.5) so a run with the stick slanted up never turns a sideways lash into an up-lash.
+- **One InputMap, no second input system.** A controller is more events on the same actions, so rooms, the solver and every gameplay script are unchanged, and the browser build works with the Gamepad API (a pad is seen after its first button press).
+- **Bindings are a preference, not progress.** They live in `user://controls.json`, outside the save: New Game and erasing do not touch them, test sessions do not isolate them, and they are not an ability, so there is no dev catalog entry and loadouts and retries do not carry them.
+- **A clash swaps.** Nothing is ever left unbound; the alternative (refusing) makes a full rebind of the keyboard a puzzle.
+- **Unbindable:** Esc (always pause and cancel), function keys (dev tools), modifiers, Start and Back (pause and dev tools). Escape always works to get out of any menu.
+- **Settings replaces the Controls page.** The menus have Settings with one page, Controls, which edits the bindings; the power popups still show each power's rows from `data/controls.json`, with the buttons of the device in use.
+- **Not decided:** a rumble or button-prompt setting, rebinding the legacy Imprint, and a separate stick deadzone setting.
 
 ### Guardrails for a change
 

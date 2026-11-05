@@ -47,16 +47,27 @@ func _process(_delta: float) -> void:
 		open_panel(tab)
 
 
+## F2, or a controller's Select / Back button, opens and closes the panel.
+func _toggle() -> void:
+	if opened:
+		close_panel()
+	elif _pending >= 0:
+		_pending = -1
+	else:
+		open_panel()
+
+
 func _input(event: InputEvent) -> void:
-	if not DevSession.available or not event is InputEventKey or not event.pressed or event.echo:
+	if not DevSession.available:
+		return
+	if event is InputEventJoypadButton and event.pressed and event.button_index == JOY_BUTTON_BACK:
+		_toggle()
+		get_viewport().set_input_as_handled()
+		return
+	if not event is InputEventKey or not event.pressed or event.echo:
 		return
 	if event.keycode == KEY_F2:
-		if opened:
-			close_panel()
-		elif _pending >= 0:
-			_pending = -1
-		else:
-			open_panel()
+		_toggle()
 	elif event.keycode == KEY_F4:
 		open_panel(1)
 	elif event.keycode == KEY_F7:
