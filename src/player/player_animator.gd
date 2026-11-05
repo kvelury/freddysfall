@@ -31,7 +31,8 @@ func land() -> void:
 
 ## Moves on by `delta` seconds of a body that is `grounded` and moving at
 ## `speed_x` px/s, and sets `pose`, `time_in_pose` and `distance_in_pose`. In
-## the air is the jump; just landed is the landing; running walks; standing
+## the air is the jump, or the up-lash picture while the look-up key is held,
+## so the player sees a lash will go up; just landed is the landing; running walks; standing
 ## still with the look-up key held looks up (the look-down key, down); the tongue going up shows its own
 ## picture, over all of them, and a hang over that: the legs-wide jump picture on
 ## a wall, the up-lash picture from a ceiling. How many
@@ -47,7 +48,7 @@ func advance(delta: float, grounded: bool, speed_x: float, lashing_up := false, 
 	elif lashing_up:
 		next = Pose.LASH_UP
 	elif not grounded:
-		next = Pose.JUMP
+		next = Pose.LASH_UP if looking_up else Pose.JUMP
 	elif landing:
 		next = Pose.LAND
 	elif absf(speed_x) > WALK_SPEED:

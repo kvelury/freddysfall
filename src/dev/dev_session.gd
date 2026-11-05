@@ -19,6 +19,10 @@ var classic_imprint := false
 ## Imprint: it survives retries, is not saved and is not in a loadout, and End
 ## playtest or a fresh boot turns it off.
 var token_marks := false
+## Each lash press and what came of it (up or sideways, whether look-up was
+## held, kept or dropped and why) is said in the toast line, to see what the
+## browser and keyboard really sent. A session setting like the token marks.
+var lash_log := false
 ## How many lashes break a breakable wall in a dev test, or 0 for the default
 ## (BreakableWall.DEFAULT_STRENGTH). World tuning and not an ability, so it is
 ## a session setting like Classic Imprint: it survives retries, is not saved
@@ -60,6 +64,8 @@ func status_line() -> String:
 		line += " · token marks"
 	if slow_motion:
 		line += " · slow motion"
+	if lash_log_active():
+		line += " · lash input"
 	return line
 
 
@@ -70,6 +76,7 @@ func configure(dev: bool, room_test: bool) -> void:
 	bypass = false
 	classic_imprint = false
 	token_marks = false
+	lash_log = false
 	wall_strength_override = 0
 	_normal_speed()
 	retry_on_death = false
@@ -86,6 +93,7 @@ func reset_to_normal() -> void:
 	bypass = false
 	classic_imprint = false
 	token_marks = false
+	lash_log = false
 	wall_strength_override = 0
 	_normal_speed()
 	retry_on_death = false
@@ -212,6 +220,18 @@ func set_token_marks(world: Node, on: bool) -> String:
 	return ""
 
 
+## Whether lash presses are said in the toast line. Only in a dev test.
+func lash_log_active() -> bool:
+	return mode == Mode.DEV_TEST and lash_log
+
+
+func set_lash_log(world: Node, on: bool) -> String:
+	if mode != Mode.DEV_TEST or replacing or world.is_busy():
+		return "Dev tools are not ready."
+	lash_log = on
+	return ""
+
+
 ## Lashes a breakable wall takes to break: the dev test's setting if there is
 ## one, else the default.
 func wall_strength() -> int:
@@ -275,6 +295,7 @@ func _replace(world: Node, state: Dictionary, normal: bool) -> void:
 		bypass = false
 		classic_imprint = false
 		token_marks = false
+		lash_log = false
 		wall_strength_override = 0
 		retry_on_death = false
 		baseline = {}

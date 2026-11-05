@@ -20,6 +20,7 @@ var _retry: CheckButton
 var _classic: CheckButton
 var _token_marks: CheckButton
 var _slow: CheckButton
+var _lash_log: CheckButton
 var _wall: LineEdit
 var _names: ItemList
 var _name: LineEdit
@@ -98,6 +99,7 @@ func open_panel(tab := 0) -> void:
 		_classic.set_pressed_no_signal(DevSession.classic_imprint)
 		_token_marks.set_pressed_no_signal(DevSession.token_marks)
 		_slow.set_pressed_no_signal(DevSession.slow_motion)
+		_lash_log.set_pressed_no_signal(DevSession.lash_log)
 		_wall.text = str(DevSession.wall_strength())
 		_status.text = _store.error
 	_tabs.current_tab = tab
@@ -211,6 +213,7 @@ func _build_player(body: VBoxContainer) -> void:
 	_classic = _switch(_sections["imprint"], "Classic Imprint (no shrinking)", func(on: bool) -> String: return DevSession.set_classic_imprint(_world, on), func() -> bool: return DevSession.classic_imprint)
 	_token_marks = _switch(_sections["debug"], "Show token marks on Freddy", func(on: bool) -> String: return DevSession.set_token_marks(_world, on), func() -> bool: return DevSession.token_marks)
 	_slow = _switch(_sections["debug"], "Slow motion (F7)", func(on: bool) -> String: return DevSession.set_slow_motion(_world, on), func() -> bool: return DevSession.slow_motion)
+	_lash_log = _switch(_sections["debug"], "Show lash input", func(on: bool) -> String: return DevSession.set_lash_log(_world, on), func() -> bool: return DevSession.lash_log)
 
 
 ## A folding group on the Player tab. Its body is returned; the open/closed

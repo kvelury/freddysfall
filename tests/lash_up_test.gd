@@ -40,7 +40,13 @@ func _picture() -> bool:
 	look.advance(0.016, true, 60.0, false, true)
 	ok = check(look.pose == PlayerAnimator.Pose.WALK, "walking keeps the walk picture") and ok
 	look.advance(0.016, false, 0.0, false, true)
-	ok = check(look.pose == PlayerAnimator.Pose.JUMP, "so does the air") and ok
+	ok = check(look.pose == PlayerAnimator.Pose.LASH_UP, "in the air the look-up key shows the up-lash picture, so the player sees a lash will go up") and ok
+	look.advance(0.016, false, 0.0, false, false)
+	ok = check(look.pose == PlayerAnimator.Pose.JUMP, "and the jump picture when it is let go") and ok
+	look.advance(0.016, false, 0.0, false, true, PlayerAnimator.Hang.WALL)
+	ok = check(look.pose == PlayerAnimator.Pose.JUMP, "hanging on a wall keeps the wall picture with the key held") and ok
+	look.advance(0.016, false, 0.0, false, true, PlayerAnimator.Hang.CEILING)
+	ok = check(look.pose == PlayerAnimator.Pose.LASH_UP, "and a ceiling hang its own") and ok
 	look.land()
 	look.advance(0.016, true, 0.0, false, true)
 	ok = check(look.pose == PlayerAnimator.Pose.LAND, "and landing") and ok

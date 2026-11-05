@@ -24,6 +24,19 @@ Nobody has played these yet. `?dev=1&room=s3`, `?dev=1&room=10`, `?dev=1&room=s2
 - [ ] **Room 9's 3TM.** With room 8's, s3's and room 10's tokens it gives Tongue Lash, and room 9 has no token of its own any more.
 - [ ] **s2's walled door.** Without Tongue Lash the left door cannot be reached (no jumping over the roof). With it (F2), two lashes from the floor break the wall and the door leads to room 12. Coming back, the wall has grown back and is lashed again from the doorway.
 
+## Lash input leniency
+
+Nobody has played this yet. `?dev=1&room=12`, then F2 for Tongue Lash, double jump and Tongue Climb. F7 slows the game if it helps to see it.
+
+- [ ] **Up in the air shows.** Jump and hold Up or W: Freddy shows the up-lash picture in the air, before X. Let go and he shows the jump picture. On a wall hang he keeps the wall picture.
+- [ ] **X a little before W.** Standing or in the air, press X and then W up to about 0.1 s later: the lash goes up. Press W well after X (a quarter second): it stays sideways.
+- [ ] **Show lash input.** In F2 → Debug view, turn on Show lash input. Each X press says what happened (`Lash UP`, `Lash side`, `Lash kept (…)`, `Kept lash ran out`, `Lash dropped`) and whether look-up was held. If a lash goes sideways while you are holding Up, note what the line said.
+- [ ] **Early presses.** Press X again just before a lash is back in: the next lash comes at once, with no second press. Mashing X lashes no faster than before.
+- [ ] **Hang, jump, up-lash.** Lash to a wall, hang, jump and press W+X straight away: the up-lash fires every time. Pressing W+X during the hang and then jumping does the same.
+- [ ] **Ceiling drop.** Hang from a ceiling, jump to drop and press W+X: it lashes up again.
+- [ ] **The tongue snaps in.** Jumping off a hang, the tongue vanishes into the mouth; when a hang runs out it still eases back.
+- [ ] **No stale lash.** Press X twice quickly (the second is kept), then at once enter a door, open the pause menu (Esc), the map (Tab) or the dev panel (F2), or die: nothing is lashed afterwards. Against a wall, X X on the beat lashes twice, not three times.
+
 ## Room 12: emitted platforms, a spinner and lash up
 
 Nobody has played this yet. `?dev=1&room=12`, then F2 for Tongue Lash and double jump.
