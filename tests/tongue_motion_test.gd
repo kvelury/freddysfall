@@ -166,11 +166,12 @@ func _in_play(name: String, values: Dictionary, tongue: Node, player: Player, ro
 	var all := Abilities.new().to_dict()
 	all.merge(values, true)
 	var peak_speed: float = all["tongue_speed"] * all["tongue_strike"]
-	# A miss to the right: the full 50 px.
+	# A miss to the right: the full length.
+	var full: float = all["tongue_length"]
 	var miss := _lash(tongue, player, values, 1)
 	var xs: Array = miss["xs"]
 	var phases: Array = miss["phases"]
-	check(is_equal_approx(_peak(xs), 50.0) and not tongue.active, "%s: a lash that meets nothing reaches exactly the tongue's length and comes home" % name)
+	check(is_equal_approx(_peak(xs), full) and not tongue.active, "%s: a lash that meets nothing reaches exactly the tongue's length and comes home" % name)
 	check(not phases.has(tongue.Phase.STICK), "%s: a miss does not stick" % name)
 	var peak_at := xs.find(_peak(xs))
 	var out_ok := true
@@ -185,7 +186,7 @@ func _in_play(name: String, values: Dictionary, tongue: Node, player: Player, ro
 	var jump := 0.0
 	for k in range(1, xs.size()):
 		jump = maxf(jump, absf(float(xs[k]) - float(xs[k - 1])))
-	check(jump <= maxf(peak_speed * DT, 50.0) + 1e-6, "%s: no tick moves the tip more than it can (%.1f px)" % [name, jump])
+	check(jump <= maxf(peak_speed * DT, full) + 1e-6, "%s: no tick moves the tip more than it can (%.1f px)" % [name, jump])
 	# The creep is slower than the snap.
 	if all["tongue_creep"] > 0.0:
 		var first := float(xs[0])

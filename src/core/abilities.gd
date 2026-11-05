@@ -44,7 +44,7 @@ var tongue_speed := 220.0
 var tongue_snap := 2.0
 ## How far the tongue reaches past the front of the body, in pixels. The first
 ## 50 is enough for every breakable wall so far; upgrades lengthen it.
-var tongue_length := 50.0
+var tongue_length := 60.0
 ## The shape of a lash is `TongueMotion`'s. These seven tune it, and the dev
 ## tools can change them; no room awards them. The starting values are a frog's:
 ## a creep, a snap, a stick on what it hit and a spring return.

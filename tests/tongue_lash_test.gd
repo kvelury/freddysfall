@@ -83,7 +83,7 @@ func _run() -> void:
 	tongue.cooldown_left = 0.0
 	ok = check(tongue.lash(), "a lash fires to the right") and ok
 	var farthest := await _wait(tongue, 90)
-	ok = check(is_equal_approx(farthest, 50.0) and room.info.broken.size() == 1, "and stops at the tongue's length, short of the wall (%.1f px)" % farthest) and ok
+	ok = check(is_equal_approx(farthest, state.abilities.tongue_length) and room.info.broken.size() == 1, "and stops at the tongue's length, short of the wall (%.1f px)" % farthest) and ok
 	state.abilities.tongue_length = 20.0
 	player.facing = -1
 	tongue.cooldown_left = 0.0
@@ -223,7 +223,7 @@ func _keycodes(action: String) -> Array:
 func _abilities() -> bool:
 	var ok := true
 	var abilities := Abilities.new()
-	ok = check(not abilities.tongue_unlocked and is_equal_approx(abilities.tongue_cooldown, 0.05) and is_equal_approx(abilities.tongue_speed, 220.0) and is_equal_approx(abilities.tongue_snap, 2.0) and is_equal_approx(abilities.tongue_length, 50.0), "Tongue Lash starts locked, with a 0.05 s cooldown, 220 px/s out, a 2x snap back and 50 px of reach") and ok
+	ok = check(not abilities.tongue_unlocked and is_equal_approx(abilities.tongue_cooldown, 0.05) and is_equal_approx(abilities.tongue_speed, 220.0) and is_equal_approx(abilities.tongue_snap, 2.0) and is_equal_approx(abilities.tongue_length, 60.0), "Tongue Lash starts locked, with a 0.05 s cooldown, 220 px/s out, a 2x snap back and 60 px of reach") and ok
 	ok = check(abilities.apply(Upgrades.get_def("tongue_lash"), true) and abilities.tongue_unlocked and not abilities.apply(Upgrades.get_def("tongue_lash"), true), "the Tongue Lash upgrade unlocks it once") and ok
 	# The cooldown starts at the lowest the dev tools allow, so start this one higher.
 	abilities.tongue_cooldown = 0.2

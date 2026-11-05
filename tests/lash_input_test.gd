@@ -86,7 +86,7 @@ func _buffer(world: Node, player: Player, tongue: Node) -> bool:
 	_put(world)
 	await _press(tongue)
 	await until(func() -> bool: return tongue.phase == BACK, 60)
-	await ticks(3)
+	await ticks(5)
 	await _press(tongue)
 	ok = check(tongue.active and tongue.buffer_left > 0.0, "a press while the tongue comes back is kept") and ok
 	var ended := false
