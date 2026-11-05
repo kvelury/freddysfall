@@ -158,18 +158,29 @@ func _input(event: InputEvent) -> void:
 		return
 	if not event.is_pressed() or event is InputEventMouse or event.is_echo():
 		return
+	# The menu's own actions come first, so a key the player has given to a play
+	# action (Enter as look up, say) cannot take them from the menu; the play
+	# actions are only a way to move for keys that have no menu action.
 	if event.is_action_pressed("ui_cancel"):
 		back_requested.emit()
-	elif event.is_action_pressed("ui_up") or event.is_action_pressed("look_up"):
-		_move(-1)
-	elif event.is_action_pressed("ui_down") or event.is_action_pressed("look_down"):
-		_move(1)
-	elif event.is_action_pressed("ui_left") or event.is_action_pressed("move_left"):
-		_side(-1)
-	elif event.is_action_pressed("ui_right") or event.is_action_pressed("move_right"):
-		_side(1)
 	elif event.is_action_pressed("ui_accept"):
 		_accept()
+	elif event.is_action_pressed("ui_up"):
+		_move(-1)
+	elif event.is_action_pressed("ui_down"):
+		_move(1)
+	elif event.is_action_pressed("ui_left"):
+		_side(-1)
+	elif event.is_action_pressed("ui_right"):
+		_side(1)
+	elif event.is_action_pressed("look_up"):
+		_move(-1)
+	elif event.is_action_pressed("look_down"):
+		_move(1)
+	elif event.is_action_pressed("move_left"):
+		_side(-1)
+	elif event.is_action_pressed("move_right"):
+		_side(1)
 	else:
 		return
 	get_viewport().set_input_as_handled()

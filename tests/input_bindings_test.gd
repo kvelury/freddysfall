@@ -22,6 +22,8 @@ func _run() -> void:
 	ok = _rebind(bindings) and ok
 	ok = _persistence(bindings) and ok
 	ok = _labels(bindings) and ok
+	ok = _any_device(bindings) and ok
+	ok = _start_is_pause(bindings) and ok
 	ok = _save_isolation(bindings) and ok
 	bindings.path = "user://controls.json"
 	bindings.enabled = true
@@ -227,4 +229,48 @@ func _save_isolation(bindings: Node) -> bool:
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(PATH))
 	bindings.enabled = false
 	bindings.reset("keyboard")
+	return ok
+
+
+## Every event the bindings put in the InputMap is for any device (-1), as the
+## project's own are; a device 0 event would ignore a second pad.
+func _any_device(bindings: Node) -> bool:
+	var ok := true
+	bindings.reset("keyboard")
+	bindings.reset("controller")
+	for action: String in bindings.ACTIONS + ["map_zoom_in", "map_zoom_out"]:
+		var wrong := []
+		for event in InputMap.action_get_events(action):
+			if event.device != -1:
+				wrong.append(event.as_text())
+		ok = check(wrong.is_empty(), "%s: every event is for any device %s" % [action, wrong]) and ok
+	return ok
+
+
+## Start is Pause's, fixed like Esc: it cannot be replaced, swapped away or given
+## to another action, now, after a reload or after a reset.
+func _start_is_pause(bindings: Node) -> bool:
+	var ok := true
+	bindings.path = PATH
+	bindings.enabled = true
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(PATH))
+	bindings.reset("controller")
+	bindings.reset("keyboard")
+	ok = check(bindings.get_bindings("pause", "controller").is_empty(), "Pause has no editable controller binding") and ok
+	var spare := {"t": "button", "index": int(JOY_BUTTON_Y)}
+	var result: Dictionary = bindings.rebind("pause", 0, spare)
+	ok = check(result["ok"] and _has("pause", _button(JOY_BUTTON_START)) and _has("pause", _button(JOY_BUTTON_Y)), "an unused button is added to Pause and Start stays") and ok
+	bindings.rebind("pause", 0, {"t": "button", "index": int(JOY_BUTTON_A)})
+	ok = check(_has("pause", _button(JOY_BUTTON_START)) and not _has("jump", _button(JOY_BUTTON_START)), "giving Pause the Jump button leaves Start on Pause and off Jump") and ok
+	bindings.load_file()
+	ok = check(_has("pause", _button(JOY_BUTTON_START)) and not _has("jump", _button(JOY_BUTTON_START)), "after a reload Start is still Pause's") and ok
+	bindings.reset("controller")
+	ok = check(_has("pause", _button(JOY_BUTTON_START)) and bindings.get_bindings("pause", "controller").is_empty(), "after a reset Start is still Pause's and nothing else") and ok
+	# The player can take a Pause key on the keyboard, because Esc stays.
+	result = bindings.rebind("jump", 1, {"t": "key", "code": int(KEY_P)})
+	ok = check(result["ok"] and _has("pause", _key(KEY_ESCAPE)) and not _has("pause", _key(KEY_P)), "P can be added to Jump from Pause since Esc stays (%s)" % result["note"]) and ok
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(PATH))
+	bindings.enabled = false
+	bindings.reset("keyboard")
+	bindings.reset("controller")
 	return ok

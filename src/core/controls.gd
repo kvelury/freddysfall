@@ -6,6 +6,10 @@ extends RefCounted
 ## is drawn from and, for a power, the ability stat it `needs`.
 
 const PATH := "res://data/controls.json"
+## The `device` of every event built from a binding: any (Godot's -1), as the
+## events in project.godot are. An event that kept the default 0 would answer
+## only the first pad, so a second one would do nothing.
+const ANY_DEVICE := -1
 
 static var _rows: Array = []
 static var _loaded := false
@@ -216,14 +220,17 @@ static func binding_event(binding: Dictionary) -> InputEvent:
 	match binding.get("t"):
 		"key":
 			var key := InputEventKey.new()
+			key.device = ANY_DEVICE
 			key.physical_keycode = int(binding["code"]) as Key
 			return key
 		"button":
 			var button := InputEventJoypadButton.new()
+			button.device = ANY_DEVICE
 			button.button_index = int(binding["index"]) as JoyButton
 			return button
 		"axis":
 			var motion := InputEventJoypadMotion.new()
+			motion.device = ANY_DEVICE
 			motion.axis = int(binding["axis"]) as JoyAxis
 			motion.axis_value = float(int(binding["sign"]))
 			return motion

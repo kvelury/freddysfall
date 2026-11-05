@@ -67,6 +67,10 @@ func move(step: int) -> void:
 func _input(event: InputEvent) -> void:
 	if not is_visible_in_tree() or not event.is_pressed() or event is InputEventMouse:
 		return
+	# Accept and cancel belong to the menu, whatever the player has bound to look
+	# up or down: leave them for the focused item and the page.
+	if event.is_action_pressed("ui_accept") or event.is_action_pressed("ui_cancel"):
+		return
 	if event.is_action_pressed("ui_up") or event.is_action_pressed("look_up"):
 		move(-1)
 	elif event.is_action_pressed("ui_down") or event.is_action_pressed("look_down"):

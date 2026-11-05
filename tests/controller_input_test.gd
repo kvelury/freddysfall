@@ -10,9 +10,15 @@ func _initialize() -> void:
 	_run()
 
 
+## The pad the helpers send from (Godot numbers pads from 0).
+var _pad := 0
+
+
 func _run() -> void:
+	await process_frame
 	var ok := true
 	ok = _actions() and ok
+	ok = _second_pad() and ok
 	ok = await _movement() and ok
 	ok = await _dev_button() and ok
 	finish("CONTROLLER INPUT", ok)
@@ -25,6 +31,7 @@ func _send(event: InputEvent) -> void:
 
 func _button(index: int, down: bool) -> void:
 	var event := InputEventJoypadButton.new()
+	event.device = _pad
 	event.button_index = index as JoyButton
 	event.pressed = down
 	_send(event)
@@ -32,6 +39,7 @@ func _button(index: int, down: bool) -> void:
 
 func _stick(axis: int, value: float) -> void:
 	var event := InputEventJoypadMotion.new()
+	event.device = _pad
 	event.axis = axis as JoyAxis
 	event.axis_value = value
 	_send(event)
@@ -114,4 +122,57 @@ func _dev_button() -> bool:
 	ok = check(not panel.opened, "with no dev session it does nothing") and ok
 	world.queue_free()
 	await process_frame
+	return ok
+
+
+## Every gameplay action answers pad `_pad`, and A / B are the menu's accept and
+## cancel, whatever the pad's number.
+func _every_button() -> bool:
+	var ok := true
+	var buttons := {"jump": JOY_BUTTON_A, "lash": JOY_BUTTON_X, "map": JOY_BUTTON_LEFT_SHOULDER, "pause": JOY_BUTTON_START, "look_up": JOY_BUTTON_DPAD_UP, "move_left": JOY_BUTTON_DPAD_LEFT}
+	for action: String in buttons:
+		_button(buttons[action], true)
+		ok = check(Input.is_action_pressed(action), "pad %d: %s answers" % [_pad, action]) and ok
+		_button(buttons[action], false)
+	_stick(0, 1.0)
+	ok = check(Input.is_action_pressed("move_right"), "pad %d: the stick moves" % _pad) and ok
+	_stick(0, 0.0)
+	_button(JOY_BUTTON_A, true)
+	ok = check(Input.is_action_pressed("ui_accept"), "pad %d: A is the menu's accept" % _pad) and ok
+	_button(JOY_BUTTON_A, false)
+	_button(JOY_BUTTON_B, true)
+	ok = check(Input.is_action_pressed("ui_cancel"), "pad %d: B is the menu's cancel" % _pad) and ok
+	_button(JOY_BUTTON_B, false)
+	return ok
+
+
+## A second pad works after boot, a rebind, a reset and a reload: the events the
+## controls are rebuilt from are for any pad, not pad 0.
+func _second_pad() -> bool:
+	var ok := true
+	var bindings: Node = root.get_node("InputBindings")
+	var was_path: String = bindings.path
+	var was_enabled: bool = bindings.enabled
+	bindings.path = "user://test_second_pad.json"
+	bindings.enabled = true
+	_pad = 1
+	ok = _every_button() and ok
+	bindings.rebind("jump", 0, {"t": "button", "index": int(JOY_BUTTON_Y)})
+	_button(JOY_BUTTON_Y, true)
+	ok = check(Input.is_action_pressed("jump"), "pad 1 jumps with a rebound button") and ok
+	_button(JOY_BUTTON_Y, false)
+	bindings.reset("controller")
+	ok = _every_button() and ok
+	bindings.rebind("jump", 0, {"t": "button", "index": int(JOY_BUTTON_Y)})
+	bindings.load_file()
+	_button(JOY_BUTTON_Y, true)
+	ok = check(Input.is_action_pressed("jump"), "pad 1 jumps with it after a reload") and ok
+	_button(JOY_BUTTON_Y, false)
+	bindings.reset("controller")
+	bindings.load_file()
+	ok = _every_button() and ok
+	_pad = 0
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(bindings.path))
+	bindings.path = was_path
+	bindings.enabled = was_enabled
 	return ok

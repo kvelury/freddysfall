@@ -160,8 +160,10 @@ func _process(_delta: float) -> void:
 		open()
 
 
+## Pause opens and closes the menu and steps back one screen; cancel (Esc, or B on
+## a controller) steps back too, but never opens a closed menu.
 func _unhandled_input(event: InputEvent) -> void:
-	if not event.is_action_pressed("pause") or event.is_echo():
+	if event.is_echo() or not (event.is_action_pressed("pause") or (opened and event.is_action_pressed("ui_cancel"))):
 		return
 	get_viewport().set_input_as_handled()
 	if opened:

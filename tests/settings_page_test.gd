@@ -95,12 +95,55 @@ func _run() -> void:
 	page.hide()
 	_press(page, KEY_DOWN)
 	ok = check(page._selected == page._count - 1, "a hidden page ignores keys") and ok
+	page.show()
+	ok = _rebound_enter_and_space(page, bindings) and ok
 
 	bindings.reset("keyboard")
 	bindings.reset("controller")
 	Controls.device = was_device
 	page.free()
 	finish("SETTINGS PAGE", ok)
+
+
+## Look up on Enter and look down on Space, bound through capture and kept across
+## a reload: the page still starts a capture on Enter, still activates Reset on
+## Space, and Up / Down still move.
+func _rebound_enter_and_space(page: SettingsPage, bindings: Node) -> bool:
+	var ok := true
+	page.start()
+	bindings.reset("keyboard")
+	var was_path: String = bindings.path
+	var was_enabled: bool = bindings.enabled
+	bindings.path = "user://test_settings_page.json"
+	bindings.enabled = true
+	for i in 3:
+		_press(page, KEY_DOWN)
+	_press(page, KEY_ENTER)
+	_press(page, KEY_ENTER)
+	ok = check(bindings.get_bindings("look_up", "keyboard")[0]["code"] == KEY_ENTER, "Look up is bound to Enter through capture") and ok
+	_press(page, KEY_DOWN)
+	_press(page, KEY_ENTER)
+	_press(page, KEY_SPACE)
+	ok = check(bindings.get_bindings("look_down", "keyboard")[0]["code"] == KEY_SPACE, "Look down is bound to Space through capture") and ok
+	bindings.load_file()
+	ok = check(bindings.get_bindings("look_up", "keyboard")[0]["code"] == KEY_ENTER, "and they survive a reload") and ok
+	page.start()
+	_press(page, KEY_DOWN)
+	_press(page, KEY_ENTER)
+	ok = check(page._capturing and page._selected == 1, "Enter still starts a capture (it did not move down)") and ok
+	_press(page, KEY_ESCAPE)
+	for i in page._count - 1 - page._selected - 2:
+		_press(page, KEY_DOWN)
+	ok = check(page._selected == page._count - 3, "Down still moves (%d)" % page._selected) and ok
+	_press(page, KEY_DOWN)
+	ok = check(page._selected == page._count - 2, "on the Reset row") and ok
+	_press(page, KEY_SPACE)
+	ok = check(page._status == "Defaults restored" and bindings.is_default("keyboard"), "Space still activates Reset (%s)" % page._status) and ok
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(bindings.path))
+	bindings.path = was_path
+	bindings.enabled = was_enabled
+	bindings.reset("keyboard")
+	return ok
 
 
 func _press(page: SettingsPage, code: Key) -> void:

@@ -345,3 +345,7 @@ Nobody has played these. Test with a real pad: an Xbox-style pad and a PlayStati
 - [ ] **Saved.** Close and reopen the game (and reload the web page): the changes are still there. New Game does not reset them.
 - [ ] **From the pause menu.** Pause, Settings, Controls, change something, Escape out, Resume: the game uses it at once and does not jump or lash from the key that was just bound.
 - [ ] **Is the page readable?** Eleven rows fit on the 320 x 180 screen in the main menu and the pause menu. Is the selected slot easy to see?
+- [ ] **A second pad.** Connect two pads (or a pad that is not the first one the system sees): both move, jump, lash and pause.
+- [ ] **A and B in every menu.** A picks and B goes back on the main menu, Settings, Controls, and the pause menu (B on the pause list resumes). B in play does nothing.
+- [ ] **Start stays Pause.** On the Controller tab, try to give Pause another button, and to give Start to another action: Start always pauses and never does anything else.
+- [ ] **Rebound Enter and Space.** Bind Look up to Enter and Look down to Space: the menus (main, pause, Settings) still pick with them, and Up / Down still move.

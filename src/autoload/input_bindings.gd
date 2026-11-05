@@ -33,8 +33,13 @@ const LABELS := {
 	"pause": "Pause",
 }
 const FOLLOWS := {"map_zoom_in": "look_up", "map_zoom_out": "look_down"}
-## Bindings that are always there and cannot be changed.
-const FIXED := {"pause": {"keyboard": [{"t": "key", "code": KEY_ESCAPE}]}}
+## Bindings that are always there and cannot be changed or given away: Esc and
+## Start are Pause. They are not in an action's slots, so a rebind never swaps
+## them to another action.
+const FIXED := {"pause": {
+	"keyboard": [{"t": "key", "code": KEY_ESCAPE}],
+	"controller": [{"t": "button", "index": JOY_BUTTON_START}],
+}}
 
 ## Whether changes are written to disk. A test turns it off.
 var enabled := true
@@ -98,7 +103,7 @@ func rebind(action: String, slot: int, binding: Dictionary) -> Dictionary:
 		if not old.is_empty():
 			theirs[found] = old
 			note = "Swapped with %s" % LABELS[other]
-		elif theirs.size() > 1:
+		elif theirs.size() + fixed(other, kind).size() > 1:
 			theirs.remove_at(found)
 			note = "Taken from %s" % LABELS[other]
 		else:
