@@ -151,6 +151,17 @@ func _run() -> void:
 	ok = check(not saw["climbed"] and _damage(room) == 1, "with the toggle off the wall takes the hit and he does not stick") and ok
 	ab.climb_breakable = true
 
+	# With the toggle on, a tap at it is still only a hit: the hold decides whether he sticks.
+	tongue.scripted_held = false
+	var hits := _damage(room)
+	tongue.clear()
+	_put(world, Vector2i(23, 16))
+	tongue.lash()
+	saw = await _watch(player, tongue)
+	ok = check(not saw["climbed"] and _damage(room) != hits, "a tap at a breakable wall hits it and does not climb") and ok
+	tongue.scripted_held = true
+	tongue.clear()
+
 	# Ceilings.
 	tongue.clear()
 	_put(world, Vector2i(7, 16))
@@ -302,6 +313,8 @@ func _run() -> void:
 	tongue.clear()
 	ok = check(not player.climbing() and not tongue.active, "clearing the tongue (room change, death, warp, retry) lets him go") and ok
 
+	ok = await _hold_cases(world, player, tongue, ab) and ok
+
 	# A fast pull over spikes still kills him: the whole path is tested, not just where he ends.
 	tongue.clear()
 	ab.climb_zip_speed = 2000.0
@@ -367,6 +380,118 @@ func _platform_in_the_way() -> bool:
 				break
 		var box := Rect2(s.position - MovementSim.HALF, MovementSim.HALF * 2.0)
 		ok = check(started and released and not s.crushed and not box.intersects(movers.rects(1)[0]), "a platform the tongue clears but the body cannot stops the pull at %.0f px/s (x %.1f, crushed %s)" % [speed, s.position.x, s.crushed]) and ok
+	return ok
+
+
+## Holding the lash key decides whether a lash that sticks climbs: a tap only
+## lashes, a hold past `climb_press` climbs, and a lash held but not yet long
+## enough waits stuck to the wall for the key to be let go or held on.
+func _hold_cases(world: Node, player: Player, tongue: Node, ab: Abilities) -> bool:
+	var ok := check(ab.climb_press == 0.15, "the lash must be held 0.15 s to climb at the start")
+	ok = check(Abilities.from_dict(ab.to_dict()).climb_press == 0.15 and Abilities.from_dict({"climb_press": -1.0}).climb_press >= 0.0, "it round-trips and is never negative") and ok
+	var room: Room = world.current
+	ab.tongue_climb = true
+	ab.climb_breakable = true
+	ab.climb_ceiling = true
+	ab.climb_land_to_restick = false
+
+	# A tap is only a lash, even against a wall.
+	tongue.scripted_held = false
+	_put(world, Vector2i(17, 12))
+	tongue.lash()
+	var saw := await _watch(player, tongue)
+	ok = check(not saw["climbed"], "a tap at a near wall does not climb") and ok
+
+	# Held at a wall too near for the hold to have run out: the tip waits stuck.
+	tongue.scripted_held = true
+	_put(world, Vector2i(17, 12))
+	tongue.lash()
+	ok = check(await until(func() -> bool: return tongue.phase == 1, 30) >= 0, "a held lash at a near wall sticks") and ok
+	ok = check(not player.climbing() and tongue.active, "and waits there, with Freddy still on the floor") and ok
+	await physics_frame
+	ok = check(tongue.phase == 1 and not player.climbing(), "the wait does not run out while X is held") and ok
+	tongue.scripted_held = false
+	saw = await _watch(player, tongue)
+	ok = check(not saw["climbed"], "let go before the hold, the lash returns as a plain lash") and ok
+
+	# Held on past the hold: it climbs from where it stuck.
+	tongue.scripted_held = true
+	_put(world, Vector2i(17, 12))
+	tongue.lash()
+	var got := await until(func() -> bool: return player.hanging(), 60)
+	ok = check(got >= 0 and tongue.phase == CLIMB_PHASE, "held long enough, the waiting lash climbs (%d ticks)" % got) and ok
+	ok = check(absf(player.global_position.x - HANG_X) < 0.01, "and he hangs at the same place (x %.2f)" % player.global_position.x) and ok
+	tongue.clear()
+
+	# Held at a farther wall: the hold is over by the time the tip sticks, so no wait.
+	_put(world, Vector2i(15, 12))
+	tongue.lash()
+	got = await until(func() -> bool: return player.hanging(), 60)
+	ok = check(got >= 0 and tongue.phase == CLIMB_PHASE, "a hold at a far wall climbs") and ok
+	tongue.clear()
+
+	# Once the hold is made, letting go before the tip arrives still climbs.
+	ab.climb_press = 0.05
+	_put(world, Vector2i(17, 12))
+	tongue.lash()
+	for i in 4:
+		await physics_frame
+	tongue.scripted_held = false
+	got = await until(func() -> bool: return player.hanging(), 60)
+	ok = check(got >= 0, "held for the hold and then let go, the tip still climbs") and ok
+	tongue.clear()
+	ab.climb_press = 0.15
+
+	# A waiting up-lash climbs from where the tip stuck, though Freddy falls while it waits.
+	tongue.scripted_held = true
+	ab.climb_press = 0.5
+	_put(world, Vector2i(7, 14))
+	tongue.lash(true)
+	await until(func() -> bool: return tongue.phase == 1, 30)
+	await ticks(2)
+	ab.climb_press = 0.0
+	await physics_frame
+	await until(func() -> bool: return player.hanging(), 60)
+	ok = check(player.climbing_ceiling() and absf(player.global_position.y - (120.0 + 5.0 + MovementSim.CLIMB_GAP)) < 0.01, "and hangs a gap under the slab, not where he had moved to (y %.2f)" % player.global_position.y) and ok
+	tongue.clear()
+	ab.climb_press = 0.15
+	tongue.scripted_held = false
+
+	# A ceiling: a tap does not hang, a hold does.
+	_put(world, Vector2i(7, 16))
+	tongue.lash(true)
+	saw = await _watch(player, tongue)
+	ok = check(not saw["climbed"], "a tap up at the slab does not hang him") and ok
+	tongue.scripted_held = true
+	_put(world, Vector2i(7, 16))
+	tongue.lash(true)
+	ok = check(await until(func() -> bool: return player.hanging() and player.climbing_ceiling(), 60) >= 0, "a hold up at the slab does") and ok
+	tongue.clear()
+
+	# Zero is what it was: every lash that sticks climbs.
+	ab.climb_press = 0.0
+	tongue.scripted_held = false
+	_put(world, Vector2i(17, 12))
+	tongue.lash()
+	ok = check(await until(func() -> bool: return player.hanging(), 60) >= 0, "with the hold at 0 a tap climbs") and ok
+	tongue.clear()
+	ab.climb_press = 0.15
+
+	# Taking the power-up away while the tip waits sends the tongue home.
+	tongue.scripted_held = true
+	_put(world, Vector2i(17, 12))
+	tongue.lash()
+	await until(func() -> bool: return tongue.phase == 1, 30)
+	ab.tongue_climb = false
+	root.get_node("GameState").abilities_changed.emit()
+	for i in 3:
+		await physics_frame
+	ok = check(tongue.phase != 1 and not player.climbing(), "turning Tongue Climb off while the tip waits sends it home") and ok
+	saw = await _watch(player, tongue)
+	ok = check(not saw["climbed"], "and he does not climb") and ok
+	ab.tongue_climb = true
+	tongue.scripted_held = true
+	tongue.clear()
 	return ok
 
 
