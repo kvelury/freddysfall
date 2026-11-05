@@ -43,12 +43,36 @@ func _run() -> void:
 	ok = await _buffer(world, player, tongue) and ok
 	ok = await _late_up(world, player, tongue) and ok
 	ok = await _climb_chain(world, player, tongue, ab) and ok
+	ok = await _kept_hold(world, tongue, ab) and ok
 	ok = await _stale(world, player, tongue) and ok
 	ok = await _modal(world, tongue) and ok
 	ok = await _fresh_press(world, tongue, ab) and ok
 	ok = await _air_keys(world, player, tongue) and ok
 	ok = await _readout(world, player, tongue) and ok
 	finish("LASH INPUT", ok)
+
+
+## A kept press remembers that it was held for `climb_press` even if X is let go
+## before the lash is made; one let go too early stays a plain lash.
+func _kept_hold(world: Node, tongue: Node, ab: Abilities) -> bool:
+	var ok := true
+	var was := ab.climb_press
+	ab.climb_press = 0.05
+	for c in [[4, true, "held for the hold and let go before the kept lash is made, it still climbs"], [1, false, "let go before the hold, the kept lash is a plain lash"]]:
+		_put(world)
+		tongue.scripted_held = false
+		await _press(tongue)
+		await until(func() -> bool: return tongue.phase == BACK, 60)
+		await ticks(5)
+		tongue.scripted_held = true
+		await _press(tongue)
+		await ticks(c[0] - 1)
+		tongue.scripted_held = false
+		var got := await until(func() -> bool: return tongue.active and tongue.phase == 0, 20)
+		ok = check(got >= 0 and (tongue._intent == 2) == c[1], "a kept press " + c[2]) and ok
+	ab.climb_press = was
+	tongue.scripted_held = true
+	return ok
 
 
 ## Facing left from the middle of the floor, a lash meets nothing.

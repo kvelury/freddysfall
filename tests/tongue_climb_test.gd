@@ -442,6 +442,21 @@ func _hold_cases(world: Node, player: Player, tongue: Node, ab: Abilities) -> bo
 	tongue.clear()
 	ab.climb_press = 0.15
 
+	# A waiting up-lash climbs from where the tip stuck, though Freddy falls while it waits.
+	tongue.scripted_held = true
+	ab.climb_press = 0.5
+	_put(world, Vector2i(7, 14))
+	tongue.lash(true)
+	await until(func() -> bool: return tongue.phase == 1, 30)
+	await ticks(2)
+	ab.climb_press = 0.0
+	await physics_frame
+	await until(func() -> bool: return player.hanging(), 60)
+	ok = check(player.climbing_ceiling() and absf(player.global_position.y - (120.0 + 5.0 + MovementSim.CLIMB_GAP)) < 0.01, "and hangs a gap under the slab, not where he had moved to (y %.2f)" % player.global_position.y) and ok
+	tongue.clear()
+	ab.climb_press = 0.15
+	tongue.scripted_held = false
+
 	# A ceiling: a tap does not hang, a hold does.
 	_put(world, Vector2i(7, 16))
 	tongue.lash(true)

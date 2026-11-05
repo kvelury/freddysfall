@@ -113,6 +113,9 @@ var _sent_for := 0.0
 ## Seconds the lash key has been held since the press behind the current or kept
 ## lash, or -1 when it is not held.
 var _held_for := -1.0
+## Whether the press behind the current or kept lash was held for `climb_press`
+## at some point, so letting go afterwards (before a kept lash is made) still climbs.
+var _press_qualified := false
 ## Whether the current lash will climb, as the key was held.
 var _intent := Intent.ATTACK
 ## Whether the tip is stuck to something Freddy can hang from and waits, in the
@@ -193,6 +196,7 @@ func end() -> void:
 func drop_buffer() -> void:
 	buffer_left = 0.0
 	_buffer_up = false
+	_press_qualified = false
 
 
 ## Removes the tongue, the wait for the next lash and any kept press.
@@ -206,6 +210,7 @@ func clear() -> void:
 	extension = 0.0
 	_reset_phase()
 	_held_for = -1.0
+	_press_qualified = false
 	cooldown_left = 0.0
 	queue_redraw()
 
@@ -226,12 +231,16 @@ func _physics_process(delta: float) -> void:
 	var upward := scripted_up if scripted else Input.is_action_pressed("look_up")
 	scripted_lash = false
 	var held := _held_now()
+	if pressed:
+		_press_qualified = false
 	if pressed and held:
 		_held_for = 0.0
 	elif held:
 		_held_for = _held_for + delta if _held_for >= 0.0 else 0.0
 	else:
 		_held_for = -1.0
+	if held and _held_for >= GameState.abilities.climb_press - TongueMotion.EPSILON:
+		_press_qualified = true
 	if active and _intent == Intent.UNDECIDED:
 		_intent = _decide()
 		if _intent == Intent.CLIMB:
@@ -284,7 +293,7 @@ func _held_now() -> bool:
 ## What a lash will do if its tip sticks, from how long the key has been held.
 func _decide() -> Intent:
 	var need := GameState.abilities.climb_press
-	if need <= 0.0:
+	if need <= 0.0 or _press_qualified:
 		return Intent.CLIMB
 	if not _held_now():
 		return Intent.ATTACK
@@ -379,14 +388,13 @@ func _can_climb_here() -> bool:
 ## off, the surface is not one (an Imprint platform, a moving platform, a wall
 ## that has just broken, a ceiling when ceilings are off) or he may not stick
 ## now (he must land first).
-func _try_climb() -> bool:
+func _try_climb(at := tip()) -> bool:
 	var abilities := GameState.abilities
 	if not abilities.tongue_climb or not _struck or not _climbable:
 		return false
 	if up and not abilities.climb_ceiling:
 		return false
 	var dir := Vector2(0.0, -1.0) if up else Vector2(float(direction), 0.0)
-	var at := tip()
 	if not _player.begin_climb(at, dir, abilities.climb_hold, abilities.climb_wiggle, abilities.climb_zip_speed, abilities.climb_land_to_restick):
 		return false
 	phase = Phase.CLIMB
@@ -427,7 +435,8 @@ func _move(delta: float) -> void:
 			_time += delta
 			if _awaiting_climb and _intent == Intent.CLIMB:
 				_awaiting_climb = false
-				if not _try_climb():
+				# From where the tip stuck, not from where Freddy has since moved.
+				if not _try_climb(_stuck_tip):
 					_start_back()
 				return
 			if _awaiting_climb and _intent == Intent.ATTACK:
