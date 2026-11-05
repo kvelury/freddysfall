@@ -301,7 +301,7 @@ func _readout(world: Node, player: Player, tongue: Node) -> bool:
 	await _press(tongue)
 	ok = check(tongue.last_log.begins_with("Lash kept (tongue out)") and tongue.last_log.contains("look-up held: no"), "a kept press says why (%s)" % tongue.last_log) and ok
 	await until(func() -> bool: return tongue.active and not tongue.up, 40)
-	ok = check(tongue.last_log.begins_with("Kept lash made side") or tongue.last_log.begins_with("Kept lash ran out"), "and what came of it (%s)" % tongue.last_log) and ok
+	ok = check(tongue.last_log.begins_with("Kept lash made side") or tongue.last_log.begins_with("Kept lash ran out") or tongue.last_log.begins_with("Climb:") or tongue.last_log.begins_with("Lash only"), "and what came of it (%s)" % tongue.last_log) and ok
 	player.input_enabled = false
 	await _press(tongue)
 	ok = check(tongue.last_log == "Lash dropped: not in control", "a press with no control is said to be dropped (%s)" % tongue.last_log) and ok

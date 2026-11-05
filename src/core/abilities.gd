@@ -20,6 +20,7 @@ const CLAMPS := {
 	"climb_hold": [0.05, null],
 	"climb_wiggle": [0.0, null],
 	"climb_zip_speed": [10.0, null],
+	"climb_press": [0.0, null],
 }
 
 ## A stat's old names, tried when a save has no key of its own. The gun became
@@ -61,8 +62,8 @@ var tongue_settle := 1.0
 var tongue_stick := 0.1
 ## Whether the tip is drawn as a pad (3 pixels tall) while it is stuck.
 var tongue_pad := true
-## Whether the player has found Tongue Climb. With it, a lash that hits a wall
-## pulls Freddy to it and he hangs there by his tongue (see `MovementSim.start_climb`).
+## Whether the player has found Tongue Climb. With it, a lash held for `climb_press`
+## that hits a wall pulls Freddy to it and he hangs there by his tongue (see `MovementSim.start_climb`).
 ## Until then a lash only hits. No room awards it yet; the dev tools turn it on.
 var tongue_climb := false
 ## Seconds he hangs on the wall, wiggle included, before he lets go.
@@ -71,6 +72,9 @@ var climb_hold := 0.5
 var climb_wiggle := 0.2
 ## How fast he is pulled to the wall, in pixels a second.
 var climb_zip_speed := 400.0
+## Seconds the lash key must be held for a lash to become a climb when its tip
+## sticks. A tap only lashes. 0 makes every lash that sticks a climb.
+var climb_press := 0.15
 ## Whether he sticks to a breakable wall (the hit still lands) as well as to plain walls.
 var climb_breakable := true
 ## Whether an up-lash at a ceiling pulls him up to hang there.

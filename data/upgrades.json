@@ -168,7 +168,7 @@
     "name": "Tongue Climb",
     "stat": "tongue_climb",
     "kind": "unlock",
-    "message": "Tongue Climb. Lash a wall to stick to it.",
+    "message": "Tongue Climb. Hold the lash to stick to a wall.",
     "controls": ["lash"],
     "dev": {
       "section": "climb",
@@ -212,6 +212,19 @@
       "max": 2000,
       "step": 20,
       "unit": "px/s"
+    }
+  },
+  "climb_press": {
+    "name": "Climb press",
+    "stat": "climb_press",
+    "kind": "min",
+    "dev": {
+      "section": "climb",
+      "type": "float",
+      "min": 0,
+      "max": 1,
+      "step": 0.05,
+      "unit": "seconds"
     }
   },
   "climb_breakable": {

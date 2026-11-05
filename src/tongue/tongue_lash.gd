@@ -23,7 +23,8 @@ extends Node2D
 ##
 ## With Tongue Climb (`Abilities.tongue_climb`) a tip that sticks to a plain wall
 ## (or a breakable one that is still standing, or, going up, the ceiling) pulls
-## Freddy to it instead of coming back: the CLIMB phase. He hangs by the tongue
+## Freddy to it instead of coming back: the CLIMB phase, but only for a lash whose
+## key was held for `Abilities.climb_press`; a tap is only a lash. He hangs by the tongue
 ## until the player's body lets go (a jump, the time running out, the wall
 ## going), and the tongue then goes back in. The pull and the hang are
 ## `MovementSim`'s, so the solver can use them later.
@@ -55,11 +56,18 @@ const UP_GRACE := 0.1
 ## what it hit; BACK is the return; CLIMB holds the tip while Freddy hangs from it.
 enum Phase { OUT, STICK, BACK, CLIMB }
 
+## Whether a lash will climb if its tip sticks: ATTACK once the key is let go
+## before `climb_press`, CLIMB once it has been held that long (and it stays one
+## if the key is then let go), UNDECIDED in between.
+enum Intent { UNDECIDED, ATTACK, CLIMB }
+
 ## The headless tests set `scripted` and lash with `scripted_lash`.
 var scripted := false
 var scripted_lash := false
 ## The tests' stand-in for holding the look-up key when a lash is made.
 var scripted_up := false
+## The tests' stand-in for holding the lash key down.
+var scripted_held := true
 
 ## Whether a tongue is out, going or coming back.
 var active := false
@@ -102,6 +110,14 @@ var buffer_left := 0.0
 var _buffer_up := false
 ## Seconds since this lash was sent, for the up grace.
 var _sent_for := 0.0
+## Seconds the lash key has been held since the press behind the current or kept
+## lash, or -1 when it is not held.
+var _held_for := -1.0
+## Whether the current lash will climb, as the key was held.
+var _intent := Intent.ATTACK
+## Whether the tip is stuck to something Freddy can hang from and waits, in the
+## STICK phase, for the key to be let go (a plain lash) or held long enough (a climb).
+var _awaiting_climb := false
 ## The last line the lash input readout said (the dev tools' Show lash input).
 var last_log := ""
 
@@ -152,6 +168,7 @@ func _send(upward: bool) -> void:
 	extension = 0.0
 	_sent_for = 0.0
 	_reset_phase()
+	_intent = _decide()
 	# A lash against a wall the player is pressed to hits it at once.
 	if _hit():
 		_begin_return()
@@ -188,6 +205,7 @@ func clear() -> void:
 		_player.lashing_up = false
 	extension = 0.0
 	_reset_phase()
+	_held_for = -1.0
 	cooldown_left = 0.0
 	queue_redraw()
 
@@ -207,6 +225,19 @@ func _physics_process(delta: float) -> void:
 	var pressed := scripted_lash if scripted else Input.is_action_just_pressed("lash")
 	var upward := scripted_up if scripted else Input.is_action_pressed("look_up")
 	scripted_lash = false
+	var held := _held_now()
+	if pressed and held:
+		_held_for = 0.0
+	elif held:
+		_held_for = _held_for + delta if _held_for >= 0.0 else 0.0
+	else:
+		_held_for = -1.0
+	if active and _intent == Intent.UNDECIDED:
+		_intent = _decide()
+		if _intent == Intent.CLIMB:
+			_log("Climb: X held %.2f s" % _held_for)
+		elif _intent == Intent.ATTACK:
+			_log("Lash only: X let go before %.2f s" % GameState.abilities.climb_press)
 	if active and not up and _player.facing != direction:
 		end()
 	if active and not up and phase == Phase.OUT and _sent_for < UP_GRACE - 0.001 and upward and _lash_allowed():
@@ -243,6 +274,21 @@ func _physics_process(delta: float) -> void:
 			buffer_left = maxf(buffer_left - delta, 0.0)
 			if buffer_left <= 0.0:
 				_log("Kept lash ran out (%s)" % _busy_reason())
+
+
+## Whether the lash key is down now.
+func _held_now() -> bool:
+	return scripted_held if scripted else Input.is_action_pressed("lash")
+
+
+## What a lash will do if its tip sticks, from how long the key has been held.
+func _decide() -> Intent:
+	var need := GameState.abilities.climb_press
+	if need <= 0.0:
+		return Intent.CLIMB
+	if not _held_now():
+		return Intent.ATTACK
+	return Intent.CLIMB if maxf(_held_for, 0.0) >= need - TongueMotion.EPSILON else Intent.UNDECIDED
 
 
 ## With the dev tools' Show lash input on, says `text` in the toast line.
@@ -291,13 +337,23 @@ func _reset_phase() -> void:
 	_struck = false
 	_climbable = false
 	_struck_wall = false
+	_awaiting_climb = false
 
 
 ## The tip has stopped going out. If it hit something and the tongue sticks, it
 ## holds there first; otherwise it turns for home. A lash that hits at once, with
 ## nothing out, has nothing to stick.
 func _begin_return() -> void:
-	if _try_climb():
+	if _intent == Intent.CLIMB and _try_climb():
+		return
+	if _intent == Intent.UNDECIDED and _can_climb_here():
+		# Held, but not yet long enough: the tip stays stuck until the key is let go
+		# (a plain lash) or held long enough (a climb).
+		phase = Phase.STICK
+		_time = 0.0
+		_awaiting_climb = true
+		_stuck_tip = tip()
+		_stuck_at = _stuck_tip.y if up else _stuck_tip.x
 		return
 	if _struck and extension > 0.0 and GameState.abilities.tongue_stick > 0.0:
 		phase = Phase.STICK
@@ -305,6 +361,17 @@ func _begin_return() -> void:
 		_stuck_at = tip().y if up else tip().x
 		return
 	_start_back()
+
+
+## Whether the tip stuck to something he could hang from, with the power-up and
+## the switch for that surface on.
+func _can_climb_here() -> bool:
+	var abilities := GameState.abilities
+	if not abilities.tongue_climb or not _struck or not _climbable:
+		return false
+	if _struck_wall and not abilities.climb_breakable:
+		return false
+	return not (up and not abilities.climb_ceiling)
 
 
 ## With Tongue Climb, a tip that stuck to something Freddy can hang from pulls him
@@ -358,11 +425,24 @@ func _move(delta: float) -> void:
 			return
 		Phase.STICK:
 			_time += delta
+			if _awaiting_climb and _intent == Intent.CLIMB:
+				_awaiting_climb = false
+				if not _try_climb():
+					_start_back()
+				return
+			if _awaiting_climb and _intent == Intent.ATTACK:
+				# Let go: an ordinary lash, its stick counted from the strike.
+				_awaiting_climb = false
 			# The tip stays where it hit even if the player moves.
 			if up:
 				extension = maxf(0.0, _player.global_position.y - _stuck_at - FRONT)
 			else:
 				extension = maxf(0.0, float(direction) * (_stuck_at - _player.global_position.x) - FRONT)
+			if _awaiting_climb:
+				if not _surface_holds():
+					_awaiting_climb = false
+					_start_back()
+				return
 			if _time >= abilities.tongue_stick - TongueMotion.EPSILON:
 				_start_back()
 			return
@@ -438,6 +518,10 @@ func _reconcile_abilities() -> void:
 	if not abilities.tongue_unlocked:
 		_player.cancel_climb()
 		clear()
+		return
+	if _awaiting_climb and not _can_climb_here():
+		_awaiting_climb = false
+		_start_back()
 		return
 	if phase != Phase.CLIMB:
 		return
