@@ -13,6 +13,7 @@ func _run() -> void:
 	ok = await _main_menu() and ok
 	ok = await _pause_menu() and ok
 	ok = await _popup() and ok
+	ok = await _pad_and_rebound_keys() and ok
 	finish("MENU", ok)
 
 
@@ -45,12 +46,16 @@ func _main_menu() -> bool:
 
 	save.enabled = false
 	var menu := await _menu()
-	ok = check(menu._main_list.item_texts() == ["Start Game", "Controls"], "no save: Start Game and Controls (%s)" % [menu._main_list.item_texts()]) and ok
+	ok = check(menu._main_list.item_texts() == ["Start Game", "Settings"], "no save: Start Game and Settings (%s)" % [menu._main_list.item_texts()]) and ok
 	ok = check(menu._main_list.selected() == 0, "the first item is selected") and ok
 	menu._main_list.get_child(1).pressed.emit()
-	ok = check(menu._controls_page.visible and not menu._main_page.visible, "Controls opens its page") and ok
-	menu._controls_list.get_child(0).pressed.emit()
-	ok = check(menu._main_page.visible and not menu._controls_page.visible, "Back returns to the menu") and ok
+	ok = check(menu._settings_page.visible and not menu._main_page.visible, "Settings opens its page") and ok
+	menu._settings_list.get_child(0).pressed.emit()
+	ok = check(menu._controls_page.visible and not menu._settings_page.visible, "Controls opens the remapping page") and ok
+	menu._remap.back_requested.emit()
+	ok = check(menu._settings_page.visible and not menu._controls_page.visible, "Back from Controls returns to Settings") and ok
+	menu._settings_list.get_child(1).pressed.emit()
+	ok = check(menu._main_page.visible and not menu._settings_page.visible, "Back returns to the menu") and ok
 	menu.free()
 
 	save.enabled = true
@@ -59,7 +64,7 @@ func _main_menu() -> bool:
 	file.store_string("{}")
 	file.close()
 	menu = await _menu()
-	ok = check(menu._main_list.item_texts() == ["Continue", "New Game", "Controls"], "a save: Continue, New Game, Controls (%s)" % [menu._main_list.item_texts()]) and ok
+	ok = check(menu._main_list.item_texts() == ["Continue", "New Game", "Settings"], "a save: Continue, New Game, Settings (%s)" % [menu._main_list.item_texts()]) and ok
 	menu._main_list.get_child(1).pressed.emit()
 	ok = check(menu._confirm_page.visible and menu._confirm_list.selected() == 0, "New Game asks first, with No selected") and ok
 	menu._unhandled_input(_key(KEY_ESCAPE))
@@ -93,9 +98,13 @@ func _pause_menu() -> bool:
 	menu._unhandled_input(_key(KEY_P))
 	ok = check(menu.opened and paused, "P pauses too") and ok
 	menu._list.get_child(1).pressed.emit()
-	ok = check(menu._on_controls and menu._view.get_child_count() == 7, "the pause Controls page shows the base rows (%d)" % menu._view.get_child_count()) and ok
+	ok = check(menu._screen == "settings", "Settings opens its page") and ok
+	menu._settings_list.get_child(0).pressed.emit()
+	ok = check(menu._screen == "controls" and menu._remap.is_visible_in_tree(), "Controls shows the remapping page") and ok
 	menu._unhandled_input(_key(KEY_P))
-	ok = check(menu.opened and not menu._on_controls, "P on the Controls page goes back") and ok
+	ok = check(menu.opened and menu._screen == "settings", "P on the Controls page goes back to Settings") and ok
+	menu._unhandled_input(_key(KEY_P))
+	ok = check(menu.opened and menu._screen == "list", "and P on Settings goes back to the list") and ok
 	menu._list.get_child(0).pressed.emit()
 	ok = check(not menu.opened and not paused, "Resume resumes") and ok
 
@@ -118,12 +127,12 @@ func _pause_menu() -> bool:
 	var session := root.get_node("DevSession")
 	session.mode = session.Mode.NORMAL
 	menu.open()
-	ok = check(menu._list.item_texts() == ["Resume", "Controls", "Dev tools", "Main menu"], "dev available: Dev tools is in the list (%s)" % [menu._list.item_texts()]) and ok
+	ok = check(menu._list.item_texts() == ["Resume", "Settings", "Dev tools", "Main menu"], "dev available: Dev tools is in the list (%s)" % [menu._list.item_texts()]) and ok
 	ok = check(not menu._status.visible, "and there is no status line in a normal game") and ok
 	menu.close()
 	session.available = false
 	menu.open()
-	ok = check(menu._list.item_texts() == ["Resume", "Controls", "Main menu"], "dev not available: no Dev tools (%s)" % [menu._list.item_texts()]) and ok
+	ok = check(menu._list.item_texts() == ["Resume", "Settings", "Main menu"], "dev not available: no Dev tools (%s)" % [menu._list.item_texts()]) and ok
 	menu.close()
 	session.available = true
 	session.mode = session.Mode.DEV_TEST
@@ -235,3 +244,75 @@ func _ids(rows: Array) -> Array:
 
 func _gs() -> Node:
 	return root.get_node("GameState")
+
+
+func _pad(index: int, device := 0) -> InputEventJoypadButton:
+	var event := InputEventJoypadButton.new()
+	event.device = device
+	event.button_index = index as JoyButton
+	event.pressed = true
+	return event
+
+
+## A picks and B goes back, on any pad, on every screen of both menus; and keys
+## the player has given to look up and down do not take Enter and Space from the
+## menus.
+func _pad_and_rebound_keys() -> bool:
+	var ok := true
+	for device in [0, 1]:
+		ok = check(_pad(JOY_BUTTON_A, device).is_action_pressed("ui_accept"), "pad %d: A is accept" % device) and ok
+		ok = check(_pad(JOY_BUTTON_B, device).is_action_pressed("ui_cancel"), "pad %d: B is cancel" % device) and ok
+
+	var save := root.get_node("Save")
+	var was_enabled: bool = save.enabled
+	save.enabled = false
+	var menu := await _menu()
+	menu._main_list.get_child(1).pressed.emit()
+	menu._unhandled_input(_pad(JOY_BUTTON_B))
+	ok = check(menu._main_page.visible and not menu._settings_page.visible, "B goes back from Settings to the main menu") and ok
+	menu._main_list.get_child(1).pressed.emit()
+	menu._settings_list.get_child(0).pressed.emit()
+	menu._remap._input(_pad(JOY_BUTTON_B))
+	ok = check(menu._settings_page.visible and not menu._controls_page.visible, "B goes back from Controls to Settings") and ok
+	menu.free()
+	save.enabled = was_enabled
+
+	var world := await _world("2")
+	var pause = world.pause_menu
+	pause._unhandled_input(_pad(JOY_BUTTON_B))
+	ok = check(not pause.opened and not paused, "B in play does not open the pause menu") and ok
+	pause._unhandled_input(_pad(JOY_BUTTON_START))
+	ok = check(pause.opened and paused, "Start pauses") and ok
+	pause._list.get_child(1).pressed.emit()
+	pause._settings_list.get_child(0).pressed.emit()
+	ok = check(pause._screen == "controls", "Controls is showing") and ok
+	pause._remap._input(_pad(JOY_BUTTON_B))
+	ok = check(pause.opened and pause._screen == "settings", "B on Controls goes to Settings, once") and ok
+	pause._unhandled_input(_pad(JOY_BUTTON_B))
+	ok = check(pause.opened and pause._screen == "list", "B on Settings goes to the pause list") and ok
+	pause._unhandled_input(_pad(JOY_BUTTON_B))
+	ok = check(not pause.opened and not paused, "B on the pause list resumes") and ok
+	pause._unhandled_input(_pad(JOY_BUTTON_START, 1))
+	ok = check(pause.opened, "Start on a second pad pauses") and ok
+	pause.close()
+
+	# Look up on Enter and look down on Space: both are allowed, and the menus
+	# still take them as accept.
+	var bindings := root.get_node("InputBindings")
+	var was_bindings: bool = bindings.enabled
+	bindings.enabled = false
+	bindings.rebind("look_up", 0, {"t": "key", "code": int(KEY_ENTER)})
+	bindings.rebind("look_down", 0, {"t": "key", "code": int(KEY_SPACE)})
+	pause.open()
+	pause._list.focus_item(1)
+	pause._list._input(_key(KEY_ENTER))
+	ok = check(pause._list.selected() == 1, "Enter (look up) does not move a menu selection") and ok
+	pause._list._input(_key(KEY_SPACE))
+	ok = check(pause._list.selected() == 1, "Space (look down) does not move it either") and ok
+	pause._list._input(_key(KEY_DOWN))
+	ok = check(pause._list.selected() == 2, "the arrow keys still do") and ok
+	pause.close()
+	bindings.reset("keyboard")
+	bindings.enabled = was_bindings
+	world.free()
+	return ok

@@ -1,26 +1,27 @@
 class_name PauseMenu
 extends CanvasLayer
 
-## The pause menu: Resume, Controls, Dev tools (when dev is available) and
-## Main menu over a dimmed game. Esc or P
-## opens and closes it. It takes the world's modal, so the game is paused
+## The pause menu: Resume, Settings (Controls, where the keys and buttons are
+## changed), Dev tools (when dev is available) and Main menu over a dimmed game.
+## Esc, P or a controller's Start opens and closes it. It takes the world's modal, so the game is paused
 ## while it is open, and it waits for an animation (a door slide, a death, a
 ## save) to finish before it opens, as the dev panel does.
 
 const OWNER := "pause"
 const MENU_WIDTH := 140
-const CONTROLS_WIDTH := 280
+const CONTROLS_WIDTH := 240
 
 var opened := false
 var _world: Node
 var _pending := false
-var _on_controls := false
+## Which screen shows: "list", "settings" or "controls".
+var _screen := "list"
 var _panel: PanelContainer
 var _heading: Label
 var _status: Label
 var _list: MenuList
-var _view: ControlsView
-var _back: MenuList
+var _settings_list: MenuList
+var _remap: SettingsPage
 var _column: VBoxContainer
 
 
@@ -65,13 +66,15 @@ func _build() -> void:
 	_list = MenuList.new()
 	_list.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	_column.add_child(_list)
-	_view = ControlsView.new()
-	_view.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	_column.add_child(_view)
-	_back = MenuList.new()
-	_back.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	_back.add_item("Back", _show_list)
-	_column.add_child(_back)
+	_settings_list = MenuList.new()
+	_settings_list.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_settings_list.add_item("Controls", _show_controls)
+	_settings_list.add_item("Back", _show_list)
+	_column.add_child(_settings_list)
+	_remap = SettingsPage.new()
+	_remap.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_remap.back_requested.connect(_show_settings)
+	_column.add_child(_remap)
 	_show_list()
 
 
@@ -80,7 +83,7 @@ func _build() -> void:
 func _fill_list() -> void:
 	_list.clear()
 	_list.add_item("Resume", close)
-	_list.add_item("Controls", _show_controls)
+	_list.add_item("Settings", _show_settings)
 	if DevSession.available:
 		_list.add_item("Dev tools", _open_dev_tools)
 	_list.add_item("Main menu", func() -> void: _world.leave_to_menu())
@@ -93,28 +96,40 @@ func _open_dev_tools() -> void:
 
 
 func _show_list() -> void:
-	_on_controls = false
+	_screen = "list"
+	_heading.show()
 	_heading.text = "Paused"
 	_status.text = DevSession.status_line()
 	_status.visible = DevSession.isolated()
 	_fill_list()
 	_column.custom_minimum_size.x = MENU_WIDTH
 	_list.show()
-	_view.hide()
-	_back.hide()
+	_settings_list.hide()
+	_remap.hide()
 	_list.focus_first()
 
 
+func _show_settings() -> void:
+	_screen = "settings"
+	_heading.show()
+	_heading.text = "Settings"
+	_status.hide()
+	_column.custom_minimum_size.x = MENU_WIDTH
+	_list.hide()
+	_remap.hide()
+	_settings_list.show()
+	_settings_list.focus_first()
+
+
+## The Controls page has its own title, and is tall, so the heading goes.
 func _show_controls() -> void:
-	_on_controls = true
-	_heading.text = "Controls"
+	_screen = "controls"
+	_heading.hide()
 	_status.hide()
 	_column.custom_minimum_size.x = CONTROLS_WIDTH
-	_view.show_rows(Controls.visible_rows(GameState.abilities))
 	_list.hide()
-	_view.show()
-	_back.show()
-	_back.focus_first()
+	_settings_list.hide()
+	_remap.show()
 
 
 ## Opens the menu. Does nothing if the map or another panel holds the game.
@@ -145,15 +160,20 @@ func _process(_delta: float) -> void:
 		open()
 
 
+## Pause opens and closes the menu and steps back one screen; cancel (Esc, or B on
+## a controller) steps back too, but never opens a closed menu.
 func _unhandled_input(event: InputEvent) -> void:
-	if not event.is_action_pressed("pause") or event.is_echo():
+	if event.is_echo() or not (event.is_action_pressed("pause") or (opened and event.is_action_pressed("ui_cancel"))):
 		return
 	get_viewport().set_input_as_handled()
 	if opened:
-		if _on_controls:
-			_show_list()
-		else:
-			close()
+		match _screen:
+			"controls":
+				_show_settings()
+			"settings":
+				_show_list()
+			_:
+				close()
 	elif _world.is_busy():
 		_pending = true
 	else:

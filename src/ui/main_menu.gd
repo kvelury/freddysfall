@@ -2,7 +2,7 @@ class_name MainMenu
 extends CanvasLayer
 
 ## The first screen: the title and Start Game (or Continue and New Game), and
-## the Controls page. `?room=` and `?dev=1` launches skip it and boot straight
+## Settings (the Controls page, where the keys and buttons are changed). `?room=` and `?dev=1` launches skip it and boot straight
 ## into the world, exactly as before the menu existed.
 
 const WORLD := "res://src/world/world.tscn"
@@ -16,8 +16,10 @@ var _main_page: Control
 var _main_list: MenuList
 var _confirm_page: Control
 var _confirm_list: MenuList
+var _settings_page: Control
+var _settings_list: MenuList
 var _controls_page: Control
-var _controls_list: MenuList
+var _remap: SettingsPage
 
 
 func _ready() -> void:
@@ -56,7 +58,7 @@ func _build() -> void:
 		_main_list.add_item("New Game", func() -> void: _show(_confirm_page))
 	else:
 		_main_list.add_item("Start Game", func() -> void: _start(false))
-	_main_list.add_item("Controls", func() -> void: _show(_controls_page))
+	_main_list.add_item("Settings", func() -> void: _show(_settings_page))
 
 	_confirm_page = _page(76, 8)
 	_confirm_page.add_child(_text("Erase your saved game and start over?"))
@@ -64,16 +66,22 @@ func _build() -> void:
 	_confirm_list.add_item("No", func() -> void: _show(_main_page))
 	_confirm_list.add_item("Yes", func() -> void: _start(true))
 
-	_controls_page = _page(14, 8)
-	_controls_page.add_child(_text("Controls"))
-	var view := ControlsView.new()
-	view.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	view.show_rows(Controls.visible_rows(null))
-	_controls_page.add_child(view)
-	_controls_list = _list(_controls_page)
-	_controls_list.add_item("Back", func() -> void: _show(_main_page))
+	_settings_page = _page(60, 8)
+	_settings_page.add_child(_text("Settings"))
+	_settings_list = _list(_settings_page)
+	_settings_list.add_item("Controls", func() -> void: _show(_controls_page))
+	_settings_list.add_item("Back", func() -> void: _show(_main_page))
+
+	_controls_page = _page(10, 4)
+	_remap = SettingsPage.new()
+	_remap.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_remap.back_requested.connect(func() -> void: _show(_settings_page))
+	_controls_page.add_child(_remap)
+	_controls_page.set_meta("list", _remap)
 
 	var footer := _text("Arrows / W S choose · Enter select")
+	InputBindings.device_changed.connect(func() -> void: footer.text = _footer())
+	footer.text = _footer()
 	footer.position = Vector2(0, 166)
 	_root.add_child(footer)
 	_show(_main_page)
@@ -94,17 +102,27 @@ func _start(fresh: bool) -> void:
 func _show(page: Control) -> void:
 	for each in _pages:
 		each.visible = each == page
-	var list: MenuList = page.get_meta("list")
+	var list: Control = page.get_meta("list")
 	# A confirmation starts on No, the safe answer.
-	list.focus_first()
+	if list is MenuList:
+		list.focus_first()
 
 
 func _unhandled_input(event: InputEvent) -> void:
 	if not event.is_action_pressed("ui_cancel") or event.is_echo():
 		return
-	if _confirm_page.visible or _controls_page.visible:
+	if _confirm_page.visible or _settings_page.visible:
 		_show(_main_page)
 		get_viewport().set_input_as_handled()
+	elif _controls_page.visible:
+		_show(_settings_page)
+		get_viewport().set_input_as_handled()
+
+
+func _footer() -> String:
+	if Controls.device == "controller":
+		return "D-pad / stick choose · %s select" % PadLabels.button(PadLabels.family(Controls.pad_name), JOY_BUTTON_A)
+	return "Arrows / W S choose · Enter select"
 
 
 func _page(y: float, gap: int) -> Control:

@@ -46,7 +46,7 @@ func _ready() -> void:
 	_title.position = Vector2(0, 62)
 	add_child(_title)
 	_prompt = Label.new()
-	_prompt.text = "Press any key to continue"
+	_prompt.text = Controls.press_any()
 	_prompt.position = Vector2(0, 104)
 	_prompt.custom_minimum_size = Vector2(320, 0)
 	_prompt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -64,6 +64,7 @@ func shown() -> bool:
 ## Fades to black and shows the text. `continued` follows a key.
 func open() -> void:
 	_stop()
+	_prompt.text = Controls.press_any()
 	active = true
 	_waiting = false
 	_black.modulate.a = 0.0

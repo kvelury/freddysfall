@@ -215,7 +215,8 @@ func _physics_process(delta: float) -> void:
 		_state.riding = -1
 		return
 	var blocked: bool = not scripted and get_parent().has_method("gameplay_input_blocked") and get_parent().gameplay_input_blocked()
-	var input_x := scripted_x if scripted else Input.get_axis("move_left", "move_right")
+	# Digital, as the solver models it: a half-tilted stick runs as fast as a key.
+	var input_x := scripted_x if scripted else signf(Input.get_axis("move_left", "move_right"))
 	var jump_pressed := scripted_jump_pressed if scripted else Input.is_action_just_pressed("jump")
 	var jump_held := scripted_jump_held if scripted else Input.is_action_pressed("jump")
 	if blocked:

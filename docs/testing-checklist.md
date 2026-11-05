@@ -328,3 +328,24 @@ Not played by a person yet. Use `?dev=1&room=7` (F2 "Max hearts" for a long or w
 - [ ] **How the bar reads.** Is a black outline (full) against solid black (empty) on the red bar easy to tell apart at a glance? Does a death's blink read, and does the save room's refill?
 - [ ] **A pip landing.** The red bar grows a heart's width, then a white heart settles into a black outline.
 - [ ] **Sizes in a room.** The health pip (11×9) and the token (11×12) look about the same size next to each other. Is the token too big beside a 3TM's openings or the upgrade pickup?
+
+## Controller and Settings
+
+Nobody has played these. Test with a real pad: an Xbox-style pad and a PlayStation pad if you have both, on Mac and on PC, in the desktop build and in the served release web build (`tools/build_web.sh`, `tools/serve.sh`, Chrome and Safari on Mac, Chrome or Edge on Windows). A browser sees a pad only after its first button press, so press a button first.
+
+- [ ] **Move and jump.** The left stick and the D-pad run left and right; a light tilt runs as fast as a full one. The bottom face button jumps (hold for higher), and again in the air for double jump.
+- [ ] **Lash and climb.** The left face button and R1 both lash. With Tongue Climb on (F2), holding either at a wall climbs. Stick up (firmly) with lash goes up; running with the stick slanted a little up still lashes sideways.
+- [ ] **Map.** Holding L1 shows the map, letting go closes it; stick or D-pad up and down zoom while it is held.
+- [ ] **Pause and menus.** Start pauses and resumes. The stick or D-pad moves in the main menu and pause menu, A picks, B goes back. The footer shows the pad's button names.
+- [ ] **Popups.** A new power and Game Over say "Press any button to continue" after a pad was used, and "key" after a key; a button closes them, a stick push does not.
+- [ ] **Button names.** The popups show the pad's own names (A / X on an Xbox pad; Cross / Square drawn as pictures on a PlayStation pad; L1 / R1 against LB / RB). Do the drawn face buttons read?
+- [ ] **Select opens the dev tools.** With `?dev=1&room=<id>`, Select / Back opens the panel and again closes it. In a normal build with no dev, it does nothing.
+- [ ] **Settings, keyboard.** Main menu Settings, then Controls: the Keyboard tab lists every action with two slots. Pick Jump, press Z: Jump is Z and Space no longer jumps. Pick Lash and press Z: they swap and the page says so. Esc cancels a capture. Reset to defaults restores the tab only.
+- [ ] **Settings, controller.** The Controller tab does the same with buttons (Start and Back cancel; a short stick push is ignored). Rebind jump to Y and check it in play.
+- [ ] **Saved.** Close and reopen the game (and reload the web page): the changes are still there. New Game does not reset them.
+- [ ] **From the pause menu.** Pause, Settings, Controls, change something, Escape out, Resume: the game uses it at once and does not jump or lash from the key that was just bound.
+- [ ] **Is the page readable?** Eleven rows fit on the 320 x 180 screen in the main menu and the pause menu. Is the selected slot easy to see?
+- [ ] **A second pad.** Connect two pads (or a pad that is not the first one the system sees): both move, jump, lash and pause.
+- [ ] **A and B in every menu.** A picks and B goes back on the main menu, Settings, Controls, and the pause menu (B on the pause list resumes). B in play does nothing.
+- [ ] **Start stays Pause.** On the Controller tab, try to give Pause another button, and to give Start to another action: Start always pauses and never does anything else.
+- [ ] **Rebound Enter and Space.** Bind Look up to Enter and Look down to Space: the menus (main, pause, Settings) still pick with them, and Up / Down still move.
