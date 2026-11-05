@@ -35,7 +35,7 @@ Nobody has played this yet. `?dev=1&room=12`, then F2 for Tongue Lash, double ju
 - [ ] **Hang, jump, up-lash.** Lash to a wall, hang, jump and press W+X straight away: the up-lash fires every time. Pressing W+X during the hang and then jumping does the same.
 - [ ] **Ceiling drop.** Hang from a ceiling, jump to drop and press W+X: it lashes up again.
 - [ ] **The tongue snaps in.** Jumping off a hang, the tongue vanishes into the mouth; when a hang runs out it still eases back.
-- [ ] **No stale lash.** Press X right before entering a door, opening the pause menu or dying: nothing is lashed afterwards.
+- [ ] **No stale lash.** Press X twice quickly (the second is kept), then at once enter a door, open the pause menu (Esc), the map (Tab) or the dev panel (F2), or die: nothing is lashed afterwards. Against a wall, X X on the beat lashes twice, not three times.
 
 ## Room 12: emitted platforms, a spinner and lash up
 

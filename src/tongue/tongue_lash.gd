@@ -227,6 +227,8 @@ func _physics_process(delta: float) -> void:
 	elif pressed:
 		var why := _busy_reason()
 		if lash(upward):
+			# The fresh press is the one kept now: an older one is used up with it.
+			drop_buffer()
 			_log("Lash %s · look-up held: %s" % ["UP" if upward else "side", _yes(upward)])
 		else:
 			buffer_left = LASH_BUFFER

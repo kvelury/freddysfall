@@ -44,6 +44,8 @@ func _run() -> void:
 	ok = await _late_up(world, player, tongue) and ok
 	ok = await _climb_chain(world, player, tongue, ab) and ok
 	ok = await _stale(world, player, tongue) and ok
+	ok = await _modal(world, tongue) and ok
+	ok = await _fresh_press(world, tongue, ab) and ok
 	ok = await _air_keys(world, player, tongue) and ok
 	ok = await _readout(world, player, tongue) and ok
 	finish("LASH INPUT", ok)
@@ -323,3 +325,49 @@ func _has_key(value: Variant, key: String) -> bool:
 			if _has_key(item, key):
 				return true
 	return false
+
+
+## A kept press does not outlive a pause, the map, the dev panel or a popup:
+## the tree is paused, so the tongue never sees the modal; `World.acquire_modal`
+## drops it.
+func _modal(world: Node, tongue: Node) -> bool:
+	var ok := true
+	for owner in ["pause", "map", "dev", "power"]:  # PauseMenu.OWNER, MapOverlay, DevPanel, PowerPopup.OWNER
+		_put(world)
+		await _press(tongue)
+		await until(func() -> bool: return not tongue.active, 60)
+		await _press(tongue)
+		ok = check(tongue.buffer_left > 0.0, "%s: a press in the wait is kept" % owner) and ok
+		ok = check(world.acquire_modal(owner), "%s: the modal is taken" % owner) and ok
+		ok = check(tongue.buffer_left == 0.0, "%s: taking it forgets the kept press" % owner) and ok
+		await ticks(3)
+		world.release_modal(owner)
+		var got := await until(func() -> bool: return tongue.active, 10)
+		ok = check(got == -1, "%s: and nothing is lashed when it closes (%d)" % [owner, got]) and ok
+	return ok
+
+
+## A fresh press that lashes uses up a kept one, so it cannot lash again on
+## its own: against a wall (a lash that hits at once is over in a tick) and
+## with the fastest tongue the dev tools allow.
+func _fresh_press(world: Node, tongue: Node, ab: Abilities) -> bool:
+	var ok := true
+	var speed := ab.tongue_speed
+	for c in [["against the pillar", Vector2i(19, 16), 1, speed], ["fastest tongue", Vector2i(15, 16), -1, 2000.0]]:
+		ab.tongue_speed = c[3]
+		_put(world, c[1], c[2])
+		await _press(tongue)
+		await until(func() -> bool: return not tongue.active, 60)
+		await _press(tongue)
+		ok = check(not tongue.active and tongue.buffer_left > 0.0, "%s: a press in the wait is kept" % c[0]) and ok
+		# Press again on the tick the wait ends: the last tick of the wait
+		# leaves a hair of it, under a thousandth of a second.
+		await until(func() -> bool: return tongue.cooldown_left < 0.001, 10)
+		ok = check(tongue.buffer_left > 0.0 and not tongue.active, "%s: the kept press is still waiting" % c[0]) and ok
+		await _press(tongue)
+		ok = check(tongue.active and tongue.buffer_left == 0.0, "%s: a fresh press on the ready tick lashes and uses up the kept one (%.3f left)" % [c[0], tongue.buffer_left]) and ok
+		await until(func() -> bool: return not tongue.active, 60)
+		var again := await until(func() -> bool: return tongue.active, 15)
+		ok = check(again == -1, "%s: and no second lash follows on its own (%d)" % [c[0], again]) and ok
+	ab.tongue_speed = speed
+	return ok

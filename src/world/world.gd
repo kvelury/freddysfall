@@ -540,6 +540,10 @@ func acquire_modal(owner: String) -> bool:
 		return true
 	_modal_was_paused = get_tree().paused
 	modal_owner = owner
+	# The paused tongue would never see the modal, so a lash kept from before
+	# it would be made when it closes.
+	if tongue != null:
+		tongue.drop_buffer()
 	get_tree().paused = true
 	return true
 
