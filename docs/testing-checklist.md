@@ -45,8 +45,19 @@ Nobody has played this yet. `?dev=1&room=12`, then F2 for Tongue Lash and double
 - [ ] **The first plug.** Riding it, hold Up or W and press X twice: the lash breaks the plug in the slab over the track. Is there time to do it before the platform runs out, and is it fair that a jump off the platform leaves its speed behind?
 - [ ] **The second plug.** From the ledge you reach, lash up again, then climb to the long ledge on top.
 - [ ] **The spinner.** It turns counter-clockwise once every 8 s. Its bottom row and top-left half are spikes (they kill); the top-right half is safe and carries you. Can you land on the safe half, ride it up, and jump off to the upper-left ledge? Is 8 s right?
-- [ ] **The doors.** The upper-left door leads to room 13 and the bottom-left door to room 14, both empty. The way down the left wall past the wall spikes to the bottom-left door is one way.
+- [ ] **The doors.** The upper-left door leads to room 13 and the bottom-left door to room 14. The way down the left wall past the wall spikes to the bottom-left door is one way.
+- [ ] **The three tokens.** One on the long ledge's left end, one at the top right (only reachable with a ride on the spinner and a double jump: is it fair, or too hard?), one on the shelf before the door to 13.
 - [ ] **Coming from s2.** The door at the bottom right of room 12 comes in from s2's walled door; the walls grow back each time.
+
+## Rooms 12 to 14: the Tongue Climb route
+
+Nobody has played this yet. The real route: s2, room 12 (take all three tokens), the bottom-left door into room 14, the 3TM, up room 14's left wall, up room 13. For a shortcut `?dev=1&room=14`, F2, Tongue Lash, double jump and tokens 3.
+
+- [ ] **Three tokens, one 3TM.** Take the three tokens in room 12, drop into room 14 and use the 3TM. Does the Tongue Climb popup show, and are the tokens gone?
+- [ ] **Leaving room 14.** With Tongue Climb, hold X at room 14's left wall (hold, not tap) and hop up it: lash, jump, double jump, lash again. Does the ceiling door at the top come up into room 13's floor? Is the climb up the wall fair, or is the wall too long?
+- [ ] **Room 13.** The three ledges up the left wall: each needs a hang and a hop. Is the gap between them right? Does the climb feel too easy, since the wall is the whole room's left edge?
+- [ ] **Without enough tokens.** Drop into room 14 with fewer than three tokens: the spikes are the only way out. Dying sends you to s2 and the tokens you took stay taken.
+- [ ] **Coming in from room 12.** The door in room 12's upper-left comes into room 13 on a shelf; the bottom-left one into room 14 at the floor.
 
 ## Room 7 step, room 9 floor door and s3
 
@@ -81,7 +92,7 @@ The new room from the user's drawings. Start `?dev=1&room=11`, and in F2 turn To
 
 ## Tongue Climb
 
-Nobody has played this yet. No room gives it. `?dev=1&room=7` (or any room), F2, **Tongue Climb** section: turn Tongue Climb on (and Tongue Lash, and Air jumps 1), Apply. Use F7 for slow motion.
+Nobody has played this yet. Room 14's 3TM gives it (see "Rooms 12 to 14"). `?dev=1&room=7` (or any room), F2, **Tongue Climb** section: turn Tongue Climb on (and Tongue Lash, and Air jumps 1), Apply. Use F7 for slow motion.
 
 - [ ] **The stick.** Lash a plain wall from a jump. He is pulled to it quickly, the tongue shortens as he goes and stays pink from his mouth to the wall with the pad on it. Does it read as stuck, and not as a teleport? Is 4 px of tongue enough to see at 1x?
 - [ ] **The time and the wiggle.** He hangs about half a second, wiggles for the last fifth of it, then drops. Does the wiggle warn you in time without looking like a glitch? Try Hold, Wiggle and Pull speed in F2.
