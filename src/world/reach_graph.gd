@@ -111,7 +111,7 @@ var _room_from_base := {}
 var _plan_key := NO_ROOM
 ## Every pickup, token and 3TM in the world by id.
 var _things := {}
-## How the player can move, in the order they are tried: ground, air, lash.
+## How the player can move, in the order they are tried: ground, air, lash, climb.
 var _providers: Array[MoveProvider] = []
 
 
@@ -121,7 +121,7 @@ func _init(rooms: Dictionary, movement: MovementConfig, ability_set: Abilities =
 	_rooms = rooms
 	_cfg = movement
 	abilities = ability_set if ability_set != null else Abilities.new()
-	_providers = [GroundMoves.new(self), AirMoves.new(self), LashMoves.new(self)]
+	_providers = [GroundMoves.new(self), AirMoves.new(self), LashMoves.new(self), ClimbMoves.new(self)]
 	for id in rooms:
 		_ledges[id] = _find_ledges(rooms[id])
 		for def in _things_of(rooms[id]):
@@ -880,6 +880,7 @@ func warm(room_id: String) -> void:
 	abilities.air_jumps = maxi(jumps, 1)
 	_ensure_air_edges(info)
 	abilities.air_jumps = jumps
+	_warm_climb(info)
 	var walls: Array[String] = []
 	for wall_id in info.breakables:
 		walls.append(String(wall_id))
@@ -909,7 +910,23 @@ func warm(room_id: String) -> void:
 		abilities.air_jumps = maxi(jumps, 1)
 		_ensure_air_edges(variant)
 		abilities.air_jumps = jumps
+		_warm_climb(variant)
 	_records.clear()
+
+
+## Works out every Tongue Climb hang of `info` into the cache, as a solve with
+## Tongue Climb and an air jump would, then puts the abilities back.
+func _warm_climb(info: RoomInfo) -> void:
+	var had := [abilities.tongue_unlocked, abilities.tongue_climb, abilities.air_jumps]
+	abilities.tongue_unlocked = true
+	abilities.tongue_climb = true
+	abilities.air_jumps = maxi(abilities.air_jumps, 1)
+	for provider in _providers:
+		if provider is ClimbMoves:
+			(provider as ClimbMoves).warm(info)
+	abilities.tongue_unlocked = had[0]
+	abilities.tongue_climb = had[1]
+	abilities.air_jumps = had[2]
 
 
 func _ensure_edges(info: RoomInfo) -> void:
@@ -1180,7 +1197,7 @@ func _off_plans(info: RoomInfo, geo: Geometry, ledge: Ledge, near: Array[Rect2],
 ## `_free_runs` for the room's other moments) and only a path that does come
 ## near them is simulated at `tick`. The plans are still tried in the same
 ## order, so what is recorded is what simulating every moment records.
-func try_plan(info: RoomInfo, geo: Geometry, ledge: Ledge, near: Array[Rect2], x: float, speed: float, input: float, hold: int, jump: bool, limit := -1, tick := -1, top := NAN, riding := -1, air_frame := -1, air_hold := 0) -> void:
+func try_plan(info: RoomInfo, geo: Geometry, ledge: Ledge, near: Array[Rect2], x: float, speed: float, input: float, hold: int, jump: bool, limit := -1, tick := -1, top := NAN, riding := -1, air_frame := -1, air_hold := 0, hang := Vector2.ZERO) -> void:
 	_room_plans[_plan_key] = int(_room_plans.get(_plan_key, 0)) + 1
 	var start := Vector2(x, (ledge.top if is_nan(top) else top) - float(Grid.CELL) * 0.5)
 	var plan := JumpPlan.new(near, start, Vector2(speed, 0.0), input, hold)
@@ -1190,6 +1207,11 @@ func try_plan(info: RoomInfo, geo: Geometry, ledge: Ledge, near: Array[Rect2], x
 	plan.hazards = geo.hazards
 	plan.collect = geo.things
 	plan.limit = frame_limit if limit < 0 else limit
+	if hang != Vector2.ZERO:
+		# Hanging on a wall (Tongue Climb): the start is in the air, off the ground.
+		plan.hang_dir = hang
+		plan.hang_time = abilities.climb_hold
+		plan.grounded_start = false
 	if air_frame >= 0:
 		plan.air_jumps = 1
 		plan.air_frame = air_frame
@@ -1198,7 +1220,7 @@ func try_plan(info: RoomInfo, geo: Geometry, ledge: Ledge, near: Array[Rect2], x
 	var result: Dictionary
 	var record_key := ""
 	if _recording != null or _reusing != null:
-		record_key = "%d|%d|%d|%s|%s|%s|%d|%s|%s|%s|%d|%s|%d|%d|%s|%d|%d|%d" % [ledge.row, ledge.x0, ledge.x1, ledge.lo, ledge.hi, ledge.moving, ledge.path, x, speed, input, hold, jump, ticks_allowed, tick, top, riding, air_frame, air_hold]
+		record_key = "%d|%d|%d|%s|%s|%s|%d|%s|%s|%s|%d|%s|%d|%d|%s|%d|%d|%d|%s" % [ledge.row, ledge.x0, ledge.x1, ledge.lo, ledge.hi, ledge.moving, ledge.path, x, speed, input, hold, jump, ticks_allowed, tick, top, riding, air_frame, air_hold, hang]
 	if _reusing != null:
 		var kept: Variant = _reusing.get(record_key)
 		if kept != null and not _meets_changed(kept["bounds"]):

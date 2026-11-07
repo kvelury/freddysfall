@@ -646,6 +646,14 @@ static func run(cfg: MovementConfig, plan: JumpPlan) -> Dictionary:
 	s.grounded = plan.grounded_start
 	s.riding = plan.start_riding
 	s.coyote = cfg.coyote_time if plan.grounded_start else 0.0
+	if plan.hang_dir != Vector2.ZERO:
+		s.climb = CLIMB_HOLD
+		s.climb_dir = plan.hang_dir
+		s.climb_anchor = s.position
+		s.climb_hold = plan.hang_time
+		s.climb_left = plan.hang_time
+		s.grounded = false
+		s.coyote = 0.0
 	var delta := 1.0 / 60.0
 	var min_feet := s.position.y + HALF.y
 	var low := s.position
