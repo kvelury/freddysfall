@@ -42,7 +42,7 @@ Nobody has played this yet. `?dev=1&room=12`, then F2 for Tongue Lash, double ju
 
 Nobody has played this yet. `?dev=1&room=12`, then F2 for Tongue Lash and double jump.
 
-- [ ] **The ride.** A cracked platform comes out of the machine on the right every 3 s and runs left. It runs the whole way left over the spike floor and breaks in a burst of shards at the spikes by the left wall, and a rider is killed there (or falls onto the spikes). The tongue does not break it. Is 3 s the right gap, and 40 px/s the right speed?
+- [ ] **The ride.** A cracked platform comes out of the machine on the right every 3 s and runs left. It runs the whole way left over the spike floor (to col 4) and breaks in a burst of shards at the spike at col 3, and a rider falls there, onto the spike floor unless they steer down the clear col 2. The tongue does not break it. Is 3 s the right gap, and 40 px/s the right speed?
 - [ ] **The first plug.** Riding it, hold Up or W and press X twice: the lash breaks the plug in the slab over the track. Is there time to do it before the platform runs out, and is it fair that a jump off the platform leaves its speed behind?
 - [ ] **The second plug.** From the ledge you reach, lash up again, then climb to the long ledge on top.
 - [ ] **The spinner.** It turns counter-clockwise once every 8 s. Its bottom row and top-left half are spikes (they kill); the top-right half is safe and carries you. Can you land on the safe half, ride it up, and jump off to the upper-left ledge? Is 8 s right?
