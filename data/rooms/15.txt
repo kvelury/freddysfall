@@ -1,0 +1,28 @@
+trap: allowed
+exits: pickups
+legend:
+  T = token id=r15_token
+  H = health id=r15_health
+  N = spinner id=r15_arm_up period=8 dir=ccw pivot=16,10 spikes=left
+  S = spinner id=r15_arm_down period=8 dir=ccw pivot=16,10 spikes=left breakable=true
+  W = spinner id=r15_arm_left period=8 dir=ccw pivot=16,10 spikes=top
+  E = spinner id=r15_arm_right period=8 dir=ccw pivot=16,10 spikes=top
+---
+################################
+#..............T...............#
+#...........########...........#
+#..............................#
+#..............NN..........H...#
+########.......NN.......########
+########.......NN.......########
+#..............NN..............#
+#..............NN..............#
+#.........WWWWWNNEEEEE.........#
+#.........WWWWWNNEEEEE.........#
+#..............SS..............#
+#..............SS..............#
+#..............SS..............#
+X..............SS..............X
+X..............SS..............X
+X..........................P...X
+################################

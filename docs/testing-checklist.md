@@ -22,7 +22,7 @@ Nobody has played these yet. `?dev=1&room=s3`, `?dev=1&room=10`, `?dev=1&room=s2
 - [ ] **s3's token.** It sits on the middle platform (row 9). Take it on the way up to room 9, and the save machine still works with it there.
 - [ ] **Room 10's corner token.** Drop to room 10's floor, take the token in the bottom right corner, and ride lift 1 back up.
 - [ ] **Room 9's 3TM.** With room 8's, s3's and room 10's tokens it gives Tongue Lash, and room 9 has no token of its own any more.
-- [ ] **s2's walled door.** Without Tongue Lash the left door cannot be reached (no jumping over the roof). With it (F2), two lashes from the floor break the wall and the door leads to room 12. Coming back, the wall has grown back and is lashed again from the doorway.
+- [ ] **s2's walled door.** Without Tongue Lash the left door cannot be reached (no jumping over the roof). With it (F2), two lashes from the floor break the wall and the door leads to room 15. Coming back, the wall has grown back and is lashed again from the doorway.
 
 ## Lash input leniency
 
@@ -46,14 +46,24 @@ Nobody has played this yet. `?dev=1&room=12`, then F2 for Tongue Lash and double
 - [ ] **The second plug.** From the ledge you reach, lash up again, then climb to the long ledge on top.
 - [ ] **The spinner.** It turns counter-clockwise once every 8 s. Its bottom row and top-left half are spikes (they kill); the top-right half is safe and carries you. Can you land on the safe half, ride it up, and jump off to the upper-left ledge? Is 8 s right?
 - [ ] **The doors.** The upper-left door leads to room 13 and the bottom-left door to room 14. The way down the left wall past the wall spikes to the bottom-left door is one way.
-- [ ] **The three tokens.** One on the long ledge's left end, one at the top right (only reachable with a ride on the spinner and a double jump: is it fair, or too hard?), one on the shelf before the door to 13.
-- [ ] **Coming from s2.** The door at the bottom right of room 12 comes in from s2's walled door; the walls grow back each time.
+- [ ] **The two tokens.** One on the long ledge's left end, one on the shelf before the door to 13. (The token at the top right moved to room 15.)
+- [ ] **Coming from room 15.** The door at the bottom right of room 12 comes in from room 15's left door.
+
+## Room 15: the turning cross
+
+Nobody has played this yet. `?dev=1&room=15`, then F2 for Tongue Lash and double jump. F7 slows the game if it helps to see it.
+
+- [ ] **The cross.** Four arms turn counter-clockwise once every 8 s about the middle of the room. The up arm (with the hub), the right arm and the left arm have one spiked side each (they kill); the down arm has a spiked left side and cracks. Can you tell the safe side from the spiked side, and are the teeth pointing out of the arm as it turns?
+- [ ] **The ride.** From the floor, ride the cross up to the left ledge, the right ledge (with the heart) and the high middle ledge (with the token). Are the jumps on and off fair with a double jump? Is 8 s right?
+- [ ] **Breaking the down arm.** With Tongue Lash, lash the down arm twice while it is in front of you (it cracks, flashes, then every block shatters). It is gone for the rest of the visit and is back when you leave and come in again. Does a lash that misses (the arm has turned away) feel fair? Does Wall strength in F2 change the hits it takes?
+- [ ] **The break is optional.** You can get the token and the heart with the arm standing. Is that right, or does the room need the break? (Open question in the design doc.)
+- [ ] **The doors.** Both doors (floor level, left and right) stay shut until the token and the heart are taken; the right one comes in from s2, the left one goes to room 12.
 
 ## Rooms 12 to 14: the Tongue Climb route
 
-Nobody has played this yet. The real route: s2, room 12 (take all three tokens), the bottom-left door into room 14, the 3TM, up room 14's left wall, up room 13. For a shortcut `?dev=1&room=14`, F2, Tongue Lash, double jump and tokens 3.
+Nobody has played this yet. The real route: s2, room 15 (take the token and the heart), room 12 (take both tokens), the bottom-left door into room 14, the 3TM, up room 14's left wall, up room 13. For a shortcut `?dev=1&room=14`, F2, Tongue Lash, double jump and tokens 3.
 
-- [ ] **Three tokens, one 3TM.** Take the three tokens in room 12, drop into room 14 and use the 3TM. Does the Tongue Climb popup show, and are the tokens gone?
+- [ ] **Three tokens, one 3TM.** Take the token in room 15 and the two in room 12, drop into room 14 and use the 3TM. Does the Tongue Climb popup show, and are the tokens gone?
 - [ ] **Leaving room 14.** With Tongue Climb, hold X at room 14's left wall (hold, not tap) and hop up it: lash, jump, double jump, lash again. Does the ceiling door at the top come up into room 13's floor? Is the climb up the wall fair, or is the wall too long?
 - [ ] **Room 13.** The three ledges up the left wall: each needs a hang and a hop. Is the gap between them right? Does the climb feel too easy, since the wall is the whole room's left edge?
 - [ ] **Without enough tokens.** Drop into room 14 with fewer than three tokens: the spikes are the only way out. Dying sends you to s2 and the tokens you took stay taken.
