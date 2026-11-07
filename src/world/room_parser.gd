@@ -452,9 +452,9 @@ static func _check_platform_doors(info: RoomInfo, errors: Array[String]) -> void
 				break
 
 
-## A save room has exactly one save machine and nothing else but tokens,
-## breakable walls and still platforms (no pickup, health pip, 3TM, spikes or
-## moving platform), and no other room has a machine.
+## A save room has exactly one save machine and nothing else but tokens, health
+## pips, breakable walls and still platforms (no pickup, 3TM, spikes or moving
+## platform), and no other room has a machine.
 static func _check_save_things(info: RoomInfo, errors: Array[String]) -> void:
 	var saves := info.entities.filter(func(def: EntityDef) -> bool: return def.type == "save").size()
 	if info.is_save_room() and saves != 1:
@@ -464,11 +464,11 @@ static func _check_save_things(info: RoomInfo, errors: Array[String]) -> void:
 	if info.is_save_room() and saves == 1:
 		var others := info.entities.filter(func(def: EntityDef) -> bool: return not Entities.kind(def.type).allowed_in_save_room()).size()
 		if others > 0:
-			errors.append("Room %s is a save room, and a save room holds nothing but its save machine, tokens, breakable walls and platforms, but its legend has %d other thing(s)" % [info.id, others])
+			errors.append("Room %s is a save room, and a save room holds nothing but its save machine, tokens, health pips, breakable walls and platforms, but its legend has %d other thing(s)" % [info.id, others])
 		if not info.movers.is_empty():
 			errors.append("Room %s is a save room, and a save room's platforms stand still, but it has a moving platform (%s)" % [info.id, info.movers[0].id])
 		if not info.hazards.is_empty():
-			errors.append("Room %s is a save room, and a save room holds nothing but its save machine, tokens, breakable walls and platforms, but it has spikes" % info.id)
+			errors.append("Room %s is a save room, and a save room holds nothing but its save machine, tokens, health pips, breakable walls and platforms, but it has spikes" % info.id)
 
 
 ## A save machine pops the player out onto the floor on either side of it, so

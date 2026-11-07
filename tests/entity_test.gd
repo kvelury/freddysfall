@@ -179,7 +179,7 @@ func _save_rooms() -> bool:
 	ok = check(_has(errors, "holds nothing but its save machine") and _has(errors, "1 other thing"), "a save room with a pickup in it is an error (%s)" % [errors]) and ok
 	errors.clear()
 	RoomParser.parse_room("s2", Vector2i.ZERO, _room(["legend:", "  S = save id=s2_save", "  H = health id=s2_health"], {Vector2i(5, 16): "S", Vector2i(20, 16): "H"}), errors)
-	ok = check(_has(errors, "holds nothing but its save machine") and _has(errors, "1 other thing"), "a save room with a health pip in it is an error (%s)" % [errors]) and ok
+	ok = check(errors.is_empty(), "a save room may hold a health pip (%s)" % [errors]) and ok
 	errors.clear()
 	RoomParser.parse_room("s2", Vector2i.ZERO, _room(legend, {Vector2i(5, 16): "S", Vector2i(20, 16): "^"}), errors)
 	ok = check(_has(errors, "holds nothing but its save machine") and _has(errors, "spikes"), "and so is one with spikes (%s)" % [errors]) and ok
