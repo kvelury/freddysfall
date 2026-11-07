@@ -18,7 +18,8 @@ extends RefCounted
 ## Goes up when the shape of the files changes.
 ## 3: a room's jumps are kept per Abilities.movement_key, so a jump worked out
 ## with one set of movement stats is never reused for another.
-const FORMAT := 3
+## 4: what each Tongue Climb hang reaches is kept too (`climb`).
+const FORMAT := 4
 
 ## Everything a jump's result depends on.
 const SOLVER_FILES: Array[String] = [
@@ -27,6 +28,7 @@ const SOLVER_FILES: Array[String] = [
 	"res://src/world/solver/ground_moves.gd",
 	"res://src/world/solver/air_moves.gd",
 	"res://src/world/solver/lash_moves.gd",
+	"res://src/world/solver/climb_moves.gd",
 	"res://src/tongue/tongue_reach.gd",
 	"res://src/imprint/imprint_rules.gd",
 	"res://src/player/movement_sim.gd",
@@ -101,7 +103,7 @@ var directory := ""
 ## The solver's fingerprint. Public so a test can change it.
 var solver := ""
 ## How much came from the cache and how much was worked out, for the report.
-var stats := {"edge_rooms_cached": 0, "edge_rooms_solved": 0, "air_rooms_cached": 0, "air_rooms_solved": 0}
+var stats := {"edge_rooms_cached": 0, "edge_rooms_solved": 0, "air_rooms_cached": 0, "air_rooms_solved": 0, "climb_hangs_cached": 0, "climb_hangs_solved": 0}
 var _rooms := {}
 
 
@@ -155,6 +157,9 @@ func entry_for(info: RoomInfo) -> Entry:
 			var air_edges = data.get("air_edges")
 			if air_edges is Dictionary:
 				entry.air_edges = air_edges
+			var climb = data.get("climb")
+			if climb is Dictionary:
+				entry.climb = climb
 	_rooms[info.id] = entry
 	return entry
 
@@ -175,7 +180,7 @@ func save() -> int:
 		var file := FileAccess.open(_path(id), FileAccess.WRITE)
 		if file == null:
 			continue
-		var data := {"format": FORMAT, "solver": solver, "room": entry.fingerprint, "edges": entry.edges, "air_edges": entry.air_edges}
+		var data := {"format": FORMAT, "solver": solver, "room": entry.fingerprint, "edges": entry.edges, "air_edges": entry.air_edges, "climb": entry.climb}
 		file.store_string(JSON.stringify(data, "", true, true))
 		entry.dirty = false
 		written += 1
@@ -217,6 +222,9 @@ class Entry extends RefCounted:
 	var edges := {}
 	## The same for what needs an air jump, worked out only when a solve has one.
 	var air_edges := {}
+	## Tongue Climb: ClimbMoves' signature -> (a hang's key -> what jumping or
+	## dropping from it reaches, as {"n": plain, "a": with the air jump}).
+	var climb := {}
 	var dirty := false
 
 	func store_edges(key: String, ledges: Array) -> void:
@@ -225,6 +233,12 @@ class Entry extends RefCounted:
 
 	func store_air_edges(key: String, ledges: Array) -> void:
 		air_edges[key] = _pack_ledges(ledges, true)
+		dirty = true
+
+	func store_climb(signature: String, hang_key: String, land: ReachGraph.Ledge) -> void:
+		if not climb.has(signature):
+			climb[signature] = {}
+		climb[signature][hang_key] = {"n": SolverCache.pack(land, false), "a": SolverCache.pack(land, true)}
 		dirty = true
 
 	func _pack_ledges(ledges: Array, air: bool) -> Dictionary:

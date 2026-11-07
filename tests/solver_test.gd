@@ -16,6 +16,7 @@ func _initialize() -> void:
 	var ok := true
 	ok = _double_jump() and ok
 	ok = _lash() and ok
+	ok = _climb() and ok
 	ok = _progression() and ok
 	ok = _many_rounds() and ok
 	ok = _locks() and ok
@@ -132,6 +133,59 @@ func _lash() -> bool:
 	ok = check(cold.errors == warm.errors and warm.errors.is_empty() and again_cache.stats["edge_rooms_solved"] == 0 and again_cache.stats["edge_rooms_cached"] >= 3, "the states come back from the cache, each room's file apart (%s)" % [again_cache.stats]) and ok
 	for file in DirAccess.get_files_at(directory):
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(directory).path_join(file))
+	return ok
+
+
+## Tongue Climb: a pillar whose top is 13 cells above the floor, past the 10 a
+## double jump rises, so its pickup is out of reach until the player can hang on
+## the pillar's face and hop up it. Only with the power-up (and the lash it is
+## built on), and a pickup that gives it is what the pillar's needs.
+func _climb() -> bool:
+	var ok := true
+	var header := "legend:\n  U = pickup id=gem upgrade=tongue_cooldown value=0.5\n---\n"
+	var marks := {}
+	for x in range(22, 27):
+		for y in range(4, 17):
+			marks[Vector2i(x, y)] = "#"
+	marks[Vector2i(24, 3)] = "U"
+	var rooms := _world(marks, header)
+	var armed := Abilities.new()
+	armed.air_jumps = 1
+	armed.tongue_unlocked = true
+	var plain := ReachGraph.new(rooms, _cfg, armed).analyze("1")
+	ok = check(_has(plain.errors, "pickup gem"), "a pillar 13 cells high is out of reach of a double jump %s" % [plain.errors]) and ok
+	armed.tongue_climb = true
+	var climbing := ReachGraph.new(rooms, _cfg, armed).analyze("1")
+	ok = check(climbing.errors.is_empty(), "with Tongue Climb its top is reached %s" % [climbing.errors]) and ok
+	ok = check(climbing.pickups.any(func(p: ReachGraph.PickupReport) -> bool: return p.id == "gem" and p.reached), "and the report lists the pickup as reached") and ok
+	var no_lash := Abilities.new()
+	no_lash.air_jumps = 1
+	no_lash.tongue_climb = true
+	var shut := ReachGraph.new(rooms, _cfg, no_lash).analyze("1")
+	ok = check(_has(shut.errors, "pickup gem"), "the climb is built on the lash: without Tongue Lash it does nothing %s" % [shut.errors]) and ok
+
+	# What each hang reaches comes back from the cache.
+	var directory := "user://climb_cache_test"
+	var cache := SolverCache.new(directory)
+	var cold_graph := ReachGraph.new(rooms, _cfg, armed)
+	cold_graph.cache = cache
+	var cold := cold_graph.analyze("1")
+	cache.save()
+	var again_cache := SolverCache.new(directory)
+	var again := ReachGraph.new(rooms, _cfg, armed)
+	again.cache = again_cache
+	var warm := again.analyze("1")
+	ok = check(cold.errors == warm.errors and warm.errors.is_empty() and cache.stats["climb_hangs_solved"] > 0 and again_cache.stats["climb_hangs_solved"] == 0 and again_cache.stats["climb_hangs_cached"] > 0, "the hangs come back from the cache (%s then %s)" % [cache.stats, again_cache.stats]) and ok
+	for file in DirAccess.get_files_at(directory):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(directory).path_join(file))
+
+	# The power-up as a pickup on the near side: the pillar's pickup needs it.
+	var chain := _world(marks.merged({Vector2i(4, 16): "G"}), "legend:\n  U = pickup id=gem upgrade=tongue_cooldown value=0.5\n  G = pickup id=climbpick upgrade=tongue_climb\n---\n")
+	var base := Abilities.new()
+	base.air_jumps = 1
+	base.tongue_unlocked = true
+	var report := ReachGraph.new(chain, _cfg, base).solve("1")
+	ok = check(report.errors.is_empty() and report.needs.get("pickup|gem") == ["climbpick"], "a pickup that gives Tongue Climb is what the pillar's pickup needs (%s %s)" % [report.errors, report.needs.get("pickup|gem")]) and ok
 	return ok
 
 

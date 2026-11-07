@@ -42,6 +42,12 @@ var start_riding := -1
 var air_jumps := 0
 var air_frame := -1
 var air_hold := 0
+## Tongue Climb: a body that starts hanging on a wall, `hang_dir` being the way
+## the wall is ((+-1, 0)), with the air jumps back, as when the tongue has just
+## pulled it there. Its first press is then a ground jump off the wall, and
+## with no press it drops when `hang_time` seconds are up. Zero starts as usual.
+var hang_dir := Vector2.ZERO
+var hang_time := 0.5
 
 
 func _init(solids: Array = [], at := Vector2.ZERO, moving := Vector2.ZERO, input := 0.0, hold := 0) -> void:
