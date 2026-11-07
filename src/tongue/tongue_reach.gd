@@ -28,15 +28,18 @@ static func mouth(center: Vector2, dir: Vector2) -> Vector2:
 ## The first thing the tip touches going from `origin` along `dir` for `length`
 ## pixels, or nothing if the way is clear. `extra` are more rects, in the same
 ## space as `info` (room pixels): a door block, an Imprint, a moving platform.
-## Returns {wall, solid, at, distance}. `wall` is the breakable wall's id, or "".
-static func first_hit(info: RoomInfo, origin: Vector2, dir: Vector2, length: float, extra: Array = []) -> Dictionary:
+## `arms` are the bodies of the breakable spinner arms that stand, as arrays of
+## rects by the arm's id (`Movers.breakable_rects`), also in room pixels. They are
+## hit as a wall is, before anything solid. Returns {wall, solid, at, distance}.
+## `wall` is the breakable wall's (or arm's) id, or "".
+static func first_hit(info: RoomInfo, origin: Vector2, dir: Vector2, length: float, extra: Array = [], arms := {}) -> Dictionary:
 	var size := TIP_UP if absf(dir.y) > absf(dir.x) else TIP
 	var steps := maxi(1, ceili(length / STEP))
 	var along := 0.0
 	for _i in steps:
 		along = minf(along + length / float(steps), length)
 		var at := origin + dir * along
-		var hit := box_hit(info, Rect2(at - size * 0.5, size), extra)
+		var hit := box_hit(info, Rect2(at - size * 0.5, size), extra, arms)
 		if bool(hit["solid"]):
 			hit["at"] = at
 			hit["distance"] = along
@@ -45,10 +48,14 @@ static func first_hit(info: RoomInfo, origin: Vector2, dir: Vector2, length: flo
 
 
 ## What the tip's box is touching. `box` and `extra` are in room pixels.
-static func box_hit(info: RoomInfo, box: Rect2, extra: Array = []) -> Dictionary:
+static func box_hit(info: RoomInfo, box: Rect2, extra: Array = [], arms := {}) -> Dictionary:
 	var wall := _wall_touching(info, box)
 	if not wall.is_empty():
 		return {"wall": wall, "solid": true}
+	for arm_id: String in arms:
+		for rect: Rect2 in arms[arm_id]:
+			if rect.intersects(box):
+				return {"wall": arm_id, "solid": true}
 	if _solid_touching(info, box):
 		return {"wall": "", "solid": true}
 	for rect in extra:

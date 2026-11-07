@@ -26,6 +26,8 @@ var _emitters: Array[EmitterView] = []
 var _spinners: Array[SpinnerView] = []
 ## The breakable walls that still stand.
 var _walls: Array[BreakableWall] = []
+## Hits taken by each breakable spinner arm that still stands, by its index in `movers`.
+var _arm_damage := {}
 
 ## Emitted when the exit rule becomes met and the doors open.
 signal exits_opened
@@ -98,6 +100,44 @@ func build(room_info: RoomInfo, flags := {}, fills := {}, door_override := false
 		add_child(thing)
 		if thing is Pickup or thing is Token or thing is HealthPip or thing is TokenMachine or thing is SaveMachine:
 			_things.append(thing)
+
+
+## Whether a breakable spinner arm is touching `box` (world pixels) and, if so,
+## which: its index in `movers`, or -1. A lash can hit it where it is this tick.
+func arm_at(box: Rect2) -> int:
+	return movers.breakable_at(box, tick)
+
+
+## A lash lands on arm `arm` (an index from `arm_at`). Once `strength` have landed
+## every block of it shatters and it is gone until the room is built again.
+## Returns whether it broke.
+func hit_arm(arm: int, strength: int) -> bool:
+	var spinner: SpinnerPath = movers.paths[arm]
+	var hits: int = int(_arm_damage.get(arm, 0)) + 1
+	_arm_damage[arm] = hits
+	var view := _spinner_view_of(spinner.id)
+	var need := maxi(1, strength)
+	if hits < need:
+		if view != null:
+			view.struck(clampi(ceili(float(hits) * float(BreakableWall.STAGES) / float(need)), 0, BreakableWall.STAGES))
+		return false
+	if view != null:
+		_spinners.erase(view)
+		view.shatter()
+	movers.replace(arm, spinner.broken_copy())
+	info.broken.append(spinner.id)
+	_arm_damage.erase(arm)
+	_floor_rects = _solid_rects()
+	_world_rects_dirty = true
+	wall_broken.emit()
+	return true
+
+
+func _spinner_view_of(spinner_id: String) -> SpinnerView:
+	for view in _spinners:
+		if view.path.id == spinner_id:
+			return view
+	return null
 
 
 func _physics_process(_delta: float) -> void:

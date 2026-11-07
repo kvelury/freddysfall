@@ -82,6 +82,8 @@ var _ground_ready := {}
 var _variants := {}
 var _variant_keys := {}
 var _lash_cache := {}
+## The solver's `Movers` by room key (see `_movers_of`).
+var _movers_cache := {}
 var _rise := {}
 var _state_errors: Array[String] = []
 var _landings := {}
@@ -437,7 +439,7 @@ func _analyze(start_room: String) -> Report:
 ## state of one visit: it is kept in the copy's key and never leaves the room.
 func _lash_ledges(ledge: Ledge, info: RoomInfo) -> Array[Ledge]:
 	var out: Array[Ledge] = []
-	if info.breakables.is_empty():
+	if info.breakables.is_empty() and info.breakable_arms().is_empty():
 		return out
 	if ledge.moving:
 		# A rider on a platform that goes side to side lashes up at a wall over
@@ -501,7 +503,7 @@ func _lashes_up_from_rider(ledge: Ledge, info: RoomInfo) -> Array[String]:
 ## the wall and no further than `Abilities.tongue_length` past the front of the body.
 func _lashes_from(ledge: Ledge, info: RoomInfo) -> Array:
 	var air := 1 if abilities.air_jumps > 0 else 0
-	var key := "%d|%d|%s|%s|up" % [ledge.get_instance_id(), air, ",".join(info.broken), abilities.tongue_length]
+	var key := "%d|%d|%s|%s|%s|%s|%s|up" % [ledge.get_instance_id(), air, ",".join(info.broken), abilities.tongue_length, abilities.tongue_speed, abilities.tongue_snap, abilities.tongue_cooldown]
 	if _lash_cache.has(key):
 		return _lash_cache[key]
 	var out := []
@@ -521,8 +523,82 @@ func _lashes_from(ledge: Ledge, info: RoomInfo) -> Array:
 				var wall := String(TongueReach.first_hit(info, TongueReach.mouth(center, dir), dir, abilities.tongue_length)["wall"])
 				if not wall.is_empty() and not out.any(func(s: Array) -> bool: return s[0] == wall and s[1] == cx):
 					out.append([wall, cx])
+	out.append_array(_arm_lashes_from(ledge, info, rise))
 	_lash_cache[key] = out
 	return out
+
+
+## Ticks between one lash landing and the next: out to full length, back, and
+## the cooldown. A lash that hits sooner is quicker, so this is the slow case.
+func _lash_gap_ticks() -> int:
+	var seconds := abilities.tongue_length / abilities.tongue_speed
+	seconds += abilities.tongue_length / (abilities.tongue_speed * maxf(1.0, abilities.tongue_snap))
+	seconds += abilities.tongue_cooldown
+	return ceili(seconds * float(Mover.TICKS_PER_SECOND))
+
+
+## How often, in ticks, the solver tries a turning arm: finer than `phases`, because
+## a tongue is a thin line and an arm crosses it quickly.
+const ARM_STEP := 4
+
+
+## [arm id, column] pairs like `_lashes_from`'s, for the breakable spinner arms
+## that still stand: from a column of `ledge`, along the row the body stands in or
+## one it can jump up to (`rise` cells at most, nothing solid in the way), left,
+## right or up, the tongue first meets the arm. The player can wait at the ledge
+## for the arm to come round, so any moment of its turn counts, but it has to be
+## in the line for every lash it takes (`BreakableWall.DEFAULT_STRENGTH`, one lash
+## cycle apart). A rider on a moving ledge does not lash arms.
+func _arm_lashes_from(ledge: Ledge, info: RoomInfo, rise: int) -> Array:
+	var out := []
+	var arms: Array[SpinnerPath] = []
+	for arm in info.breakable_arms():
+		if not info.broken.has(arm.id):
+			arms.append(arm)
+	if arms.is_empty():
+		return out
+	var cell := float(Grid.CELL)
+	var length := abilities.tongue_length
+	var movers := _movers_of(info)
+	for cx in range(ledge.x0, ledge.x1 + 1):
+		for height in rise + 1:
+			var row := ledge.row - height
+			if row < 0 or info.is_solid(cx, row):
+				break
+			var center := Vector2((float(cx) + 0.5) * cell, (float(row) + 0.5) * cell)
+			for dir in [Vector2(-1.0, 0.0), Vector2(1.0, 0.0), Vector2(0.0, -1.0)]:
+				var origin := TongueReach.mouth(center, dir)
+				var line := Rect2(origin, Vector2.ZERO).expand(origin + dir * length).grow(TongueReach.STEP)
+				for arm in arms:
+					if not line.intersects(arm.keep_out()) or out.any(func(pair: Array) -> bool: return pair[0] == arm.id and pair[1] == cx):
+						continue
+					if _arm_struck(info, movers, origin, dir, arm):
+						out.append([arm.id, cx])
+	return out
+
+
+## Whether a lash from `origin` along `dir` first meets `arm` at some moment of its
+## turn, and again one lash cycle later, for as many lashes as break it.
+func _arm_struck(info: RoomInfo, movers: Movers, origin: Vector2, dir: Vector2, arm: SpinnerPath) -> bool:
+	var gap := _lash_gap_ticks()
+	for start in range(0, arm.period(), ARM_STEP):
+		var all := true
+		for lash in BreakableWall.DEFAULT_STRENGTH:
+			var tick := start + lash * gap
+			var hit := TongueReach.first_hit(info, origin, dir, abilities.tongue_length, movers.rects(tick), movers.breakable_rects(tick))
+			if String(hit["wall"]) != arm.id:
+				all = false
+				break
+		if all:
+			return true
+	return false
+
+
+## The movers of `info` as the solver sees them (room pixels), kept by room key.
+func _movers_of(info: RoomInfo) -> Movers:
+	if not _movers_cache.has(info.id):
+		_movers_cache[info.id] = Movers.new(info.movers)
+	return _movers_cache[info.id]
 
 
 ## How many whole cells a body rises in a full jump (with an air jump at the
