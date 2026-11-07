@@ -22,7 +22,8 @@ Nobody has played these yet. `?dev=1&room=s3`, `?dev=1&room=10`, `?dev=1&room=s2
 - [ ] **s3's token.** It sits on the middle platform (row 9). Take it on the way up to room 9, and the save machine still works with it there.
 - [ ] **Room 10's corner token.** Drop to room 10's floor, take the token in the bottom right corner, and ride lift 1 back up.
 - [ ] **Room 9's 3TM.** With room 8's, s3's and room 10's tokens it gives Tongue Lash, and room 9 has no token of its own any more.
-- [ ] **s2's walled door.** Without Tongue Lash the left door cannot be reached (no jumping over the roof). With it (F2), two lashes from the floor (the wall is at col 7 now, under a longer roof) break the wall, and the heart behind it can be taken before the door to room 15. Coming back, the wall has grown back and is lashed again from the doorway, and the heart you took stays taken.
+- [ ] **s2's walled door.** Without Tongue Lash the left door cannot be reached (no jumping over the roof, which now runs over cols 0–7). With it (F2), two lashes from the floor break the wall (now at col 7, so lash from the machine's side) and the door leads to room 15. Coming back, the wall has grown back and is lashed again from the doorway.
+- [ ] **s2's heart.** Enter from room 15 and walk to the heart between the door and the wall (col 5, two cells left of the wall): it adds a heart to the frame, and you can take it before leaving. From the machine's side the wall hides it until the wall is broken. Coming back later, the heart you took stays taken.
 
 ## Lash input leniency
 
@@ -45,18 +46,20 @@ Nobody has played this yet. `?dev=1&room=12`, then F2 for Tongue Lash and double
 - [ ] **The first plug.** Riding it, hold Up or W and press X twice: the lash breaks the plug in the slab over the track. Is there time to do it before the platform runs out, and is it fair that a jump off the platform leaves its speed behind?
 - [ ] **The second plug.** From the ledge you reach, lash up again, then climb to the long ledge on top.
 - [ ] **The spinner.** It turns counter-clockwise once every 8 s. Its bottom row and top-left half are spikes (they kill); the top-right half is safe and carries you. Can you land on the safe half, ride it up, and jump off to the upper-left ledge? Is 8 s right?
-- [ ] **The doors.** The upper-left door leads to room 13. The bottom-left door to room 14 can no longer be reached from inside room 12: the lane above it (cols 1–2, rows 28–31) is spikes. Try a drop down the left side and a jump off the end of the platform: can either reach the door strip? (The solver says no. Room 14 is reached by dropping through room 13's floor door.)
+- [ ] **The doors.** The upper-left door leads to room 13. The bottom-left door to room 14 is not found by the solver from anywhere inside room 12, though col 2 is clear all the way down: try a drop down the left side and a jump off the end of the platform, and say if either reaches the door strip. (Room 14 is reached by dropping through room 13's floor door.)
+- [ ] **The long ride.** The platform now runs the whole way to the left end (col 4) over a spike floor with no island in it, and breaks on a spike at col 3. Riding to the end and dropping to room 14's door (col 2 is clear) is allowed: is it too easy?
+- [ ] **The pillar.** It is 2 cells further left and 2 higher, so the slab and the token on it cannot be reached by a double jump from the platform: try it from the platform's whole track (F2 for double jump). Is the pillar's spiked face (beside the corridor) still readable, and is the corridor wide enough?
 - [ ] **The two tokens.** One on the long ledge's left end, one on the shelf before the door to 13. (The token at the top right moved to room 15.)
 - [ ] **Coming from room 15.** The door at the bottom right of room 12 comes in from room 15's left door.
 
 ## Room 15: the turning cross
 
-Nobody has played this yet. `?dev=1&room=15`, then F2 for Tongue Lash and double jump. F7 slows the game if it helps to see it.
+Nobody has played this yet. `?dev=1&room=15`, then F2 for Tongue Lash and double jump. F7 slows the game if it helps to see it. The room is two screens tall (the cross is in the bottom screen, the top screen is empty for now).
 
 - [ ] **The cross.** Four arms turn counter-clockwise once every 8 s about the middle of the room. The up arm (with the hub), the right arm and the left arm have one spiked side each (they kill); the down arm has a spiked left side and cracks. Can you tell the safe side from the spiked side, and are the teeth pointing out of the arm as it turns?
 - [ ] **The ride.** From the floor, ride the cross up to the left ledge, the right ledge (with the heart) and the high middle ledge (with the token). Are the jumps on and off fair with a double jump? Is 8 s right?
 - [ ] **Breaking the down arm.** With Tongue Lash, lash the down arm twice while it is in front of you (it cracks, flashes, then every block shatters). It is gone for the rest of the visit and is back when you leave and come in again. Does a lash that misses (the arm has turned away) feel fair? Does Wall strength in F2 change the hits it takes?
-- [ ] **The break is optional.** You can get the token and the heart with the arm standing; breaking the down arm removes a hazard. (The user chose to leave it optional.)
+- [ ] **The break is optional.** You can get the token and the heart with the arm standing (the user chose to leave it that way).
 - [ ] **The doors.** Both doors (floor level, left and right) stay shut until the token and the heart are taken; the right one comes in from s2, the left one goes to room 12.
 
 ## Rooms 12 to 14: the Tongue Climb route
@@ -139,7 +142,8 @@ Nobody has played these yet. Headless tests prove the rules, not the feel. Use `
 - [ ] **Standing on a wall.** An intact wall holds the player like any platform; once it breaks, they fall.
 - [ ] **A wall grows back.** Leave room 7 and come back, die and respawn in it, and retry from F2: the wall is whole each time.
 - [ ] **Room 7's pip.** Come in from room 11 (`?dev=1&room=11`), stand on the exit-2 ledge (the left two cells were removed), face left and lash the wall (two hits), then jump in for the pip. The roof is five rows higher than before, with the wall running floor to roof and the floor two rows lower than the original, flush with it. Walking off the ledge now drops past the box. The player cannot get in without the gun, by jumping or dropping.
-- [ ] **Room 9's 3TM** gives Tongue Lash with the "NEW POWER" popup, "Tongue Lash" and the row "Lash your tongue" (`?dev=1&room=9` with three tokens set in F2).
+- [ ] **Room 9's 3TM** gives Tongue Lash with the "NEW POWER" popup, "Tongue Lash" and the rows "Lash your tongue" and "Destroy breakable walls" (`?dev=1&room=9` with three tokens set in F2). Both rows are on the Controls page too.
+- [ ] **Room 14's 3TM** gives Tongue Climb with the popup "Tongue Climb" and the row "Hold the button to stick to a wall" (the lash key, held), which is also on the Controls page once Tongue Climb is owned (`?dev=1&room=14` with three tokens set in F2).
 - [ ] **F2.** Tongue Lash on/off, cooldown, speed and length apply and survive a retry and a named loadout. Wall strength (Player tab, below Classic Imprint): 1 breaks in one lash, 5 in five, takes effect at once, survives a retry, and End playtest resets it to 2.
 - [ ] **The solver agrees.** `tools/validate.sh` lists room 7's pip as needing Tongue Lash (via room 9's 3TM and its tokens) and passes. Nobody has played the whole route to the pip without dev tools.
 - [ ] **Nothing odd:** lashing during a door slide, the map, the F2 panel or a save does nothing, and the tongue does not follow you into the next room.
