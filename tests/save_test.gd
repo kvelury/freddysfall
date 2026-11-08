@@ -175,6 +175,16 @@ func _file() -> bool:
 	where = save.load_game()
 	ok = check(where.get("room") == "s2" and state.save_room == "s2" and state.health == 4 and state.abilities.imprint_unlocked and state.visited.has("8"), "a pre-merge save with room 8 visited still resumes at s2 with progression") and ok
 
+	# Room 12's old top-right token became room 15's: the flag moves, the pocket stays full.
+	_write('{"version": 3, "room": "s2", "position": [165, 165], "save_room": "s2", "tokens": 3, "health_base": 2, "health": 2, "max_health": 2, "flags": ["token:r12_token_spinner", "token:r12_token_ledge"], "visited": ["s2"]}')
+	save.load_game()
+	ok = check(state.tokens == 3 and state.has_flag("token:r15_token") and not state.has_flag("token:r12_token_spinner") and state.has_flag("token:r12_token_ledge"), "a save that took room 12's retired token has taken room 15's, and keeps its three tokens") and ok
+	var pocket_full := ExitRules.met(root.get_node("WorldData").rooms["15"], state.flags)
+	ok = check(pocket_full, "so room 15's exits open with a full pocket") and ok
+	_write('{"version": 3, "room": "s2", "position": [165, 165], "save_room": "s2", "tokens": 0, "health_base": 2, "health": 2, "max_health": 2, "flags": [], "visited": ["s2"]}')
+	save.load_game()
+	ok = check(not ExitRules.met(root.get_node("WorldData").rooms["15"], state.flags), "a fresh save still needs room 15's token") and ok
+
 	_write("this is not json")
 	ok = check(save.load_game().is_empty() and FileAccess.file_exists(TEMP + ".bad") and not FileAccess.file_exists(TEMP), "a damaged file is set aside as .bad and the game starts fresh") and ok
 

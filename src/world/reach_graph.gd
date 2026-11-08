@@ -1116,7 +1116,11 @@ func _begin_plans(info: RoomInfo, kind: String) -> void:
 			_recording = {}
 			_records[info.id + kind] = _recording
 		return
-	_reusing = _records.get(info.base() + kind)
+	# A broken arm changes the room's movers, which the wall records do not
+	# cover, so such a copy re-simulates everything.
+	var base: RoomInfo = _rooms[info.base()]
+	var arm_broken := info.broken.any(func(wall_id: String) -> bool: return base.breakable_arm(wall_id) != null)
+	_reusing = null if arm_broken else _records.get(info.base() + kind)
 	var margin := reuse_margin()
 	for wall_id in info.broken:
 		for cell: Vector2i in info.breakables.get(wall_id, []):
