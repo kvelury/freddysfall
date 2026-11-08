@@ -9,7 +9,7 @@ extends RefCounted
 ## Most tokens the player can carry at once.
 const TOKEN_CAP := 3
 ## Hearts every player has from the start. Collected pips add to it.
-const BASE_HEALTH := 3
+const BASE_HEALTH := 2
 
 var visited := {}
 var abilities := Abilities.new()

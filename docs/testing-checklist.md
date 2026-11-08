@@ -200,7 +200,7 @@ Start `?dev=1&room=6` with Imprint on in F2 (or later rooms directly with `room=
 
 ## The HUD
 
-Nobody has played this yet. `?dev=1&room=2` (a token) or `?dev=1&room=7` (the pip; use F2 to give Tongue Lash), F2 to set tokens and hearts. A new game is three full hearts in a red rectangle with a small dark shadow up and left, and no diamonds.
+Nobody has played this yet. `?dev=1&room=2` (a token) or `?dev=1&room=7` (the pip; use F2 to give Tongue Lash), F2 to set tokens and hearts. A new game is two full hearts in a red rectangle with a small dark shadow up and left, and no diamonds.
 
 - [ ] **It stays put.** Top left, over every room, during door slides, deaths, a save, a 3TM feed and a title card; under the map, the pause menu and the dev panel. It reads over black space, and does not sit on a room's outer wall.
 - [ ] **Tokens.** A diamond is drawn only for a token held: nothing shows for the others. Taking one sends it flying to the next diamond in the row under the rectangle, which fills left to right. It is gold with no outline in the room, in flight and in the HUD, and flashes white then shows gold as it lands, and the row drops a pixel; the rectangle does not move. With three, the next token stays in the room and nothing flies. Feeding a 3TM blinks the last diamond out, and it is gone.

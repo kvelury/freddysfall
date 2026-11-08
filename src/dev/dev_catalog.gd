@@ -20,7 +20,7 @@ const RESOURCES := {
 	"health": {"name": "Hearts", "type": "int", "min": 0, "step": 1, "section": "resources"},
 	# The frame's length, never below the base heart. A loadout with more hearts
 	# than this raises it to match.
-	"max_health": {"name": "Max hearts", "type": "int", "min": 3, "step": 1, "section": "resources"},
+	"max_health": {"name": "Max hearts", "type": "int", "min": 2, "step": 1, "section": "resources"},
 }
 ## Ability names a stored loadout may still use, and what they are now.
 const LEGACY_KEYS := {"gun_unlocked": "tongue_unlocked", "gun_cooldown": "tongue_cooldown", "gun_shot_speed": "tongue_speed"}
