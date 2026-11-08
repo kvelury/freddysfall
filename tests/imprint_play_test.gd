@@ -288,7 +288,8 @@ func _run() -> void:
 	ok = check(world.warp_to("4") and tool.platforms.is_empty() and world.get_node("Player").solids.size() == world.current.world_rects().size(), "leaving a room removes the platform and its collision") and ok
 	ok = check(is_zero_approx(tool.cooldown_left), "and ends the cooldown") and ok
 
-	# Dying clears it.
+	# Dying clears it (on the last heart, as the test was written).
+	GameState.health = 1
 	world.warp_to("5")
 	room = world.current
 	player.place(room.position + Grid.cell_center(Vector2i(2, 16)), room.world_rects())

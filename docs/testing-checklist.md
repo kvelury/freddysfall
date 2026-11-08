@@ -64,7 +64,7 @@ Nobody has played this yet. `?dev=1&room=15`, then F2 for Tongue Lash and double
 
 ## Rooms 12 to 14: the Tongue Climb route
 
-Nobody has played this yet. The real route: s2, room 15 (take the token and the heart), room 12 (take both tokens), the upper-left door into room 13 and its floor door down into room 14, the 3TM, up room 14's left wall, up room 13. For a shortcut `?dev=1&room=14`, F2, Tongue Lash, double jump and tokens 3.
+Nobody has played this yet. The real route: s2, room 15 (take the token), room 12 (take both tokens), the upper-left door into room 13 and its floor door down into room 14, the 3TM, up room 14's left wall, up room 13. For a shortcut `?dev=1&room=14`, F2, Tongue Lash, double jump and tokens 3.
 
 - [ ] **Three tokens, one 3TM.** Take the token in room 15 and the two in room 12, drop into room 14 and use the 3TM. Does the Tongue Climb popup show, and are the tokens gone?
 - [ ] **Leaving room 14.** With Tongue Climb, hold X at room 14's left wall (hold, not tap) and hop up it: lash, jump, double jump, lash again. Does the ceiling door at the top come up into room 13's floor? Is the climb up the wall fair, or is the wall too long?
@@ -200,7 +200,7 @@ Start `?dev=1&room=6` with Imprint on in F2 (or later rooms directly with `room=
 
 ## The HUD
 
-Nobody has played this yet. `?dev=1&room=2` (a token) or `?dev=1&room=7` (the pip; use F2 to give Tongue Lash), F2 to set tokens and hearts. A new game is one full heart in a red rectangle with a small dark shadow up and left, and no diamonds.
+Nobody has played this yet. `?dev=1&room=2` (a token) or `?dev=1&room=7` (the pip; use F2 to give Tongue Lash), F2 to set tokens and hearts. A new game is three full hearts in a red rectangle with a small dark shadow up and left, and no diamonds.
 
 - [ ] **It stays put.** Top left, over every room, during door slides, deaths, a save, a 3TM feed and a title card; under the map, the pause menu and the dev panel. It reads over black space, and does not sit on a room's outer wall.
 - [ ] **Tokens.** A diamond is drawn only for a token held: nothing shows for the others. Taking one sends it flying to the next diamond in the row under the rectangle, which fills left to right. It is gold with no outline in the room, in flight and in the HUD, and flashes white then shows gold as it lands, and the row drops a pixel; the rectangle does not move. With three, the next token stays in the room and nothing flies. Feeding a 3TM blinks the last diamond out, and it is gone.

@@ -9,7 +9,7 @@ extends RefCounted
 ## Most tokens the player can carry at once.
 const TOKEN_CAP := 3
 ## Hearts every player has from the start. Collected pips add to it.
-const BASE_HEALTH := 1
+const BASE_HEALTH := 3
 
 var visited := {}
 var abilities := Abilities.new()
@@ -55,9 +55,9 @@ static func from_dict(data: Dictionary) -> Progression:
 	var saved_room = data.get("save_room", "")
 	out.save_room = String(saved_room) if saved_room is String else ""
 	out.health = maxi(0, int(data.get("health", 0)))
-	# A save from before the base heart counted pips only, so it gains the base
-	# heart. A save with the key already counts it. An empty dict is a new game.
-	var shift := 0 if data.has("health_base") or data.is_empty() else BASE_HEALTH
+	# A save made under a smaller base (or none) gains the difference. A save
+	# with the current base is unshifted. An empty dict is a new game.
+	var shift := 0 if data.is_empty() else maxi(0, BASE_HEALTH - int(data.get("health_base", 0)))
 	if data.is_empty():
 		out.health = BASE_HEALTH
 	out.health += shift
