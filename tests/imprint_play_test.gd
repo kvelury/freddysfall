@@ -289,7 +289,7 @@ func _run() -> void:
 	ok = check(is_zero_approx(tool.cooldown_left), "and ends the cooldown") and ok
 
 	# Dying clears it (on the last heart, as the test was written).
-	GameState.health = 1
+	state.health = 1
 	world.warp_to("5")
 	room = world.current
 	player.place(room.position + Grid.cell_center(Vector2i(2, 16)), room.world_rects())
