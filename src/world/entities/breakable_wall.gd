@@ -91,15 +91,26 @@ static func paint_cell(canvas: CanvasItem, origin: Vector2, key: Vector2i, stage
 	var ink := Color.WHITE if flashing else Color.BLACK
 	var base := Color.BLACK if flashing else Color.WHITE
 	canvas.draw_rect(Rect2(origin, Vector2(Grid.CELL, Grid.CELL)), base)
+	for at in crack_pixels(key, stage):
+		canvas.draw_rect(Rect2(origin + Vector2(at), Vector2.ONE), ink)
+
+
+## The pixels of a cell's cracks at damage `stage`, from its top left corner,
+## each once. `key` picks which cracks, so neighbouring cells do not tile.
+static func crack_pixels(key: Vector2i, stage: int) -> Array[Vector2i]:
 	var variant := posmod(key.x * 7 + key.y * 13, 4)
+	var out: Array[Vector2i] = []
 	for crack in stage + 1:
-		_crack(canvas, origin, (variant + crack * 2) % 4, crack, ink)
+		for at in _crack((variant + crack * 2) % 4, crack):
+			if not out.has(at):
+				out.append(at)
+	return out
 
 
 ## One jagged crack across a cell, a pixel wide, as short straight runs. The
 ## shape depends on `variant` (0 to 3) so neighbouring cells do not tile;
 ## `crack` picks where the crack starts, so each stage adds new ones.
-static func _crack(canvas: CanvasItem, origin: Vector2, variant: int, crack: int, ink: Color) -> void:
+static func _crack(variant: int, crack: int) -> Array[Vector2i]:
 	var paths := [
 		[Vector2(3, 0), Vector2(4, 3), Vector2(2, 5), Vector2(5, 7), Vector2(4, 9)],
 		[Vector2(7, 0), Vector2(6, 2), Vector2(8, 4), Vector2(6, 7), Vector2(7, 9)],
@@ -110,13 +121,16 @@ static func _crack(canvas: CanvasItem, origin: Vector2, variant: int, crack: int
 	if crack % 2 == 1:
 		# A mirrored path, so a second crack in a cell is not a copy of the first.
 		points = points.map(func(p: Vector2) -> Vector2: return Vector2(9.0 - p.x, p.y))
+	var out: Array[Vector2i] = []
 	for i in points.size() - 1:
-		_line(canvas, origin, points[i], points[i + 1], ink)
+		out.append_array(_line(points[i], points[i + 1]))
+	return out
 
 
 ## Pixels along a straight line between two points in a cell.
-static func _line(canvas: CanvasItem, origin: Vector2, from: Vector2, to: Vector2, ink: Color) -> void:
+static func _line(from: Vector2, to: Vector2) -> Array[Vector2i]:
 	var steps := int(maxf(absf(to.x - from.x), absf(to.y - from.y)))
+	var out: Array[Vector2i] = []
 	for i in steps + 1:
-		var at := from.lerp(to, float(i) / float(maxi(steps, 1))).round()
-		canvas.draw_rect(Rect2(origin + at, Vector2.ONE), ink)
+		out.append(Vector2i(from.lerp(to, float(i) / float(maxi(steps, 1))).round()))
+	return out

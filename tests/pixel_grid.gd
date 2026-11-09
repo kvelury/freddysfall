@@ -47,6 +47,7 @@ func _run() -> void:
 	await _run_and_land()
 	await _death()
 	await _lift()
+	await _spin()
 	await _look()
 	await _door_slide()
 	await _imprint()
@@ -250,6 +251,21 @@ func _lift() -> void:
 		await process_frame
 		if frame % 6 == 0:
 			await _grab("lift_%03d" % frame)
+
+
+## Room 12's spinner turning, with a rider on its safe half: the bar is drawn
+## on whole world pixels at every angle.
+func _spin() -> void:
+	await _start("12")
+	await _frames(2)
+	var room: Room = world.current
+	var path: SpinnerPath = room.info.spinners[0]
+	var top := room.position + path.rect_at(0, 10).position
+	player.place(top + Vector2(5.0, -5.0), room.world_rects())
+	for frame in 120:
+		await process_frame
+		if frame % 12 == 0:
+			await _grab("spin_%03d" % frame)
 
 
 func _look() -> void:

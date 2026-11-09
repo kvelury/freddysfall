@@ -1,18 +1,14 @@
 class_name SpinnerView
 extends Node2D
 
-## A spinner's blocks as they are drawn: a white block for each safe cell and a
-## row of spike teeth for each spiked one, pointing away from the middle of the
-## bar. The room moves it each tick. Each block is drawn on a whole world pixel,
-## like a moving platform.
+## A spinner as it is drawn: the pixels of the turned bar at this tick, which are
+## exactly the pixels that are solid (`SpinnerPath.spans_at`). A safe block is
+## white; a spiked one has the teeth of a `^` cell, turned with the bar. The room
+## moves it each tick. Nothing is drawn between ticks, so the picture on screen
+## is always what the physics sees, on whole world pixels.
 
 var path: SpinnerPath
 var _tick := 0
-var _current: Array[Vector2] = []
-var _previous: Array[Vector2] = []
-## Whether any block moved on the last tick; _draw interpolates, so it has to
-## run every frame while one does.
-var _moving := false
 ## For a breakable arm: how cracked it looks (0 to BreakableWall.STAGES), and how
 ## long a lash has left it flashing.
 var damage_stage := 0
@@ -23,28 +19,17 @@ func _init(spinner_path: SpinnerPath, tick := 0) -> void:
 	path = spinner_path
 	name = "Spinner_%s" % path.id
 	physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
-	for body in path.body_count():
-		_current.append(path.rect_at(tick, body).position)
-		_previous.append(_current[body])
+	_tick = tick
 
 
 func move_to(tick: int) -> void:
 	_tick = tick
-	for body in path.body_count():
-		_previous[body] = _current[body]
-		_current[body] = path.rect_at(tick, body).position
-	_moving = false
-	for body in path.body_count():
-		if _previous[body] != _current[body]:
-			_moving = true
 	queue_redraw()
 
 
 func _process(delta: float) -> void:
 	if _flash > 0.0:
 		_flash = maxf(0.0, _flash - delta)
-		queue_redraw()
-	elif _moving:
 		queue_redraw()
 
 
@@ -57,41 +42,35 @@ func struck(stage: int) -> void:
 
 ## The arm breaks: every block bursts where it is, and the view goes.
 func shatter() -> void:
-	var fraction := Engine.get_physics_interpolation_fraction()
 	for body in path.body_count():
 		var burst := Shatter.new()
-		burst.position = shown_at(body, fraction) + Vector2(Grid.CELL, Grid.CELL) * 0.5
+		burst.position = Display.snap(path.centre_at(_tick, body))
 		get_parent().add_child(burst)
 	queue_free()
 
 
-func shown_at(body: int, fraction: float) -> Vector2:
-	return Display.snap(_previous[body].lerp(_current[body], fraction))
-
-
 func _draw() -> void:
-	var fraction := Engine.get_physics_interpolation_fraction()
+	var flashing := _flash > 0.0
+	var base := Color.BLACK if flashing and path.breakable else Color.WHITE
 	for body in path.body_count():
-		var at := shown_at(body, fraction)
 		if path.is_hazard(body):
-			_teeth(at, path.normals[body])
-		elif path.breakable:
-			BreakableWall.paint_cell(self, at, path.start_cell_of(body), damage_stage, _flash > 0.0)
-		else:
-			draw_rect(Rect2(at, Vector2(Grid.CELL, Grid.CELL)), Color.WHITE, true)
+			for run in path.teeth_at(_tick, body):
+				draw_rect(run, Color.WHITE)
+			continue
+		for run in path.spans_at(_tick, body):
+			draw_rect(run, base)
+		if path.breakable:
+			_cracks(body, flashing)
 
 
-## A block of spikes, drawn as the same teeth as a `^` cell, pointing away
-## from the bar. The way out is facing_at().
-func _teeth(at: Vector2, normal: Vector2) -> void:
-	PixelArt.draw(self, PixelArt.spikes_name(facing_at(_tick, normal)), at)
-
-
-## The way a spiked block's teeth point at `tick`: `normal` is the way they point
-## in the starting pose (SpinnerPath.normals), turned with the bar and taken as
-## the nearest of the four directions.
-func facing_at(tick: int, normal: Vector2) -> Vector2i:
-	var out := normal.rotated(path.angle_at(tick))
-	if absf(out.x) >= absf(out.y):
-		return Vector2i.RIGHT if out.x > 0.0 else Vector2i.LEFT
-	return Vector2i.DOWN if out.y > 0.0 else Vector2i.UP
+## The cracks of a breakable arm's block `body`: the pixels of the picture a
+## straight block would show, turned with the bar.
+func _cracks(body: int, flashing: bool) -> void:
+	var ink := Color.WHITE if flashing else Color.BLACK
+	var phi := path.angle_at(_tick)
+	var cell := float(Grid.CELL)
+	var origin := path.local_origin_of(body)
+	for at in BreakableWall.crack_pixels(path.start_cell_of(body), damage_stage):
+		var local := origin + Vector2(at) + Vector2(0.5, 0.5)
+		var pixel := path.pivot + local.rotated(phi)
+		draw_rect(Rect2(Vector2(floorf(pixel.x), floorf(pixel.y)), Vector2.ONE), ink)

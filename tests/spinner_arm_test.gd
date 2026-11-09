@@ -99,11 +99,16 @@ func _facing() -> bool:
 		elif up.normals[body] == Vector2.RIGHT:
 			rights += 1
 	ok = check(lefts == 4 and rights == 4, "four teeth point left and four right (%d, %d)" % [lefts, rights]) and ok
-	var view := SpinnerView.new(up)
-	# Counter-clockwise a quarter turn later, left is down and right is up.
-	ok = check(view.facing_at(0, Vector2.LEFT) == Vector2i.LEFT and view.facing_at(PERIOD * 15, Vector2.LEFT) == Vector2i.DOWN, "left teeth turn left to down after a quarter turn") and ok
-	ok = check(view.facing_at(PERIOD * 15, Vector2.RIGHT) == Vector2i.UP, "and right teeth turn right to up") and ok
-	view.free()
+	# Turned with the bar: a quarter turn later (counter-clockwise) the left
+	# column's teeth, which pointed left, have the same count of lit pixels.
+	var left_body := 0
+	var base := 0
+	for run in up.teeth_at(0, left_body):
+		base += int(run.size.x)
+	var later := 0
+	for run in up.teeth_at(PERIOD * 15, left_body):
+		later += int(run.size.x)
+	ok = check(base > 0 and base == later, "the teeth are the same picture a quarter turn later (%d, %d)" % [base, later]) and ok
 	var left_arm: SpinnerPath = info.spinners[2]
 	var spiked := 0
 	for body in left_arm.body_count():
@@ -128,11 +133,11 @@ func _movers() -> bool:
 	ok = check(info.movers[1].id == "down" and movers.breakable_at(probe, 0) == 1, "a probe in the down arm finds it (mover 1)") and ok
 	ok = check(movers.breakable_at(Rect2(Vector2(160, 45), Vector2(2, 2)), 0) == -1, "the spiked up arm is not breakable, and is not found") and ok
 	var rects: Dictionary = movers.breakable_rects(0)
-	ok = check(rects.size() == 1 and (rects["down"] as Array).size() == 8, "the solver is given the down arm's 8 blocks") and ok
+	ok = check(rects.size() == 1 and _area(rects["down"] as Array) == 8 * 100, "the solver is given the down arm's 8 blocks, as pixels") and ok
 	movers.replace(1, (info.movers[1] as SpinnerPath).broken_copy())
 	ok = check(movers.breakable_at(probe, 0) == -1 and movers.breakable_rects(0).is_empty(), "swapped for its broken copy it is not there to hit") and ok
 	ok = check(not (info.movers[1] as SpinnerPath).gone, "the room's own list is untouched") and ok
-	ok = check(movers.rects(0).size() == 4 + 4 and movers.hazard_rects(0).size() == 8 + 4 + 8, "the other arms still hold up (hub and left arm's bottom) and kill") and ok
+	ok = check(_area(movers.rects(0)) == (4 + 4) * 100 and _area(movers.hazard_rects(0)) == (8 + 4 + 8) * 100, "the other arms still hold up (hub and left arm's bottom) and kill") and ok
 	return ok
 
 
@@ -177,10 +182,10 @@ func _room() -> bool:
 	ok = check(arm == 1, "the room finds the down arm under a probe (%d)" % arm) and ok
 	ok = check(not room.hit_arm(arm, 2), "one lash of two does not break it") and ok
 	ok = check(room.arm_at(probe) == 1, "it still stands, and holds up") and ok
-	var floor_blocks := room.mover_rects().size()
+	var floor_blocks := _area(room.mover_rects())
 	var broke := room.hit_arm(arm, 2)
 	ok = check(broke, "the second lash breaks it") and ok
-	ok = check(room.arm_at(probe) == -1 and room.mover_rects().size() == floor_blocks - 8, "now it is gone: 8 blocks fewer hold anyone up (%d to %d)" % [floor_blocks, room.mover_rects().size()]) and ok
+	ok = check(room.arm_at(probe) == -1 and _area(room.mover_rects()) == floor_blocks - 8 * 100, "now it is gone: 8 blocks fewer hold anyone up (%d to %d px)" % [floor_blocks, _area(room.mover_rects())]) and ok
 	ok = check(room.info.broken.has("down"), "the room's copy remembers it is broken") and ok
 	ok = check(not (info.movers[1] as SpinnerPath).gone and not info.broken.has("down"), "the room as loaded is untouched") and ok
 	# Strength 1 (the dev setting) breaks it with one lash.
@@ -193,3 +198,11 @@ func _room() -> bool:
 	again.queue_free()
 	await process_frame
 	return ok
+
+
+## The pixels the rects cover, for rects that do not overlap.
+static func _area(rects: Array) -> int:
+	var total := 0
+	for r: Rect2 in rects:
+		total += int(r.size.x * r.size.y)
+	return total
