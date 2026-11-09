@@ -22,7 +22,9 @@ var _period := 0
 
 
 func _init(list: Array[Mover] = [], at := Vector2.ZERO) -> void:
-	paths = list
+	# Its own list: a mover that breaks is swapped out here (see `replace`), and
+	# the room's list must stay as loaded for the next time the room is built.
+	paths = list.duplicate()
 	origin = at
 	for p in paths.size():
 		for b in paths[p].body_count():
@@ -48,6 +50,13 @@ static func _gcd(a: int, b: int) -> int:
 
 func size() -> int:
 	return _owner.size()
+
+
+## Swaps mover `m` for `other`, which has the same bodies (a breakable spinner
+## for its broken copy), and forgets where everything was.
+func replace(m: int, other: Mover) -> void:
+	paths[m] = other
+	_cache.clear()
 
 
 func is_empty() -> bool:
@@ -118,6 +127,36 @@ func hazard(index: int) -> bool:
 ## and not hazards.
 func rects(tick: int) -> Array[Rect2]:
 	return _at(tick)["solid"]
+
+
+## The index in `paths` of a breakable mover with a body that holds a player up
+## and touches `box` at `tick`, or -1. This is what a lash can hit.
+func breakable_at(box: Rect2, tick: int) -> int:
+	for m in paths.size():
+		if not paths[m] is SpinnerPath or not (paths[m] as SpinnerPath).breakable:
+			continue
+		var first := first_body(m)
+		for b in paths[m].body_count():
+			if alive(first + b, tick) and not hazard(first + b) and rect(first + b, tick).intersects(box):
+				return m
+	return -1
+
+
+## The solid bodies of each breakable mover that stands, by its id, at `tick`: what
+## the solver's tongue tests against (TongueReach.first_hit).
+func breakable_rects(tick: int) -> Dictionary:
+	var out := {}
+	for m in paths.size():
+		if not paths[m] is SpinnerPath or not (paths[m] as SpinnerPath).breakable:
+			continue
+		var rects_here: Array[Rect2] = []
+		var first := first_body(m)
+		for b in paths[m].body_count():
+			if alive(first + b, tick) and not hazard(first + b):
+				rects_here.append(rect(first + b, tick))
+		if not rects_here.is_empty():
+			out[paths[m].id] = rects_here
+	return out
 
 
 ## The hazard bodies at `tick`.

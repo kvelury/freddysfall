@@ -27,19 +27,38 @@ var offsets: Array[Vector2] = []
 var spiked: Array[bool] = []
 ## The farthest any corner of the bar gets from the pivot, in pixels.
 var radius := 0.0
+## For each body, the way its teeth point when the bar is in its starting pose
+## (up for a top row, down for a bottom row, left or right for an end column),
+## or zero for a body that is not spiked.
+var normals: Array[Vector2] = []
+## Whether the tongue breaks it (`breakable=true`). Hit enough times, every block
+## of it goes and it is gone until the room is built again.
+var breakable := false
+## Whether it has been broken: a copy of a breakable spinner with no bodies
+## standing. The game swaps it in when the last lash lands, and the solver
+## solves a room with the arm broken as a copy of the room.
+var gone := false
+## The settings it was built from, so a broken copy can be made.
+var _spikes := PackedStringArray()
 
 
 ## `spikes` names the spiked blocks of the bar as drawn: "top" and "bottom" for
 ## a whole row, "top_left", "top_right", "bottom_left" and "bottom_right" for the
 ## half of that row on that side of the middle (the middle block is in neither),
 ## "left" and "right" for a whole end column, and "all".
-func _init(spinner_id: String, drawn: Rect2i, seconds: float, turns_clockwise: bool, spikes: PackedStringArray) -> void:
+##
+## `pivot_at` is the point it turns about, in room pixels. Left out, it is the
+## middle of the rectangle. Several spinners given the same point turn together,
+## which is how a cross is built from arms and a hub.
+func _init(spinner_id: String, drawn: Rect2i, seconds: float, turns_clockwise: bool, spikes: PackedStringArray, pivot_at := Vector2.INF, breakable_arm := false) -> void:
 	id = spinner_id
 	start_cells = drawn
 	clockwise = turns_clockwise
+	breakable = breakable_arm
+	_spikes = spikes
 	period_ticks = maxi(1, roundi(seconds * float(TICKS_PER_SECOND)))
 	var box := Grid.cell_rect(drawn)
-	pivot = box.get_center()
+	pivot = box.get_center() if pivot_at == Vector2.INF else pivot_at
 	var middle := (drawn.size.x - 1) / 2
 	for row in drawn.size.y:
 		for col in drawn.size.x:
@@ -50,8 +69,19 @@ func _init(spinner_id: String, drawn: Rect2i, seconds: float, turns_clockwise: b
 			var side := "top" if top else "bottom"
 			var hit := spikes.has("all") or spikes.has(side)
 			hit = hit or (not half.is_empty() and spikes.has("%s_%s" % [side, half]))
-			hit = hit or (col == 0 and spikes.has("left")) or (col == drawn.size.x - 1 and spikes.has("right"))
+			var on_left := col == 0 and spikes.has("left")
+			var on_right := col == drawn.size.x - 1 and spikes.has("right")
+			hit = hit or on_left or on_right
 			spiked.append(hit)
+			# A row part points up or down; a block only an end column names points
+			# out of that end. `all` goes by the row, as it always did.
+			var row_part := spikes.has("all") or spikes.has(side) or (not half.is_empty() and spikes.has("%s_%s" % [side, half]))
+			if not hit:
+				normals.append(Vector2.ZERO)
+			elif row_part or not (on_left or on_right):
+				normals.append(Vector2.UP if top else Vector2.DOWN)
+			else:
+				normals.append(Vector2.LEFT if on_left else Vector2.RIGHT)
 	for offset in offsets:
 		for corner in [Vector2(-5, -5), Vector2(5, -5), Vector2(-5, 5), Vector2(5, 5)]:
 			radius = maxf(radius, (offset + corner).length())
@@ -61,12 +91,29 @@ func body_count() -> int:
 	return offsets.size()
 
 
+func alive_at(_tick: int, _body := 0) -> bool:
+	return not gone
+
+
+## This spinner with every block gone (see `gone`). The same settings, so it has
+## the same place in a room's list of movers, and nothing in it stands.
+func broken_copy() -> SpinnerPath:
+	var out := SpinnerPath.new(id, start_cells, float(period_ticks) / float(TICKS_PER_SECOND), clockwise, _spikes, pivot, breakable)
+	out.gone = true
+	return out
+
+
 func is_hazard(body := 0) -> bool:
 	return spiked[body]
 
 
 func period() -> int:
 	return period_ticks
+
+
+## The cell body `body` is drawn on in the starting pose.
+func start_cell_of(body: int) -> Vector2i:
+	return start_cells.position + Vector2i(body % start_cells.size.x, body / start_cells.size.x)
 
 
 ## How far round it has turned at `tick`, in radians, positive being the way it

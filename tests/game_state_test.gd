@@ -78,17 +78,17 @@ func _health() -> void:
 	_zero()
 	check(_state.health == GameState.BASE_HEALTH and _state.max_health == GameState.BASE_HEALTH, "a new game has the base heart")
 	_state.take_health(_def("health", "h1"))
-	check(_state.has_flag("health:h1") and _state.health == 2 and _state.max_health == 2 and _counts["health_changed"] == 1, "a pip adds a full heart to the frame")
+	check(_state.has_flag("health:h1") and _state.health == GameState.BASE_HEALTH + 1 and _state.max_health == GameState.BASE_HEALTH + 1 and _counts["health_changed"] == 1, "a pip adds a full heart to the frame")
 	_state.machine_prize(_def("machine", "m1", {"prize": "health"}))
-	check(_state.health == 3 and _state.max_health == 3 and _state.flags.size() == 1, "a health 3TM adds one too, with no pickup flag")
+	check(_state.health == GameState.BASE_HEALTH + 2 and _state.max_health == GameState.BASE_HEALTH + 2 and _state.flags.size() == 1, "a health 3TM adds one too, with no pickup flag")
 
 	_zero()
 	for i in 5:
 		_state.spend_health()
-	check(_state.health == 0 and _state.max_health == 3 and _counts["health_changed"] == 5, "deaths empty hearts to zero and the frame keeps its length")
+	check(_state.health == 0 and _state.max_health == GameState.BASE_HEALTH + 2 and _counts["health_changed"] == 5, "deaths empty hearts to zero and the frame keeps its length")
 	_zero()
 	_state.refill_health()
-	check(_state.health == 3 and _counts["health_changed"] == 1, "a save room fills every heart")
+	check(_state.health == GameState.BASE_HEALTH + 2 and _counts["health_changed"] == 1, "a save room fills every heart")
 	_state.refill_health()
 	check(_counts["health_changed"] == 1, "refilling full hearts sends nothing")
 

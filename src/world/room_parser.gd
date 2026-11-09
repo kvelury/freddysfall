@@ -284,7 +284,32 @@ static func _place_spinner(info: RoomInfo, def: EntityDef, cells: Array, errors:
 		return null
 	var drawn := Rect2i(x0, y0, x1 - x0 + 1, y1 - y0 + 1)
 	var spikes := String(def.props.get("spikes", "")).split("+", false)
-	return SpinnerPath.new(def.id, drawn, float(String(def.props["period"])), String(def.props.get("dir", "ccw")) == "cw", spikes)
+	return SpinnerPath.new(def.id, drawn, float(String(def.props["period"])), String(def.props.get("dir", "ccw")) == "cw", spikes, SpinnerKind.pivot_of(def), String(def.props.get("breakable", "")) == "true")
+
+
+## The glyphs of the spinners that turn about the same point as `spinner` (its
+## own included), which is how a cross of arms and a hub is built. They turn as
+## one, so they may sit in each other's sweep, but they have to agree on how fast
+## and which way. Problems go in `errors`.
+static func _spinner_group(info: RoomInfo, spinner: SpinnerPath, errors: Array[String]) -> Array[String]:
+	var glyphs: Array[String] = []
+	for other in info.spinners:
+		if other.pivot != spinner.pivot:
+			continue
+		var def := _def_of(info, other.id)
+		glyphs.append(def.glyph)
+		# Each mismatch is reported once, by the first spinner of the group.
+		var first: SpinnerPath = info.spinners.filter(func(s: SpinnerPath) -> bool: return s.pivot == spinner.pivot)[0]
+		if first == spinner and (other.period_ticks != spinner.period_ticks or other.clockwise != spinner.clockwise):
+			errors.append("Room %s: spinners %s and %s turn about the same point, so they have to have the same period and dir" % [info.id, spinner.id, other.id])
+	return glyphs
+
+
+static func _def_of(info: RoomInfo, entity_id: String) -> EntityDef:
+	for def in info.entities:
+		if def.id == entity_id:
+			return def
+	return null
 
 
 ## What an emitter needs at its two ends: solid wall behind where its platforms
@@ -389,12 +414,15 @@ static func _check_platforms(info: RoomInfo, errors: Array[String]) -> void:
 			if Grid.cell_rect(space).intersects(keep):
 				found.append("Room %s: %s %s is in the way of moving platform %s; keep things out of its track and the row above it" % [info.id, def.type, def.id, path.id])
 	for spinner in info.spinners:
+		var group := _spinner_group(info, spinner, found)
 		var swept := spinner.swept_cells()
 		for y in range(swept.position.y, swept.end.y):
 			for x in range(swept.position.x, swept.end.x):
 				if not spinner.sweeps(Vector2i(x, y)) or spinner.start_cells.has_point(Vector2i(x, y)):
 					continue
 				var glyph := _glyph(info, x, y)
+				if group.has(glyph):
+					continue
 				if glyph != Tiles.EMPTY and glyph != Tiles.NO_IMPRINT and glyph != Tiles.SPAWN:
 					found.append("Room %s: spinner %s sweeps cell %d,%d, which is '%s'; keep everything out of the circle it turns in" % [info.id, spinner.id, x, y, glyph if not glyph.is_empty() else "outside the room"])
 		for def in info.entities:
@@ -424,9 +452,9 @@ static func _check_platform_doors(info: RoomInfo, errors: Array[String]) -> void
 				break
 
 
-## A save room has exactly one save machine and nothing else but tokens,
-## breakable walls and still platforms (no pickup, health pip, 3TM, spikes or
-## moving platform), and no other room has a machine.
+## A save room has exactly one save machine and nothing else but tokens, health
+## pips, breakable walls and still platforms (no pickup, 3TM, spikes or moving
+## platform), and no other room has a machine.
 static func _check_save_things(info: RoomInfo, errors: Array[String]) -> void:
 	var saves := info.entities.filter(func(def: EntityDef) -> bool: return def.type == "save").size()
 	if info.is_save_room() and saves != 1:
@@ -436,11 +464,11 @@ static func _check_save_things(info: RoomInfo, errors: Array[String]) -> void:
 	if info.is_save_room() and saves == 1:
 		var others := info.entities.filter(func(def: EntityDef) -> bool: return not Entities.kind(def.type).allowed_in_save_room()).size()
 		if others > 0:
-			errors.append("Room %s is a save room, and a save room holds nothing but its save machine, tokens, breakable walls and platforms, but its legend has %d other thing(s)" % [info.id, others])
+			errors.append("Room %s is a save room, and a save room holds nothing but its save machine, tokens, health pips, breakable walls and platforms, but its legend has %d other thing(s)" % [info.id, others])
 		if not info.movers.is_empty():
 			errors.append("Room %s is a save room, and a save room's platforms stand still, but it has a moving platform (%s)" % [info.id, info.movers[0].id])
 		if not info.hazards.is_empty():
-			errors.append("Room %s is a save room, and a save room holds nothing but its save machine, tokens, breakable walls and platforms, but it has spikes" % info.id)
+			errors.append("Room %s is a save room, and a save room holds nothing but its save machine, tokens, health pips, breakable walls and platforms, but it has spikes" % info.id)
 
 
 ## A save machine pops the player out onto the floor on either side of it, so

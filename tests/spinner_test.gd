@@ -100,8 +100,8 @@ func _facing() -> bool:
 	var view := SpinnerView.new(path)
 	# Counter-clockwise, the bottom row's teeth go down, right, up, left; the top row's the opposite.
 	var want := {0: Vector2i.DOWN, 60: Vector2i.RIGHT, 120: Vector2i.UP, 180: Vector2i.LEFT}
-	var bottom := path.offsets[path.body_count() - 1]
-	var top := path.offsets[0]
+	var bottom := path.normals[path.body_count() - 1]
+	var top := path.normals[0]
 	for tick: int in want:
 		var down: Vector2i = want[tick]
 		ok = check(view.facing_at(tick, bottom) == down, "bottom-row teeth point away from the bar at tick %d" % tick) and ok

@@ -14,6 +14,10 @@ func collectible() -> bool:
 	return true
 
 
+func allowed_in_save_room() -> bool:
+	return true
+
+
 func flag_for(def: EntityDef) -> String:
 	return HealthPip.flag_for(def)
 

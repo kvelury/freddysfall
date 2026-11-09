@@ -126,6 +126,7 @@ func _run() -> void:
 
 	# No save room entered yet: the start room's start.
 	state.reset()
+	state.health = 1
 	world.warp_to("5")
 	ok = await _die_in_5(world, player) and ok
 	room = world.current
@@ -135,7 +136,8 @@ func _run() -> void:
 
 	# Back on a machine that was never used (the save room was only entered): it
 	# saves first, then lets the player out.
-	state.reset()
+	state.save_room = "s1"
+	state.health = 1
 	state.save_room = "s1"
 	world.warp_to("5")
 	DirAccess.remove_absolute(TEMP)

@@ -18,6 +18,7 @@ func _run() -> void:
 	save.path = TEMP
 	save.enabled = false
 	state.reset()
+	var B: int = Progression.BASE_HEALTH
 
 	var world := (load("res://src/world/world.tscn") as PackedScene).instantiate()
 	world.start_override = "2"
@@ -27,7 +28,7 @@ func _run() -> void:
 	_layout(hud)
 
 	check(hud.layer == 9 and hud.scale == Vector2.ONE * float(Display.RENDER_SCALE), "the HUD is a UI layer under the map, drawn at the render scale")
-	check(hud.shown_tokens == 0 and hud.shown_max == 1 and hud.shown_health == 1 and not hud.busy(), "a new game shows no diamonds and one full heart")
+	check(hud.shown_tokens == 0 and hud.shown_max == B and hud.shown_health == B and not hud.busy(), "a new game shows no diamonds and the base hearts, full")
 	check(hud.to_ui(world.camera.position) == Vector2(160, 90), "the camera's centre is the middle of the UI (%s)" % hud.to_ui(world.camera.position))
 
 	# A token flies in, and only counts when it lands.
@@ -68,16 +69,16 @@ func _run() -> void:
 	await process_frame
 	var pip: Node2D = _things(world.current, "HealthPip")[0]
 	world._collect(pip)
-	check(state.max_health == 2 and state.health == 2, "a pip makes the frame two hearts and full")
-	check(hud.flights.size() == 1 and hud.flights[0]["kind"] == &"pip" and hud.flights[0]["to"] == hud.pip_centre(1), "it flies to the new heart")
-	check(hud.shown_max == 1, "the frame waits for it")
+	check(state.max_health == B + 1 and state.health == B + 1, "a pip makes the frame a heart longer and full")
+	check(hud.flights.size() == 1 and hud.flights[0]["kind"] == &"pip" and hud.flights[0]["to"] == hud.pip_centre(B), "it flies to the new heart")
+	check(hud.shown_max == B, "the frame waits for it")
 	var grew := false
 	for i in 2000:
 		await process_frame
 		grew = grew or hud._grow >= 0.0
 		if not hud.busy():
 			break
-	check(grew and hud.shown_max == 2 and hud.shown_health == 2, "the frame grows a heart and it fills")
+	check(grew and hud.shown_max == B + 1 and hud.shown_health == B + 1, "the frame grows a heart and it fills")
 
 	# A death empties a pip; the bar keeps its length.
 	state.max_health = 4
@@ -107,8 +108,8 @@ func _run() -> void:
 
 	# Loads and dev edits keep the length at least the hearts held.
 	state.load_dict({"health": 3})
-	check(state.max_health == 4 and state.health == 4, "an old save without a base heart gets one, full")
-	state.load_dict({"health_base": 1, "health": 2, "max_health": 5})
+	check(state.max_health == 3 + B and state.health == 3 + B, "an old save without a base heart gets them, full")
+	state.load_dict({"health_base": B, "health": 2, "max_health": 5})
 	check(state.max_health == 5 and state.health == 2, "a save keeps its length and its fill")
 	state.set_loadout({"abilities": state.abilities.to_dict(), "tokens": 0, "health": 6, "max_health": 2})
 	check(state.max_health == 6, "a loadout with more hearts than its frame lengthens it")
@@ -154,7 +155,7 @@ func _layout(hud: Node) -> void:
 	check(hud._fill_colour("t0", true) == Color.WHITE and hud._fill_colour("p0", true) == Color.WHITE, "a landing token or heart flashes white first")
 	hud._effects.clear()
 	check(hud._fill_colour("p0", false) == Color.BLACK, "an empty heart is black inside")
-	check(hud.heart_look(0) == ["hud_heart_empty", H.INK] and hud.heart_look(1) == ["hud_heart", H.INK], "a full heart is a black outline over the red bar and an empty heart is solid black")
+	check(hud.heart_look(0) == ["hud_heart_empty", H.INK] and hud.heart_look(Progression.BASE_HEALTH) == ["hud_heart", H.INK], "a full heart is a black outline over the red bar and an empty heart is solid black")
 	hud._effects["p0"] = {"kind": &"pop", "left": 1.0}
 	check(hud.heart_look(0) == ["hud_heart", Color.WHITE], "a landing heart flashes solid white")
 	hud._effects.clear()
