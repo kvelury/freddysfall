@@ -84,12 +84,21 @@ func _path() -> bool:
 	ok = check(half.get_center() == path.pivot + Vector2(50, 5), "a half turn swaps the ends (%s)" % half.get_center()) and ok
 	var cw := SpinnerPath.new("c", Rect2i(10, 8, 11, 2), 4.0, true, PackedStringArray())
 	ok = check(cw.rect_at(60, 0).get_center() == cw.pivot + Vector2(5, -50), "clockwise takes it up the other way (%s)" % cw.rect_at(60, 0).get_center()) and ok
-	var always := true
-	for tick in range(0, 240, 7):
-		for body in path.body_count():
-			var r := path.rect_at(tick, body)
-			always = always and r.position == r.position.round() and r.size == Vector2(10, 10)
-	ok = check(always, "every block is a 10 px square on a whole pixel at every tick") and ok
+	ok = check(_fills_once(path), "every pixel of the bar belongs to exactly one block at every tick, and the bar is always 110 x 20 pixels") and ok
+	# Tilted 19.5 degrees (tick 13 of 240), the top edge is a straight slope: from
+	# one pixel column to the next it moves by at most a pixel, not a block.
+	var smooth := true
+	var tops := {}
+	for body in path.body_count():
+		for run in path.spans_at(13, body):
+			for x in range(int(run.position.x), int(run.end.x)):
+				tops[x] = minf(float(tops.get(x, INF)), run.position.y)
+	var xs: Array = tops.keys()
+	xs.sort()
+	# (Not the last few columns at each end, where the short end of the bar is steep.)
+	for i in range(12, xs.size() - 13):
+		smooth = smooth and absf(float(tops[xs[i + 1]]) - float(tops[xs[i]])) <= 1.0
+	ok = check(smooth and xs.size() > 100, "a tilted bar's top edge never steps by more than a pixel (%d columns)" % xs.size()) and ok
 	ok = check(path.radius > 55.0 and path.radius < 57.0 and path.sweeps(Vector2i(10, 8)) and not path.sweeps(Vector2i(3, 3)), "its sweep is the circle the corners make (%.1f)" % path.radius) and ok
 	return ok
 
@@ -97,16 +106,21 @@ func _path() -> bool:
 func _facing() -> bool:
 	var ok := true
 	var path := SpinnerPath.new("s", Rect2i(10, 8, 11, 2), 4.0, false, PackedStringArray(["bottom", "top_left"]))
-	var view := SpinnerView.new(path)
-	# Counter-clockwise, the bottom row's teeth go down, right, up, left; the top row's the opposite.
-	var want := {0: Vector2i.DOWN, 60: Vector2i.RIGHT, 120: Vector2i.UP, 180: Vector2i.LEFT}
-	var bottom := path.normals[path.body_count() - 1]
-	var top := path.normals[0]
-	for tick: int in want:
-		var down: Vector2i = want[tick]
-		ok = check(view.facing_at(tick, bottom) == down, "bottom-row teeth point away from the bar at tick %d" % tick) and ok
-		ok = check(view.facing_at(tick, top) == -down, "top-row teeth point away from the bar at tick %d" % tick) and ok
-	view.free()
+	# The bottom row's teeth are the `^` cell picture pointing down, drawn where
+	# the block is at tick 0 and turned with the bar.
+	var body := path.body_count() - 1
+	var shape: Dictionary = PixelShapes.SHAPES["spikes_down"]
+	var lit := 0
+	for row: String in shape["rows"]:
+		lit += row.count("#")
+	for tick in [0, 60, 120, 180]:
+		var count := 0
+		for run in path.teeth_at(tick, body):
+			count += int(run.size.x)
+		ok = check(count == lit, "the bottom row's teeth are the same picture at tick %d (%d of %d pixels)" % [tick, count, lit]) and ok
+	var first: Array[Rect2] = path.teeth_at(0, body)
+	var corner := path.rect_at(0, body)
+	ok = check(not first.is_empty() and first[0].position.y == corner.position.y and first[0].size.x == 10.0, "its first row of teeth is the full-width top of the picture") and ok
 	return ok
 
 
@@ -116,7 +130,7 @@ func _sim() -> bool:
 	var path := SpinnerPath.new("s", Rect2i(10, 8, 11, 2), 4.0, false, PackedStringArray(["bottom", "top_left"]))
 	var movers := Movers.new([path])
 	var none: Array = []
-	ok = check(movers.rects(0).size() == 22 - 16 and movers.hazard_rects(0).size() == 16, "6 safe blocks hold up, 16 spiked kill") and ok
+	ok = check(_area(movers.rects(0)) == 6 * 100 and _area(movers.hazard_rects(0)) == 16 * 100, "6 safe blocks hold up, 16 spiked kill") and ok
 	# Standing on the safe top-right: block at column 6..10 of the top row.
 	var safe := movers.rects(0)[0]
 	var s := MovementSim.State.new()
@@ -132,3 +146,29 @@ func _sim() -> bool:
 	MovementSim.step(cfg, dead, none, 0.0, false, false, DT, movers, 0)
 	ok = check(dead.crushed, "touching a spiked block kills") and ok
 	return ok
+
+
+static func _area(rects: Array) -> int:
+	var total := 0
+	for r: Rect2 in rects:
+		total += int(r.size.x * r.size.y)
+	return total
+
+
+## Whether, at several ticks, no pixel is in two blocks and the pixels together
+## are about the bar's area (110 x 20): none missing, none doubled.
+static func _fills_once(path: SpinnerPath) -> bool:
+	for tick in range(0, 240, 11):
+		var seen := {}
+		for body in path.body_count():
+			for run in path.spans_at(tick, body):
+				if run.size.y != 1.0 or run.position != run.position.round() or run.size.x != roundf(run.size.x):
+					return false
+				for x in range(int(run.position.x), int(run.end.x)):
+					var key := Vector2i(x, int(run.position.y))
+					if seen.has(key):
+						return false
+					seen[key] = true
+		if absf(float(seen.size()) - 2200.0) > 40.0:
+			return false
+	return true
