@@ -3,6 +3,9 @@ set -eu
 cd "$(dirname "$0")/.."
 # tools/check.sh               the whole gate: tests, strict validation, web export
 # tools/check.sh --tests-only  just the tests
+# tools/check.sh --quick       everything, but validation reads build/solver-cache
+#                              (unchanged rooms are not re-solved); run the
+#                              full gate before opening a pull request
 
 echo "==> import"
 godot --headless --path . --import
@@ -16,7 +19,9 @@ export SKIP_IMPORT=1
 # and cost no real time. The slowest start first so none is left
 # running alone at the end. Each writes build/test-logs/<name>.log, and the
 # log of every test that failed is printed at the end.
-JOBS="${JOBS:-$(nproc 2>/dev/null || echo 2)}"
+# nproc is Linux; macOS has sysctl.
+CORES=$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 2)
+JOBS="${JOBS:-$CORES}"
 LOGS=build/test-logs
 rm -rf "$LOGS"
 mkdir -p "$LOGS"
@@ -78,8 +83,13 @@ if [ "${1:-}" = "--tests-only" ]; then
 	exit 0
 fi
 
-echo "==> validate (no cache, every ledge reachable)"
-./tools/validate.sh --jobs "$(nproc 2>/dev/null || echo 2)" --fresh --strict-ledges
+if [ "${1:-}" = "--quick" ]; then
+	echo "==> validate (cached, every ledge reachable)"
+	./tools/validate.sh --strict-ledges
+else
+	echo "==> validate (no cache, every ledge reachable)"
+	./tools/validate.sh --jobs "$CORES" --fresh --strict-ledges
+fi
 
 echo "==> web export"
 ./tools/build_web.sh
@@ -153,4 +163,8 @@ for suffix in (".pck", ".wasm", ".audio.worklet.js", ".audio.position.worklet.js
 print(f"web export ok ({tag})")
 PY
 
-echo "CHECK pass: $COUNT tests, uncached world validation, and web export"
+if [ "${1:-}" = "--quick" ]; then
+	echo "CHECK pass (quick, cached validation): $COUNT tests and web export. Run tools/check.sh in full before a pull request."
+else
+	echo "CHECK pass: $COUNT tests, uncached world validation, and web export"
+fi
