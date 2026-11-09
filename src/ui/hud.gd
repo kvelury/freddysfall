@@ -5,10 +5,10 @@ extends CanvasLayer
 ## rectangle holds one black heart for each hit point: a full heart is a black
 ## outline with the heart red inside it and an empty one is solid black. A dark
 ## red shadow sits one unit up and left of the rectangle, so its bottom and right
-## edges are clean. Under it, one unit clear, runs a row of small gold diamonds,
-## left to right from the rectangle's left edge, one for each token carried:
-## solid gold with no outline. Nothing is drawn for a token not held, and the
-## rectangle never moves.
+## edges are clean. Hanging off the rectangle's bottom-left is a small tab of the
+## same red with its own shadow, 4 units wider for each token carried, and a small
+## gold diamond sits in each of its slots, left to right: solid gold with no
+## outline. With no token held there is no tab, and the rectangle never moves.
 ##
 ## The HUD shows GameState, less what is still flying in: a pickup taken in a
 ## room flies to its slot and only counts when it lands. Every change animates
@@ -39,16 +39,18 @@ const PAD := 1.0
 const BAR_HEIGHT := 8.0
 const HEART_SIZE := Vector2(7, 6)
 const PITCH := 9.0
-## Token diamonds are 3 x 3, TOKEN_PITCH apart, in a row TOKEN_GAP units under the
-## rectangle and level with its left edge. Slots fill left to right.
+## Token diamonds are 3 x 3, TOKEN_PITCH apart, in a tab flush under the rectangle
+## and level with its left edge. The tab is TAB_HEIGHT tall (the diamond sits right
+## under the rectangle, with a unit of bar below it) and TOKEN_PITCH * n + 1 wide
+## for n tokens, so a unit of bar shows at each end and between diamonds. Slots fill left to right.
 const TOKEN_SIZE := 3.0
 const TOKEN_PITCH := 4.0
-const TOKEN_GAP := 1.0
+const TAB_HEIGHT := 4.0
 ## Hearts per row before the rectangle wraps: each further row is its own
 ## rectangle under the token row. There is no heart cap, so it never runs off the
 ## screen.
 const WRAP := 30
-## From one rectangle's top to the next: the bar, the token row under the first
+## From one rectangle's top to the next: the bar, the token tab under the first
 ## and a clear unit before the next shadow.
 const ROW_STEP := 14.0
 const FLY_TIME := 0.35
@@ -57,7 +59,6 @@ const POP_TIME := 0.08
 const BLINK_TIME := 0.36
 const BLINK_STEP := 0.06
 const SWEEP_STEP := 0.05
-const BUMP_TIME := 0.1
 
 ## What the HUD shows now. They catch up with GameState through the animations.
 var shown_tokens := 0
@@ -70,7 +71,6 @@ var _grow := -1.0
 ## Effects by key ("t0" a token, "p3" a heart): {"kind": &"pop" or &"blink", "left": seconds}.
 var _effects := {}
 var _sweep := 0.0
-var _bump := 0.0
 var _canvas: Node2D
 
 
@@ -91,7 +91,6 @@ func sync() -> void:
 	_effects.clear()
 	_grow = -1.0
 	_sweep = 0.0
-	_bump = 0.0
 	shown_tokens = GameState.tokens
 	shown_max = GameState.max_health
 	shown_health = mini(GameState.health, shown_max)
@@ -111,11 +110,11 @@ func to_ui(world_position: Vector2) -> Vector2:
 	return (get_viewport().canvas_transform * world_position) / float(Display.RENDER_SCALE)
 
 
-## Token slot `index`'s centre, in UI units: the middle of its 3 x 3 diamond.
-## Slots fill left to right.
+## Token slot `index`'s centre, in UI units: the middle of its 3 x 3 diamond in the
+## tab. Slots fill left to right.
 func slot_centre(index: int) -> Vector2:
 	var slot := clampi(index, 0, GameState.TOKEN_CAP - 1)
-	return Vector2(ORIGIN.x + TOKEN_PITCH * float(slot) + 1.0, ORIGIN.y + BAR_HEIGHT + TOKEN_GAP + 1.0)
+	return Vector2(ORIGIN.x + TOKEN_PITCH * float(slot) + 2.0, ORIGIN.y + BAR_HEIGHT + 1.0)
 
 
 ## The rect of heart `index`, in UI units.
@@ -130,21 +129,20 @@ func pip_centre(index: int) -> Vector2:
 
 
 ## Everything the HUD covers, for a frame of `pips` hearts: the shadow, the
-## rectangle and the token row under the first one. The token row counts even when
-## no token is held, so the area never changes size, and so does the unit it
-## bumps down.
+## rectangle and the token tab under the first one. The tab counts at its full
+## size even when no token is held, so the area never changes size.
 func bounds(pips: int) -> Rect2:
 	var hearts := maxi(pips, 1)
 	var columns := mini(hearts, WRAP)
 	var rows := floori(float(hearts - 1) / WRAP) + 1
 	var corner := ORIGIN - Vector2.ONE * SHADOW_OFFSET
-	var width := maxf(PITCH * columns, TOKEN_PITCH * (GameState.TOKEN_CAP - 1) + TOKEN_SIZE)
-	var bottom := maxf(ROW_STEP * (rows - 1) + BAR_HEIGHT, BAR_HEIGHT + TOKEN_GAP + TOKEN_SIZE + 1.0)
+	var width := maxf(PITCH * columns, tab_width(GameState.TOKEN_CAP))
+	var bottom := maxf(ROW_STEP * (rows - 1) + BAR_HEIGHT, BAR_HEIGHT + TAB_HEIGHT)
 	return Rect2(corner, Vector2(width, bottom) + Vector2.ONE * SHADOW_OFFSET)
 
 
 func busy() -> bool:
-	return not flights.is_empty() or not _effects.is_empty() or _grow >= 0.0 or _bump > 0.0 \
+	return not flights.is_empty() or not _effects.is_empty() or _grow >= 0.0 \
 			or shown_tokens != _target_tokens() or shown_max != _target_max() or shown_health != _target_health()
 
 
@@ -181,7 +179,6 @@ func _process(delta: float) -> void:
 		_effects[key]["left"] -= delta
 		if _effects[key]["left"] <= 0.0:
 			_effects.erase(key)
-	_bump = maxf(0.0, _bump - delta)
 	_redraw()
 
 
@@ -189,7 +186,6 @@ func _step_tokens() -> void:
 	var target := _target_tokens()
 	while shown_tokens < target:
 		_effects["t%d" % shown_tokens] = {"kind": &"pop", "left": POP_TIME}
-		_bump = BUMP_TIME
 		shown_tokens += 1
 	while shown_tokens > target:
 		shown_tokens -= 1
@@ -253,43 +249,73 @@ func _fill_colour(key: String, held: bool) -> Color:
 
 
 func _draw_hud() -> void:
-	# The rectangle, one for each row of hearts, longer while a heart grows.
+	# The rectangle, one for each row of hearts, longer while a heart grows. Every
+	# shadow goes down before any bar, so the tab's shadow, which reaches up into the
+	# rectangle's bottom row, never paints over it.
 	var units := roundi(PITCH * float(shown_max)) + (roundi(PITCH * _grow) if _grow >= 0.0 else 0)
 	units = maxi(units, roundi(PITCH))
+	var frames: Array[Array] = []
 	var row := 0
 	while units > 0:
-		_draw_frame(row, mini(units, roundi(PITCH) * WRAP))
+		frames.append(frame_rects(row, mini(units, roundi(PITCH) * WRAP)))
 		units -= roundi(PITCH) * WRAP
 		row += 1
+	var tab := tab_rects(tab_slots())
+	if not tab.is_empty():
+		frames.append(tab)
+	for rects in frames:
+		_canvas.draw_rect(rects[0], SHADOW)
+	for rects in frames:
+		_canvas.draw_rect(rects[1], BAR)
 	for i in shown_max:
 		_draw_heart(i)
-	# Diamonds last, in the row under the rectangle. A spent token blinks its whole
+	# Diamonds last, in the tab under the rectangle. A spent token blinks its whole
 	# diamond and is gone; there is no empty one.
-	var bump := Vector2(0, 1) if _bump > 0.0 else Vector2.ZERO
 	for i in GameState.TOKEN_CAP:
 		var key := "t%d" % i
 		var held := i < shown_tokens
 		var blinking: bool = _effects.has(key) and _effects[key]["kind"] == &"blink"
 		if not held and not (blinking and _filled(key, false)):
 			continue
-		var at := slot_centre(i) + bump
-		PixelArt.draw(_canvas, "hud_token", at, _fill_colour(key, true) if held else GOLD)
+		PixelArt.draw(_canvas, "hud_token", slot_centre(i), _fill_colour(key, true) if held else GOLD)
 	for flight in flights:
 		_draw_flight(flight)
 
 
 ## One row's rectangle, `length` units of hearts long (9 for each), under its
-## shadow: the shadow first, then the bar, both as filled rects.
+## shadow: [shadow, bar] as rects.
 func frame_rects(row: int, length: int) -> Array[Rect2]:
 	var top_left := ORIGIN + Vector2(0, ROW_STEP * row)
 	var size := Vector2(float(length), BAR_HEIGHT)
 	return [Rect2(top_left - Vector2.ONE * SHADOW_OFFSET, size), Rect2(top_left, size)]
 
 
-func _draw_frame(row: int, length: int) -> void:
-	var rects := frame_rects(row, length)
-	_canvas.draw_rect(rects[0], SHADOW)
-	_canvas.draw_rect(rects[1], BAR)
+## The tab's width for `slots` token slots: a unit of bar at each end and between.
+func tab_width(slots: int) -> float:
+	return TOKEN_PITCH * float(slots) + 1.0
+
+
+## How many slots the tab holds this frame: the tokens shown, and any spent one
+## still blinking, so the tab shrinks only once the blink is over.
+func tab_slots() -> int:
+	var slots := shown_tokens
+	for i in range(shown_tokens, GameState.TOKEN_CAP):
+		if _effects.has("t%d" % i) and _effects["t%d" % i]["kind"] == &"blink":
+			slots = i + 1
+	return slots
+
+
+## The tab under the first rectangle, [shadow, bar] like `frame_rects`: flush under
+## the bar, level with its left edge, `slots` wide. Empty when there are none.
+func tab_rects(slots: int) -> Array[Rect2]:
+	var rects: Array[Rect2] = []
+	if slots <= 0:
+		return rects
+	var top_left := ORIGIN + Vector2(0, BAR_HEIGHT)
+	var size := Vector2(tab_width(slots), TAB_HEIGHT)
+	rects.append(Rect2(top_left - Vector2.ONE * SHADOW_OFFSET, size))
+	rects.append(Rect2(top_left, size))
+	return rects
 
 
 ## How heart `index` is drawn: the picture and its colour, from its fill

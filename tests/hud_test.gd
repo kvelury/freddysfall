@@ -40,9 +40,10 @@ func _run() -> void:
 	check(state.tokens == 1 and hud.flights.size() == 1, "taking a token starts one flight")
 	check(hud.flights[0]["from"] == from and hud.flights[0]["to"] == hud.slot_centre(0), "it flies from the token to the first diamond")
 	await process_frame
-	check(hud.shown_tokens == 0, "no diamond appears while it flies")
+	check(hud.shown_tokens == 0 and hud.tab_slots() == 0, "no diamond and no tab appear while it flies")
 	await _settle(hud)
 	check(hud.shown_tokens == 1 and hud.flights.is_empty(), "the diamond appears when it lands")
+	check(hud.tab_slots() == 1, "the tab appears with the first token")
 
 	# A full pocket leaves the token, so nothing flies.
 	state.tokens = state.TOKEN_CAP
@@ -59,7 +60,9 @@ func _run() -> void:
 	state.spend_token()
 	await process_frame
 	check(hud.shown_tokens == 2 and hud._effects.has("t2"), "a spent token blinks its diamond out")
+	check(hud.tab_slots() == 3, "the tab keeps the spent slot while it blinks")
 	await _settle(hud)
+	check(hud.tab_slots() == 2, "the tab shrinks once the blink is over")
 
 	# A health pip flies to a new heart at the end of the frame, which grows to take it.
 	world.warp_to("7")
@@ -129,12 +132,19 @@ func _layout(hud: Node) -> void:
 	var heart0: Rect2 = hud.pip_rect(0)
 	check(heart0.position.x - rects[1].position.x == 1.0 and rects[1].end.x - heart0.end.x == 1.0 and heart0.position.y - rects[1].position.y == 1.0 and rects[1].end.y - heart0.end.y == 1.0, "a heart has one unit of bar on every side")
 	check(hud.frame_rects(0, 9 * 5)[1].size.x == 45.0, "five hearts make the rectangle 45 units wide")
-	check(hud.slot_centre(0) == origin + Vector2(1, 10), "slot 0's diamond sits level with the rectangle's left edge, one clear unit under it")
-	check(hud.slot_centre(1) - hud.slot_centre(0) == Vector2(4, 0) and hud.slot_centre(2) - hud.slot_centre(0) == Vector2(8, 0), "slots 1 and 2 follow to the right, 4 units apart, so a unit of black shows between diamonds")
-	check(hud.slot_centre(0).y - 1.0 == rects[1].end.y + 1.0, "the token row is one unit under the bar")
-	check(H.ROW_STEP >= H.BAR_HEIGHT + H.TOKEN_GAP + H.TOKEN_SIZE + 2.0, "a wrapped rectangle's shadow clears the token row")
+	check(hud.slot_centre(0) == origin + Vector2(2, 9), "slot 0's diamond sits in the tab, one unit in from the rectangle's left edge and right under its bottom")
+	check(hud.slot_centre(1) - hud.slot_centre(0) == Vector2(4, 0) and hud.slot_centre(2) - hud.slot_centre(0) == Vector2(8, 0), "slots 1 and 2 follow to the right, 4 units apart, so a unit of bar shows between diamonds")
+	check(hud.tab_rects(0).is_empty(), "with no token held there is no tab")
+	for n in [1, 2, 3]:
+		var tab: Array[Rect2] = hud.tab_rects(n)
+		check(tab[1] == Rect2(origin + Vector2(0, 8), Vector2(4 * n + 1, 4)), "%d token(s) make a tab %d units wide and 4 tall, flush under the bar and level with its left edge" % [n, 4 * n + 1])
+		check(tab[0] == Rect2(tab[1].position - Vector2.ONE, tab[1].size), "the tab's shadow is one unit up and left, like the rectangle's")
+		var last: Vector2 = hud.slot_centre(n - 1)
+		check(last.x - 1.0 == tab[1].position.x + 1.0 + 4.0 * (n - 1) and tab[1].end.x - (last.x + 2.0) == 1.0, "the last diamond has one unit of bar before and after it")
+		check(last.y - 1.0 == tab[1].position.y and tab[1].end.y - (last.y + 2.0) == 1.0, "a diamond sits right under the rectangle, with one unit of bar below it")
+	check(H.ROW_STEP >= H.BAR_HEIGHT + H.TAB_HEIGHT + 2.0, "a wrapped rectangle's shadow clears the tab by a unit")
 	check(hud.bounds(0) == hud.bounds(1) and hud.bounds(0).position == origin - Vector2.ONE, "the bounds start at the shadow, with no hearts or tokens")
-	check(hud.bounds(1).end.y == origin.y + 8.0 + 1.0 + 3.0 + 1.0, "the bounds cover the token row, held or not, and its one unit bump")
+	check(hud.bounds(1).end == origin + Vector2(13, 12), "the bounds cover the full three-token tab, held or not, which is wider than a one-heart rectangle")
 	check(hud.bounds(4).end.x == origin.x + 9.0 * 4, "four hearts make the rectangle 9 units longer each")
 	check(hud.bounds(31).end.y == origin.y + H.ROW_STEP + H.BAR_HEIGHT, "a wrapped rectangle's bounds reach the second rectangle's bottom")
 	check(hud.bounds(100).end.x < 320.0 and hud.bounds(100).end.y < 180.0, "a long rectangle stays on the screen")
