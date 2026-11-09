@@ -35,6 +35,7 @@ Nobody has played this yet. `?dev=1&room=12`, then F2 for Tongue Lash, double ju
 - [ ] **Early presses.** Press X again just before a lash is back in: the next lash comes at once, with no second press. Mashing X lashes no faster than before.
 - [ ] **Hang, jump, up-lash.** Lash to a wall, hang, jump and press W+X straight away: the up-lash fires every time. Pressing W+X during the hang and then jumping does the same.
 - [ ] **Ceiling drop.** Hang from a ceiling, jump to drop and press W+X: it lashes up again.
+- [ ] **The tongue reads on the wall.** Hang from a wall, pressed to it and from a distance, and from a ceiling and a breakable wall, at 1x in the browser: the pink tongue always shows a little way into the wall or ceiling, and a plain tap-lash looks as before.
 - [ ] **The tongue snaps in.** Jumping off a hang, the tongue vanishes into the mouth; when a hang runs out it still eases back.
 - [ ] **No stale lash.** Press X twice quickly (the second is kept), then at once enter a door, open the pause menu (Esc), the map (Tab) or the dev panel (F2), or die: nothing is lashed afterwards. Against a wall, X X on the beat lashes twice, not three times.
 
