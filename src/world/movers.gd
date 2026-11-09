@@ -152,6 +152,11 @@ func hazard(index: int) -> bool:
 	return paths[_owner[index]].is_hazard(_local[index])
 
 
+## Whether movers `a` and `b` (indexes into `paths`) turn as one body.
+func rigid(a: int, b: int) -> bool:
+	return a != b and paths[a].rigid_with(paths[b])
+
+
 ## Whether body `index` is a turned shape (see `Mover.smooth`).
 func smooth(index: int) -> bool:
 	return paths[_owner[index]].smooth()

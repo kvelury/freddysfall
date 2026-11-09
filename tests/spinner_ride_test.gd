@@ -185,6 +185,8 @@ func _bar(cfg: MovementConfig) -> void:
 	check(squeezed, "a body squeezed between the bar and a pit is crushed")
 	_low_ceiling(cfg, bar, movers)
 	_steep_landing(cfg, bar, movers)
+	_underside(cfg, bar, movers)
+	_inherit(cfg, bar, movers)
 
 
 func _on_bar(movers: Movers, at: Vector2) -> MovementSim.State:
@@ -232,3 +234,48 @@ func _steep_landing(cfg: MovementConfig, bar: SpinnerPath, movers: Movers) -> vo
 	check(steep and not s.grounded and s.air_left == 0 and s.riding < 0, "a body landing on a face steeper than 60 degrees is not grounded and gets no air jump back (steep %s, grounded %s, air left %d)" % [steep, s.grounded, s.air_left])
 	MovementSim.step(cfg, s, [] as Array, 0.0, true, true, DT, movers, tick + 1)
 	check(not s.jumped, "and it cannot ground jump off that face")
+
+
+## A bar turning down onto a body that is under it: the body is pushed down and
+## clear of the bar's pixels, never snapped up onto them (review on PR #92).
+func _underside(cfg: MovementConfig, bar: SpinnerPath, movers: Movers) -> void:
+	var s := MovementSim.State.new()
+	s.position = Vector2(113.0, 105.5)
+	var up_jump := false
+	var inside := false
+	for tick in range(0, 25):
+		var before := s.position
+		MovementSim.step(cfg, s, [] as Array, 0.0, false, false, DT, movers, tick)
+		if s.crushed:
+			break
+		up_jump = up_jump or s.position.y < before.y - 1.0
+		var box := Rect2(s.position - MovementSim.HALF, MovementSim.HALF * 2.0)
+		for r in movers.rects(tick + 1):
+			inside = inside or r.intersects(box)
+	check(not up_jump and not inside, "a bar turning down onto a body pushes it clear, never up through itself (jumped up %s, inside %s)" % [up_jump, inside])
+
+
+## What a body inherits from the bar it leaves does not depend on how hard it
+## jumps: it is the bar's motion at the feet where it stood (review on PR #92).
+func _inherit(cfg: MovementConfig, bar: SpinnerPath, movers: Movers) -> void:
+	var speeds: Array[float] = []
+	for jump in [cfg.jump_speed, cfg.jump_speed * 2.0]:
+		var c := cfg.duplicate() as MovementConfig
+		c.inherit_platform_velocity = true
+		c.jump_speed = jump
+		var s := MovementSim.State.new()
+		s.position = Vector2(125.0, 75.0)
+		s.grounded = true
+		s.riding = movers.body_under(movers.rects(0)[0], 0)
+		MovementSim.step(c, s, [] as Array, 0.0, true, true, DT, movers, 0)
+		speeds.append(s.velocity.x)
+	var want := movers.carry_of(movers.body_under(movers.rects(0)[0], 0), 0, Vector2(125.0, 80.0)).x / DT
+	check(absf(speeds[0] - speeds[1]) < 0.01 and absf(speeds[0] - want) < 0.01, "the speed inherited leaving the bar is the bar's at the feet, whatever the jump (%.2f, %.2f, want %.2f)" % [speeds[0], speeds[1], want])
+	var off := cfg.duplicate() as MovementConfig
+	off.inherit_platform_velocity = false
+	var s2 := MovementSim.State.new()
+	s2.position = Vector2(125.0, 75.0)
+	s2.grounded = true
+	s2.riding = movers.body_under(movers.rects(0)[0], 0)
+	MovementSim.step(off, s2, [] as Array, 0.0, true, true, DT, movers, 0)
+	check(absf(s2.velocity.x) < 0.01, "with inheritance off, leaving the bar keeps only the body's own speed (%.2f)" % s2.velocity.x)

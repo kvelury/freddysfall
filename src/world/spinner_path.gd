@@ -306,6 +306,13 @@ func carry_at(tick: int, _body: int, point: Vector2) -> Vector2:
 	return (point - pivot).rotated(turn) + pivot - point
 
 
+func rigid_with(other: Mover) -> bool:
+	if not other is SpinnerPath:
+		return false
+	var spinner: SpinnerPath = other
+	return spinner.pivot == pivot and spinner.period_ticks == period_ticks and spinner.clockwise == clockwise
+
+
 ## The top left corner of body `body` relative to the pivot, in the starting pose.
 func local_origin_of(body: int) -> Vector2:
 	var cell := float(Grid.CELL)

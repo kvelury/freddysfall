@@ -111,3 +111,10 @@ func stand_spots(tick: int, body := 0) -> Array[Vector2]:
 		out.append(Vector2(rect.position.x + (float(x) + 0.5) * cell, rect.position.y))
 	out.append(Vector2(rect.end.x + cell * 0.5 - 0.01, rect.position.y))
 	return out
+
+
+## Whether this mover turns or moves as one body with `other` (a spinner that
+## shares a pivot, period and direction with it), so neither pushes a body that
+## is standing on the other.
+func rigid_with(_other: Mover) -> bool:
+	return false

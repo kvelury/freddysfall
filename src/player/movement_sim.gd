@@ -115,6 +115,11 @@ static func step(
 	tick := 0
 ) -> void:
 	var was_riding := s.riding
+	# What leaving the mover it stands on would hand on: its motion at the feet
+	# where the body stood, before this tick's own movement changes where they are.
+	var inherited := Vector2.ZERO
+	if was_riding >= 0 and cfg.inherit_platform_velocity and movers != null and was_riding < movers.size():
+		inherited = movers.carry_of(was_riding, tick, s.position + Vector2(0.0, HALF.y))
 	s.released = false
 	s.left_by_jump = false
 	s.climb_swept = Rect2()
@@ -168,7 +173,7 @@ static func step(
 	# Off a platform and into the air: the body keeps only its own velocity,
 	# unless the platform's is to be added.
 	if was_riding >= 0 and not s.grounded and cfg.inherit_platform_velocity:
-		s.velocity += movers.carry_of(was_riding, tick, s.position + Vector2(0.0, HALF.y)) / delta
+		s.velocity += inherited / delta
 
 
 ## Starts a climb for a body whose tongue stuck at `tip` in direction `dir` (a
@@ -364,6 +369,7 @@ static func move_with(s: State, rects: Array, movers: Movers, tick: int) -> void
 		if movers.smooth(s.riding):
 			s.position = _settle(s.position, movers, tick + 1)
 	var near := Rect2(s.position - HALF, HALF * 2.0).grow(PUSH_SKIN + 1.0)
+	var pushed := Vector2.ZERO
 	for i in movers.size():
 		if i == s.riding or movers.hazard(i) or not movers.alive(i, tick + 1):
 			continue
@@ -371,13 +377,17 @@ static func move_with(s: State, rects: Array, movers: Movers, tick: int) -> void
 		if not after.intersects(near):
 			continue
 		if movers.smooth(i):
-			# A block of the bar the body stands on does not push it.
-			if movers.mover_of(i) == ridden:
+			# A block of the bar the body stands on (or of one that turns with it)
+			# does not push it.
+			if movers.mover_of(i) == ridden or (ridden >= 0 and movers.rigid(movers.mover_of(i), ridden)):
 				continue
 			var out := movers.push_of(i, tick + 1, s.position)
-			if out.length() <= PUSH_SKIN:
+			if out == Vector2.ZERO:
 				continue
 			s.position = _shift(s.position, out, rects)
+			pushed = out.normalized()
+			# Squeezed only if what is left of the push cannot be cleared (the
+			# skin is the pixels being a little off the exact block).
 			if movers.push_of(i, tick + 1, s.position).length() > PUSH_SKIN:
 				s.crushed = true
 			continue
@@ -387,8 +397,35 @@ static func move_with(s: State, rects: Array, movers: Movers, tick: int) -> void
 		s.position = _shift(s.position, push, rects)
 		if _overlaps(s.position, HALF, after):
 			s.crushed = true
+	_clear_pixels(s, rects, movers, tick + 1, ridden, pushed)
 	if s.position != start and _blocked(s.position, HALF, rects, Vector2.ZERO):
 		s.crushed = true
+
+
+## What is left of a body overlapping the pixels of a turning bar it is not on
+## (the pixels reach up to a pixel past the exact block, and `_resolve` would
+## take the overlap for a landing on top of the row): it is moved out of them, a
+## pixel at a time, the way it was pushed or away from them, up to a few pixels.
+static func _clear_pixels(s: State, rects: Array, movers: Movers, tick: int, ridden: int, pushed: Vector2) -> void:
+	for _step in 3:
+		var box := Rect2(s.position - HALF, HALF * 2.0)
+		var centre := Vector2.ZERO
+		var count := 0
+		for run in movers.smooth_near(tick, box):
+			var owner := movers.mover_of(movers.body_under(run, tick))
+			if owner == ridden or (ridden >= 0 and movers.rigid(owner, ridden)) or not _overlaps(s.position, HALF, run):
+				continue
+			centre += run.get_center()
+			count += 1
+		if count == 0:
+			return
+		var away := pushed
+		if away == Vector2.ZERO:
+			away = (s.position - centre / float(count)).normalized()
+		var moved := _shift(s.position, away, rects)
+		if moved == s.position:
+			return
+		s.position = moved
 
 
 ## A body carried on a turning bar, set down on the highest pixel row under it
