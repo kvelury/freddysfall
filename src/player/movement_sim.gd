@@ -135,11 +135,23 @@ static func step(
 		extra = movers.rects_near(tick + 1, _near_box(cfg, s, delta))
 	_integrate(cfg, s, input_x, jump_pressed, jump_held, delta)
 	if movers != null and not movers.is_empty():
-		_step_up(s, movers, tick + 1, delta)
+		_step_up(s, rects, movers, tick + 1, delta)
 	s.position = corner_correct(cfg, s.position, s.velocity, s.grounded, rects, delta, extra)
 	_resolve(s, rects, extra, delta)
 	if movers != null and not movers.is_empty() and was_riding >= 0 and movers.smooth(was_riding):
 		_stay_down(s, rects, movers, tick + 1)
+	if movers != null and not movers.is_empty() and not s.crushed and _blocked(s.position, HALF, rects, Vector2.ZERO):
+		# A block of a mover set the body down inside a wall or ceiling (the push
+		# from the block and the wall's own stop disagree): it is squeezed, not
+		# somewhere to be resolved sideways next tick.
+		s.crushed = true
+	if s.grounded and movers != null and not movers.is_empty():
+		# A face steeper than 60 degrees (or turned over) still stops a fall but is
+		# not ground: no landing reset, no ground jump.
+		var held := movers.body_under(s.floor_rect, tick + 1)
+		if held >= 0 and not movers.rideable(held, tick + 1):
+			s.grounded = false
+			s.floor_rect = Rect2()
 	s.riding = -1
 	if s.grounded:
 		s.launched = false
@@ -398,7 +410,7 @@ static func _settle(position: Vector2, movers: Movers, tick: int) -> Vector2:
 ## A body walking on the pixels of a turning bar that the next step of walking
 ## runs into a rise of: it is lifted up by the rise, up to STEP_UP, so it climbs
 ## the bar instead of stopping at each row.
-static func _step_up(s: State, movers: Movers, tick: int, delta: float) -> void:
+static func _step_up(s: State, rects: Array, movers: Movers, tick: int, delta: float) -> void:
 	if not s.grounded or s.velocity.y < 0.0 or absf(s.velocity.x) < 0.01 or s.climb != CLIMB_NONE:
 		return
 	var target := s.position + Vector2(s.velocity.x * delta, 0.0)
@@ -408,7 +420,8 @@ static func _step_up(s: State, movers: Movers, tick: int, delta: float) -> void:
 		return
 	var all := movers.rects_near(tick, box)
 	for n in range(1, int(STEP_UP) + 1):
-		if not _blocked(target + Vector2(0.0, -float(n)), HALF, all, Vector2.ZERO):
+		# Clear of the room's solids as well as the bar, as corner_correct looks.
+		if not _blocked(target + Vector2(0.0, -float(n)), HALF, rects, Vector2.ZERO, all) and not _blocked(s.position + Vector2(0.0, -float(n)), HALF, rects, Vector2.ZERO):
 			s.position.y -= float(n)
 			return
 

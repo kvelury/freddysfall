@@ -183,6 +183,8 @@ func _bar(cfg: MovementConfig) -> void:
 		MovementSim.step(cfg, s, floor_rects, 0.0, false, false, DT, movers, tick)
 		squeezed = squeezed or s.crushed
 	check(squeezed, "a body squeezed between the bar and a pit is crushed")
+	_low_ceiling(cfg, bar, movers)
+	_steep_landing(cfg, bar, movers)
 
 
 func _on_bar(movers: Movers, at: Vector2) -> MovementSim.State:
@@ -191,3 +193,42 @@ func _on_bar(movers: Movers, at: Vector2) -> MovementSim.State:
 	s.grounded = true
 	s.riding = movers.body_under(movers.rects(0)[0], 0)
 	return s
+
+
+## Walking uphill under a low ceiling: the lift onto the next rise is refused
+## where the ceiling is in the way, so the body never overlaps it and never jumps
+## sideways (review on PR #92).
+func _low_ceiling(cfg: MovementConfig, bar: SpinnerPath, movers: Movers) -> void:
+	for gap in [0.0, 1.0, 2.0, 3.0]:
+		var s := _on_bar(movers, Vector2(bar.pivot.x - 30.0, bar.rect_at(0, 10).position.y - 5.0))
+		for tick in 10:
+			MovementSim.step(cfg, s, [] as Array, 0.0, false, false, DT, movers, tick)
+		# A ceiling `gap` px over the head, from far left of the body to far right.
+		var ceiling := Rect2(bar.pivot.x - 200.0, s.position.y - 5.0 - gap - 10.0, 400.0, 10.0)
+		var rects: Array = [ceiling]
+		var inside := false
+		var jumped := false
+		for tick in range(10, 60):
+			var before := s.position
+			MovementSim.step(cfg, s, rects, 1.0, false, true, DT, movers, tick)
+			if s.crushed:
+				break
+			inside = inside or Rect2(s.position - MovementSim.HALF, MovementSim.HALF * 2.0).intersects(ceiling)
+			jumped = jumped or absf(s.position.x - before.x) > 3.0
+		check(not inside and not jumped, "walking uphill under a ceiling %.0f px over the head never enters it or jumps sideways (inside %s, jumped %s)" % [gap, inside, jumped])
+
+
+## Landing from the air on a face steeper than 60 degrees is not landing: no
+## air jump is given back and no ground jump is offered (review on PR #92).
+func _steep_landing(cfg: MovementConfig, bar: SpinnerPath, movers: Movers) -> void:
+	var s := MovementSim.State.new()
+	s.air_jumps = 1
+	s.air_left = 0
+	s.position = Vector2(135.25, 99.0)
+	s.velocity = Vector2(0.0, 100.0)
+	var tick := 49
+	var steep := not movers.rideable(3, tick + 1)
+	MovementSim.step(cfg, s, [] as Array, 0.0, false, false, DT, movers, tick)
+	check(steep and not s.grounded and s.air_left == 0 and s.riding < 0, "a body landing on a face steeper than 60 degrees is not grounded and gets no air jump back (steep %s, grounded %s, air left %d)" % [steep, s.grounded, s.air_left])
+	MovementSim.step(cfg, s, [] as Array, 0.0, true, true, DT, movers, tick + 1)
+	check(not s.jumped, "and it cannot ground jump off that face")
