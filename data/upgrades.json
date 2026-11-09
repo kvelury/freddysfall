@@ -18,8 +18,8 @@
     "name": "Tongue Lash",
     "stat": "tongue_unlocked",
     "kind": "unlock",
-    "message": "Tongue Lash. Lash your tongue.",
-    "controls": ["lash"],
+    "message": "Tongue Lash. Lash your tongue. Destroy breakable walls.",
+    "controls": ["lash", "lash_walls"],
     "dev": {
       "section": "lash",
       "type": "bool"
@@ -168,8 +168,8 @@
     "name": "Tongue Climb",
     "stat": "tongue_climb",
     "kind": "unlock",
-    "message": "Tongue Climb. Hold the lash to stick to a wall.",
-    "controls": ["lash"],
+    "message": "Tongue Climb. Hold the button to stick to a wall.",
+    "controls": ["climb"],
     "dev": {
       "section": "climb",
       "type": "bool"

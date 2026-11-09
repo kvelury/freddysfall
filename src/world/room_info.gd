@@ -138,6 +138,18 @@ func variant(broken_ids: Array[String]) -> RoomInfo:
 	out.movers = movers
 	out.emitters = emitters
 	out.spinners = spinners
+	if broken_ids.any(func(wall_id: String) -> bool: return not wall_id.is_empty() and breakable_arm(wall_id) != null):
+		# An arm that is broken stands nowhere, in the same place in the list.
+		# One broken copy each, shared by the two lists.
+		var copies := {}
+		for spinner in spinners:
+			copies[spinner] = _unless_broken(spinner, broken_ids)
+		out.movers = []
+		for mover in movers:
+			out.movers.append(copies.get(mover, mover))
+		out.spinners = []
+		for spinner in spinners:
+			out.spinners.append(copies[spinner] as SpinnerPath)
 	out.exit_rule = exit_rule
 	out.traps_allowed = traps_allowed
 	out.breakables = breakables
@@ -145,6 +157,29 @@ func variant(broken_ids: Array[String]) -> RoomInfo:
 	out.broken = broken_ids.duplicate()
 	out.base_id = base_id
 	return out
+
+
+## The breakable spinner arm with id `arm_id`, or null.
+func breakable_arm(arm_id: String) -> SpinnerPath:
+	for spinner in spinners:
+		if spinner.breakable and spinner.id == arm_id:
+			return spinner
+	return null
+
+
+## Every breakable spinner arm of the room, broken or not.
+func breakable_arms() -> Array[SpinnerPath]:
+	var out: Array[SpinnerPath] = []
+	for spinner in spinners:
+		if spinner.breakable:
+			out.append(spinner)
+	return out
+
+
+func _unless_broken(mover: Mover, broken_ids: Array[String]) -> Mover:
+	if mover is SpinnerPath and (mover as SpinnerPath).breakable and broken_ids.has(mover.id):
+		return (mover as SpinnerPath).broken_copy()
+	return mover
 
 
 ## The id of the room as loaded: `id` itself, or for a solver variant the room it

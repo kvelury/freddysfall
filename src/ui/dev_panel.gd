@@ -205,8 +205,8 @@ func _build_player(body: VBoxContainer) -> void:
 	_button(pips, "Refill", func() -> void: _fields["health"].text = _fields["max_health"].text)
 	_button(pips, "Empty hearts", func() -> void: _fields["health"].text = "0")
 	_button(pips, "Reset hearts", func() -> void:
-		_fields["health"].text = "1"
-		_fields["max_health"].text = "1")
+		_fields["health"].text = str(Progression.BASE_HEALTH)
+		_fields["max_health"].text = str(Progression.BASE_HEALTH))
 	var lash: VBoxContainer = _sections["lash"]
 	var wall_row := HBoxContainer.new()
 	lash.add_child(wall_row)

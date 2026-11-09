@@ -79,20 +79,27 @@ func _process(delta: float) -> void:
 
 func _draw() -> void:
 	var flashing := _flash > 0.0
+	for cell in cells:
+		paint_cell(self, Grid.cell_to_world(cell), cell, stage(), flashing)
+
+
+## One cracked cell, with its top left at `origin`: white (black while a lash
+## flashes it), with a crack for each step of damage. `key` picks which cracks, so
+## neighbouring cells do not tile. A breakable spinner arm paints its blocks the
+## same way.
+static func paint_cell(canvas: CanvasItem, origin: Vector2, key: Vector2i, stage: int, flashing: bool) -> void:
 	var ink := Color.WHITE if flashing else Color.BLACK
 	var base := Color.BLACK if flashing else Color.WHITE
-	for cell in cells:
-		var origin := Grid.cell_to_world(cell)
-		draw_rect(Rect2(origin, Vector2(Grid.CELL, Grid.CELL)), base)
-		var variant := (cell.x * 7 + cell.y * 13) % 4
-		for crack in stage() + 1:
-			_crack(origin, (variant + crack * 2) % 4, crack, ink)
+	canvas.draw_rect(Rect2(origin, Vector2(Grid.CELL, Grid.CELL)), base)
+	var variant := posmod(key.x * 7 + key.y * 13, 4)
+	for crack in stage + 1:
+		_crack(canvas, origin, (variant + crack * 2) % 4, crack, ink)
 
 
 ## One jagged crack across a cell, a pixel wide, as short straight runs. The
 ## shape depends on `variant` (0 to 3) so neighbouring cells do not tile;
 ## `crack` picks where the crack starts, so each stage adds new ones.
-func _crack(origin: Vector2, variant: int, crack: int, ink: Color) -> void:
+static func _crack(canvas: CanvasItem, origin: Vector2, variant: int, crack: int, ink: Color) -> void:
 	var paths := [
 		[Vector2(3, 0), Vector2(4, 3), Vector2(2, 5), Vector2(5, 7), Vector2(4, 9)],
 		[Vector2(7, 0), Vector2(6, 2), Vector2(8, 4), Vector2(6, 7), Vector2(7, 9)],
@@ -104,12 +111,12 @@ func _crack(origin: Vector2, variant: int, crack: int, ink: Color) -> void:
 		# A mirrored path, so a second crack in a cell is not a copy of the first.
 		points = points.map(func(p: Vector2) -> Vector2: return Vector2(9.0 - p.x, p.y))
 	for i in points.size() - 1:
-		_line(origin, points[i], points[i + 1], ink)
+		_line(canvas, origin, points[i], points[i + 1], ink)
 
 
 ## Pixels along a straight line between two points in a cell.
-func _line(origin: Vector2, from: Vector2, to: Vector2, ink: Color) -> void:
+static func _line(canvas: CanvasItem, origin: Vector2, from: Vector2, to: Vector2, ink: Color) -> void:
 	var steps := int(maxf(absf(to.x - from.x), absf(to.y - from.y)))
 	for i in steps + 1:
 		var at := from.lerp(to, float(i) / float(maxi(steps, 1))).round()
-		draw_rect(Rect2(origin + at, Vector2.ONE), ink)
+		canvas.draw_rect(Rect2(origin + at, Vector2.ONE), ink)

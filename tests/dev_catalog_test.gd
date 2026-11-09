@@ -76,10 +76,10 @@ func _initialize() -> void:
 	sample["max_health"] = -1
 	check(sample.has("max_health") and not DevCatalog.validate(sample).is_empty(), "the frame length is a resource and cannot go below zero")
 	sample["max_health"] = 0
-	check(DevCatalog.RESOURCES["max_health"]["min"] == 1 and not DevCatalog.validate(sample).is_empty(), "max hearts has a minimum of 1")
+	check(DevCatalog.RESOURCES["max_health"]["min"] == Progression.BASE_HEALTH and not DevCatalog.validate(sample).is_empty(), "max hearts has a minimum of the base")
 	var pre_bar := DevCatalog.reconcile({"abilities": {}, "tokens": 1, "health": 3})
 	check(pre_bar["error"].is_empty() and pre_bar["loadout"]["max_health"] == 3, "a loadout from before the frame length still loads")
-	check(DevCatalog.reconcile({"abilities": {}, "tokens": 0, "health": 0, "max_health": 0})["loadout"]["max_health"] == 1, "an old loadout with max hearts 0 becomes 1")
+	check(DevCatalog.reconcile({"abilities": {}, "tokens": 0, "health": 0, "max_health": 0})["loadout"]["max_health"] == Progression.BASE_HEALTH, "an old loadout with max hearts 0 becomes the base")
 	check(DevCatalog.with_loadout({}, pre_bar["loadout"])["max_health"] == 3, "and its bar is as long as its pips")
 	check(DevCatalog.capture({"abilities": {}, "tokens": 0, "health": 2, "max_health": 5})["max_health"] == 5, "a capture keeps the bar's empty pips")
 	var progression := {"flags": ["pickup:keep"], "machines": {"m": 2}}

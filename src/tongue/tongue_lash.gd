@@ -484,6 +484,14 @@ func _hit() -> bool:
 	var at := tip()
 	var size := TIP_UP if up else TIP
 	var box := Rect2(at - size * 0.5, size)
+	var arm := room.arm_at(box)
+	if arm >= 0:
+		room.hit_arm(arm, DevSession.wall_strength())
+		_puff(at)
+		_struck = true
+		# A turning arm is a moving surface, which nothing hangs from (as with
+		# a moving platform), so it is not climbable and `_struck_wall` stays off.
+		return true
 	var wall := room.wall_at(box)
 	if wall != null:
 		var broke := room.hit_wall(wall, DevSession.wall_strength())

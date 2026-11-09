@@ -30,7 +30,12 @@ func _controls_data() -> bool:
 	var abilities := Abilities.new()
 	abilities.air_jumps = 1
 	abilities.tongue_unlocked = true
-	ok = check(_ids(Controls.visible_rows(abilities)) == ["move", "jump", "double_jump", "look_up", "look_down", "lash", "lash_up", "map", "map_zoom", "pause"], "owned powers add their rows (%s)" % [_ids(Controls.visible_rows(abilities))]) and ok
+	ok = check(_ids(Controls.visible_rows(abilities)) == ["move", "jump", "double_jump", "look_up", "look_down", "lash", "lash_walls", "lash_up", "map", "map_zoom", "pause"], "owned powers add their rows (%s)" % [_ids(Controls.visible_rows(abilities))]) and ok
+	abilities.tongue_climb = true
+	ok = check(_ids(Controls.visible_rows(abilities)).has("climb") and Controls.get_row("climb")["label"] == "Hold the button to stick to a wall", "Tongue Climb adds a row that says to hold the button (%s)" % [_ids(Controls.visible_rows(abilities))]) and ok
+	ok = check(Upgrades.get_def("tongue_climb").controls == ["climb"] and Upgrades.get_def("tongue_lash").controls == ["lash", "lash_walls"], "the popups show those rows (climb; lash and destroy breakable walls)") and ok
+	ok = check(Controls.get_row("lash_walls")["label"] == "Destroy breakable walls", "Tongue Lash's popup says it destroys breakable walls") and ok
+	abilities.tongue_climb = false
 	ok = check(Controls.key_groups(Controls.get_row("lash_up")) == [["W", "X"], ["Up", "X"]], "lash up is W + X / Up + X (%s)" % [Controls.key_groups(Controls.get_row("lash_up"))]) and ok
 	ok = check(Controls.key_groups(Controls.get_row("jump")) == [["Space"]], "jump is Space") and ok
 	return ok

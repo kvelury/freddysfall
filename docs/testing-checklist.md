@@ -22,7 +22,8 @@ Nobody has played these yet. `?dev=1&room=s3`, `?dev=1&room=10`, `?dev=1&room=s2
 - [ ] **s3's token.** It sits on the middle platform (row 9). Take it on the way up to room 9, and the save machine still works with it there.
 - [ ] **Room 10's corner token.** Drop to room 10's floor, take the token in the bottom right corner, and ride lift 1 back up.
 - [ ] **Room 9's 3TM.** With room 8's, s3's and room 10's tokens it gives Tongue Lash, and room 9 has no token of its own any more.
-- [ ] **s2's walled door.** Without Tongue Lash the left door cannot be reached (no jumping over the roof). With it (F2), two lashes from the floor break the wall and the door leads to room 12. Coming back, the wall has grown back and is lashed again from the doorway.
+- [ ] **s2's walled door.** Without Tongue Lash the left door cannot be reached (no jumping over the roof, which now runs over cols 0–7). With it (F2), two lashes from the floor break the wall (now at col 7, so lash from the machine's side) and the door leads to room 15. Coming back, the wall has grown back and is lashed again from the doorway.
+- [ ] **s2's heart.** Enter from room 15 and walk to the heart between the door and the wall (col 5, two cells left of the wall): it adds a heart to the frame, and you can take it before leaving. From the machine's side the wall hides it until the wall is broken. Coming back later, the heart you took stays taken.
 
 ## Lash input leniency
 
@@ -41,19 +42,31 @@ Nobody has played this yet. `?dev=1&room=12`, then F2 for Tongue Lash, double ju
 
 Nobody has played this yet. `?dev=1&room=12`, then F2 for Tongue Lash and double jump.
 
-- [ ] **The ride.** A cracked platform comes out of the machine on the right every 3 s and runs left. It breaks in a burst of shards at the spikes on the pillar, and a rider falls. The tongue does not break it. Is 3 s the right gap, and 40 px/s the right speed?
+- [ ] **The ride.** A cracked platform comes out of the machine on the right every 3 s and runs left. It runs the whole way left over the spike floor (row 30, to col 2) and breaks in a burst of shards on the wall spikes, and a rider falls there, onto the spike floor unless they steer down the clear col 2. The tongue does not break it. Is 3 s the right gap, and 40 px/s the right speed?
 - [ ] **The first plug.** Riding it, hold Up or W and press X twice: the lash breaks the plug in the slab over the track. Is there time to do it before the platform runs out, and is it fair that a jump off the platform leaves its speed behind?
 - [ ] **The second plug.** From the ledge you reach, lash up again, then climb to the long ledge on top.
 - [ ] **The spinner.** It turns counter-clockwise once every 8 s. Its bottom row and top-left half are spikes (they kill); the top-right half is safe and carries you. Can you land on the safe half, ride it up, and jump off to the upper-left ledge? Is 8 s right?
-- [ ] **The doors.** The upper-left door leads to room 13 and the bottom-left door to room 14. The way down the left wall past the wall spikes to the bottom-left door is one way.
-- [ ] **The three tokens.** One on the long ledge's left end, one at the top right (only reachable with a ride on the spinner and a double jump: is it fair, or too hard?), one on the shelf before the door to 13.
-- [ ] **Coming from s2.** The door at the bottom right of room 12 comes in from s2's walled door; the walls grow back each time.
+- [ ] **The doors.** The upper-left door leads to room 13. The bottom-left door to room 14 can be reached from inside room 12: the solver finds the drop from the end of the platform down the clear col 2 to the door strip (it has not found the drop down the left wall from the upper-left shelf, so try that too). Room 14 is also reached by dropping through room 13's floor door.
+- [ ] **The long ride.** The platform now runs the whole way to the left end (col 2) over a spike floor with no island in it, and breaks on the wall spikes. Riding to the end and dropping to room 14's door (col 2 is clear) is allowed: is it too easy?
+- [ ] **The pillar.** It is 2 cells further left and 3 higher at its top, so the slab and the token on it cannot be reached by a double jump from the platform: try it from the platform's whole track (F2 for double jump). Is the pillar's spiked face (beside the corridor) still readable, and is the corridor wide enough?
+- [ ] **The two tokens.** One on the long ledge's left end, one on the shelf before the door to 13. (The token at the top right moved to room 15.)
+- [ ] **Coming from room 15.** The door at the bottom right of room 12 comes in from room 15's left door.
+
+## Room 15: the turning cross
+
+Nobody has played this yet. `?dev=1&room=15`, then F2 for Tongue Lash and double jump. F7 slows the game if it helps to see it. The room is two screens tall (the cross is in the bottom screen, the top screen is empty for now).
+
+- [ ] **The cross.** Four arms turn counter-clockwise once every 8 s about the middle of the room. The up arm (with the hub), the right arm and the left arm have one spiked side each (they kill); the down arm has a spiked left side and cracks. Can you tell the safe side from the spiked side, and are the teeth pointing out of the arm as it turns?
+- [ ] **The ride.** From the floor, ride the cross up to the left ledge, the right ledge (with the heart) and the high middle ledge (with the token). Are the jumps on and off fair with a double jump? Is 8 s right?
+- [ ] **Breaking the down arm.** With Tongue Lash, lash the down arm twice while it is in front of you (it cracks, flashes, then every block shatters). It is gone for the rest of the visit and is back when you leave and come in again. Does a lash that misses (the arm has turned away) feel fair? Does Wall strength in F2 change the hits it takes?
+- [ ] **The break is optional.** You can get the token and the heart with the arm standing (the user chose to leave it that way).
+- [ ] **The doors.** Both doors (floor level, left and right) stay shut until the token and the heart are taken; the right one comes in from s2, the left one goes to room 12.
 
 ## Rooms 12 to 14: the Tongue Climb route
 
-Nobody has played this yet. The real route: s2, room 12 (take all three tokens), the bottom-left door into room 14, the 3TM, up room 14's left wall, up room 13. For a shortcut `?dev=1&room=14`, F2, Tongue Lash, double jump and tokens 3.
+Nobody has played this yet. The real route: s2, room 15 (take the token), room 12 (take both tokens), the upper-left door into room 13 and its floor door down into room 14, the 3TM, up room 14's left wall, up room 13. For a shortcut `?dev=1&room=14`, F2, Tongue Lash, double jump and tokens 3.
 
-- [ ] **Three tokens, one 3TM.** Take the three tokens in room 12, drop into room 14 and use the 3TM. Does the Tongue Climb popup show, and are the tokens gone?
+- [ ] **Three tokens, one 3TM.** Take the token in room 15 and the two in room 12, drop into room 14 and use the 3TM. Does the Tongue Climb popup show, and are the tokens gone?
 - [ ] **Leaving room 14.** With Tongue Climb, hold X at room 14's left wall (hold, not tap) and hop up it: lash, jump, double jump, lash again. Does the ceiling door at the top come up into room 13's floor? Is the climb up the wall fair, or is the wall too long?
 - [ ] **Room 13.** The three ledges up the left wall: each needs a hang and a hop. Is the gap between them right? Does the climb feel too easy, since the wall is the whole room's left edge?
 - [ ] **Without enough tokens.** Drop into room 14 with fewer than three tokens: the spikes are the only way out. Dying sends you to s2 and the tokens you took stay taken.
@@ -129,7 +142,8 @@ Nobody has played these yet. Headless tests prove the rules, not the feel. Use `
 - [ ] **Standing on a wall.** An intact wall holds the player like any platform; once it breaks, they fall.
 - [ ] **A wall grows back.** Leave room 7 and come back, die and respawn in it, and retry from F2: the wall is whole each time.
 - [ ] **Room 7's pip.** Come in from room 11 (`?dev=1&room=11`), stand on the exit-2 ledge (the left two cells were removed), face left and lash the wall (two hits), then jump in for the pip. The roof is five rows higher than before, with the wall running floor to roof and the floor two rows lower than the original, flush with it. Walking off the ledge now drops past the box. The player cannot get in without the gun, by jumping or dropping.
-- [ ] **Room 9's 3TM** gives Tongue Lash with the "NEW POWER" popup, "Tongue Lash" and the row "Lash your tongue" (`?dev=1&room=9` with three tokens set in F2).
+- [ ] **Room 9's 3TM** gives Tongue Lash with the "NEW POWER" popup, "Tongue Lash" and the rows "Lash your tongue" and "Destroy breakable walls" (`?dev=1&room=9` with three tokens set in F2). Both rows are on the Controls page too.
+- [ ] **Room 14's 3TM** gives Tongue Climb with the popup "Tongue Climb" and the row "Hold the button to stick to a wall" (the lash key, held), which is also on the Controls page once Tongue Climb is owned (`?dev=1&room=14` with three tokens set in F2).
 - [ ] **F2.** Tongue Lash on/off, cooldown, speed and length apply and survive a retry and a named loadout. Wall strength (Player tab, below Classic Imprint): 1 breaks in one lash, 5 in five, takes effect at once, survives a retry, and End playtest resets it to 2.
 - [ ] **The solver agrees.** `tools/validate.sh` lists room 7's pip as needing Tongue Lash (via room 9's 3TM and its tokens) and passes. Nobody has played the whole route to the pip without dev tools.
 - [ ] **Nothing odd:** lashing during a door slide, the map, the F2 panel or a save does nothing, and the tongue does not follow you into the next room.
@@ -186,7 +200,7 @@ Start `?dev=1&room=6` with Imprint on in F2 (or later rooms directly with `room=
 
 ## The HUD
 
-Nobody has played this yet. `?dev=1&room=2` (a token) or `?dev=1&room=7` (the pip; use F2 to give Tongue Lash), F2 to set tokens and hearts. A new game is one full heart in a red rectangle with a small dark shadow up and left, and no diamonds.
+Nobody has played this yet. `?dev=1&room=2` (a token) or `?dev=1&room=7` (the pip; use F2 to give Tongue Lash), F2 to set tokens and hearts. A new game is two full hearts in a red rectangle with a small dark shadow up and left, and no diamonds.
 
 - [ ] **It stays put.** Top left, over every room, during door slides, deaths, a save, a 3TM feed and a title card; under the map, the pause menu and the dev panel. It reads over black space, and does not sit on a room's outer wall.
 - [ ] **Tokens.** A diamond is drawn only for a token held: nothing shows for the others. Taking one sends it flying to the next diamond in the row under the rectangle, which fills left to right. It is gold with no outline in the room, in flight and in the HUD, and flashes white then shows gold as it lands, and the row drops a pixel; the rectangle does not move. With three, the next token stays in the room and nothing flies. Feeding a 3TM blinks the last diamond out, and it is gone.

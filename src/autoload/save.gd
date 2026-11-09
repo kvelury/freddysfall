@@ -14,6 +14,9 @@ const VERSION := 3
 ## carried over. Version 1 gave Imprint away in room 2, before tokens and the
 ## 3TM, so its flags and rooms mean something else now.
 const OLDEST := 2
+## Room 12's top-right token became room 15's, so a save that took it has taken it.
+const RETIRED_TOKEN_FLAG := "token:r12_token_spinner"
+const MOVED_TOKEN_FLAG := "token:r15_token"
 
 var path := "user://save.json"
 ## Off in headless runs, so tests never touch a real save. DevSession adds
@@ -155,6 +158,15 @@ func _migrate(data: Dictionary) -> Dictionary:
 		data["flags"] = flags
 		data["save_room"] = "s1"
 		data["version"] = 3
+	# Room 12's top-right token moved to room 15 (its id was retired), so a game
+	# that had taken it has taken room 15's. The tokens it carries stay as they
+	# are, so room 15's exits open without a second one fitting in the pocket.
+	var held: Array = data["flags"] if data.get("flags") is Array else []
+	if held.has(RETIRED_TOKEN_FLAG):
+		held = held.filter(func(flag) -> bool: return flag != RETIRED_TOKEN_FLAG)
+		if not held.has(MOVED_TOKEN_FLAG):
+			held.append(MOVED_TOKEN_FLAG)
+		data["flags"] = held
 	return data
 
 
