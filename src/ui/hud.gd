@@ -40,19 +40,19 @@ const BAR_HEIGHT := 8.0
 const HEART_SIZE := Vector2(7, 6)
 const PITCH := 9.0
 ## Token diamonds are 3 x 3, TOKEN_PITCH apart, in a tab flush under the rectangle
-## and level with its left edge. The tab is TAB_HEIGHT tall (a unit of bar above
-## and below the diamond) and TOKEN_PITCH * n + 1 wide for n tokens, so a unit of
-## bar shows at each end and between diamonds. Slots fill left to right.
+## and level with its left edge. The tab is TAB_HEIGHT tall (the diamond sits right
+## under the rectangle, with a unit of bar below it) and TOKEN_PITCH * n + 1 wide
+## for n tokens, so a unit of bar shows at each end and between diamonds. Slots fill left to right.
 const TOKEN_SIZE := 3.0
 const TOKEN_PITCH := 4.0
-const TAB_HEIGHT := 5.0
+const TAB_HEIGHT := 4.0
 ## Hearts per row before the rectangle wraps: each further row is its own
 ## rectangle under the token row. There is no heart cap, so it never runs off the
 ## screen.
 const WRAP := 30
 ## From one rectangle's top to the next: the bar, the token tab under the first
 ## and a clear unit before the next shadow.
-const ROW_STEP := 15.0
+const ROW_STEP := 14.0
 const FLY_TIME := 0.35
 const GROW_TIME := 0.15
 const POP_TIME := 0.08
@@ -114,7 +114,7 @@ func to_ui(world_position: Vector2) -> Vector2:
 ## tab. Slots fill left to right.
 func slot_centre(index: int) -> Vector2:
 	var slot := clampi(index, 0, GameState.TOKEN_CAP - 1)
-	return Vector2(ORIGIN.x + TOKEN_PITCH * float(slot) + 2.0, ORIGIN.y + BAR_HEIGHT + 2.0)
+	return Vector2(ORIGIN.x + TOKEN_PITCH * float(slot) + 2.0, ORIGIN.y + BAR_HEIGHT + 1.0)
 
 
 ## The rect of heart `index`, in UI units.
