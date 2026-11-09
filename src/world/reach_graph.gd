@@ -929,6 +929,12 @@ func geometry_of(info: RoomInfo) -> Geometry:
 ## The box every body of `mover` stays in while it is there, over one whole
 ## period (it repeats exactly after that).
 static func _space_of(mover: Mover) -> Rect2:
+	if mover is SpinnerPath:
+		# A turning bar stays in the circle its corners sweep (a pixel more, for
+		# the pixels it is drawn on), which the loop below would find the slow way.
+		var spin: SpinnerPath = mover
+		var reach := Vector2(spin.radius + 1.0, spin.radius + 1.0)
+		return Rect2(spin.pivot - reach, reach * 2.0)
 	var out := Rect2()
 	var first := true
 	for tick in mover.period():
@@ -1402,19 +1408,8 @@ func _near_a_track(geo: Geometry, ledge: Ledge) -> bool:
 	return false
 
 
-## The spots a rider can stand at on one body of a mover at `tick`: the left
-## and right ends (where a body hangs on) and the middle of each cell.
-func _riding_spots(rect: Rect2) -> Array[float]:
-	var cell := float(Grid.CELL)
-	var xs: Array[float] = [rect.position.x - cell * 0.5 + 0.01]
-	for x in range(roundi(rect.size.x / cell)):
-		xs.append(rect.position.x + (float(x) + 0.5) * cell)
-	xs.append(rect.end.x + cell * 0.5 - 0.01)
-	return xs
-
-
-## The bodies of mover `m` a rider can stand on at `tick`: there, and holding
-## up. A spiked block is not one.
+## The bodies of mover `m` a rider can stand on at `tick`: there, holding up, and
+## with a face that looks up. A spiked block is not one.
 func _rideable(geo: Geometry, m: int, tick: int) -> Array[int]:
 	var out: Array[int] = []
 	var first := geo.movers.first_body(m)
@@ -1431,7 +1426,6 @@ func _rideable(geo: Geometry, m: int, tick: int) -> Array[int]:
 ## whatever pickups stand there.
 func _ride(info: RoomInfo, geo: Geometry, ledge: Ledge) -> void:
 	var mover := info.movers[ledge.path]
-	var cell := float(Grid.CELL)
 	var band := Grid.cell_rect(mover.band_cells())
 	for i in geo.things.size():
 		if band.intersects(geo.things[i]):
@@ -1440,17 +1434,21 @@ func _ride(info: RoomInfo, geo: Geometry, ledge: Ledge) -> void:
 	for tick in phases(info):
 		for body in _rideable(geo, ledge.path, tick):
 			var rect := geo.movers.rect(body, tick)
-			var lo := rect.position.x - cell * 0.5 + 0.01
-			var hi := rect.end.x + cell * 0.5 - 0.01
-			for x in _riding_spots(rect):
+			var smooth := geo.movers.smooth(body)
+			var lo := rect.position.x - float(Grid.CELL) * 0.5 + 0.01
+			var hi := rect.end.x + float(Grid.CELL) * 0.5 - 0.01
+			for spot in geo.movers.stand_spots(body, tick):
 				for input in [-1.0, 0.0, 1.0]:
 					var speed := 0.0
-					if input > 0.0 and x - lo >= RUN_UP:
+					# A run-up is only along a flat top; a turning bar is started from rest.
+					if not smooth and input > 0.0 and spot.x - lo >= RUN_UP:
 						speed = _cfg.run_speed
-					elif input < 0.0 and hi - x >= RUN_UP:
+					elif not smooth and input < 0.0 and hi - spot.x >= RUN_UP:
 						speed = -_cfg.run_speed
 					for hold in HOLDS:
-						try_plan(info, geo, ledge, near, x, speed, input, hold, true, -1, tick, rect.position.y, body)
+						try_plan(info, geo, ledge, near, spot.x, speed, input, hold, true, -1, tick, spot.y, body)
+			if smooth:
+				continue
 			for side in [-1.0, 1.0]:
 				var edge := rect.end.x - 1.0 if side > 0.0 else rect.position.x + 1.0
 				try_plan(info, geo, ledge, near, edge, side * _cfg.run_speed, side, 0, false, -1, tick, rect.position.y, body)
@@ -1461,23 +1459,23 @@ func _ride(info: RoomInfo, geo: Geometry, ledge: Ledge) -> void:
 ## thinned AIR_RIDE_FRAMES.
 func _ride_air(info: RoomInfo, geo: Geometry, ledge: Ledge) -> void:
 	var mover := info.movers[ledge.path]
-	var cell := float(Grid.CELL)
 	var near := _within(geo.rects, mover.keep_out().grow_individual(REACH_X, REACH_UP, REACH_X, REACH_DOWN))
 	for tick in phases(info):
 		for body in _rideable(geo, ledge.path, tick):
 			var rect := geo.movers.rect(body, tick)
-			var lo := rect.position.x - cell * 0.5 + 0.01
-			var hi := rect.end.x + cell * 0.5 - 0.01
-			for x in _riding_spots(rect):
+			var smooth := geo.movers.smooth(body)
+			var lo := rect.position.x - float(Grid.CELL) * 0.5 + 0.01
+			var hi := rect.end.x + float(Grid.CELL) * 0.5 - 0.01
+			for spot in geo.movers.stand_spots(body, tick):
 				for input in [-1.0, 0.0, 1.0]:
 					var speed := 0.0
-					if input > 0.0 and x - lo >= RUN_UP:
+					if not smooth and input > 0.0 and spot.x - lo >= RUN_UP:
 						speed = _cfg.run_speed
-					elif input < 0.0 and hi - x >= RUN_UP:
+					elif not smooth and input < 0.0 and hi - spot.x >= RUN_UP:
 						speed = -_cfg.run_speed
 					for hold in AIR_FIRST_HOLDS:
 						for frame in AIR_RIDE_FRAMES:
-							try_plan(info, geo, ledge, near, x, speed, input, hold, true, -1, tick, rect.position.y, body, frame, 90)
+							try_plan(info, geo, ledge, near, spot.x, speed, input, hold, true, -1, tick, spot.y, body, frame, 90)
 
 
 ## The state of one solve: what has been reached and how.

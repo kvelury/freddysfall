@@ -35,6 +35,13 @@ const _CLIMB_DONE := 0
 const _CLIMB_FALL := 1
 const _CLIMB_WALL_JUMP := 2
 const _CLIMB_CEILING_DROP := 3
+## On a turning bar's pixels a body walking up a rise of this many pixels or
+## fewer is lifted onto it, and one walking down keeps its feet on it for as many.
+const STEP_UP := 4.0
+const STEP_DOWN := 4.0
+## A turning block that overlaps a body by less than this does not push it: the
+## pixels it is drawn on are up to a pixel off the exact block.
+const PUSH_SKIN := 0.75
 
 
 ## What a body carries from one tick to the next.
@@ -108,6 +115,11 @@ static func step(
 	tick := 0
 ) -> void:
 	var was_riding := s.riding
+	# What leaving the mover it stands on would hand on: its motion at the feet
+	# where the body stood, before this tick's own movement changes where they are.
+	var inherited := Vector2.ZERO
+	if was_riding >= 0 and cfg.inherit_platform_velocity and movers != null and was_riding < movers.size():
+		inherited = movers.carry_of(was_riding, tick, s.position + Vector2(0.0, HALF.y))
 	s.released = false
 	s.left_by_jump = false
 	s.climb_swept = Rect2()
@@ -125,10 +137,26 @@ static func step(
 	s.crushed = false
 	if movers != null and not movers.is_empty():
 		move_with(s, rects, movers, tick)
-		extra = movers.rects(tick + 1)
+		extra = movers.rects_near(tick + 1, _near_box(cfg, s, delta))
 	_integrate(cfg, s, input_x, jump_pressed, jump_held, delta)
+	if movers != null and not movers.is_empty():
+		_step_up(s, rects, movers, tick + 1, delta)
 	s.position = corner_correct(cfg, s.position, s.velocity, s.grounded, rects, delta, extra)
 	_resolve(s, rects, extra, delta)
+	if movers != null and not movers.is_empty() and was_riding >= 0 and movers.smooth(was_riding):
+		_stay_down(s, rects, movers, tick + 1)
+	if movers != null and not movers.is_empty() and not s.crushed and _blocked(s.position, HALF, rects, Vector2.ZERO):
+		# A block of a mover set the body down inside a wall or ceiling (the push
+		# from the block and the wall's own stop disagree): it is squeezed, not
+		# somewhere to be resolved sideways next tick.
+		s.crushed = true
+	if s.grounded and movers != null and not movers.is_empty():
+		# A face steeper than 60 degrees (or turned over) still stops a fall but is
+		# not ground: no landing reset, no ground jump.
+		var held := movers.body_under(s.floor_rect, tick + 1)
+		if held >= 0 and not movers.rideable(held, tick + 1):
+			s.grounded = false
+			s.floor_rect = Rect2()
 	s.riding = -1
 	if s.grounded:
 		s.launched = false
@@ -136,17 +164,16 @@ static func step(
 		s.climb_locked = false
 		s.spare_jump = false
 		s.air_left = s.air_jumps
-		if movers != null:
-			for i in movers.size():
-				if not movers.hazard(i) and movers.alive(i, tick + 1) and s.floor_rect == movers.rect(i, tick + 1):
-					s.riding = i
-					break
+		if movers != null and not movers.is_empty():
+			var under := movers.body_under(s.floor_rect, tick + 1)
+			if under >= 0 and movers.rideable(under, tick + 1):
+				s.riding = under
 	if movers != null and not movers.is_empty() and _touches_hazard_body(s.position, movers, tick + 1):
 		s.crushed = true
 	# Off a platform and into the air: the body keeps only its own velocity,
 	# unless the platform's is to be added.
 	if was_riding >= 0 and not s.grounded and cfg.inherit_platform_velocity:
-		s.velocity += movers.step_of(was_riding, tick) / delta
+		s.velocity += inherited / delta
 
 
 ## Starts a climb for a body whose tongue stuck at `tip` in direction `dir` (a
@@ -324,27 +351,154 @@ static func _climb_tick(cfg: MovementConfig, s: State, rects: Array, jump_presse
 ## stands on carries it, and any other that moves into it pushes it out the
 ## way that platform is going. Walls stop both. A body still inside a platform
 ## or a wall afterwards is crushed.
+##
+## A turning bar carries a rider round with it, then sets it on the pixels under
+## it. A block of it that sweeps into a body pushes it out the shortest way, and
+## the body is crushed only if that way is shut by a wall or another block.
 static func move_with(s: State, rects: Array, movers: Movers, tick: int) -> void:
 	var start := s.position
-	if s.riding >= 0 and s.riding < movers.size():
-		s.position = _shift(s.position, movers.step_of(s.riding, tick), rects)
+	if s.riding >= 0 and (s.riding >= movers.size() or not movers.rideable(s.riding, tick + 1)):
+		# Too steep a face to stand on: the body is not carried, and the block
+		# pushes it off below.
+		s.riding = -1
+	var ridden := -1
+	if s.riding >= 0:
+		ridden = movers.mover_of(s.riding)
+		var feet := s.position + Vector2(0.0, HALF.y)
+		s.position = _shift(s.position, movers.carry_of(s.riding, tick, feet), rects)
+		if movers.smooth(s.riding):
+			s.position = _settle(s.position, movers, tick + 1)
+	var near := Rect2(s.position - HALF, HALF * 2.0).grow(PUSH_SKIN + 1.0)
+	var pushed := Vector2.ZERO
 	for i in movers.size():
 		if i == s.riding or movers.hazard(i) or not movers.alive(i, tick + 1):
 			continue
 		var after := movers.rect(i, tick + 1)
+		if not after.intersects(near):
+			continue
+		if movers.smooth(i):
+			# A block of the bar the body stands on (or of one that turns with it)
+			# does not push it.
+			if movers.mover_of(i) == ridden or (ridden >= 0 and movers.rigid(movers.mover_of(i), ridden)):
+				continue
+			var out := movers.push_of(i, tick + 1, s.position)
+			if out == Vector2.ZERO:
+				continue
+			s.position = _shift(s.position, out, rects)
+			pushed = out.normalized()
+			# Squeezed only if what is left of the push cannot be cleared (the
+			# skin is the pixels being a little off the exact block).
+			if movers.push_of(i, tick + 1, s.position).length() > PUSH_SKIN:
+				s.crushed = true
+			continue
 		if not _overlaps(s.position, HALF, after):
 			continue
 		var push := _push_out(s.position, after, movers.step_of(i, tick))
 		s.position = _shift(s.position, push, rects)
 		if _overlaps(s.position, HALF, after):
 			s.crushed = true
+	_clear_pixels(s, rects, movers, tick + 1, ridden, pushed)
 	if s.position != start and _blocked(s.position, HALF, rects, Vector2.ZERO):
 		s.crushed = true
 
 
+## What is left of a body overlapping the pixels of a turning bar it is not on
+## (the pixels reach up to a pixel past the exact block, and `_resolve` would
+## take the overlap for a landing on top of the row): it is moved out of them, a
+## pixel at a time, the way it was pushed or away from them, up to a few pixels.
+static func _clear_pixels(s: State, rects: Array, movers: Movers, tick: int, ridden: int, pushed: Vector2) -> void:
+	for _step in 3:
+		var box := Rect2(s.position - HALF, HALF * 2.0)
+		var centre := Vector2.ZERO
+		var count := 0
+		for run in movers.smooth_near(tick, box):
+			var owner := movers.mover_of(movers.body_under(run, tick))
+			if owner == ridden or (ridden >= 0 and movers.rigid(owner, ridden)) or not _overlaps(s.position, HALF, run):
+				continue
+			centre += run.get_center()
+			count += 1
+		if count == 0:
+			return
+		var away := pushed
+		if away == Vector2.ZERO:
+			away = (s.position - centre / float(count)).normalized()
+		var moved := _shift(s.position, away, rects)
+		if moved == s.position:
+			return
+		s.position = moved
+
+
+## A body carried on a turning bar, set down on the highest pixel row under it
+## that is within a few pixels of its feet, so what it stands on is the pixels
+## it is drawn on.
+static func _settle(position: Vector2, movers: Movers, tick: int) -> Vector2:
+	var feet := position.y + HALF.y
+	var best := INF
+	var box := Rect2(position - HALF, HALF * 2.0).grow(STEP_UP)
+	for run in movers.smooth_near(tick, box):
+		if run.position.x < position.x + HALF.x - 0.01 and run.end.x > position.x - HALF.x + 0.01:
+			if run.position.y >= feet - STEP_UP and run.position.y <= feet + STEP_DOWN:
+				best = minf(best, run.position.y)
+	if best == INF:
+		return position
+	return Vector2(position.x, best - HALF.y)
+
+
+## A body walking on the pixels of a turning bar that the next step of walking
+## runs into a rise of: it is lifted up by the rise, up to STEP_UP, so it climbs
+## the bar instead of stopping at each row.
+static func _step_up(s: State, rects: Array, movers: Movers, tick: int, delta: float) -> void:
+	if not s.grounded or s.velocity.y < 0.0 or absf(s.velocity.x) < 0.01 or s.climb != CLIMB_NONE:
+		return
+	var target := s.position + Vector2(s.velocity.x * delta, 0.0)
+	var box := Rect2(target - HALF, HALF * 2.0).grow(STEP_UP + 1.0)
+	var bar := movers.smooth_near(tick, box)
+	if bar.is_empty() or not _blocked(target, HALF, bar, Vector2.ZERO):
+		return
+	var all := movers.rects_near(tick, box)
+	for n in range(1, int(STEP_UP) + 1):
+		# Clear of the room's solids as well as the bar, as corner_correct looks.
+		if not _blocked(target + Vector2(0.0, -float(n)), HALF, rects, Vector2.ZERO, all) and not _blocked(s.position + Vector2(0.0, -float(n)), HALF, rects, Vector2.ZERO):
+			s.position.y -= float(n)
+			return
+
+
+## A body that was standing on a turning bar and is now a few pixels above it
+## (the bar fell away under it, walking down a slope) is set back on it.
+static func _stay_down(s: State, rects: Array, movers: Movers, tick: int) -> void:
+	if s.grounded or s.jumped or s.velocity.y < 0.0 or s.climb != CLIMB_NONE:
+		return
+	var feet := s.position.y + HALF.y
+	var best := INF
+	var floor_run := Rect2()
+	for run in movers.smooth_near(tick, Rect2(s.position - HALF, HALF * 2.0).grow(STEP_DOWN + 1.0)):
+		if run.position.x < s.position.x + HALF.x and run.end.x > s.position.x - HALF.x:
+			if run.position.y >= feet - 0.001 and run.position.y - feet <= STEP_DOWN and run.position.y < best:
+				best = run.position.y
+				floor_run = run
+	if best == INF:
+		return
+	var set_down := Vector2(s.position.x, best - HALF.y)
+	if _blocked(set_down, HALF, rects, Vector2.ZERO):
+		return
+	s.position = set_down
+	s.velocity.y = 0.0
+	s.grounded = true
+	s.floor_rect = floor_run
+
+
+## Where a box moving at up to the fastest speeds could touch in this tick: the
+## rows of pixels of a turning bar are asked for only in this box.
+static func _near_box(cfg: MovementConfig, s: State, delta: float) -> Rect2:
+	var fastest := maxf(maxf(cfg.run_speed, cfg.max_fall_speed), maxf(cfg.jump_speed, cfg.air_jump_speed))
+	fastest = maxf(fastest, maxf(absf(s.velocity.x), absf(s.velocity.y)))
+	var reach := HALF.x + ceilf(fastest * delta) + ceilf(cfg.corner_correction) + 2.0
+	return Rect2(s.position - Vector2(reach, reach), Vector2(reach, reach) * 2.0)
+
+
 ## Whether a body at `position` overlaps a spiked mover body at `tick`.
 static func _touches_hazard_body(position: Vector2, movers: Movers, tick: int) -> bool:
-	for rect in movers.hazard_rects(tick):
+	for rect in movers.hazards_near(tick, Rect2(position - HALF, HALF * 2.0)):
 		if _overlaps(position, HALF, rect):
 			return true
 	return false
@@ -358,14 +512,24 @@ static func _shift(position: Vector2, motion: Vector2, rects: Array) -> Vector2:
 
 
 ## How far a body at `position` has to move to leave `block`, which is moving
-## by `motion`: out of its leading side.
-static func _push_out(position: Vector2, block: Rect2, motion: Vector2) -> Vector2:
+## by `motion`: out of its leading side. A block that is not moving, or when
+## `shortest` is set, is left by the nearest side (up first when two are equally
+## near), so a body is never left inside a block that stood still.
+static func _push_out(position: Vector2, block: Rect2, motion: Vector2, shortest := false) -> Vector2:
+	if shortest or motion == Vector2.ZERO:
+		var up := block.position.y - HALF.y - position.y
+		var down := block.end.y + HALF.y - position.y
+		var left := block.position.x - HALF.x - position.x
+		var right := block.end.x + HALF.x - position.x
+		var best := Vector2(0.0, up)
+		for option in [Vector2(0.0, down), Vector2(left, 0.0), Vector2(right, 0.0)]:
+			if option.length() < best.length() - 0.001:
+				best = option
+		return best
 	if absf(motion.x) >= absf(motion.y):
 		if motion.x > 0.0:
 			return Vector2(block.end.x + HALF.x - position.x, 0.0)
-		if motion.x < 0.0:
-			return Vector2(block.position.x - HALF.x - position.x, 0.0)
-		return Vector2.ZERO
+		return Vector2(block.position.x - HALF.x - position.x, 0.0)
 	if motion.y > 0.0:
 		return Vector2(0.0, block.end.y + HALF.y - position.y)
 	return Vector2(0.0, block.position.y - HALF.y - position.y)
