@@ -46,6 +46,10 @@ const TIP := TongueReach.TIP
 ## The tip's box going up, in pixels.
 const TIP_UP := TongueReach.TIP_UP
 const PINK := Color("ff6fa8")
+## How far, in pixels, a tongue that is climbing is drawn past the face of the wall
+## or ceiling it holds, over the surface, so it shows even when Freddy hangs
+## pressed to it. Drawing only: the hit, `extension` and the hang do not use it.
+const CLIMB_OVERHANG := 3.0
 ## How long a press that came too early is kept, in seconds: the jump buffer's.
 const LASH_BUFFER := 0.12
 ## How long after a sideways lash pressing `look_up` still sends it up, in
@@ -102,6 +106,9 @@ var _stuck_tip := Vector2.ZERO
 ## Where the tip stuck, as a world coordinate along the tongue: x going sideways,
 ## y going up.
 var _stuck_at := 0.0
+## The face of the surface a climb holds, as a world coordinate along the tongue
+## (x sideways, y going up), for drawing the overhang.
+var _stuck_face := 0.0
 ## Seconds before another lash may be made. It runs only while the tongue is in.
 var cooldown_left := 0.0
 ## A press kept because it came too early: seconds it is still good for, and
@@ -332,13 +339,56 @@ func _draw() -> void:
 		return
 	var body := _player.get_node("Visual") as PlayerBody
 	# The wiggle shifts the picture; the tip stays where it stuck.
-	var shown := extension if up else extension - float(direction) * body.shake.x
+	var shown := drawn_length() if up else drawn_length() - float(direction) * body.shake.x
 	draw_rect(body.tongue_rect_up(shown) if up else body.tongue_rect(shown), PINK)
 	if (phase == Phase.STICK or phase == Phase.CLIMB) and GameState.abilities.tongue_pad:
 		draw_rect(body.pad_rect_up(shown) if up else body.pad_rect(shown), PINK)
 
 
+## The length the tongue is drawn at, in pixels from the front of the body. It is
+## `extension`, except while a climb is coming or happening: then it ends
+## `CLIMB_OVERHANG` past the face of the wall or ceiling, so it always shows.
+func drawn_length() -> float:
+	if not (phase == Phase.CLIMB or _awaiting_climb):
+		return extension
+	var reach: float
+	if up:
+		reach = _player.global_position.y - _stuck_face - FRONT
+	else:
+		reach = float(direction) * (_stuck_face - _player.global_position.x) - FRONT
+	return maxf(reach + CLIMB_OVERHANG, 0.0)
+
+
+## The face of the solid under the tip `at`, as a coordinate along the tongue: the
+## first point, probed half a pixel at a time from 3 px before the tip to 2 px
+## past it, that is solid, then narrowed by halving and snapped to half a pixel.
+## `at` itself if none is found.
+func _find_face(at: Vector2) -> float:
+	var dir := Vector2(0.0, -1.0) if up else Vector2(float(direction), 0.0)
+	var start := -3.0
+	while start <= 2.0:
+		if _solid_at(at + dir * start):
+			var near := start - 0.5
+			var far := start
+			for _i in 6:
+				var mid := (near + far) * 0.5
+				if _solid_at(at + dir * mid):
+					far = mid
+				else:
+					near = mid
+			var face := at + dir * far
+			return snappedf(face.y if up else face.x, 0.5)
+		start += 0.5
+	return at.y if up else at.x
+
+
+## Whether the point `spot` (world pixels) is in a solid, a speck of a box.
+func _solid_at(spot: Vector2) -> bool:
+	return _solid_box(Rect2(spot - Vector2(0.01, 0.01), Vector2(0.02, 0.02)))
+
+
 func _reset_phase() -> void:
+	_stuck_face = 0.0
 	phase = Phase.OUT
 	_time = 0.0
 	_back_from = 0.0
@@ -363,6 +413,7 @@ func _begin_return() -> void:
 		_awaiting_climb = true
 		_stuck_tip = tip()
 		_stuck_at = _stuck_tip.y if up else _stuck_tip.x
+		_stuck_face = _find_face(_stuck_tip)
 		return
 	if _struck and extension > 0.0 and GameState.abilities.tongue_stick > 0.0:
 		phase = Phase.STICK
@@ -400,6 +451,7 @@ func _try_climb(at := tip()) -> bool:
 	phase = Phase.CLIMB
 	_time = 0.0
 	_stuck_tip = at
+	_stuck_face = _find_face(at)
 	_stuck_breakable = _struck_wall
 	return true
 
@@ -558,9 +610,13 @@ func _block_extra(room: Room) -> Array[Rect2]:
 ## Whether what the tip stuck to is still there: a breakable wall standing, a
 ## room solid or a door block.
 func _surface_holds() -> bool:
-	var room: Room = _world.current
 	var size := TIP_UP if up else TIP
-	var box := Rect2(_stuck_tip - size * 0.5, size)
+	return _solid_box(Rect2(_stuck_tip - size * 0.5, size))
+
+
+## Whether `box` (world pixels) is in a breakable wall, a room solid or a door block.
+func _solid_box(box: Rect2) -> bool:
+	var room: Room = _world.current
 	if room.wall_at(box) != null:
 		return true
 	var local := Rect2(box.position - room.position, box.size)

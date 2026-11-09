@@ -16,6 +16,8 @@ const HANG_X := 200.0 - 5.0 - MovementSim.CLIMB_GAP
 const WALL := "cb1"
 ## TongueLash.Phase.CLIMB (the class is not named here: it reads the autoloads).
 const CLIMB_PHASE := 3
+## TongueLash.Phase.STICK.
+const STICK_PHASE := 1
 
 
 func _initialize() -> void:
@@ -44,13 +46,32 @@ func _run() -> void:
 	var saw := await _watch(player, tongue)
 	ok = check(not saw["climbed"] and is_equal_approx(player.global_position.x, 175.0), "with the power-up off a lash pulls nothing (x %.1f)" % player.global_position.x) and ok
 
-	# On: pulled to the wall, hung there with gravity off.
+	# A plain lash, even stuck to the wall, is drawn at its own length: the overhang is for climbs only.
+	_put(world, Vector2i(17, 12))
+	tongue.lash()
+	await until(func() -> bool: return tongue.phase == STICK_PHASE, 60)
+	ok = check(tongue.drawn_length() == tongue.extension, "a plain lash's stuck tongue is drawn at its length (%.1f, extension %.1f)" % [tongue.drawn_length(), tongue.extension]) and ok
+	await _watch(player, tongue)
+
+	# Pressed to the wall: the lash hits at once and the tongue still shows, past the face.
 	ab.tongue_climb = true
+	_put(world, Vector2i(19, 12))
+	tongue.lash()
+	await until(func() -> bool: return player.hanging(), 60)
+	var pressed_body := player.get_node("Visual") as PlayerBody
+	ok = check(tongue.drawn_length() >= tongue.CLIMB_OVERHANG and is_equal_approx(pressed_body.tongue_rect(tongue.drawn_length()).end.x, 200.0 + tongue.CLIMB_OVERHANG), "pressed to the wall, the tongue still ends past the face (length %.1f)" % tongue.drawn_length()) and ok
+	tongue.clear()
+	player.end_climb()
+
+	# On: pulled to the wall, hung there with gravity off.
 	_put(world, Vector2i(17, 12))
 	ok = check(tongue.lash(), "a lash is made") and ok
 	var got := await until(func() -> bool: return player.hanging(), 60)
 	ok = check(got >= 0 and tongue.phase == CLIMB_PHASE, "a lash that hits the pillar pulls him to it (%d ticks) and the tongue holds" % got) and ok
 	ok = check(absf(player.global_position.x - HANG_X) < 0.01, "he hangs a gap short of the face, at x %.2f (expected %.2f)" % [player.global_position.x, HANG_X]) and ok
+	var body := player.get_node("Visual") as PlayerBody
+	ok = check(is_equal_approx(tongue.drawn_length(), 200.0 - player.global_position.x - 5.0 + tongue.CLIMB_OVERHANG), "the drawn tongue ends %d px past the wall's face (length %.1f)" % [int(tongue.CLIMB_OVERHANG), tongue.drawn_length()]) and ok
+	ok = check(is_equal_approx(body.tongue_rect(tongue.drawn_length()).end.x - body.position.x, 10.0 + roundf(tongue.drawn_length())), "and the drawn line is that long from the body") and ok
 	var y0 := player.global_position.y
 	var hung := 0
 	var wiggles := 0
@@ -168,6 +189,7 @@ func _run() -> void:
 	tongue.lash(true)
 	ok = check(await until(func() -> bool: return player.hanging(), 60) >= 0 and player.climbing_ceiling(), "an up-lash at the slab hangs him from it") and ok
 	ok = check(absf(player.global_position.y - (120.0 + 5.0 + MovementSim.CLIMB_GAP)) < 0.01, "a gap under it (y %.2f)" % player.global_position.y) and ok
+	ok = check(is_equal_approx(tongue.drawn_length(), player.global_position.y - 120.0 - 5.0 + tongue.CLIMB_OVERHANG), "the drawn tongue reaches %d px into the slab (length %.1f)" % [int(tongue.CLIMB_OVERHANG), tongue.drawn_length()]) and ok
 	player.scripted_jump_pressed = true
 	await physics_frame
 	ok = check(not player.climbing() and player.velocity.y > -1.0, "jump there lets go and drops (%.0f)" % player.velocity.y) and ok

@@ -127,10 +127,11 @@ Limits: a 1 GB site, about 100 GB of bandwidth a month (soft), a 10-minute deplo
 
 ## Checking your work
 
-Run `tools/check.sh` before opening a pull request. It imports the project once, runs every `tests/*_test.gd` in parallel (one Godot process each, `JOBS` at a time, the machine's cores unless set; each test's output is in `build/test-logs/<name>.log`, and the logs of the ones that failed are printed), validates the whole world with every ledge reachable (a fresh solver cache, warmed by one process per core), builds the release web export, and checks that the room data and cache-tagged browser files are present. CI runs the same command. After it passes, serve that build and play the affected route yourself; the automated checks do not judge movement feel, room readability or visual feedback.
+Run `tools/check.sh` before opening a pull request. It imports the project once, runs every `tests/*_test.gd` in parallel (one Godot process each, `JOBS` at a time, the machine's cores unless set, found with `nproc` or `sysctl -n hw.ncpu`; each test's output is in `build/test-logs/<name>.log`, and the logs of the ones that failed are printed), validates the whole world with every ledge reachable (a fresh solver cache, warmed by one process per core), builds the release web export, and checks that the room data and cache-tagged browser files are present. CI runs the same command. After it passes, serve that build and play the affected route yourself; the automated checks do not judge movement feel, room readability or visual feedback.
 
 ```sh
 tools/check.sh                 # the complete automated gate and a fresh web build
+tools/check.sh --quick         # while iterating: same, but validation uses the solver cache (full gate before a PR)
 tools/check.sh --tests-only    # just the tests, in parallel (JOBS=n to choose how many at once)
 tools/serve.sh                 # serve that build at http://localhost:8060 for the playthrough
 tools/validate.sh              # the whole world, solved: a room is not done until this exits 0
