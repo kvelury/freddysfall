@@ -9,6 +9,11 @@ extends PlatformPath
 ## spikes or solid. It never goes back. Each platform is one body, and a body is
 ## there only for its trip, so a rider falls when theirs breaks.
 ##
+## Drawn as a rectangle of its glyph more than one row tall, it spits out pillars
+## (side to side only), with the track along the rectangle's bottom row.
+## `breakable=true` lets Tongue Lash break a body (the room keeps which, see
+## `Movers.break_body`); a broken one is gone until its slot comes round again.
+##
 ## Bodies are fixed slots: slot `k` is there at tick `t` when `t - k * every` is
 ## inside its trip, counted modulo `period()`. Everything is whole ticks, so the
 ## game and the solver agree.
@@ -19,10 +24,13 @@ var every_ticks := 1
 var slots := 1
 ## Ticks a platform lasts: its whole trip, from appearing to breaking.
 var life_ticks := 1
+## Whether Tongue Lash breaks its bodies (`breakable=true`).
+var breakable := false
 
 
-func _init(platform_id: String, drawn: Rect2i, toward: Vector2i, length: int, px_per_second: float, every_seconds: float) -> void:
+func _init(platform_id: String, drawn: Rect2i, toward: Vector2i, length: int, px_per_second: float, every_seconds: float, breakable_bodies := false) -> void:
 	super(platform_id, drawn, toward, length, px_per_second, 0.0)
+	breakable = breakable_bodies
 	every_ticks = maxi(1, roundi(every_seconds * float(TICKS_PER_SECOND)))
 	life_ticks = travel_ticks
 	slots = maxi(1, ceili(float(life_ticks) / float(every_ticks)))

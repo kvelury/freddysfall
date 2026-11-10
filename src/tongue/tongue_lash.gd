@@ -557,6 +557,13 @@ func _hit() -> bool:
 		# A turning arm is a moving surface, which nothing hangs from (as with
 		# a moving platform), so it is not climbable and `_struck_wall` stays off.
 		return true
+	var pillar := room.pillar_at(box)
+	if pillar >= 0:
+		room.hit_pillar(pillar, DevSession.wall_strength())
+		_puff(at)
+		_struck = true
+		# An emitted pillar moves, so nothing hangs from it either.
+		return true
 	var wall := room.wall_at(box)
 	if wall != null:
 		var broke := room.hit_wall(wall, DevSession.wall_strength())

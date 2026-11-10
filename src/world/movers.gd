@@ -19,6 +19,11 @@ var _local: PackedInt32Array = PackedInt32Array()
 ## multiple of their periods), so the cache is kept by `tick % _period`. 0 when
 ## that is longer than CACHE_LIMIT, and the cache is kept by tick.
 var _period := 0
+## Emitted bodies broken by the tongue: body index -> [first tick of its trip,
+## the tick the trip ends]. Such a body is not there for the rest of that trip and
+## is back when its slot next comes out. While any are kept the cache goes by
+## tick, not by `tick % _period`.
+var _broken := {}
 
 
 func _init(list: Array[Mover] = [], at := Vector2.ZERO) -> void:
@@ -63,6 +68,11 @@ func is_empty() -> bool:
 	return _owner.is_empty()
 
 
+## Which body of its own mover body `index` is.
+func local_of(index: int) -> int:
+	return _local[index]
+
+
 ## Which mover (an index into `paths`) body `index` belongs to.
 func mover_of(index: int) -> int:
 	return _owner[index]
@@ -81,8 +91,10 @@ func first_body(m: int) -> int:
 ## body is many rects (rows of pixels, `Mover.spans_at`): those are also kept by
 ## row, so a body can ask for the few that are near it.
 func _at(tick: int) -> Dictionary:
+	if not _broken.is_empty():
+		_forget_broken(tick)
 	# Every mover repeats exactly after its period (tests/mover_test.gd).
-	if _period > 0:
+	if _period > 0 and _broken.is_empty():
 		tick = posmod(tick, _period)
 	var found: Variant = _cache.get(tick)
 	if found != null:
@@ -100,7 +112,7 @@ func _at(tick: int) -> Dictionary:
 	var owner := {}
 	for i in size():
 		var mover := paths[_owner[i]]
-		var present := mover.alive_at(tick, _local[i])
+		var present := mover.alive_at(tick, _local[i]) and not _broken_at(i, tick)
 		var box := mover.rect_at(tick, _local[i])
 		box.position += origin
 		rects_now.append(box)
@@ -134,6 +146,49 @@ func _at(tick: int) -> Dictionary:
 	var entry := {"rects": rects_now, "alive": there, "solid": solid, "hazard": spiked, "plain_solid": plain_solid, "plain_hazard": plain_spiked, "rows_solid": rows_solid, "rows_hazard": rows_spiked, "owner": owner}
 	_cache[tick] = entry
 	return entry
+
+
+## Breaks emitted body `index` (a `breakable` emitter's), seen at `tick`: it is
+## gone for the rest of its trip.
+func break_body(index: int, tick: int) -> void:
+	var path := paths[_owner[index]] as EmitterPath
+	var age := path.age_at(tick, _local[index])
+	if age < 0:
+		return
+	_broken[index] = [tick - age, tick - age + path.life_ticks]
+	_cache.clear()
+
+
+func _broken_at(index: int, tick: int) -> bool:
+	var trip: Variant = _broken.get(index)
+	return trip != null and tick >= int(trip[0]) and tick < int(trip[1])
+
+
+## Drops broken bodies whose trip is over (a few ticks later, since the player
+## steps with the tick before the room's).
+func _forget_broken(tick: int) -> void:
+	var gone: Array = []
+	for index: int in _broken:
+		if tick > int(_broken[index][1]) + 2:
+			gone.append(index)
+	if gone.is_empty():
+		return
+	for index: int in gone:
+		_broken.erase(index)
+	_cache.clear()
+
+
+## The body of a `breakable` emitter that stands and touches `box` at `tick`, or
+## -1. This is what a lash can hit.
+func pillar_at(box: Rect2, tick: int) -> int:
+	for m in paths.size():
+		if not paths[m] is EmitterPath or not (paths[m] as EmitterPath).breakable:
+			continue
+		var first := first_body(m)
+		for b in paths[m].body_count():
+			if alive(first + b, tick) and rect(first + b, tick).intersects(box):
+				return first + b
+	return -1
 
 
 ## Body `index` at `tick`: its box, round every pixel of it if it is a turned
