@@ -95,7 +95,7 @@ func _rebind(bindings: Node) -> bool:
 	ok = check(bindings.get_bindings("jump", "keyboard") == [key], "and it is what the action reports") and ok
 
 	# A second slot is added by binding one past the last.
-	result = bindings.rebind("jump", 1, {"t": "key", "code": int(KEY_C)})
+	result = bindings.rebind("jump", 1, {"t": "key", "code": int(KEY_V)})
 	ok = check(result["ok"] and bindings.get_bindings("jump", "keyboard").size() == 2, "a second binding is added") and ok
 
 	# An input another action has: the two swap, and neither is left bare.
@@ -103,7 +103,7 @@ func _rebind(bindings: Node) -> bool:
 	ok = check(result["ok"] and String(result["note"]).begins_with("Swapped with"), "a clash swaps (%s)" % result["note"]) and ok
 	ok = check(_has("lash", _key(KEY_Z)) and _has("jump", _key(KEY_X)) and not _has("jump", _key(KEY_Z)), "Lash has Z and Jump has the X it gave up") and ok
 	# Adding a second binding that another action holds with a spare takes it from them.
-	result = bindings.rebind("lash", 1, {"t": "key", "code": int(KEY_C)})
+	result = bindings.rebind("lash", 1, {"t": "key", "code": int(KEY_V)})
 	ok = check(result["ok"] and String(result["note"]).begins_with("Taken from") and bindings.get_bindings("jump", "keyboard").size() == 1, "an extra binding takes from an action that has two (%s)" % result["note"]) and ok
 	# ... but never from one that has only that.
 	result = bindings.rebind("move_left", 1, {"t": "key", "code": int(KEY_SPACE)})
@@ -120,8 +120,8 @@ func _rebind(bindings: Node) -> bool:
 	ok = check(Controls.binding_from_event(released).is_empty(), "a key coming up is not a binding") and ok
 
 	# Controller bindings are their own list.
-	result = bindings.rebind("jump", 0, {"t": "button", "index": int(JOY_BUTTON_Y)})
-	ok = check(result["ok"] and _has("jump", _button(JOY_BUTTON_Y)) and not _has("jump", _button(JOY_BUTTON_A)), "a button rebinds the controller slot") and ok
+	result = bindings.rebind("jump", 0, {"t": "button", "index": int(JOY_BUTTON_RIGHT_STICK)})
+	ok = check(result["ok"] and _has("jump", _button(JOY_BUTTON_RIGHT_STICK)) and not _has("jump", _button(JOY_BUTTON_A)), "a button rebinds the controller slot") and ok
 	ok = check(_has("jump", _key(KEY_X)), "and the keyboard's are untouched") and ok
 	result = bindings.rebind("move_right", 0, {"t": "axis", "axis": int(JOY_AXIS_RIGHT_X), "sign": 1})
 	ok = check(result["ok"] and _has("move_right", _axis(JOY_AXIS_RIGHT_X, 1.0)), "a stick direction can be bound") and ok
@@ -130,7 +130,7 @@ func _rebind(bindings: Node) -> bool:
 	ok = check(_has("map_zoom_in", _key(KEY_I)), "map zoom follows look up") and ok
 
 	bindings.reset("keyboard")
-	ok = check(_has("jump", _key(KEY_SPACE)) and not _has("jump", _key(KEY_Z)) and _has("jump", _button(JOY_BUTTON_Y)), "reset puts one device back and leaves the other") and ok
+	ok = check(_has("jump", _key(KEY_SPACE)) and not _has("jump", _key(KEY_Z)) and _has("jump", _button(JOY_BUTTON_RIGHT_STICK)), "reset puts one device back and leaves the other") and ok
 	bindings.reset("controller")
 	ok = check(bindings.is_default("keyboard") and bindings.is_default("controller") and _has("jump", _button(JOY_BUTTON_A)) and _has("map_zoom_in", _key(KEY_W)), "reset both is the default again") and ok
 	return ok
@@ -142,7 +142,7 @@ func _persistence(bindings: Node) -> bool:
 	bindings.enabled = true
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(PATH))
 	bindings.rebind("jump", 0, {"t": "key", "code": int(KEY_Z)})
-	bindings.rebind("lash", 1, {"t": "button", "index": int(JOY_BUTTON_Y)})
+	bindings.rebind("lash", 1, {"t": "button", "index": int(JOY_BUTTON_RIGHT_STICK)})
 	ok = check(FileAccess.file_exists(PATH), "a change is written") and ok
 	var saved := [bindings.get_bindings("jump", "keyboard"), bindings.get_bindings("lash", "controller")]
 	bindings.reset("keyboard")
@@ -151,11 +151,11 @@ func _persistence(bindings: Node) -> bool:
 	bindings.enabled = true
 	# Reset saved the defaults; write the changes again and load them back.
 	bindings.rebind("jump", 0, {"t": "key", "code": int(KEY_Z)})
-	bindings.rebind("lash", 1, {"t": "button", "index": int(JOY_BUTTON_Y)})
+	bindings.rebind("lash", 1, {"t": "button", "index": int(JOY_BUTTON_RIGHT_STICK)})
 	bindings._current = bindings._copy(bindings._defaults)
 	bindings.load_file()
 	ok = check([bindings.get_bindings("jump", "keyboard"), bindings.get_bindings("lash", "controller")] == saved, "a saved change comes back on load") and ok
-	ok = check(_has("jump", _key(KEY_Z)) and _has("lash", _button(JOY_BUTTON_Y)), "and is in the InputMap") and ok
+	ok = check(_has("jump", _key(KEY_Z)) and _has("lash", _button(JOY_BUTTON_RIGHT_STICK)), "and is in the InputMap") and ok
 
 	# A file that is not usable leaves the defaults.
 	for text in ["not json", "[]", '{"version": 99, "bindings": {}}', '{"version": 1, "bindings": {"jump": {"keyboard": [{"t": "key", "code": 4194305}]}}}', '{"version": 1, "bindings": {"jump": {"keyboard": [{"t": "bogus"}]}}}', '{"version": 1, "bindings": {"jump": {"keyboard": []}}}']:
@@ -257,9 +257,9 @@ func _start_is_pause(bindings: Node) -> bool:
 	bindings.reset("controller")
 	bindings.reset("keyboard")
 	ok = check(bindings.get_bindings("pause", "controller").is_empty(), "Pause has no editable controller binding") and ok
-	var spare := {"t": "button", "index": int(JOY_BUTTON_Y)}
+	var spare := {"t": "button", "index": int(JOY_BUTTON_RIGHT_STICK)}
 	var result: Dictionary = bindings.rebind("pause", 0, spare)
-	ok = check(result["ok"] and _has("pause", _button(JOY_BUTTON_START)) and _has("pause", _button(JOY_BUTTON_Y)), "an unused button is added to Pause and Start stays") and ok
+	ok = check(result["ok"] and _has("pause", _button(JOY_BUTTON_START)) and _has("pause", _button(JOY_BUTTON_RIGHT_STICK)), "an unused button is added to Pause and Start stays") and ok
 	bindings.rebind("pause", 0, {"t": "button", "index": int(JOY_BUTTON_A)})
 	ok = check(_has("pause", _button(JOY_BUTTON_START)) and not _has("jump", _button(JOY_BUTTON_START)), "giving Pause the Jump button leaves Start on Pause and off Jump") and ok
 	bindings.load_file()

@@ -52,7 +52,7 @@ func _run() -> void:
 	_press(page, KEY_RIGHT)
 	ok = check(page._slot == 1, "Right moves to the second slot") and ok
 	_press(page, KEY_ENTER)
-	_press(page, KEY_C)
+	_press(page, KEY_V)
 	ok = check(bindings.get_bindings("jump", "keyboard").size() == 2, "and fills it") and ok
 
 	# Controller tab: a button, and the cancel buttons.
@@ -76,7 +76,7 @@ func _run() -> void:
 	ok = check(not page._capturing and bindings.get_bindings("jump", "controller")[0]["index"] == JOY_BUTTON_B, "a button becomes the binding") and ok
 
 	# Reset restores the tab shown and nothing else.
-	for i in 4:
+	for i in 5:
 		_press(page, KEY_DOWN)
 	ok = check(page._selected == page._count - 2, "Down reaches Reset") and ok
 	_press(page, KEY_ENTER)

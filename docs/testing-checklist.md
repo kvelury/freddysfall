@@ -377,3 +377,11 @@ Nobody has played these. Test with a real pad: an Xbox-style pad and a PlayStati
 - [ ] **A and B in every menu.** A picks and B goes back on the main menu, Settings, Controls, and the pause menu (B on the pause list resumes). B in play does nothing.
 - [ ] **Start stays Pause.** On the Controller tab, try to give Pause another button, and to give Start to another action: Start always pauses and never does anything else.
 - [ ] **Rebound Enter and Space.** Bind Look up to Enter and Look down to Space: the menus (main, pause, Settings) still pick with them, and Up / Down still move.
+
+## C lashes up, and room 16
+
+Nobody has played these yet. `?dev=1&room=16`.
+
+- [ ] **C goes up in a jump.** With Tongue Lash, jump while holding Left or Right and press C: the tongue goes straight up every time. W/Up + X still lash up, and X alone still lashes sideways.
+- [ ] **Holding C hangs from a ceiling.** With Tongue Climb, hold C under a ceiling: Freddy hangs from it. A tap of C only lashes.
+- [ ] **Y / Triangle** does the same on a controller, and C and Y can be rebound in Settings.

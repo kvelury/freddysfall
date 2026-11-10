@@ -562,7 +562,7 @@ func gameplay_input_blocked() -> bool:
 	if not modal_owner.is_empty():
 		return true
 	if _input_release:
-		for action in ["move_left", "move_right", "look_down", "jump", "look_up", "lash", "imprint", "map"]:
+		for action in ["move_left", "move_right", "look_down", "jump", "look_up", "lash", "lash_up", "imprint", "map"]:
 			if Input.is_action_pressed(action):
 				return true
 		_input_release = false

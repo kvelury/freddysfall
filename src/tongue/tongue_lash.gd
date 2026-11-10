@@ -12,6 +12,8 @@ extends Node2D
 ## There is no aiming, so a player who wants to reach higher jumps first. With
 ## `look_up` (Up or W) held when `lash` (B) is pressed, the tongue goes straight
 ## up out of the top of his head instead, for a wall or platform above him.
+## `lash_up` (C) always lashes straight up, whatever else is held, and holding it
+## climbs as holding `lash` does (a ceiling hang with Tongue Climb).
 ##
 ## Two keys pressed "together" land a frame or two apart, and a press often
 ## comes a little before the lash can be made, so the input is lenient. A press
@@ -70,6 +72,8 @@ var scripted := false
 var scripted_lash := false
 ## The tests' stand-in for holding the look-up key when a lash is made.
 var scripted_up := false
+## The tests' stand-in for a press of `lash_up` (C): a lash straight up.
+var scripted_lash_up := false
 ## The tests' stand-in for holding the lash key down.
 var scripted_held := true
 
@@ -123,6 +127,9 @@ var _held_for := -1.0
 ## Whether the press behind the current or kept lash was held for `climb_press`
 ## at some point, so letting go afterwards (before a kept lash is made) still climbs.
 var _press_qualified := false
+## The action whose press is behind the current or kept lash (`lash` or
+## `lash_up`), so holding that key is what counts for a climb.
+var _press_action := "lash"
 ## Whether the current lash will climb, as the key was held.
 var _intent := Intent.ATTACK
 ## Whether the tip is stuck to something Freddy can hang from and waits, in the
@@ -234,9 +241,15 @@ func _physics_process(delta: float) -> void:
 		end()
 		drop_buffer()
 		return
-	var pressed := scripted_lash if scripted else Input.is_action_just_pressed("lash")
-	var upward := scripted_up if scripted else Input.is_action_pressed("look_up")
+	var pressed_up := scripted_lash_up if scripted else Input.is_action_just_pressed("lash_up")
+	var pressed_side := scripted_lash if scripted else Input.is_action_just_pressed("lash")
+	var pressed := pressed_up or pressed_side
+	var looking_up := scripted_up if scripted else Input.is_action_pressed("look_up")
+	var upward := pressed_up or looking_up
 	scripted_lash = false
+	scripted_lash_up = false
+	if pressed:
+		_press_action = "lash_up" if pressed_up else "lash"
 	var held := _held_now()
 	if pressed:
 		_press_qualified = false
@@ -256,7 +269,7 @@ func _physics_process(delta: float) -> void:
 			_log("Lash only: X let go before %.2f s" % GameState.abilities.climb_press)
 	if active and not up and _player.facing != direction:
 		end()
-	if active and not up and phase == Phase.OUT and _sent_for < UP_GRACE - 0.001 and upward and _lash_allowed():
+	if active and not up and phase == Phase.OUT and _sent_for < UP_GRACE - 0.001 and looking_up and _lash_allowed():
 		# Look-up came a moment after the lash: it goes up after all.
 		_log("Lash turned up, look-up %d ticks after X" % (roundi(_sent_for * 60.0) + 1))
 		_send(true)
@@ -282,7 +295,7 @@ func _physics_process(delta: float) -> void:
 			_buffer_up = upward
 			_log("Lash kept (%s) · look-up held: %s" % [why, _yes(upward)])
 	elif buffer_left > 0.0:
-		var aim := _buffer_up or upward
+		var aim := _buffer_up or looking_up
 		if lash(aim):
 			drop_buffer()
 			_log("Kept lash made %s · look-up held: %s" % ["UP" if aim else "side", _yes(upward)])
@@ -292,9 +305,9 @@ func _physics_process(delta: float) -> void:
 				_log("Kept lash ran out (%s)" % _busy_reason())
 
 
-## Whether the lash key is down now.
+## Whether the key behind the lash (`lash` or `lash_up`) is down now.
 func _held_now() -> bool:
-	return scripted_held if scripted else Input.is_action_pressed("lash")
+	return scripted_held if scripted else Input.is_action_pressed(_press_action)
 
 
 ## What a lash will do if its tip sticks, from how long the key has been held.
