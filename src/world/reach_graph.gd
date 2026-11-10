@@ -1331,7 +1331,9 @@ func try_plan(info: RoomInfo, geo: Geometry, ledge: Ledge, near: Array[Rect2], x
 		result = MovementSim.run(_cfg, plan)
 	if _recording != null:
 		_recording[record_key] = {"collected": result["collected"], "hazard": result["hazard"], "trigger": result["trigger"], "position": result["position"], "velocity": result["velocity"], "landed": result["landed"], "riding": result["riding"], "bounds": result["bounds"]}
-	var air := air_frame >= 0
+	# From a ceiling hang the second press is the spare jump every player gets on
+	# letting go, not the air jump, so what it reaches does not need double jump.
+	var air := air_frame >= 0 and hang.y == 0.0
 	# A pickup is taken even on a path that then dies on spikes.
 	for index in result["collected"]:
 		ledge.add_pickup(index, air)

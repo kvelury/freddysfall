@@ -19,7 +19,8 @@ extends RefCounted
 ## 3: a room's jumps are kept per Abilities.movement_key, so a jump worked out
 ## with one set of movement stats is never reused for another.
 ## 4: what each Tongue Climb hang reaches is kept too (`climb`).
-const FORMAT := 4
+## 5: ceiling hangs, and where a body let go from one lashes again (`climb` "l").
+const FORMAT := 5
 
 ## Everything a jump's result depends on.
 const SOLVER_FILES: Array[String] = [
@@ -235,10 +236,10 @@ class Entry extends RefCounted:
 		air_edges[key] = _pack_ledges(ledges, true)
 		dirty = true
 
-	func store_climb(signature: String, hang_key: String, land: ReachGraph.Ledge) -> void:
+	func store_climb(signature: String, hang_key: String, land: ReachGraph.Ledge, links: Array = []) -> void:
 		if not climb.has(signature):
 			climb[signature] = {}
-		climb[signature][hang_key] = {"n": SolverCache.pack(land, false), "a": SolverCache.pack(land, true)}
+		climb[signature][hang_key] = {"n": SolverCache.pack(land, false), "a": SolverCache.pack(land, true), "l": links}
 		dirty = true
 
 	func _pack_ledges(ledges: Array, air: bool) -> Dictionary:
