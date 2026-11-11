@@ -7,6 +7,7 @@
   {"id": "lash", "label": "Lash your tongue", "actions": ["lash"], "needs": "tongue_unlocked"},
   {"id": "lash_walls", "label": "Destroy breakable walls", "actions": ["lash"], "needs": "tongue_unlocked"},
   {"id": "lash_up", "label": "Lash upward", "actions": ["look_up", "lash"], "combo": true, "needs": "tongue_unlocked"},
+  {"id": "lash_up_key", "label": "Lash straight up, whatever you hold", "actions": ["lash_up"], "needs": "tongue_unlocked"},
   {"id": "climb", "label": "Hold the button to stick to a wall", "actions": ["lash"], "needs": "tongue_climb"},
   {"id": "imprint", "label": "Place a platform at the cursor (legacy, dev tools)", "actions": ["imprint"], "needs": "imprint_unlocked"},
   {"id": "map", "label": "Map (hold)", "actions": ["map"]},

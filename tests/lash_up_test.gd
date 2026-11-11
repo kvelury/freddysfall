@@ -141,6 +141,22 @@ func _play() -> bool:
 	Input.action_release("look_up")
 	Input.action_release("lash")
 	ok = check(upward, "with the real keys, look up (W or Up) and lash (B) lash up") and ok
+	# C (lash_up) goes up whatever else is held: a direction, or a jump.
+	for held: Array in [[], ["move_left"], ["move_right", "jump"]]:
+		tongue.clear()
+		tongue.cooldown_left = 0.0
+		for i in 3:
+			await physics_frame
+		for action: String in held:
+			Input.action_press(action)
+		Input.action_press("lash_up")
+		for i in 3:
+			await physics_frame
+		var straight_up: bool = tongue.active and tongue.up
+		Input.action_release("lash_up")
+		for action: String in held:
+			Input.action_release(action)
+		ok = check(straight_up, "C lashes straight up with %s held" % [held]) and ok
 	tongue.clear()
 	tongue.scripted = true
 	var body := player.get_node("Visual") as PlayerBody
@@ -164,6 +180,7 @@ func _keys() -> bool:
 	var look := _codes("look_up")
 	var lash := _codes("lash")
 	ok = check(jump == [KEY_SPACE] and lash == [KEY_X] and look.has(KEY_W) and look.has(KEY_UP), "Space jumps, X lashes, W and Up look up") and ok
+	ok = check(_codes("lash_up") == [KEY_C], "C lashes up") and ok
 	ok = check(not InputMap.action_has_event("look_up", _key(KEY_SPACE)) and not InputMap.action_has_event("jump", _key(KEY_UP)), "Space does not look up and Up does not jump") and ok
 	return ok
 

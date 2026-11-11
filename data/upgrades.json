@@ -19,7 +19,7 @@
     "stat": "tongue_unlocked",
     "kind": "unlock",
     "message": "Tongue Lash. Lash your tongue. Destroy breakable walls.",
-    "controls": ["lash", "lash_walls"],
+    "controls": ["lash", "lash_walls", "lash_up_key"],
     "dev": {
       "section": "lash",
       "type": "bool"

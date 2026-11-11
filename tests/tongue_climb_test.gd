@@ -489,6 +489,26 @@ func _hold_cases(world: Node, player: Player, tongue: Node, ab: Abilities) -> bo
 	tongue.lash(true)
 	ok = check(await until(func() -> bool: return player.hanging() and player.climbing_ceiling(), 60) >= 0, "a hold up at the slab does") and ok
 	tongue.clear()
+	# The real C key (lash_up), held with a direction, hangs him from the slab too;
+	# a tap of it only lashes.
+	tongue.scripted = false
+	for hold in [false, true]:
+		_put(world, Vector2i(7, 16))
+		Input.action_press("move_left")
+		Input.action_press("lash_up")
+		var hung := false
+		for i in 40:
+			await physics_frame
+			if not hold and i == 1:
+				Input.action_release("lash_up")
+			hung = hung or (player.hanging() and player.climbing_ceiling())
+		Input.action_release("lash_up")
+		Input.action_release("move_left")
+		ok = check(hung == hold, "C %s at the slab %s" % ["held" if hold else "tapped", "hangs him" if hold else "does not hang him"]) and ok
+		tongue.clear()
+		for i in 2:
+			await physics_frame
+	tongue.scripted = true
 
 	# Zero is what it was: every lash that sticks climbs.
 	ab.climb_press = 0.0

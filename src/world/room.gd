@@ -28,6 +28,9 @@ var _spinners: Array[SpinnerView] = []
 var _walls: Array[BreakableWall] = []
 ## Hits taken by each breakable spinner arm that still stands, by its index in `movers`.
 var _arm_damage := {}
+## Hits taken by each breakable emitter body on its current trip, by
+## "body index:first tick of the trip", so a slot that comes round again is whole.
+var _pillar_damage := {}
 
 ## Emitted when the exit rule becomes met and the doors open.
 signal exits_opened
@@ -80,7 +83,7 @@ func build(room_info: RoomInfo, flags := {}, fills := {}, door_override := false
 		add_child(platform)
 		_platforms.append(platform)
 	for path in info.emitters:
-		var view := EmitterView.new(path)
+		var view := EmitterView.new(path, 0, movers, movers.first_body(info.movers.find(path)))
 		add_child(view)
 		_emitters.append(view)
 	for path in info.spinners:
@@ -131,6 +134,43 @@ func hit_arm(arm: int, strength: int) -> bool:
 	_world_rects_dirty = true
 	wall_broken.emit()
 	return true
+
+
+## The body of a breakable emitter (a pillar) touching `box` (world pixels) this
+## tick, or -1.
+func pillar_at(box: Rect2) -> int:
+	return movers.pillar_at(box, tick)
+
+
+## A lash lands on pillar `body` (from `pillar_at`). Once `strength` have landed
+## it shatters and is gone for the rest of its trip. Returns whether it broke.
+func hit_pillar(body: int, strength: int) -> bool:
+	var path: EmitterPath = movers.paths[movers.mover_of(body)]
+	var local := movers.local_of(body)
+	var age := path.age_at(tick, local)
+	if age < 0:
+		return false
+	var key := "%d:%d" % [body, tick - age]
+	var hits: int = int(_pillar_damage.get(key, 0)) + 1
+	_pillar_damage[key] = hits
+	var view := _emitter_view_of(path.id)
+	var need := maxi(1, strength)
+	if hits < need:
+		if view != null:
+			view.struck(local, clampi(ceili(float(hits) * float(BreakableWall.STAGES) / float(need)), 0, BreakableWall.STAGES))
+		return false
+	_pillar_damage.erase(key)
+	# The view bursts it on the next tick, when it sees the body gone.
+	movers.break_body(body, tick)
+	_world_rects_dirty = true
+	return true
+
+
+func _emitter_view_of(emitter_id: String) -> EmitterView:
+	for view in _emitters:
+		if view.path.id == emitter_id:
+			return view
+	return null
 
 
 func _spinner_view_of(spinner_id: String) -> SpinnerView:

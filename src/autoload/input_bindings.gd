@@ -21,7 +21,7 @@ const SLOTS := 2
 const KINDS := ["keyboard", "controller"]
 ## The actions the player can rebind, in the order Settings lists them. The
 ## map's zoom (`FOLLOWS`) is not one of them: it moves with look up and down.
-const ACTIONS := ["move_left", "move_right", "look_up", "look_down", "jump", "lash", "map", "pause"]
+const ACTIONS := ["move_left", "move_right", "look_up", "look_down", "jump", "lash", "lash_up", "map", "pause"]
 const LABELS := {
 	"move_left": "Move left",
 	"move_right": "Move right",
@@ -29,6 +29,7 @@ const LABELS := {
 	"look_down": "Look down",
 	"jump": "Jump",
 	"lash": "Tongue lash / climb",
+	"lash_up": "Tongue lash up",
 	"map": "Map (hold)",
 	"pause": "Pause",
 }

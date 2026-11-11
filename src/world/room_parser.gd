@@ -232,16 +232,20 @@ static func _place_platform(info: RoomInfo, def: EntityDef, cells: Array, errors
 	var first: Vector2i = cells[0]
 	var x0 := first.x
 	var x1 := first.x
+	var y0 := first.y
+	var y1 := first.y
 	for cell: Vector2i in cells:
-		if cell.y != first.y:
+		if cell.y != first.y and not is_emitter:
 			errors.append("%s is drawn on more than one row; draw it as one unbroken row of '%s'" % [where, def.glyph])
 			return null
 		x0 = mini(x0, cell.x)
 		x1 = maxi(x1, cell.x)
-	if x1 - x0 + 1 != cells.size():
-		errors.append("%s has a gap in it; draw it as one unbroken row of '%s'" % [where, def.glyph])
+		y0 = mini(y0, cell.y)
+		y1 = maxi(y1, cell.y)
+	if (x1 - x0 + 1) * (y1 - y0 + 1) != cells.size():
+		errors.append("%s has a gap in it; draw it as one unbroken row (or, for an emitter, one solid rectangle) of '%s'" % [where, def.glyph])
 		return null
-	var drawn := Rect2i(x0, first.y, x1 - x0 + 1, 1)
+	var drawn := Rect2i(x0, y0, x1 - x0 + 1, y1 - y0 + 1)
 	var ways: Array[Vector2i] = []
 	var lengths: Array[int] = []
 	for way in [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]:
@@ -255,12 +259,15 @@ static func _place_platform(info: RoomInfo, def: EntityDef, cells: Array, errors
 	if ways.size() > 1:
 		errors.append("%s has track on more than one side; it runs one way from where it is drawn and back" % where)
 		return null
+	if drawn.size.y > 1 and ways[0].y != 0:
+		errors.append("%s is more than one row tall, so it runs side to side: draw its track (%s) on from the bottom row" % [where, Tiles.TRACK_ACROSS])
+		return null
 	if is_emitter:
 		var problem := _emitter_ends(info, drawn, ways[0], lengths[0])
 		if not problem.is_empty():
 			errors.append("%s %s" % [where, problem])
 			return null
-		return EmitterPath.new(def.id, drawn, ways[0], lengths[0], float(String(def.props["speed"])), float(String(def.props["every"])))
+		return EmitterPath.new(def.id, drawn, ways[0], lengths[0], float(String(def.props["speed"])), float(String(def.props["every"])), String(def.props.get("breakable", "")) == "true")
 	var pause := float(String(def.props.get("pause", str(PlatformPath.DEFAULT_PAUSE))))
 	return PlatformPath.new(def.id, drawn, ways[0], lengths[0], float(String(def.props["speed"])), pause)
 
@@ -318,7 +325,8 @@ static func _def_of(info: RoomInfo, entity_id: String) -> EntityDef:
 static func _emitter_ends(info: RoomInfo, drawn: Rect2i, way: Vector2i, length: int) -> String:
 	var backs: Array[Vector2i] = []
 	if way.y == 0:
-		backs.append(Vector2i(drawn.position.x - 1 if way.x > 0 else drawn.end.x, drawn.position.y))
+		for y in range(drawn.position.y, drawn.end.y):
+			backs.append(Vector2i(drawn.position.x - 1 if way.x > 0 else drawn.end.x, y))
 	else:
 		for x in range(drawn.position.x, drawn.end.x):
 			backs.append(Vector2i(x, drawn.position.y - 1 if way.y > 0 else drawn.position.y + 1))
@@ -327,7 +335,8 @@ static func _emitter_ends(info: RoomInfo, drawn: Rect2i, way: Vector2i, length: 
 			return "needs solid wall ('#') behind where its platforms appear, at cell %d,%d" % [back.x, back.y]
 	var ends: Array[Vector2i] = []
 	if way.y == 0:
-		ends.append(Vector2i(drawn.end.x + length if way.x > 0 else drawn.position.x - length - 1, drawn.position.y))
+		for y in range(drawn.position.y, drawn.end.y):
+			ends.append(Vector2i(drawn.end.x + length if way.x > 0 else drawn.position.x - length - 1, y))
 	else:
 		for x in range(drawn.position.x, drawn.end.x):
 			ends.append(Vector2i(x, drawn.position.y + length + 1 if way.y > 0 else drawn.position.y - length - 1))
@@ -338,17 +347,17 @@ static func _emitter_ends(info: RoomInfo, drawn: Rect2i, way: Vector2i, length: 
 	return ""
 
 
-## How many cells of track run on from `drawn` going `way`: `-` in its row to
-## the side, or whole rows of `|` across its columns above or below.
+## How many cells of track run on from `drawn` going `way`: `-` in its (bottom)
+## row to the side, or whole rows of `|` across its columns above or below.
 static func _track_length(info: RoomInfo, drawn: Rect2i, way: Vector2i) -> int:
 	var length := 0
 	if way.y == 0:
 		var x := drawn.position.x - 1 if way.x < 0 else drawn.end.x
-		while _glyph(info, x, drawn.position.y) == Tiles.TRACK_ACROSS:
+		while _glyph(info, x, drawn.end.y - 1) == Tiles.TRACK_ACROSS:
 			length += 1
 			x += way.x
 		return length
-	var y := drawn.position.y + way.y
+	var y := drawn.position.y - 1 if way.y < 0 else drawn.end.y
 	while true:
 		for x in range(drawn.position.x, drawn.end.x):
 			if _glyph(info, x, y) != Tiles.TRACK_UP_DOWN:
@@ -390,6 +399,17 @@ static func _check_platforms(info: RoomInfo, errors: Array[String]) -> void:
 			if Tiles.has_flag(info.rows[y][x], "track") and not claimed.has(Vector2i(x, y)):
 				found.append("Room %s cell %d,%d is track ('%s') that belongs to no moving platform; a track runs straight on from a platform's row (%s) or its columns (%s)" % [info.id, x, y, info.rows[y][x], Tiles.TRACK_ACROSS, Tiles.TRACK_UP_DOWN])
 	for path in _tracked(info):
+		# A pillar's rows over its track have to be open air everywhere it goes.
+		var swept_all := path.swept_cells()
+		var over_rows := swept_all.end.y - 1 if path.start_cells.size.y > 1 else swept_all.position.y
+		for y in range(swept_all.position.y, over_rows):
+			for x in range(swept_all.position.x, swept_all.end.x):
+				if path.start_cells.has_point(Vector2i(x, y)):
+					continue
+				var over := _glyph(info, x, y)
+				if over != Tiles.EMPTY and over != Tiles.NO_IMPRINT and over != Tiles.SPAWN:
+					found.append("Room %s: %s needs open air everywhere it goes, over its track, but cell %d,%d is '%s'" % [info.id, path.id, x, y, over if not over.is_empty() else "outside the room"])
+					break
 		var band := path.band_cells()
 		for x in range(band.position.x, band.end.x):
 			var glyph := _glyph(info, x, band.position.y)

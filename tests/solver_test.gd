@@ -17,6 +17,7 @@ func _initialize() -> void:
 	ok = _double_jump() and ok
 	ok = _lash() and ok
 	ok = _climb() and ok
+	ok = _ceiling() and ok
 	ok = _progression() and ok
 	ok = _many_rounds() and ok
 	ok = _locks() and ok
@@ -186,6 +187,36 @@ func _climb() -> bool:
 	base.tongue_unlocked = true
 	var report := ReachGraph.new(chain, _cfg, base).solve("1")
 	ok = check(report.errors.is_empty() and report.needs.get("pickup|gem") == ["climbpick"], "a pickup that gives Tongue Climb is what the pillar's pickup needs (%s %s)" % [report.errors, report.needs.get("pickup|gem")]) and ok
+	return ok
+
+
+## Ceiling hangs: a spiked floor 22 cells wide under a low ceiling, too wide to
+## jump and with no wall to climb across it. Hanging from the ceiling, letting go,
+## using the spare jump and lashing up again crosses it to the pickup; with
+## `climb_ceiling` off, or without Tongue Climb, it stays out of reach.
+func _ceiling() -> bool:
+	var ok := true
+	var header := "legend:\n  U = pickup id=gem upgrade=tongue_cooldown value=0.5\n---\n"
+	var marks := {}
+	for x in range(5, 28):
+		for y in range(1, 10):
+			marks[Vector2i(x, y)] = "#"
+	for x in range(6, 28):
+		marks[Vector2i(x, 16)] = "^"
+	marks[Vector2i(29, 16)] = "U"
+	var rooms := _world(marks, header)
+	var armed := Abilities.new()
+	armed.tongue_unlocked = true
+	armed.tongue_climb = true
+	var hanging := ReachGraph.new(rooms, _cfg, armed).analyze("1")
+	ok = check(hanging.pickups.any(func(p: ReachGraph.PickupReport) -> bool: return p.id == "gem" and p.reached), "hanging from the ceiling, hang to hang, crosses the spikes to the pickup %s" % [hanging.errors]) and ok
+	armed.climb_ceiling = false
+	var walls_only := ReachGraph.new(rooms, _cfg, armed).analyze("1")
+	ok = check(_has(walls_only.errors, "pickup gem"), "with ceilings off it is out of reach %s" % [walls_only.errors]) and ok
+	var no_climb := Abilities.new()
+	no_climb.tongue_unlocked = true
+	var plain := ReachGraph.new(rooms, _cfg, no_climb).analyze("1")
+	ok = check(_has(plain.errors, "pickup gem"), "and so it is without Tongue Climb %s" % [plain.errors]) and ok
 	return ok
 
 
