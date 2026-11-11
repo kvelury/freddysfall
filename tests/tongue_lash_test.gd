@@ -223,12 +223,18 @@ func _keycodes(action: String) -> Array:
 func _abilities() -> bool:
 	var ok := true
 	var abilities := Abilities.new()
-	ok = check(not abilities.tongue_unlocked and is_equal_approx(abilities.tongue_cooldown, 0.05) and is_equal_approx(abilities.tongue_speed, 220.0) and is_equal_approx(abilities.tongue_snap, 2.0) and is_equal_approx(abilities.tongue_length, 60.0), "Tongue Lash starts locked, with a 0.05 s cooldown, 220 px/s out, a 2x snap back and 60 px of reach") and ok
+	ok = check(not abilities.tongue_unlocked and is_equal_approx(abilities.tongue_cooldown, 0.05) and is_equal_approx(abilities.tongue_speed, 220.0) and is_equal_approx(abilities.tongue_snap, 2.0) and is_equal_approx(abilities.tongue_length, 70.0), "Tongue Lash starts locked, with a 0.05 s cooldown, 220 px/s out, a 2x snap back and 70 px of reach") and ok
 	ok = check(abilities.apply(Upgrades.get_def("tongue_lash"), true) and abilities.tongue_unlocked and not abilities.apply(Upgrades.get_def("tongue_lash"), true), "the Tongue Lash upgrade unlocks it once") and ok
 	# The cooldown starts at the lowest the dev tools allow, so start this one higher.
 	abilities.tongue_cooldown = 0.2
 	ok = check(abilities.apply(Upgrades.get_def("tongue_cooldown"), 0.1) and not abilities.apply(Upgrades.get_def("tongue_cooldown"), 0.15) and is_equal_approx(abilities.tongue_cooldown, 0.1), "a cooldown upgrade only lowers it") and ok
 	ok = check(abilities.apply(Upgrades.get_def("tongue_speed"), 500.0) and not abilities.apply(Upgrades.get_def("tongue_speed"), 100.0) and is_equal_approx(abilities.tongue_speed, 500.0), "a speed upgrade only raises it") and ok
+	var climber := Abilities.new()
+	ok = check(climber.apply(Upgrades.get_def("tongue_climb"), true) and is_equal_approx(climber.tongue_length, 100.0), "Tongue Climb lengthens the tongue to 100 px") and ok
+	var longer := Abilities.new()
+	longer.tongue_length = 120.0
+	longer.apply(Upgrades.get_def("tongue_climb"), true)
+	ok = check(is_equal_approx(longer.tongue_length, 120.0), "and never shortens a longer one") and ok
 	ok = check(abilities.apply(Upgrades.get_def("tongue_length"), 80.0) and not abilities.apply(Upgrades.get_def("tongue_length"), 60.0) and is_equal_approx(abilities.tongue_length, 80.0), "a length upgrade only raises it") and ok
 	ok = check(abilities.apply(Upgrades.get_def("tongue_snap"), 5.0) and not abilities.apply(Upgrades.get_def("tongue_snap"), 2.0) and is_equal_approx(abilities.tongue_snap, 5.0), "a snap upgrade only raises it") and ok
 	var back := Abilities.from_dict(abilities.to_dict())

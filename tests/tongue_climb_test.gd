@@ -39,6 +39,7 @@ func _run() -> void:
 	ab.air_jumps = 1
 	player.air_jumps = 1
 	ok = _defaults(ab) and ok
+	ab.tongue_length = 60.0 # the fixture's distances were laid out for the old length
 
 	# Power-up off: a lash at the pillar sticks the tip for a moment and comes back; Freddy stays put.
 	_put(world, Vector2i(17, 12))

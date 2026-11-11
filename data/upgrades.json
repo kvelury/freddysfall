@@ -170,6 +170,7 @@
     "kind": "unlock",
     "message": "Tongue Climb. Hold the button to stick to a wall.",
     "controls": ["climb"],
+    "also": {"tongue_length": 100},
     "dev": {
       "section": "climb",
       "type": "bool"
