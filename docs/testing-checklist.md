@@ -39,6 +39,11 @@ Nobody has played this yet. `?dev=1&room=12`, then F2 for Tongue Lash, double ju
 - [ ] **The tongue snaps in.** Jumping off a hang, the tongue vanishes into the mouth; when a hang runs out it still eases back.
 - [ ] **No stale lash.** Press X twice quickly (the second is kept), then at once enter a door, open the pause menu (Esc), the map (Tab) or the dev panel (F2), or die: nothing is lashed afterwards. Against a wall, X X on the beat lashes twice, not three times.
 
+## Platforms that scrape (`scrape=true`)
+
+- [ ] **A rider is scraped off.** Ride a `scrape=true` platform into the wall in its rider row (room 19's ferry into its column, once that room exists): Freddy stops at the wall's face, is not crushed, stays on the platform while it slides under the wall, and falls when it has gone. Both directions, and at the platform's ends.
+- [ ] **A broken wall lets the ride through.** Break the column, then ride: carried straight past where it stood. Leave and come back: the column is back and scrapes again.
+
 ## Room 12: emitted platforms, a spinner and lash up
 
 Nobody has played this yet. `?dev=1&room=12`, then F2 for Tongue Lash and double jump.

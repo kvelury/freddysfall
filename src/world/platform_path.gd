@@ -19,6 +19,10 @@ var cells := 0
 var speed := 60.0
 var travel_ticks := 1
 var pause_ticks := 0
+## `scrape=true` in the legend: solid or breakable cells may stand in its rider
+## row (never its track). A rider carried into one is stopped by it, and the
+## platform slides out from under them. Side to side only.
+var scrape := false
 
 
 func _init(platform_id: String, drawn: Rect2i, toward: Vector2i, length: int, px_per_second: float, pause_seconds: float) -> void:
@@ -75,7 +79,8 @@ func swept_cells() -> Rect2i:
 
 
 ## The row of cells just above everywhere it goes: where a rider stands. It is
-## kept clear, so riding never scrapes, crushes or kills the player.
+## kept clear, so riding never scrapes, crushes or kills the player, unless the
+## platform is `scrape`: then walls may stand in it and scrape a rider off.
 func band_cells() -> Rect2i:
 	var swept := swept_cells()
 	return Rect2i(swept.position.x, swept.position.y - 1, swept.size.x, 1)

@@ -269,7 +269,9 @@ static func _place_platform(info: RoomInfo, def: EntityDef, cells: Array, errors
 			return null
 		return EmitterPath.new(def.id, drawn, ways[0], lengths[0], float(String(def.props["speed"])), float(String(def.props["every"])), String(def.props.get("breakable", "")) == "true")
 	var pause := float(String(def.props.get("pause", str(PlatformPath.DEFAULT_PAUSE))))
-	return PlatformPath.new(def.id, drawn, ways[0], lengths[0], float(String(def.props["speed"])), pause)
+	var path := PlatformPath.new(def.id, drawn, ways[0], lengths[0], float(String(def.props["speed"])), pause)
+	path.scrape = String(def.props.get("scrape", "")) == "true"
+	return path
 
 
 ## A spinner is drawn as one solid rectangle of its glyph, the bar in the pose
@@ -385,7 +387,20 @@ static func _tracked(info: RoomInfo) -> Array[PlatformPath]:
 ## What the moving platforms need around them. Every track cell belongs to a
 ## platform. The row above everywhere a platform goes is open air, so riding
 ## it never scrapes, crushes or kills the player, and no other platform or
-## track sits there. No thing stands in a platform's way.
+## track sits there. No thing stands in a platform's way. A side-to-side
+## platform with `scrape=true` may have solid or breakable cells in that row
+## (at least one), which stop a rider while it slides on under them.
+## Whether cell (`x`, `y`) is a wall a scraping platform may pass under: room
+## solid (`#`) or a breakable wall's cell.
+static func _scrapes(info: RoomInfo, x: int, y: int) -> bool:
+	if _glyph(info, x, y) == Tiles.SOLID:
+		return true
+	for wall_id in info.breakables:
+		if (info.breakables[wall_id] as Array).has(Vector2i(x, y)):
+			return true
+	return false
+
+
 static func _check_platforms(info: RoomInfo, errors: Array[String]) -> void:
 	var found: Array[String] = []
 	var claimed := {}
@@ -411,19 +426,30 @@ static func _check_platforms(info: RoomInfo, errors: Array[String]) -> void:
 					found.append("Room %s: %s needs open air everywhere it goes, over its track, but cell %d,%d is '%s'" % [info.id, path.id, x, y, over if not over.is_empty() else "outside the room"])
 					break
 		var band := path.band_cells()
+		if path.scrape and not path.is_horizontal():
+			found.append("Room %s: moving platform %s has scrape=true but goes up and down; scrape is for platforms that go side to side" % [info.id, path.id])
+		var scrapers := 0
 		for x in range(band.position.x, band.end.x):
 			var glyph := _glyph(info, x, band.position.y)
+			if path.scrape and _scrapes(info, x, band.position.y):
+				# A wall in the rider row of a scraping platform stops a rider.
+				scrapers += 1
+				continue
 			if glyph != Tiles.EMPTY and glyph != Tiles.NO_IMPRINT and glyph != Tiles.SPAWN:
-				found.append("Room %s: moving platform %s needs open air in the row above everywhere it goes (row %d, cells %d-%d), for a rider to stand in, but cell %d,%d is '%s'" % [info.id, path.id, band.position.y, band.position.x, band.end.x - 1, x, band.position.y, glyph if not glyph.is_empty() else "outside the room"])
+				found.append("Room %s: moving platform %s needs open air in the row above everywhere it goes (row %d, cells %d-%d), for a rider to stand in, but cell %d,%d is '%s'%s" % [info.id, path.id, band.position.y, band.position.x, band.end.x - 1, x, band.position.y, glyph if not glyph.is_empty() else "outside the room", " (scrape=true allows only solid and breakable walls there)" if path.scrape else ""])
 				break
+		if path.scrape and path.is_horizontal() and scrapers == 0:
+			found.append("Room %s: moving platform %s has scrape=true but nothing stands in its rider row (row %d, cells %d-%d); leave scrape out" % [info.id, path.id, band.position.y, band.position.x, band.end.x - 1])
 		var keep := path.keep_out()
+		# A scraping platform's breakable walls may stand in its rider row, never its track.
+		var wall_keep := Grid.cell_rect(path.swept_cells()) if path.scrape else keep
 		for def in info.entities:
 			if def.type == "platform" or def.type == "emitter":
 				continue
 			if def.type == "breakable":
 				for wall_cell in def.cells:
-					if Grid.cell_rect(Rect2i(wall_cell, Vector2i.ONE)).intersects(keep):
-						found.append("Room %s: breakable wall %s is in the way of moving platform %s; keep things out of its track and the row above it" % [info.id, def.id, path.id])
+					if Grid.cell_rect(Rect2i(wall_cell, Vector2i.ONE)).intersects(wall_keep):
+						found.append("Room %s: breakable wall %s is in the way of moving platform %s; keep things out of its track%s" % [info.id, def.id, path.id, "" if path.scrape else " and the row above it"])
 						break
 				continue
 			var space := Rect2i(def.cell, Vector2i.ONE)
