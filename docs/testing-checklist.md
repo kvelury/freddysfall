@@ -44,6 +44,15 @@ Nobody has played this yet. `?dev=1&room=12`, then F2 for Tongue Lash, double ju
 - [ ] **A rider is scraped off.** Ride a `scrape=true` platform into the wall in its rider row (room 19's ferry into its column, once that room exists): Freddy stops at the wall's face, is not crushed, stays on the platform while it slides under the wall, and falls when it has gone. Both directions, and at the platform's ends.
 - [ ] **A broken wall lets the ride through.** Break the column, then ride: carried straight past where it stood. Leave and come back: the column is back and scrapes again.
 
+## Rooms 18 and 19 (west of room 16)
+
+- [ ] **Into 18.** From room 16's left door (row 19), jump through: a running entry lands on the slab under the door; a slow one drops by the wall, and a held lash onto the wall catches you.
+- [ ] **The ferry.** From the wall hang, time a jump onto room 18's ferry, ride it left, and break the column by climbing onto it twice (or lash it twice from the ferry). Is the hang long enough to wait for the ferry?
+- [ ] **The lift and the exit.** Past the column, drop onto the lift, ride up, and jump to the exit ledge. Is the jump from the lift's top fair?
+- [ ] **Into 19 and across the cross.** Hang from the ceiling across the turning cross and drop onto the lift. Do the spiked leading edges read, and is the timing fair?
+- [ ] **The bar.** From the pillar, wait for the bar's safe half and land on it; then hang under the spiked shelf and stick to the right wall's safe band.
+- [ ] **The ferry and the column.** Ride the ferry left into the column: you are scraped off into the spikes. Break it (hang under the low spiked shelf and lash it, or climb onto it twice), then ride through to the exit ledge.
+
 ## Room 12: emitted platforms, a spinner and lash up
 
 Nobody has played this yet. `?dev=1&room=12`, then F2 for Tongue Lash and double jump.
