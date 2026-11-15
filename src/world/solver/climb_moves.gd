@@ -45,6 +45,11 @@ extends MoveProvider
 const MAX_DROP := 40
 ## Ticks after letting go of a ceiling that the spare jump is tried at.
 const CEILING_FRAMES: Array[int] = [6, 16]
+## The most moments of a room's movers a hang's jumps, or a rider's climb, are
+## tried at: `ReachGraph.phases` spread evenly. A hang has many more paths than a
+## ledge, so trying every moment of a long trip (a hundred in room 16) multiplies
+## the climb's whole cost; fewer moments can only find less.
+const CLIMB_PHASES := 12
 ## How long the spare jump is held: all the way.
 const CEILING_HOLD := 90
 ## Ticks between the places along a path from a ceiling where a lash is tried,
@@ -201,7 +206,7 @@ func _rider_points(store: Store, info: RoomInfo, geo: ReachGraph.Geometry, ledge
 	var air_frames: Array[int] = [-1]
 	if graph.abilities.air_jumps > 0:
 		air_frames.append_array(ReachGraph.AIR_RIDE_FRAMES)
-	for tick in graph.phases(info):
+	for tick in _climb_phases(info):
 		for body in graph._rideable(geo, ledge.path, tick):
 			for spot in geo.movers.stand_spots(body, tick):
 				if not ReachGraph.in_segment(ledge, spot.x):
@@ -243,12 +248,23 @@ func _rider_points(store: Store, info: RoomInfo, geo: ReachGraph.Geometry, ledge
 
 
 ## The moments a jump or drop from `hang` is tried at: every moment of the
-## room's movers when it is near a track (as for a ledge), or once with none.
+## room's movers when it is near a track (`_climb_phases`), or once with none.
 func _ticks_for(info: RoomInfo, geo: ReachGraph.Geometry, hang: Hang) -> Array[int]:
 	if not geo.movers.is_empty() and graph._near_a_track(geo, hang.land):
-		return graph.phases(info)
+		return _climb_phases(info)
 	var none: Array[int] = [-1]
 	return none
+
+
+## `ReachGraph.phases`, thinned evenly to at most `CLIMB_PHASES`.
+func _climb_phases(info: RoomInfo) -> Array[int]:
+	var all := graph.phases(info)
+	if all.size() <= CLIMB_PHASES:
+		return all
+	var out: Array[int] = []
+	for i in CLIMB_PHASES:
+		out.append(all[i * all.size() / CLIMB_PHASES])
+	return out
 
 
 ## The ways a lash is tried: to either side, and up with `climb_ceiling`.
