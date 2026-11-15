@@ -23,6 +23,7 @@ func _initialize() -> void:
 	data.ensure_loaded()
 	var problems: Array[String] = []
 	problems.append_array(Upgrades.problems())
+	problems.append_array(Hints.problems())
 	problems.append_array(data.errors)
 	for message in problems:
 		print("FAIL ", message)

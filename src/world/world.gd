@@ -46,9 +46,10 @@ var new_game := false
 ## Built by the main menu: reads no launch arguments (the menu has already
 ## handled them) and does not reconfigure DevSession.
 var from_menu := false
-## Upgrades just granted that have controls to show, waiting for the world to
-## be free for their popups.
-var _popups: Array[String] = []
+## Popups waiting for the world to be free: each is {"kind": "power" or "hint",
+## "id": ...}. A power is an upgrade just granted that has controls to show; a
+## hint is the `hint=` of a collectible just taken (see Hints).
+var _popups: Array[Dictionary] = []
 ## Rooms whose title card this world has shown.
 var _titled := {}
 var current: Room
@@ -80,7 +81,7 @@ func _ready() -> void:
 	GameState.abilities_changed.connect(func() -> void: player.air_jumps = GameState.abilities.air_jumps)
 	GameState.upgrade_granted.connect(func(id: String) -> void:
 		if Upgrades.get_def(id).has_controls:
-			_popups.append(id))
+			_popups.append({"kind": "power", "id": id}))
 	var requested := start_override
 	if requested.is_empty() and not from_menu:
 		requested = LaunchArgs.value("room")
@@ -165,7 +166,11 @@ func _physics_process(_delta: float) -> void:
 	if current == null:
 		return
 	if not is_busy() and not _popups.is_empty() and modal_owner.is_empty():
-		power_popup.open(_popups.pop_front())
+		var next: Dictionary = _popups.pop_front()
+		if next["kind"] == "hint":
+			power_popup.open_hint(String(next["id"]))
+		else:
+			power_popup.open(String(next["id"]))
 	if not is_busy():
 		var body := player.body_rect()
 		if current.touches_hazard(player.hazard_rect()) or current.is_outside(player.global_position) or player.crushed():
@@ -241,8 +246,17 @@ func _collect(thing: Node2D) -> void:
 	else:
 		_announce(GameState.collect(thing.def))
 		thing.collect()
+	_queue_hint(thing)
 	current.recheck_exits(GameState.flags)
 	_autosave()
+
+
+## A collectible with a `hint=` shows that hint's popup once it has been taken.
+func _queue_hint(thing: Node2D) -> void:
+	var def: EntityDef = thing.def
+	var id := String(def.props.get("hint", ""))
+	if not id.is_empty():
+		_popups.append({"kind": "hint", "id": id})
 
 
 ## A power with controls gets the popup instead of the toast line.
@@ -473,6 +487,7 @@ func _on_exit(door: Door) -> void:
 	_carried = crossed.velocity
 	player.place(crossed.position, _pending.world_rects())
 	player.room = _pending
+	GameState.use_door(current.info.id, door)
 	GameState.visit(door.dest_id)
 	_maybe_title(door.dest_id)
 	var tween := create_tween()

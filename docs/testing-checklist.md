@@ -385,3 +385,14 @@ Nobody has played these yet. `?dev=1&room=16`.
 - [ ] **C goes up in a jump.** With Tongue Lash, jump while holding Left or Right and press C: the tongue goes straight up every time. W/Up + X still lash up, and X alone still lashes sideways.
 - [ ] **Holding C hangs from a ceiling.** With Tongue Climb, hold C under a ceiling: Freddy hangs from it. A tap of C only lashes.
 - [ ] **Y / Triangle** does the same on a controller, and C and Y can be rebound in Settings.
+
+## Map door marks and hint popup
+
+Nobody has played these yet. Normal play (no `?dev=1`).
+
+- [ ] **Room 2's token shows a popup.** Taking it opens THE MAP with the map key (and the zoom keys) drawn, pauses the game, and any key closes it. No toast.
+- [ ] **Doors are red until used.** Hold the map: each door of a visited room is a red gap in its outline.
+- [ ] **Using a door turns it green.** Go through one: both its gap and the far room's gap are green, with a connector between them.
+- [ ] **Zoom.** The red and green gaps stay visible at Out, Middle and In.
+- [ ] **Dev mode** (`?dev=1`) shows the plain white map with every connector.
+- [ ] **An old save** shows green doors between rooms it had visited.
