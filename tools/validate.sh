@@ -1,7 +1,8 @@
 #!/bin/sh
-# tools/validate.sh                         the world, using build/solver-cache
-# tools/validate.sh --no-cache              the same, worked out from scratch
-# tools/validate.sh --jobs N --fresh        N processes warm a fresh cache, then one solve reads it
+# tools/validate.sh                         the world, using data/solver-cache (committed)
+# tools/validate.sh --jobs N                N processes warm the rooms data/solver-cache lacks, then one solve reads it
+# tools/validate.sh --no-cache              the same, worked out from scratch in one process
+# tools/validate.sh --jobs N --fresh        N processes warm a fresh cache in build/, then one solve reads it
 # --strict-ledges and --dump=<path> are passed through to the solve.
 set -eu
 cd "$(dirname "$0")/.."
@@ -43,9 +44,15 @@ if [ "$jobs" -le 1 ] && [ "$fresh" -eq 0 ]; then
 	exec godot --headless --path . --script tests/validate.gd -- $rest
 fi
 
-cache="build/solver-cache-fresh"
-rm -rf "$cache"
-mkdir -p "$cache"
+# Without --fresh the processes fill in the committed cache: a room whose file is
+# still good is read, not solved again. --fresh works everything out in build/.
+cache="data/solver-cache"
+if [ "$fresh" -eq 1 ]; then
+	cache="build/solver-cache-fresh"
+	rm -rf "$cache"
+fi
+# The warm logs and the room times go in build/ whichever cache is used.
+mkdir -p "$cache" build
 groups=$(python3 - "$jobs" << 'PY'
 import json
 import sys
