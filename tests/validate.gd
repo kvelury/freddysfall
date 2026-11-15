@@ -4,8 +4,9 @@ extends SceneTree
 ## reachable from the start, and no place you cannot get back from.
 ## Exits non-zero on any error. Warnings (ledges nobody reached) do not fail.
 ## tools/validate.sh runs this. What the solver works out about each room is
-## kept in build/solver-cache/ between runs, so a run after editing one room
-## only redoes that room. `--no-cache` ignores and does not write it.
+## kept in data/solver-cache/, which is committed with the rooms, so a run (and
+## CI) only redoes a room whose file, neighbours' doors or the solver changed.
+## `--no-cache` ignores and does not write it.
 ##
 ## `--dump=<path>` also writes everything the solver worked out, sorted, for
 ## tools/solver_diff.sh. `--strict-ledges` makes a ledge nobody reaches an
@@ -36,7 +37,7 @@ func _initialize() -> void:
 	var graph := ReachGraph.new(data.rooms, cfg)
 	var cache_dir := _flag_value("--cache-dir")
 	if cache_dir.is_empty():
-		cache_dir = "res://build/solver-cache"
+		cache_dir = "res://data/solver-cache"
 	var cache: SolverCache = null
 	if not _has_flag("--no-cache"):
 		cache = SolverCache.new(cache_dir)
