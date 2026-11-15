@@ -25,10 +25,19 @@ extends MoveProvider
 ##   of ceiling). Sideways lashes from those paths are not tried: each would
 ##   be a wall hang of its own, which costs far more than it finds. Those places are kept in the cache with the hang.
 ##
-## It is deliberately a little pessimistic: a hang next to a moving platform or
-## a spiked path is not counted, nor is a breakable wall, a hang on a moving
-## platform's rider, or a lash from a jump that is not straight up from a ledge
-## or a wall hang (except along the paths from a ceiling). A breakable
+## - **Moving things.** A hang near a moving platform's track has its jumps and
+##   drop tried at every moment of the room's movers (`ReachGraph.phases`), as a
+##   ledge near a track has, so a jump timed onto a passing platform counts. A
+##   rider (a moving ledge) climbs too: from every moment and stand spot, a held
+##   jump straight up off it (a jump leaves the platform's speed behind) is
+##   simulated with the movers, and every `SAMPLE` ticks on the way up a lash is
+##   tried each way; where one sticks is a hang (`_rider_entries`).
+##
+## It is deliberately a little pessimistic: a hang next to a moving platform's
+## whole trip or a spiked path is not counted, nor is a breakable wall, a rider's
+## lash from anything but a straight-up jump, or a lash from a jump that is not
+## straight up from a ledge or a wall hang (except along the paths from a
+## ceiling). A breakable
 ## emitter's sweep does not count as a moving platform once the player has
 ## Tongue Lash: the player lashes those pillars out of the way.
 
@@ -107,14 +116,12 @@ func _moves_of(ledge: ReachGraph.Ledge, info: RoomInfo) -> MoveProvider.Moves:
 		return store.moves[ledge]
 	var out := MoveProvider.Moves.new()
 	store.moves[ledge] = out
-	if ledge.moving:
-		return out
 	var geo := graph.geometry_of(info)
 	var air := graph.abilities.air_jumps > 0
 	var ledges := graph._ledges_of(info.id)
 	var seen_hangs := {}
 	var seen_touches := {}
-	var stack: Array = _entries(store, info, geo, ledge)
+	var stack: Array = _rider_entries(store, info, geo, ledge) if ledge.moving else _entries(store, info, geo, ledge)
 	while not stack.is_empty():
 		var hang: Hang = stack.pop_back()
 		if seen_hangs.has(hang):
@@ -161,6 +168,87 @@ func _entries(store: Store, info: RoomInfo, geo: ReachGraph.Geometry, ledge: Rea
 				if hang != null and not out.has(hang):
 					out.append(hang)
 	return out
+
+
+## The hangs a rider on moving ledge `ledge` can lash its way into: from every
+## moment of the movers and every place it can stand on its stretch, a held
+## jump straight up, simulated with the movers (so a rise into a spiked block
+## ends there), sampled every `SAMPLE` ticks while it rises, lashing each way.
+## The places a lash sticks are kept in the cache (`climb` "r" and the ledge's
+## index), since the paths are many.
+func _rider_entries(store: Store, info: RoomInfo, geo: ReachGraph.Geometry, ledge: ReachGraph.Ledge) -> Array:
+	var entry: SolverCache.Entry = graph.cache.entry_for(info) if graph.cache != null else null
+	var key := "r%d" % ledge.index
+	var kept: Variant = entry.climb.get(_signature(), {}).get(key) if entry != null else null
+	var points: Array = []
+	if kept is Dictionary:
+		points = kept.get("l", [])
+	else:
+		points = _rider_points(store, info, geo, ledge)
+		if entry != null:
+			entry.store_climb_points(_signature(), key, points)
+	var out: Array = []
+	for point: Array in points:
+		var hang := _stick(store, info, geo, Vector2(float(point[0]), float(point[1])), float(point[2]))
+		if hang != null and not out.has(hang):
+			out.append(hang)
+	return out
+
+
+func _rider_points(store: Store, info: RoomInfo, geo: ReachGraph.Geometry, ledge: ReachGraph.Ledge) -> Array:
+	var points: Array = []
+	var seen := {}
+	var air_frames: Array[int] = [-1]
+	if graph.abilities.air_jumps > 0:
+		air_frames.append_array(ReachGraph.AIR_RIDE_FRAMES)
+	for tick in graph.phases(info):
+		for body in graph._rideable(geo, ledge.path, tick):
+			for spot in geo.movers.stand_spots(body, tick):
+				if not ReachGraph.in_segment(ledge, spot.x):
+					continue
+				for frame in air_frames:
+					var plan := JumpPlan.new(geo.rects, Vector2(spot.x, spot.y - MovementSim.HALF.y), Vector2.ZERO, 0.0, ReachGraph.HOLDS[-1])
+					plan.bounds = geo.bounds
+					plan.hazards = geo.hazards
+					plan.limit = graph.frame_limit
+					plan.record = true
+					plan.movers = geo.movers
+					plan.start_tick = tick
+					plan.start_riding = body
+					if frame >= 0:
+						plan.air_jumps = 1
+						plan.air_frame = frame
+						plan.air_hold = CEILING_HOLD
+					var run := MovementSim.run(graph._cfg, plan)
+					var path: PackedVector2Array = run["path"]
+					# A path that dies (a spiked block, spikes) is sampled only up to
+					# the tick before.
+					var last := path.size() - (2 if bool(run["hazard"]) else 1)
+					for i in range(SAMPLE_FROM, last + 1, SAMPLE):
+						if i > 0 and path[i].y > path[i - 1].y:
+							# Falling again: a lash from here is not a rider's straight-up one.
+							break
+						var at := path[i].round()
+						var box := Rect2(at - MovementSim.HALF, MovementSim.HALF * 2.0).grow(-0.01)
+						if _blocked(geo, box) or _unsafe(geo, box):
+							continue
+						for way in _ways():
+							var cell_key := "%d|%d|%d" % [floori(at.x / float(Grid.CELL)), floori(at.y / float(Grid.CELL)), int(way)]
+							if seen.has(cell_key):
+								continue
+							seen[cell_key] = true
+							if _stick(store, info, geo, at, way) != null:
+								points.append([roundi(at.x), roundi(at.y), int(way)])
+	return points
+
+
+## The moments a jump or drop from `hang` is tried at: every moment of the
+## room's movers when it is near a track (as for a ledge), or once with none.
+func _ticks_for(info: RoomInfo, geo: ReachGraph.Geometry, hang: Hang) -> Array[int]:
+	if not geo.movers.is_empty() and graph._near_a_track(geo, hang.land):
+		return graph.phases(info)
+	var none: Array[int] = [-1]
+	return none
 
 
 ## The ways a lash is tried: to either side, and up with `climb_ceiling`.
@@ -305,18 +393,19 @@ func _from_ceiling(info: RoomInfo, geo: ReachGraph.Geometry, hang: Hang) -> Arra
 	var store := _store(info)
 	var points: Array = []
 	var seen := {}
-	for input in [-1.0, 0.0, 1.0]:
-		graph.try_plan(info, geo, land, falls, hang.pos.x, 0.0, input, 0, false, -1, -1, land.top, -1, -1, 0, up)
-		_sample(info, geo, store, hang, falls, input, false, -1, 0, points, seen)
-		for frame in CEILING_FRAMES:
-			graph.try_plan(info, geo, land, near, hang.pos.x, 0.0, input, 1, true, -1, -1, land.top, -1, frame, CEILING_HOLD, up)
-			_sample(info, geo, store, hang, near, input, true, frame, CEILING_HOLD, points, seen)
+	for tick in _ticks_for(info, geo, hang):
+		for input in [-1.0, 0.0, 1.0]:
+			graph.try_plan(info, geo, land, falls, hang.pos.x, 0.0, input, 0, false, -1, tick, land.top, -1, -1, 0, up)
+			_sample(info, geo, store, hang, falls, input, false, -1, 0, points, seen, tick)
+			for frame in CEILING_FRAMES:
+				graph.try_plan(info, geo, land, near, hang.pos.x, 0.0, input, 1, true, -1, tick, land.top, -1, frame, CEILING_HOLD, up)
+				_sample(info, geo, store, hang, near, input, true, frame, CEILING_HOLD, points, seen, tick)
 	return points
 
 
 ## Runs one path from ceiling hang `hang` and adds to `points` the places along it
-## where a lash up sticks.
-func _sample(info: RoomInfo, geo: ReachGraph.Geometry, store: Store, hang: Hang, rects: Array, input: float, jump: bool, frame: int, air_hold: int, points: Array, seen: Dictionary) -> void:
+## where a lash up sticks. With `tick` 0 or more the movers are in it, from then.
+func _sample(info: RoomInfo, geo: ReachGraph.Geometry, store: Store, hang: Hang, rects: Array, input: float, jump: bool, frame: int, air_hold: int, points: Array, seen: Dictionary, tick := -1) -> void:
 	var plan := JumpPlan.new(rects, hang.pos, Vector2.ZERO, input, 1 if jump else 0)
 	plan.jump = jump
 	plan.bounds = geo.bounds
@@ -326,12 +415,18 @@ func _sample(info: RoomInfo, geo: ReachGraph.Geometry, store: Store, hang: Hang,
 	plan.hang_time = graph.abilities.climb_hold
 	plan.grounded_start = false
 	plan.record = true
+	if tick >= 0:
+		plan.movers = geo.movers
+		plan.start_tick = tick
 	if frame >= 0:
 		plan.air_jumps = 1
 		plan.air_frame = frame
 		plan.air_hold = air_hold
-	var path: PackedVector2Array = MovementSim.run(graph._cfg, plan)["path"]
-	for i in range(SAMPLE_FROM, path.size(), SAMPLE):
+	var run := MovementSim.run(graph._cfg, plan)
+	var path: PackedVector2Array = run["path"]
+	# A path that dies is sampled only up to the tick before.
+	var end := path.size() - (1 if bool(run["hazard"]) else 0)
+	for i in range(SAMPLE_FROM, end, SAMPLE):
 		var at := path[i].round()
 		var box := Rect2(at - MovementSim.HALF, MovementSim.HALF * 2.0).grow(-0.01)
 		if _blocked(geo, box) or _unsafe(geo, box):
@@ -360,15 +455,19 @@ func _jump_from(info: RoomInfo, geo: ReachGraph.Geometry, hang: Hang) -> void:
 	var inputs: Array[float] = [-hang.dir, 0.0, hang.dir]
 	var near := graph._within(geo.rects, Rect2(hang.pos.x - ReachGraph.REACH_X, hang.pos.y - ReachGraph.REACH_UP, ReachGraph.REACH_X * 2.0, ReachGraph.REACH_UP + ReachGraph.REACH_DOWN))
 	var falls := graph._near_fall(geo, hang.pos)
-	for input in inputs:
-		for hold in ReachGraph.HOLDS:
-			graph.try_plan(info, geo, land, near, hang.pos.x, 0.0, input, hold, true, -1, -1, land.top, -1, -1, 0, toward)
-		graph.try_plan(info, geo, land, falls, hang.pos.x, 0.0, input, 0, false, -1, -1, land.top, -1, -1, 0, toward)
-		if abilities.air_jumps > 0:
-			for hold in ReachGraph.AIR_FIRST_HOLDS:
-				for frame in ReachGraph.AIR_FRAMES:
-					for air_hold in ReachGraph.AIR_HOLDS:
-						graph.try_plan(info, geo, land, near, hang.pos.x, 0.0, input, hold, true, -1, -1, land.top, -1, frame, air_hold, toward)
+	for tick in _ticks_for(info, geo, hang):
+		# Near a track the air jumps are the thinned ones a ledge near a track uses.
+		var frames := ReachGraph.AIR_FRAMES if tick < 0 else ReachGraph.AIR_RIDE_FRAMES
+		var air_holds := ReachGraph.AIR_HOLDS if tick < 0 else ReachGraph.AIR_RIDE_HOLDS
+		for input in inputs:
+			for hold in ReachGraph.HOLDS:
+				graph.try_plan(info, geo, land, near, hang.pos.x, 0.0, input, hold, true, -1, tick, land.top, -1, -1, 0, toward)
+			graph.try_plan(info, geo, land, falls, hang.pos.x, 0.0, input, 0, false, -1, tick, land.top, -1, -1, 0, toward)
+			if abilities.air_jumps > 0:
+				for hold in ReachGraph.AIR_FIRST_HOLDS:
+					for frame in frames:
+						for air_hold in air_holds:
+							graph.try_plan(info, geo, land, near, hang.pos.x, 0.0, input, hold, true, -1, tick, land.top, -1, frame, air_hold, toward)
 
 
 func _blocked(geo: ReachGraph.Geometry, box: Rect2) -> bool:

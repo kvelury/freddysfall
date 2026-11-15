@@ -20,7 +20,9 @@ extends RefCounted
 ## with one set of movement stats is never reused for another.
 ## 4: what each Tongue Climb hang reaches is kept too (`climb`).
 ## 5: ceiling hangs, and where a body let go from one lashes again (`climb` "l").
-const FORMAT := 5
+## 6: where a rider's straight-up jump lashes into a hang (`climb` "r<ledge>"),
+## and a hang's jumps tried with the movers.
+const FORMAT := 6
 
 ## Everything a jump's result depends on.
 const SOLVER_FILES: Array[String] = [
@@ -240,6 +242,13 @@ class Entry extends RefCounted:
 		if not climb.has(signature):
 			climb[signature] = {}
 		climb[signature][hang_key] = {"n": SolverCache.pack(land, false), "a": SolverCache.pack(land, true), "l": links}
+		dirty = true
+
+	## Where a rider's lashes from moving ledge `key` ("r" and its index) stick.
+	func store_climb_points(signature: String, key: String, points: Array) -> void:
+		if not climb.has(signature):
+			climb[signature] = {}
+		climb[signature][key] = {"l": points}
 		dirty = true
 
 	func _pack_ledges(ledges: Array, air: bool) -> Dictionary:
