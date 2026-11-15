@@ -19,6 +19,7 @@ func _initialize() -> void:
 	ok = _climb() and ok
 	ok = _ceiling() and ok
 	ok = _climb_movers() and ok
+	ok = _climb_breakable() and ok
 	ok = _progression() and ok
 	ok = _many_rounds() and ok
 	ok = _locks() and ok
@@ -295,6 +296,82 @@ func _climb_movers() -> bool:
 	shelf_ok = from_rider.ledges.any(func(l: ReachGraph.Ledge) -> bool: return not l.moving and l.row == 6)
 	ok = check(not shelf_ok, "with spikes over the ferry the rider dies rising, and no hang is found through them") and ok
 	return ok
+
+
+## Tongue Climb on a breakable wall. A breakable column stands between a low
+## ceiling and a ledge with a pickup, out of a plain lash's reach from the floor.
+## Hanging from the ceiling and dropping, a lash sideways sticks to the column
+## (its first hit); a jump off it and a lash back is the second, which breaks
+## it, and the drop from there in the room with it broken reaches the ledge.
+## With `climb_breakable` off, or spikes on the column's face (so the pull and
+## the hang are unsafe), it stays out of reach.
+func _climb_breakable() -> bool:
+	var ok := true
+	var armed := Abilities.new()
+	armed.tongue_unlocked = true
+	armed.tongue_climb = true
+	armed.air_jumps = 1
+	var rooms := _breakable_room(false)
+	var report := ReachGraph.new(rooms, _cfg, armed).analyze("1")
+	ok = check(_reached(report, "gem"), "sticking to a breakable column and lashing it again breaks it, and the ledge past it is reached %s" % [report.errors]) and ok
+	var broken_reached := report.reached.keys().any(func(l: ReachGraph.Ledge) -> bool: return l.room_id == "1~col" and not l.moving and l.x0 >= 19)
+	ok = check(broken_reached, "in the copy of the room with the column broken") and ok
+	# What breaking it reaches comes back from the cache.
+	var directory := "user://climb_break_cache_test"
+	var cache := SolverCache.new(directory)
+	var cold_graph := ReachGraph.new(rooms, _cfg, armed)
+	cold_graph.cache = cache
+	var cold := cold_graph.analyze("1")
+	cache.save()
+	var again_cache := SolverCache.new(directory)
+	var again := ReachGraph.new(_breakable_room(false), _cfg, armed)
+	again.cache = again_cache
+	var warm := again.analyze("1")
+	ok = check(_reached(cold, "gem") and _reached(warm, "gem") and again_cache.stats["climb_hangs_solved"] == 0 and again_cache.stats["climb_hangs_cached"] > 0, "the break comes back from the cache (%s then %s)" % [cache.stats, again_cache.stats]) and ok
+	for file in DirAccess.get_files_at(directory):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(directory).path_join(file))
+	var plain := Abilities.new()
+	plain.tongue_unlocked = true
+	plain.air_jumps = 1
+	report = ReachGraph.new(rooms, _cfg, plain).analyze("1")
+	ok = check(not _reached(report, "gem"), "the column is out of a plain lash's reach from the floor") and ok
+	armed.climb_breakable = false
+	report = ReachGraph.new(rooms, _cfg, armed).analyze("1")
+	ok = check(not _reached(report, "gem"), "with climb_breakable off the column is not stuck to, so it stays") and ok
+	armed.climb_breakable = true
+	report = ReachGraph.new(_breakable_room(true), _cfg, armed).analyze("1")
+	ok = check(not _reached(report, "gem"), "with spikes on the column's face the pull is unsafe, and no hang is found there") and ok
+	return ok
+
+
+func _breakable_room(spiked: bool) -> Dictionary:
+	var rows: Array[String] = []
+	for y in 18:
+		var row := ""
+		for x in 32:
+			var c := "#" if x == 0 or y == 0 or x == 31 or y == 17 else "."
+			if y >= 1 and y <= 7 and x >= 3 and x <= 12:
+				c = "#"
+			if y >= 1 and y <= 15 and (x == 15 or x == 16):
+				c = "B"
+			if spiked and y >= 8 and y <= 15 and x == 14:
+				c = "^"
+			if y == 16 and x >= 7 and x <= 30:
+				c = "^"
+			if y == 15 and x >= 19 and x <= 22:
+				c = "#"
+			if y == 14 and x == 21:
+				c = "U"
+			if y == 16 and x == 2:
+				c = "P"
+			row += c
+		rows.append(row)
+	var text := "trap: allowed\nlegend:\n  U = pickup id=gem upgrade=tongue_cooldown value=0.5\n  B = breakable id=col\n---\n" + "\n".join(rows) + "\n"
+	var errors: Array[String] = []
+	var built := RoomParser.build([{"id": "1", "grid_pos": Vector2i.ZERO, "text": text}], "1", errors)
+	if not errors.is_empty():
+		print("  room did not load: ", errors)
+	return built["rooms"]
 
 
 func _climb_of(graph: ReachGraph) -> ClimbMoves:

@@ -33,8 +33,19 @@ extends MoveProvider
 ##   simulated with the movers, and every `SAMPLE` ticks on the way up a lash is
 ##   tried each way; where one sticks is a hang (`_rider_entries`).
 ##
+## - **Breakable walls** (with `climb_breakable`). A lash that sticks to a
+##   breakable wall is a hang like any other (the wall still stands after that
+##   first hit) and also its first hit. From it a jump straight off the wall and
+##   a lash back at it, once the cooldown is up, is the next hit; since a stick
+##   brings back the same hang, any number of hits can be made that way. If that
+##   lash lands, the wall breaks (the hit that breaks it does not stick), and
+##   where the body is when it does is followed in the copy of the room with the
+##   wall broken: a drop from rest, steered, with the air jump if the player has
+##   one (`_break_from`). Along the paths from a ceiling, sideways lashes are
+##   tried too, but only where the tongue would meet a breakable wall.
+##
 ## It is deliberately a little pessimistic: a hang next to a moving platform's
-## whole trip or a spiked path is not counted, nor is a breakable wall, a rider's
+## whole trip or a spiked path is not counted, nor is a rider's
 ## lash from anything but a straight-up jump, or a lash from a jump that is not
 ## straight up from a ledge or a wall hang (except along the paths from a
 ## ceiling). A breakable
@@ -83,6 +94,11 @@ class Hang extends RefCounted:
 	var links: Array = []
 	## What its jumps and drop land on, touch and take, kept as a ledge's are.
 	var land: ReachGraph.Ledge = null
+	## The breakable wall it hangs on, or "" for a plain wall or ceiling.
+	var wall := ""
+	## For a hang on a breakable wall that a lash back at it breaks: what the
+	## body comes to in the room with that wall broken, as a ledge of that room.
+	var broken_land: ReachGraph.Ledge = null
 
 
 class Store extends RefCounted:
@@ -98,7 +114,7 @@ class Store extends RefCounted:
 ## models, and the stats that decide where the tongue sticks and how long he hangs.
 func _signature() -> String:
 	var abilities := graph.abilities
-	return "aj%d|%s|%s|%s|c%d|t%d" % [mini(abilities.air_jumps, 1), abilities.tongue_length, abilities.climb_hold, abilities.climb_zip_speed, int(abilities.climb_ceiling), int(abilities.tongue_unlocked)]
+	return "aj%d|%s|%s|%s|c%d|t%d|b%d|cd%s" % [mini(abilities.air_jumps, 1), abilities.tongue_length, abilities.climb_hold, abilities.climb_zip_speed, int(abilities.climb_ceiling), int(abilities.tongue_unlocked), int(abilities.climb_breakable), abilities.tongue_cooldown]
 
 
 func _store(info: RoomInfo) -> Store:
@@ -140,6 +156,22 @@ func _moves_of(ledge: ReachGraph.Ledge, info: RoomInfo) -> MoveProvider.Moves:
 			var target: ReachGraph.Ledge = ledges[index]
 			if target != ledge and not out.ledges.has(target):
 				out.ledges.append(target)
+		if hang.broken_land != null:
+			# The wall it hangs on broken: what follows is in that copy of the room.
+			var broken := hang.broken_land
+			var copy_ledges := graph._ledges_of(broken.room_id)
+			var copy_targets: Array[int] = broken.to_ledges.duplicate()
+			if air:
+				copy_targets.append_array(broken.air_to_ledges)
+			for index in copy_targets:
+				var target: ReachGraph.Ledge = copy_ledges[index]
+				if not out.ledges.has(target):
+					out.ledges.append(target)
+			touches.append_array(broken.touches)
+			pickups.append_array(broken.pickups)
+			if air:
+				touches.append_array(broken.air_touches)
+				pickups.append_array(broken.air_pickups)
 		for touch in touches:
 			if not seen_touches.has(touch.key()):
 				seen_touches[touch.key()] = true
@@ -273,9 +305,10 @@ func _try_stick(store: Store, info: RoomInfo, geo: ReachGraph.Geometry, center: 
 	var abilities := graph.abilities
 	var toward := Vector2(way, 0.0) if way != 0.0 else Vector2.UP
 	var hit := TongueReach.first_hit(info, TongueReach.mouth(center, toward), toward, abilities.tongue_length)
-	# A breakable wall is not stuck to here: it is a state of the room, and the
-	# lash provider owns those.
-	if not bool(hit["solid"]) or not String(hit["wall"]).is_empty():
+	var wall := String(hit["wall"])
+	# A breakable wall is stuck to only with `climb_breakable` (the stick is
+	# also a hit; `_break_from` follows the next).
+	if not bool(hit["solid"]) or (not wall.is_empty() and not abilities.climb_breakable):
 		return null
 	var reach := abilities.tongue_length + 30.0
 	var near := graph._within(geo.rects, Rect2(center - Vector2.ONE * reach, Vector2.ONE * reach * 2.0))
@@ -292,11 +325,14 @@ func _try_stick(store: Store, info: RoomInfo, geo: ReachGraph.Geometry, center: 
 		# One hang per cell of ceiling: the first place found under it stands for
 		# the cell, so the paths from a ceiling do not multiply hangs pixel by pixel.
 		key = "c%d|%d" % [floori(anchor.x / float(Grid.CELL)), roundi(anchor.y)]
+	if not wall.is_empty():
+		key = "w%s|%s" % [wall, key]
 	if not store.hangs.has(key):
 		var hang := Hang.new()
 		hang.key = key
 		hang.pos = anchor
 		hang.dir = way
+		hang.wall = wall
 		store.hangs[key] = hang
 	return store.hangs[key]
 
@@ -345,6 +381,8 @@ func _expand(store: Store, info: RoomInfo, geo: ReachGraph.Geometry, hang: Hang)
 		SolverCache.unpack(land, kept["a"], true)
 		if hang.dir == 0.0:
 			_link_all(store, info, geo, hang, kept.get("l", []))
+		if kept.has("b"):
+			_restore_break(info, hang, kept["b"])
 		graph.cache.stats["climb_hangs_cached"] += 1
 	else:
 		var links: Array = []
@@ -353,8 +391,10 @@ func _expand(store: Store, info: RoomInfo, geo: ReachGraph.Geometry, hang: Hang)
 			_link_all(store, info, geo, hang, links)
 		else:
 			_jump_from(info, geo, hang)
+		if not hang.wall.is_empty():
+			_break_from(info, geo, hang)
 		if entry != null:
-			entry.store_climb(_signature(), hang.key, land, links)
+			entry.store_climb(_signature(), hang.key, land, links, hang.broken_land)
 			graph.cache.stats["climb_hangs_solved"] += 1
 	if hang.dir == 0.0:
 		return
@@ -431,7 +471,11 @@ func _sample(info: RoomInfo, geo: ReachGraph.Geometry, store: Store, hang: Hang,
 		var box := Rect2(at - MovementSim.HALF, MovementSim.HALF * 2.0).grow(-0.01)
 		if _blocked(geo, box) or _unsafe(geo, box):
 			continue
-		for way: float in [0.0]:
+		for way: float in [0.0, -1.0, 1.0]:
+			# Sideways only at a breakable wall: a plain wall would be a wall hang
+			# of its own for every sample, which costs far more than it finds.
+			if way != 0.0 and not _meets_breakable(info, at, way):
+				continue
 			# Once per cell along the paths from every ceiling hang: a lash a pixel
 			# over is the same, and the first tried there stands for the cell.
 			var key := "%d|%d|%d" % [floori(at.x / float(Grid.CELL)), floori(at.y / float(Grid.CELL)), int(way)]
@@ -468,6 +512,100 @@ func _jump_from(info: RoomInfo, geo: ReachGraph.Geometry, hang: Hang) -> void:
 					for frame in frames:
 						for air_hold in air_holds:
 							graph.try_plan(info, geo, land, near, hang.pos.x, 0.0, input, hold, true, -1, tick, land.top, -1, frame, air_hold, toward)
+
+
+## Whether a lash from a body at `center` toward `way` (sideways) first meets a
+## breakable wall, with `climb_breakable` on.
+func _meets_breakable(info: RoomInfo, center: Vector2, way: float) -> bool:
+	if not graph.abilities.climb_breakable or info.breakables.is_empty():
+		return false
+	var toward := Vector2(way, 0.0)
+	return not String(TongueReach.first_hit(info, TongueReach.mouth(center, toward), toward, graph.abilities.tongue_length)["wall"]).is_empty()
+
+
+## Breaking the breakable wall `hang` hangs on. He jumps straight off it (a
+## ground jump, no steer, so he still faces it; for a ceiling, he lets go) and,
+## from the tick the cooldown is up, lashes back at it each tick while the path
+## lasts: the first lash that meets the same wall is the next hit. A stick
+## brings him back to this hang, so the hits repeat until the wall breaks; the
+## hit that breaks it does not stick. From where he is at that lash, in the copy
+## of the room with the wall broken, a drop from rest (steered left, not at all
+## and right, with the air jump if the player has one) is simulated as a
+## ledge's is, into `hang.broken_land`.
+func _break_from(info: RoomInfo, geo: ReachGraph.Geometry, hang: Hang) -> void:
+	var abilities := graph.abilities
+	var toward := Vector2(hang.dir, 0.0) if hang.dir != 0.0 else Vector2.UP
+	var plan := JumpPlan.new(geo.rects, hang.pos, Vector2.ZERO, 0.0, ReachGraph.HOLDS[-1])
+	plan.jump = hang.dir != 0.0
+	plan.bounds = geo.bounds
+	plan.hazards = geo.hazards
+	plan.limit = graph.frame_limit
+	plan.hang_dir = toward
+	plan.hang_time = abilities.climb_hold
+	plan.grounded_start = false
+	plan.record = true
+	var run := MovementSim.run(graph._cfg, plan)
+	var path: PackedVector2Array = run["path"]
+	var end := path.size() - (1 if bool(run["hazard"]) else 0)
+	var wait := maxi(1, ceili(abilities.tongue_cooldown * float(Mover.TICKS_PER_SECOND)))
+	var at := Vector2.INF
+	for i in range(wait, end):
+		var hit := TongueReach.first_hit(info, TongueReach.mouth(path[i], toward), toward, abilities.tongue_length)
+		if String(hit["wall"]) == hang.wall:
+			at = path[i]
+			break
+	if at == Vector2.INF:
+		return
+	var broken: Array[String] = []
+	broken.assign(info.broken)
+	broken.append(hang.wall)
+	var copy := graph._variant_for(info.base(), broken)
+	if copy == null:
+		return
+	hang.broken_land = _broken_land(copy, at)
+	var copy_geo := graph.geometry_of(copy)
+	var land := hang.broken_land
+	var falls := graph._near_fall(copy_geo, at)
+	var near := graph._within(copy_geo.rects, Rect2(at.x - ReachGraph.REACH_X, at.y - ReachGraph.REACH_UP, ReachGraph.REACH_X * 2.0, ReachGraph.REACH_UP + ReachGraph.REACH_DOWN))
+	var ticks: Array[int] = [-1]
+	if not copy_geo.movers.is_empty() and graph._near_a_track(copy_geo, land):
+		ticks = graph.phases(copy)
+	for tick in ticks:
+		var frames := ReachGraph.AIR_FRAMES if tick < 0 else ReachGraph.AIR_RIDE_FRAMES
+		var air_holds := ReachGraph.AIR_HOLDS if tick < 0 else ReachGraph.AIR_RIDE_HOLDS
+		for input in [-1.0, 0.0, 1.0]:
+			graph.try_plan(copy, copy_geo, land, falls, at.x, 0.0, input, 0, false, -1, tick, land.top)
+			if abilities.air_jumps > 0:
+				for frame in frames:
+					for air_hold in air_holds:
+						graph.try_plan(copy, copy_geo, land, near, at.x, 0.0, input, 0, false, -1, tick, land.top, -1, frame, air_hold)
+
+
+## A ledge of room `copy` standing for a body in the air at `at`.
+func _broken_land(copy: RoomInfo, at: Vector2) -> ReachGraph.Ledge:
+	var cell := float(Grid.CELL)
+	var land := ReachGraph.Ledge.new()
+	land.room_id = copy.id
+	land.base_id = copy.base()
+	land.row = roundi(at.y / cell - 0.5)
+	land.top = at.y + cell * 0.5
+	land.lo = at.x
+	land.hi = at.x
+	return land
+
+
+## `_break_from`'s answer from the cache: {"v": the copy's key, "x", "y": where
+## the wall broke, "n", "a": what it reaches}.
+func _restore_break(info: RoomInfo, hang: Hang, kept: Dictionary) -> void:
+	var broken: Array[String] = []
+	broken.assign(info.broken)
+	broken.append(hang.wall)
+	var copy := graph._variant_for(info.base(), broken)
+	if copy == null or copy.id != String(kept.get("v", "")):
+		return
+	hang.broken_land = _broken_land(copy, Vector2(float(kept["x"]), float(kept["y"])))
+	SolverCache.unpack(hang.broken_land, kept["n"], false)
+	SolverCache.unpack(hang.broken_land, kept["a"], true)
 
 
 func _blocked(geo: ReachGraph.Geometry, box: Rect2) -> bool:
