@@ -132,7 +132,7 @@ Run `tools/check.sh` before opening a pull request. It imports the project once,
 ```sh
 tools/check.sh                 # the complete automated gate and a fresh web build
 tools/check.sh --quick         # while iterating: same, but an out-of-date solver cache only warns
-tools/check.sh --fresh         # same, with validation worked out from scratch (slow; weekly in CI)
+tools/check.sh --fresh         # same, with validation worked out from scratch (slow; run it now and then)
 tools/check.sh --tests-only    # just the tests, in parallel (JOBS=n to choose how many at once)
 tools/serve.sh                 # serve that build at http://localhost:8060 for the playthrough
 tools/validate.sh              # the whole world, solved: a room is not done until this exits 0
