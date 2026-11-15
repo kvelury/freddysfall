@@ -449,19 +449,30 @@ func _from_ceiling(info: RoomInfo, geo: ReachGraph.Geometry, hang: Hang) -> Arra
 	var store := _store(info)
 	var points: Array = []
 	var seen := {}
+	# A path that never comes near a moving thing is the same at every moment:
+	# it is sampled once (`_sample` returns true for it).
+	var free := {}
 	for tick in _ticks_for(info, geo, hang):
 		for input in [-1.0, 0.0, 1.0]:
 			graph.try_plan(info, geo, land, falls, hang.pos.x, 0.0, input, 0, false, -1, tick, land.top, -1, -1, 0, up)
-			_sample(info, geo, store, hang, falls, input, false, -1, 0, points, seen, tick)
+			var drop_key := "%s|d" % input
+			if not free.has(drop_key):
+				if _sample(info, geo, store, hang, falls, input, false, -1, 0, points, seen, tick):
+					free[drop_key] = true
 			for frame in CEILING_FRAMES:
 				graph.try_plan(info, geo, land, near, hang.pos.x, 0.0, input, 1, true, -1, tick, land.top, -1, frame, CEILING_HOLD, up)
-				_sample(info, geo, store, hang, near, input, true, frame, CEILING_HOLD, points, seen, tick)
+				var jump_key := "%s|%d" % [input, frame]
+				if not free.has(jump_key):
+					if _sample(info, geo, store, hang, near, input, true, frame, CEILING_HOLD, points, seen, tick):
+						free[jump_key] = true
 	return points
 
 
 ## Runs one path from ceiling hang `hang` and adds to `points` the places along it
-## where a lash up sticks. With `tick` 0 or more the movers are in it, from then.
-func _sample(info: RoomInfo, geo: ReachGraph.Geometry, store: Store, hang: Hang, rects: Array, input: float, jump: bool, frame: int, air_hold: int, points: Array, seen: Dictionary, tick := -1) -> void:
+## where a lash up sticks. With `tick` 0 or more the movers are in it, from then,
+## unless the path without them never comes near one: then that path is the one
+## sampled, and it returns true (the path is the same at every moment).
+func _sample(info: RoomInfo, geo: ReachGraph.Geometry, store: Store, hang: Hang, rects: Array, input: float, jump: bool, frame: int, air_hold: int, points: Array, seen: Dictionary, tick := -1) -> bool:
 	var plan := JumpPlan.new(rects, hang.pos, Vector2.ZERO, input, 1 if jump else 0)
 	plan.jump = jump
 	plan.bounds = geo.bounds
@@ -471,14 +482,16 @@ func _sample(info: RoomInfo, geo: ReachGraph.Geometry, store: Store, hang: Hang,
 	plan.hang_time = graph.abilities.climb_hold
 	plan.grounded_start = false
 	plan.record = true
-	if tick >= 0:
-		plan.movers = geo.movers
-		plan.start_tick = tick
 	if frame >= 0:
 		plan.air_jumps = 1
 		plan.air_frame = frame
 		plan.air_hold = air_hold
 	var run := MovementSim.run(graph._cfg, plan)
+	var free := tick < 0 or not graph._meets_movers(geo, run["bounds"])
+	if not free:
+		plan.movers = geo.movers
+		plan.start_tick = tick
+		run = MovementSim.run(graph._cfg, plan)
 	var path: PackedVector2Array = run["path"]
 	# A path that dies is sampled only up to the tick before.
 	var end := path.size() - (1 if bool(run["hazard"]) else 0)
@@ -504,6 +517,7 @@ func _sample(info: RoomInfo, geo: ReachGraph.Geometry, store: Store, hang: Hang,
 			var point: Array = store.sampled[key]
 			if not point.is_empty() and _stick(store, info, geo, Vector2(float(point[0]), float(point[1])), float(point[2])) != hang:
 				points.append(point)
+	return free
 
 
 ## The jumps off the wall and the drop from `hang`, simulated as a ledge's are,
