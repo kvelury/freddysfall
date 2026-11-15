@@ -54,6 +54,63 @@ func has_flag(key: String) -> bool:
 	return flags.has(key)
 
 
+## The flag that says the player has been through `door` of room `room_id`.
+static func door_flag(room_id: String, door: Door) -> String:
+	return "door:%s:%d,%d" % [room_id, door.rect.position.x, door.rect.position.y]
+
+
+## Whether the player has been through `door` of room `room_id`, from either side.
+func door_used(room_id: String, door: Door) -> bool:
+	return flags.has(door_flag(room_id, door))
+
+
+## The player went through `door` of room `room_id`. Both openings of the pair
+## are marked, so the map shows the far side as taken too. The map redraws.
+func use_door(room_id: String, door: Door) -> void:
+	var fresh := _mark_door(room_id, door)
+	var far_room: RoomInfo = _rooms().get(door.dest_id)
+	if far_room != null:
+		var far := far_room.door_by_rect(door.dest_rect)
+		if far != null:
+			fresh = _mark_door(door.dest_id, far) or fresh
+	if fresh:
+		visited_changed.emit()
+
+
+## The world's rooms, or none when the world is not loaded (a test of this
+## script on its own has no WorldData autoload).
+func _rooms() -> Dictionary:
+	var tree := Engine.get_main_loop() as SceneTree
+	var data := tree.root.get_node_or_null("WorldData") if tree != null else null
+	return {} if data == null else data.rooms
+
+
+func _mark_door(room_id: String, door: Door) -> bool:
+	var key := door_flag(room_id, door)
+	if flags.has(key):
+		return false
+	flags[key] = true
+	return true
+
+
+## A save from before doors were remembered has none. Doors whose room and
+## destination are both visited are taken to have been used, so the map does not
+## turn red everywhere. Does nothing once any door is remembered.
+func _seed_doors() -> void:
+	if visited.size() < 2:
+		return
+	for key in flags:
+		if String(key).begins_with("door:"):
+			return
+	for room_id in visited:
+		var info: RoomInfo = _rooms().get(room_id)
+		if info == null:
+			continue
+		for door in info.exits:
+			if not door.dest_id.is_empty() and visited.has(door.dest_id):
+				_mark_door(room_id, door)
+
+
 ## Takes a pickup: remembers it and applies its upgrade. Returns a line to
 ## show the player.
 func collect(def: EntityDef) -> String:
@@ -168,6 +225,7 @@ func restore(progress: Progression) -> void:
 	health = progress.health
 	max_health = progress.max_health
 	abilities = progress.abilities.copy()
+	_seed_doors()
 	tokens_changed.emit()
 	health_changed.emit()
 	abilities_changed.emit()

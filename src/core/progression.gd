@@ -13,7 +13,8 @@ const BASE_HEALTH := 2
 
 var visited := {}
 var abilities := Abilities.new()
-## "pickup:<id>", "token:<id>", "save:<id>", "health:<id>", "title:<id>".
+## "pickup:<id>", "token:<id>", "save:<id>", "health:<id>", "title:<id>",
+## "door:<room>:<x>,<y>" (a door the player has been through, for the map).
 var flags := {}
 var tokens := 0
 var machines := {}

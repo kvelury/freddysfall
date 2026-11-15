@@ -54,6 +54,9 @@ func _run() -> void:
 	player.scripted_x = 0.0
 	await _frames(3)
 	ok = check(state.tokens == 1 and state.has_flag("token:r2_token"), "walking into the token takes it") and ok
+	ok = check(world.power_popup.opened, "and it shows the map hint") and ok
+	await create_timer(world.power_popup.MIN_SHOW + 0.1, true, false, true).timeout
+	world.power_popup.dismiss()
 	ok = check(opened[0] and not room.locked, "and the room's doors open") and ok
 	ok = check(_count(room, "DoorBlock") == 0 and _count(room, "ExitHalo") == 3, "the blocks are gone and the halos are there (%d blocks, %d halos)" % [_count(room, "DoorBlock"), _count(room, "ExitHalo")]) and ok
 	ok = check(player.solids.size() == rects_before - 3, "and the player no longer collides with them (%d to %d)" % [rects_before, player.solids.size()]) and ok

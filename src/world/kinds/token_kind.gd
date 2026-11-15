@@ -6,6 +6,10 @@ func type() -> String:
 	return "token"
 
 
+func optional() -> Array[String]:
+	return ["hint"]
+
+
 func touchable() -> bool:
 	return true
 

@@ -6,6 +6,10 @@ func type() -> String:
 	return "health"
 
 
+func optional() -> Array[String]:
+	return ["hint"]
+
+
 func touchable() -> bool:
 	return true
 

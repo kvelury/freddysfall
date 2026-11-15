@@ -8,3 +8,5 @@ extends RefCounted
 const RED := Color("d22b2b")
 ## Tokens are gold everywhere: in a room, flying, in a 3TM and in the HUD.
 const GOLD := Color("f2c12e")
+## A door the player has been through, on the map.
+const GREEN := Color("3fbf4f")
