@@ -16,6 +16,7 @@ func _initialize() -> void:
 	ok = _same_answers() and ok
 	ok = _what_invalidates() and ok
 	ok = _damaged() and ok
+	ok = _pieces() and ok
 	_clear()
 	finish("CACHE", ok)
 
@@ -170,7 +171,69 @@ func _damaged() -> bool:
 	return ok
 
 
+## tools/validate.sh --jobs fills the cache in pieces, each in a folder of its
+## own, and merges them. Afterwards a solve with Tongue Climb, without and with
+## an air jump, works out nothing: the pieces hold what a solve reads, with the
+## abilities it reads them with (the climb upgrade's longer tongue included).
+func _pieces() -> bool:
+	var ok := true
+	_clear()
+	var rooms := _world()
+	var warm := CacheWarm.new(_graph(rooms, DIR, Abilities.new()), rooms)
+	var planned := warm.plan()
+	ok = check(planned.has("1:jumps0") and planned.has("1:jumps1") and planned.has("1:climb0") and planned.has("1:climb1") and planned.has("2:climb1"), "an empty cache plans every piece of every room %s" % [planned]) and ok
+	var at := 0
+	for phase in [["jumps0"], ["jumps1", "climb0", "climb1"]]:
+		var root := DIR + "/pieces"
+		for piece in planned:
+			if not phase.has(piece.split(":")[1]):
+				continue
+			var dir := "%s/p%d" % [root, at]
+			at += 1
+			_copy(DIR, dir)
+			var graph := _graph(rooms, dir, Abilities.new())
+			ok = check(CacheWarm.new(graph, rooms).work(piece) == 0, "piece %s works" % piece) and ok
+			graph.cache.save()
+		ok = check(warm.merge(root, DIR) == 0, "and the %s pieces merge" % phase[0]) and ok
+		_remove(root)
+	ok = check(CacheWarm.new(_graph(rooms, DIR, Abilities.new()), rooms).plan().is_empty(), "after which nothing is planned") and ok
+	for air in 2:
+		var abilities := Abilities.new()
+		abilities.tongue_unlocked = true
+		abilities.apply(Upgrades.get_def(CacheWarm.CLIMB_UPGRADE), true)
+		abilities.air_jumps = air
+		var graph := _graph(rooms, DIR, abilities)
+		var report := graph.analyze("1")
+		var stats: Dictionary = graph.cache.stats
+		ok = check(stats["edge_rooms_solved"] == 0 and stats["air_rooms_solved"] == 0 and stats["climb_hangs_solved"] == 0 and stats["climb_hangs_cached"] > 0, "a solve with Tongue Climb and %d air jumps reads everything from the pieces (%s)" % [air, stats]) and ok
+		var plain := ReachGraph.new(rooms, _cfg, Abilities.from_dict(abilities.to_dict()))
+		ok = check(_same(plain.analyze("1"), report), "  and says what a run without the cache says") and ok
+		ok = check(graph.cache.save() == 0, "  and has nothing to write") and ok
+	return ok
+
+
 # --- helpers ---------------------------------------------------------------
+
+
+func _graph(rooms: Dictionary, dir: String, abilities: Abilities) -> ReachGraph:
+	var graph := ReachGraph.new(rooms, _cfg, abilities)
+	graph.cache = SolverCache.new(dir)
+	return graph
+
+
+func _copy(from: String, to: String) -> void:
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(to))
+	for file in DirAccess.get_files_at(ProjectSettings.globalize_path(from)):
+		DirAccess.copy_absolute(ProjectSettings.globalize_path(from).path_join(file), ProjectSettings.globalize_path(to).path_join(file))
+
+
+func _remove(dir: String) -> void:
+	var path := ProjectSettings.globalize_path(dir)
+	for sub in DirAccess.get_directories_at(path):
+		_remove(dir.path_join(sub))
+	for file in DirAccess.get_files_at(path):
+		DirAccess.remove_absolute(path.path_join(file))
+	DirAccess.remove_absolute(path)
 
 
 func _run(rooms: Dictionary, cache: SolverCache) -> ReachGraph.Report:
