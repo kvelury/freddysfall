@@ -10,7 +10,7 @@ extends SceneTree
 ##
 ## `--dump=<path>` also writes everything the solver worked out, sorted, for
 ## tools/solver_diff.sh. `--strict-ledges` makes a ledge nobody reaches an
-## error, as CI runs it. `--cache-dir=<path>` chooses the cache folder.
+## error, as CI runs it (not one that is all doorway: StrictLedges). `--cache-dir=<path>` chooses the cache folder.
 ##
 ## tools/validate.sh --jobs fills the cache in pieces, so one big room is spread
 ## over several processes instead of holding one up for hours:
@@ -81,7 +81,8 @@ func _initialize() -> void:
 	var written := cache.save() if cache != null else 0
 	if _has_flag("--strict-ledges"):
 		for ledge in report.unreached:
-			report.errors.append("%s cannot be reached (--strict-ledges)" % ledge.describe())
+			if StrictLedges.counted(data.rooms.get(ledge.base_id, data.rooms.get(ledge.room_id)), ledge):
+				report.errors.append("%s cannot be reached (--strict-ledges)" % ledge.describe())
 	var dump_path := _flag_value("--dump")
 	if not dump_path.is_empty():
 		_write_dump(dump_path, graph, report)
