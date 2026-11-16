@@ -137,7 +137,8 @@ tools/check.sh --tests-only    # just the tests, in parallel (JOBS=n to choose h
 tools/serve.sh                 # serve that build at http://localhost:8060 for the playthrough
 tools/validate.sh              # the whole world, solved: a room is not done until this exits 0
 tools/validate.sh --no-cache   # the same, without the solver's cache
-tools/validate.sh --jobs 4 --fresh  # warm a fresh cache in 4 processes, then solve from it
+tools/validate.sh --jobs 4      # work out the pieces the committed cache lacks in 4 processes, then solve from it
+tools/validate.sh --jobs 4 --fresh  # the same into a fresh cache in build/
 tools/validate.sh --strict-ledges  # a ledge nobody reaches is an error too (check.sh runs it this way)
 tools/solver_diff.sh <ref>     # what the solver works out at <ref> against the working tree; empty when they agree
 tools/render.sh [ids]          # PNGs of rooms and the world map in build/renders/
