@@ -101,8 +101,8 @@ def parse_validate(log):
     if m:
         found["edge_rooms_from_cache"], found["edge_rooms_solved"] = int(m.group(1)), int(m.group(2))
     rows = []
-    for m in re.finditer(r"^  (\S.*?)\s+([\d.]+) s\s+(\d+) plans\s+(\d+) run once for every moment\s+(\d+) phases", text, re.M):
-        rows.append({"key": m.group(1), "s": float(m.group(2)), "plans": int(m.group(3)), "reused": int(m.group(4)), "phases": int(m.group(5))})
+    for m in re.finditer(r"^  (\S.*?)\s+([\d.]+) s\s+(\d+) plans\s+(\d+) run once for every moment\s+(\d+) phases(?:\s+(\d+) simulations)?", text, re.M):
+        rows.append({"key": m.group(1), "s": float(m.group(2)), "plans": int(m.group(3)), "reused": int(m.group(4)), "phases": int(m.group(5)), "simulations": int(m.group(6)) if m.group(6) else UNAVAILABLE})
     found["slowest_rooms"] = rows
     found["validate_pass"] = "validate pass" in text
     return found

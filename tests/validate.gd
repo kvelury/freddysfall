@@ -118,7 +118,7 @@ func _initialize() -> void:
 		print("slowest rooms:")
 		for i in mini(slowest.size(), SLOWEST_SHOWN):
 			var row: Dictionary = slowest[i]
-			print("  %-28s %8.1f s  %7d plans  %7d run once for every moment  %3d phases" % [row["key"], row["ms"] / 1000.0, row["plans"], row.get("reused", 0), row["phases"]])
+			print("  %-28s %8.1f s  %7d plans  %7d run once for every moment  %3d phases  %7d simulations" % [row["key"], row["ms"] / 1000.0, row["plans"], row.get("reused", 0), row["phases"], row.get("runs", 0)])
 	var totals := {}
 	for row in slowest:
 		var base := String(row["key"]).split("~", true, 1)[0].split(" ", true, 1)[0]

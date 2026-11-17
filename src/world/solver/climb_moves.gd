@@ -533,15 +533,18 @@ func _jump_from(info: RoomInfo, geo: ReachGraph.Geometry, hang: Hang) -> void:
 		# Near a track the air jumps are the thinned ones a ledge near a track uses.
 		var frames := ReachGraph.AIR_FRAMES if tick < 0 else ReachGraph.AIR_RIDE_FRAMES
 		var air_holds := ReachGraph.AIR_HOLDS if tick < 0 else ReachGraph.AIR_RIDE_HOLDS
+		var batch := graph.plan_batch(info, geo, land, near)
+		var fall_set := batch.add_solids(falls)
 		for input in inputs:
 			for hold in ReachGraph.HOLDS:
-				graph.try_plan(info, geo, land, near, hang.pos.x, 0.0, input, hold, true, -1, tick, land.top, -1, -1, 0, toward)
-			graph.try_plan(info, geo, land, falls, hang.pos.x, 0.0, input, 0, false, -1, tick, land.top, -1, -1, 0, toward)
+				batch.add(SimulationRequest.make(hang.pos.x, 0.0, input, hold, true, -1, tick, land.top, -1, -1, 0, toward))
+			batch.add(SimulationRequest.make(hang.pos.x, 0.0, input, 0, false, -1, tick, land.top, -1, -1, 0, toward, fall_set))
 			if abilities.air_jumps > 0:
 				for hold in ReachGraph.AIR_FIRST_HOLDS:
 					for frame in frames:
 						for air_hold in air_holds:
-							graph.try_plan(info, geo, land, near, hang.pos.x, 0.0, input, hold, true, -1, tick, land.top, -1, frame, air_hold, toward)
+							batch.add(SimulationRequest.make(hang.pos.x, 0.0, input, hold, true, -1, tick, land.top, -1, frame, air_hold, toward))
+		graph.run_batch(batch)
 
 
 ## Whether a lash from a body at `center` toward `way` (sideways) first meets a
@@ -603,12 +606,15 @@ func _break_from(info: RoomInfo, geo: ReachGraph.Geometry, hang: Hang) -> void:
 	for tick in ticks:
 		var frames := ReachGraph.AIR_FRAMES if tick < 0 else ReachGraph.AIR_RIDE_FRAMES
 		var air_holds := ReachGraph.AIR_HOLDS if tick < 0 else ReachGraph.AIR_RIDE_HOLDS
+		var batch := graph.plan_batch(copy, copy_geo, land, near)
+		var fall_set := batch.add_solids(falls)
 		for input in [-1.0, 0.0, 1.0]:
-			graph.try_plan(copy, copy_geo, land, falls, at.x, 0.0, input, 0, false, -1, tick, land.top)
+			batch.add(SimulationRequest.make(at.x, 0.0, input, 0, false, -1, tick, land.top, -1, -1, 0, Vector2.ZERO, fall_set))
 			if abilities.air_jumps > 0:
 				for frame in frames:
 					for air_hold in air_holds:
-						graph.try_plan(copy, copy_geo, land, near, at.x, 0.0, input, 0, false, -1, tick, land.top, -1, frame, air_hold)
+						batch.add(SimulationRequest.make(at.x, 0.0, input, 0, false, -1, tick, land.top, -1, frame, air_hold))
+		graph.run_batch(batch)
 
 
 ## A ledge of room `copy` standing for a body in the air at `at`.

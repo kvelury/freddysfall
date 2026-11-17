@@ -98,6 +98,9 @@ var _room_phases := {}
 ## (see try_plan), and how many plans each room key took from them.
 var _free_runs := {}
 var _room_reused := {}
+## Per room key: how many times MovementSim.run was called, which is fewer than
+## `_room_plans` by what reuse (`_room_reused`, `_room_from_base`) saved.
+var _room_runs := {}
 ## What every plan of a room with breakable walls came to, by plan, kept while
 ## the room as loaded is worked out ("<id>" and "<id> air"): a copy of it with
 ## walls broken takes each plan whose path stays clear of those walls from here
@@ -140,7 +143,7 @@ func timing() -> Dictionary:
 	var out := {"edges": float(_edge_usec) / 1000.0}
 	var rooms: Array[Dictionary] = []
 	for key in _room_usec:
-		rooms.append({"key": String(key), "ms": float(_room_usec[key]) / 1000.0, "plans": int(_room_plans.get(key, 0)), "reused": int(_room_reused.get(key, 0)), "from_base": int(_room_from_base.get(key, 0)), "phases": int(_room_phases.get(key, 1))})
+		rooms.append({"key": String(key), "ms": float(_room_usec[key]) / 1000.0, "plans": int(_room_plans.get(key, 0)), "reused": int(_room_reused.get(key, 0)), "runs": int(_room_runs.get(key, 0)), "from_base": int(_room_from_base.get(key, 0)), "phases": int(_room_phases.get(key, 1))})
 	rooms.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return a["ms"] > b["ms"])
 	out["rooms"] = rooms
 	return out
@@ -1094,11 +1097,13 @@ func _ensure_edges(info: RoomInfo) -> void:
 		if _near_a_track(geo, ledge):
 			ticks = phases(info)
 		for tick in ticks:
+			var batch := plan_batch(info, geo, ledge, near)
 			for x in start_xs(ledge):
 				for input in [-1.0, 0.0, 1.0]:
 					var speed := run_speed(ledge, x, input)
 					for hold in HOLDS:
-						try_plan(info, geo, ledge, near, x, speed, input, hold, true, -1, tick)
+						batch.add(SimulationRequest.make(x, speed, input, hold, true, -1, tick))
+			run_batch(batch)
 			walk_off(info, geo, ledge, near, -1, tick)
 	if entry != null:
 		entry.store_edges(move, _ledges[info.id])
@@ -1137,6 +1142,7 @@ func _ensure_air_edges(info: RoomInfo) -> void:
 		if _near_a_track(geo, ledge):
 			ticks = phases(info)
 		for tick in ticks:
+			var batch := plan_batch(info, geo, ledge, near)
 			for x in start_xs(ledge):
 				for input in [-1.0, 0.0, 1.0]:
 					var speed := run_speed(ledge, x, input)
@@ -1146,7 +1152,8 @@ func _ensure_air_edges(info: RoomInfo) -> void:
 					for hold in AIR_FIRST_HOLDS:
 						for frame in frames:
 							for air_hold in holds:
-								try_plan(info, geo, ledge, near, x, speed, input, hold, true, -1, tick, NAN, -1, frame, air_hold)
+								batch.add(SimulationRequest.make(x, speed, input, hold, true, -1, tick, NAN, -1, frame, air_hold))
+			run_batch(batch)
 			walk_off(info, geo, ledge, near, -1, tick, true)
 	if entry != null:
 		entry.store_air_edges(move, _ledges[info.id])
@@ -1299,24 +1306,26 @@ func run_speed(ledge: Ledge, x: float, input: float) -> float:
 
 ## With `air`, each walk off also presses jump in the air (see AIR_OFF_FRAMES).
 func walk_off(info: RoomInfo, geo: Geometry, ledge: Ledge, near: Array[Rect2], limit := -1, tick := -1, air := false) -> void:
+	var batch := plan_batch(info, geo, ledge, near)
 	var cell := float(Grid.CELL)
 	if not info.is_solid(ledge.x1 + 1, ledge.row) and not info.is_hazard(ledge.x1 + 1, ledge.row):
 		var edge := float(ledge.x1 + 1) * cell - 1.0
-		_off_plans(info, geo, ledge, near, edge, _cfg.run_speed, 1.0, limit, tick, air)
-		_off_plans(info, geo, ledge, near, edge, _cfg.run_speed, 0.0, limit, tick, air)
+		_off_plans(batch, edge, _cfg.run_speed, 1.0, limit, tick, air)
+		_off_plans(batch, edge, _cfg.run_speed, 0.0, limit, tick, air)
 	if not info.is_solid(ledge.x0 - 1, ledge.row) and not info.is_hazard(ledge.x0 - 1, ledge.row):
 		var edge := float(ledge.x0) * cell + 1.0
-		_off_plans(info, geo, ledge, near, edge, -_cfg.run_speed, -1.0, limit, tick, air)
-		_off_plans(info, geo, ledge, near, edge, -_cfg.run_speed, 0.0, limit, tick, air)
+		_off_plans(batch, edge, -_cfg.run_speed, -1.0, limit, tick, air)
+		_off_plans(batch, edge, -_cfg.run_speed, 0.0, limit, tick, air)
+	run_batch(batch)
 
 
-func _off_plans(info: RoomInfo, geo: Geometry, ledge: Ledge, near: Array[Rect2], edge: float, speed: float, input: float, limit: int, tick: int, air: bool) -> void:
+func _off_plans(batch: SimulationBatch, edge: float, speed: float, input: float, limit: int, tick: int, air: bool) -> void:
 	if not air:
-		try_plan(info, geo, ledge, near, edge, speed, input, 0, false, limit, tick)
+		batch.add(SimulationRequest.make(edge, speed, input, 0, false, limit, tick))
 		return
 	for frame in AIR_OFF_FRAMES:
 		for air_hold in (AIR_HOLDS if tick < 0 else AIR_RIDE_HOLDS):
-			try_plan(info, geo, ledge, near, edge, speed, input, 0, false, limit, tick, NAN, -1, frame, air_hold)
+			batch.add(SimulationRequest.make(edge, speed, input, 0, false, limit, tick, NAN, -1, frame, air_hold))
 
 
 ## `limit` is how many ticks the path may run, `frame_limit` if left out. It is
@@ -1332,7 +1341,27 @@ func _off_plans(info: RoomInfo, geo: Geometry, ledge: Ledge, near: Array[Rect2],
 ## near them is simulated at `tick`. The plans are still tried in the same
 ## order, so what is recorded is what simulating every moment records.
 func try_plan(info: RoomInfo, geo: Geometry, ledge: Ledge, near: Array[Rect2], x: float, speed: float, input: float, hold: int, jump: bool, limit := -1, tick := -1, top := NAN, riding := -1, air_frame := -1, air_hold := 0, hang := Vector2.ZERO) -> void:
+	var request := SimulationRequest.make(x, speed, input, hold, jump, limit, tick, top, riding, air_frame, air_hold, hang)
+	apply_plan(info, geo, ledge, request, run_plan(info, geo, ledge, near, request))
+
+
+## Appends nothing to the graph: runs `request` (or takes the answer of a path
+## already run that moves the same, see `try_plan`) and returns what
+## MovementSim.run reports. The `Dictionary` is the physical outcome only;
+## what it means for the graph is `apply_plan`'s.
+func run_plan(info: RoomInfo, geo: Geometry, ledge: Ledge, near: Array[Rect2], request: SimulationRequest) -> Dictionary:
 	_room_plans[_plan_key] = int(_room_plans.get(_plan_key, 0)) + 1
+	var x := request.x
+	var speed := request.speed
+	var input := request.input
+	var hold := request.hold
+	var jump := request.jump
+	var tick := request.tick
+	var top := request.top
+	var riding := request.riding
+	var air_frame := request.air_frame
+	var air_hold := request.air_hold
+	var hang := request.hang
 	var start := Vector2(x, (ledge.top if is_nan(top) else top) - float(Grid.CELL) * 0.5)
 	var plan := JumpPlan.new(near, start, Vector2(speed, 0.0), input, hold)
 	plan.jump = jump
@@ -1340,7 +1369,7 @@ func try_plan(info: RoomInfo, geo: Geometry, ledge: Ledge, near: Array[Rect2], x
 	plan.bounds = geo.bounds
 	plan.hazards = geo.hazards
 	plan.collect = geo.things
-	plan.limit = frame_limit if limit < 0 else limit
+	plan.limit = frame_limit if request.limit < 0 else request.limit
 	if hang != Vector2.ZERO:
 		# Hanging on a wall (Tongue Climb): the start is in the air, off the ground.
 		plan.hang_dir = hang
@@ -1364,6 +1393,7 @@ func try_plan(info: RoomInfo, geo: Geometry, ledge: Ledge, near: Array[Rect2], x
 		var key := "%d|%s|%s|%s|%d|%s|%d|%s|%d|%d" % [ledge.get_instance_id(), x, speed, input, hold, jump, ticks_allowed, top, air_frame, air_hold]
 		var free: Variant = _free_runs.get(key)
 		if free == null:
+			_room_runs[_plan_key] = int(_room_runs.get(_plan_key, 0)) + 1
 			free = MovementSim.run(_cfg, plan)
 			if _meets_movers(geo, free["bounds"]):
 				free = false
@@ -1376,12 +1406,21 @@ func try_plan(info: RoomInfo, geo: Geometry, ledge: Ledge, near: Array[Rect2], x
 			plan.movers = geo.movers
 			plan.start_tick = tick
 			plan.start_riding = riding
+		_room_runs[_plan_key] = int(_room_runs.get(_plan_key, 0)) + 1
 		result = MovementSim.run(_cfg, plan)
 	if _recording != null:
 		_recording[record_key] = {"collected": result["collected"], "hazard": result["hazard"], "trigger": result["trigger"], "position": result["position"], "velocity": result["velocity"], "landed": result["landed"], "riding": result["riding"], "bounds": result["bounds"]}
+	return result
+
+
+## What a run means for the graph: the reducer. In this order: the pickups the
+## run reported, then nothing more if it hit a hazard, then a door touch, else a
+## landing. Called in a request's order, because the first touch kept for a
+## rounded key wins (`Ledge.add_touch`).
+func apply_plan(info: RoomInfo, geo: Geometry, ledge: Ledge, request: SimulationRequest, result: Dictionary) -> void:
 	# From a ceiling hang the second press is the spare jump every player gets on
 	# letting go, not the air jump, so what it reaches does not need double jump.
-	var air := air_frame >= 0 and hang.y == 0.0
+	var air := request.air_frame >= 0 and request.hang.y == 0.0
 	# A pickup is taken even on a path that then dies on spikes.
 	for index in result["collected"]:
 		ledge.add_pickup(index, air)
@@ -1398,6 +1437,38 @@ func try_plan(info: RoomInfo, geo: Geometry, ledge: Ledge, near: Array[Rect2], x
 			target = ledge_at_position(info, result["position"])
 		if target != null and target != ledge:
 			ledge.add_ledge(target.index, air)
+
+
+## Runs every batch the graph builds, when set (see `run_batch`). Tests set one
+## that runs requests out of order; a tool will set one that spreads them over
+## processes. Left unset, batches run in this process in order.
+var batch_executor := Callable()
+
+
+## A batch of requests from `ledge`, in order. Fill it with `add`, then `run_batch`.
+func plan_batch(info: RoomInfo, geo: Geometry, ledge: Ledge, near: Array[Rect2]) -> SimulationBatch:
+	return SimulationBatch.new(info, geo, ledge, near)
+
+
+## Runs a batch and applies every result in the batch's order. `executor` takes
+## the batch and returns one result per request, in request order; left out, the
+## requests are run here, one after another (`run_batch_in_process`). Either way
+## applying is in order and happens after the runs, which is the same as run,
+## apply, run, apply, since a run never reads what an earlier one applied.
+func run_batch(batch: SimulationBatch, executor := Callable()) -> void:
+	if not executor.is_valid():
+		executor = batch_executor
+	var results: Array = executor.call(batch) if executor.is_valid() else run_batch_in_process(batch)
+	assert(results.size() == batch.size(), "an executor returns one result for each request")
+	for i in batch.size():
+		apply_plan(batch.info, batch.geo, batch.ledge, batch.requests[i], results[i])
+
+
+func run_batch_in_process(batch: SimulationBatch) -> Array:
+	var results: Array = []
+	for request in batch.requests:
+		results.append(run_plan(batch.info, batch.geo, batch.ledge, batch.solids_of(results.size()), request))
+	return results
 
 
 ## How far from a path's centre box a body can touch something in one tick:
@@ -1488,6 +1559,7 @@ func _ride(info: RoomInfo, geo: Geometry, ledge: Ledge) -> void:
 	var near := _within(geo.rects, mover.keep_out().grow_individual(REACH_X, REACH_UP, REACH_X, REACH_DOWN))
 	for tick in phases(info):
 		for body in _rideable(geo, ledge.path, tick):
+			var batch := plan_batch(info, geo, ledge, near)
 			var rect := geo.movers.rect(body, tick)
 			var smooth := geo.movers.smooth(body)
 			var lo := rect.position.x - float(Grid.CELL) * 0.5 + 0.01
@@ -1503,15 +1575,15 @@ func _ride(info: RoomInfo, geo: Geometry, ledge: Ledge) -> void:
 					elif not smooth and input < 0.0 and hi - spot.x >= RUN_UP:
 						speed = -_cfg.run_speed
 					for hold in HOLDS:
-						try_plan(info, geo, ledge, near, spot.x, speed, input, hold, true, -1, tick, spot.y, body)
-			if smooth:
-				continue
-			for side in [-1.0, 1.0]:
-				var edge := rect.end.x - 1.0 if side > 0.0 else rect.position.x + 1.0
-				if not in_segment(ledge, edge):
-					continue
-				try_plan(info, geo, ledge, near, edge, side * _cfg.run_speed, side, 0, false, -1, tick, rect.position.y, body)
-				try_plan(info, geo, ledge, near, edge, side * _cfg.run_speed, 0.0, 0, false, -1, tick, rect.position.y, body)
+						batch.add(SimulationRequest.make(spot.x, speed, input, hold, true, -1, tick, spot.y, body))
+			if not smooth:
+				for side in [-1.0, 1.0]:
+					var edge := rect.end.x - 1.0 if side > 0.0 else rect.position.x + 1.0
+					if not in_segment(ledge, edge):
+						continue
+					batch.add(SimulationRequest.make(edge, side * _cfg.run_speed, side, 0, false, -1, tick, rect.position.y, body))
+					batch.add(SimulationRequest.make(edge, side * _cfg.run_speed, 0.0, 0, false, -1, tick, rect.position.y, body))
+			run_batch(batch)
 
 
 ## `_ride` with a second press in the air, from every moment and spot, at the
@@ -1521,6 +1593,7 @@ func _ride_air(info: RoomInfo, geo: Geometry, ledge: Ledge) -> void:
 	var near := _within(geo.rects, mover.keep_out().grow_individual(REACH_X, REACH_UP, REACH_X, REACH_DOWN))
 	for tick in phases(info):
 		for body in _rideable(geo, ledge.path, tick):
+			var batch := plan_batch(info, geo, ledge, near)
 			var rect := geo.movers.rect(body, tick)
 			var smooth := geo.movers.smooth(body)
 			var lo := rect.position.x - float(Grid.CELL) * 0.5 + 0.01
@@ -1536,7 +1609,8 @@ func _ride_air(info: RoomInfo, geo: Geometry, ledge: Ledge) -> void:
 						speed = -_cfg.run_speed
 					for hold in AIR_FIRST_HOLDS:
 						for frame in AIR_RIDE_FRAMES:
-							try_plan(info, geo, ledge, near, spot.x, speed, input, hold, true, -1, tick, spot.y, body, frame, 90)
+							batch.add(SimulationRequest.make(spot.x, speed, input, hold, true, -1, tick, spot.y, body, frame, 90))
+			run_batch(batch)
 
 
 ## The state of one solve: what has been reached and how.
