@@ -213,6 +213,25 @@ func _run() -> void:
 		_press(panel, KEY_F7)
 		check(not session.slow_motion and Engine.time_scale == 1.0, "outside a dev test (mode %d), it does nothing" % mode)
 	session.mode = session.Mode.DEV_TEST
+	# F8 cycles the camera view: the room's own, one screen, two, round again.
+	check(session.view_override == 0, "a dev test starts on each room's own camera view")
+	_press(panel, KEY_F8)
+	check(session.view_override == 1 and toast._label.text == "Camera view: 1 screen", "F8 shows one screen and says so (%s)" % toast._label.text)
+	_press(panel, KEY_F8)
+	check(session.view_override == 2 and world.camera.zoom == Vector2.ONE and toast._label.text == "Camera view: 2 screens", "then two screens, zoomed out")
+	_press(panel, KEY_F8)
+	check(session.view_override == 0 and toast._label.text == "Camera view: room's own", "then the room's own again")
+	panel.open_panel()
+	_press(panel, KEY_F8)
+	check(session.view_override == 0, "with the panel open, F8 does nothing")
+	panel._set_view(2)
+	check(session.view_override == 2 and panel._view_label.text.contains("2 screens"), "the panel's buttons set the view and show it")
+	panel._set_view(0)
+	panel.close_panel()
+	world.modal_owner = "pause"
+	_press(panel, KEY_F8)
+	check(session.view_override == 0, "while something else holds the input, F8 does nothing")
+	world.modal_owner = ""
 	var map: Node = world.get_node("MapOverlay")
 	map._set_open(true)
 	panel.open_panel()

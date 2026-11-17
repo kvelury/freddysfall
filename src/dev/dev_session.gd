@@ -29,6 +29,11 @@ var lash_log := false
 ## and is not in a loadout, and End playtest or a fresh boot resets it.
 var wall_strength_override := 0
 const MAX_WALL_STRENGTH := 99
+## How many screens the camera shows in a dev test, or 0 for each room's own
+## `view` (world.json). A session setting like the wall strength: it survives
+## retries, is not saved and is not in a loadout, and End playtest, the main
+## menu and a fresh boot reset it. Normal play never reads it.
+var view_override := 0
 ## Whether the game runs at `SLOW_SCALE` of its speed, to watch a motion tick by
 ## tick. A session setting like Classic Imprint, but shorter lived: it is not
 ## saved and not in a loadout, and it is switched off (the clock back to normal
@@ -64,6 +69,8 @@ func status_line() -> String:
 		line += " · token marks"
 	if slow_motion:
 		line += " · slow motion"
+	if view_override > 0 and mode == Mode.DEV_TEST:
+		line += " · view %d screen%s" % [view_override, "" if view_override == 1 else "s"]
 	if lash_log_active():
 		line += " · lash input"
 	return line
@@ -78,6 +85,7 @@ func configure(dev: bool, room_test: bool) -> void:
 	token_marks = false
 	lash_log = false
 	wall_strength_override = 0
+	view_override = 0
 	_normal_speed()
 	retry_on_death = false
 	baseline = {}
@@ -95,6 +103,7 @@ func reset_to_normal() -> void:
 	token_marks = false
 	lash_log = false
 	wall_strength_override = 0
+	view_override = 0
 	_normal_speed()
 	retry_on_death = false
 	baseline = {}
@@ -249,6 +258,41 @@ func set_wall_strength(world: Node, lashes: int) -> String:
 	return ""
 
 
+## How many screens the camera shows in room `room_id`: the dev override in a
+## dev test, else the room's own `view`. The one place the camera asks.
+func view_for(room_id: String) -> int:
+	if mode == Mode.DEV_TEST and view_override > 0:
+		return view_override
+	return WorldData.view_of(room_id)
+
+
+## Forces the camera to show `view` screens (0 gives each room its own view
+## back) and applies it now.
+func set_view_override(world: Node, view: int) -> String:
+	if mode != Mode.DEV_TEST or replacing or world.is_busy():
+		return "Dev tools are not ready."
+	if view != 0 and not RoomView.is_allowed(view):
+		return "The camera view is 0 (the room's own) or one of %s screens." % [RoomView.allowed()]
+	view_override = view
+	world.refresh_view()
+	return ""
+
+
+## The view after `view_override` when F8 is pressed: the room's own (0), then
+## each allowed view, then round again.
+func next_view() -> int:
+	var order: Array[int] = [0]
+	order.append_array(RoomView.allowed())
+	return order[(order.find(view_override) + 1) % order.size()]
+
+
+## What the camera shows, for the panel and the toast: "room's own" or "2 screens".
+func view_text(view: int) -> String:
+	if view == 0:
+		return "room's own"
+	return "%d screen%s" % [view, "" if view == 1 else "s"]
+
+
 func set_slow_motion(world: Node, on: bool) -> String:
 	if mode != Mode.DEV_TEST or replacing or world.is_busy():
 		return "Dev tools are not ready."
@@ -297,6 +341,7 @@ func _replace(world: Node, state: Dictionary, normal: bool) -> void:
 		token_marks = false
 		lash_log = false
 		wall_strength_override = 0
+		view_override = 0
 		retry_on_death = false
 		baseline = {}
 		loadout = {}

@@ -62,6 +62,10 @@ var safe := SafeFloor.new()
 ## "anchor" where the stretch began, so walking along one floor is one entry.
 ## Velocity the player had at a door, given back when the slide ends.
 var _carried := Vector2.ZERO
+## How much of the world the camera shows now, in world px: the room's view
+## (`RoomView`), one screen unless world.json gives it more. It glides between
+## two rooms' views during a door slide.
+var _view_size := Grid.SCREEN_SIZE
 
 
 func _ready() -> void:
@@ -70,8 +74,9 @@ func _ready() -> void:
 	# vanishes over the game in a browser tab is confusing.
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	camera.position_smoothing_enabled = false
-	# The picture is Display.RENDER_SCALE screen pixels to a world pixel.
-	camera.zoom = Vector2.ONE * Display.RENDER_SCALE
+	# The picture is Display.RENDER_SCALE screen pixels to a world pixel in a
+	# one-screen view; a room with a bigger view zooms out (`_apply_view`).
+	camera.zoom = RoomView.zoom_for(_view_size)
 	get_window().oversampling_override = float(Display.RENDER_SCALE)
 	# Follow the player's displayed pose per frame, then snap to a pixel.
 	# Automatic camera interpolation would interpolate that pose a second time.
@@ -150,6 +155,7 @@ func _place_in(id: String, world_position := Vector2.INF, respawn := false) -> v
 	if not respawn:
 		safe.clear()
 		_record_safe(id, at)
+	_apply_view(_view_size_for(current))
 	camera.position = _camera_focus(current, player.global_position)
 	current.set_exits_active(true)
 	if current.info.is_save_room():
@@ -198,8 +204,27 @@ func _process(_delta: float) -> void:
 func _update_camera(fraction: float) -> void:
 	if current == null or not _follow:
 		return
-	camera.position = _camera_focus(current, player.render_position(fraction), player.look_offset(fraction))
+	camera.position = _camera_focus(current, player.render_position(fraction), player.look_offset(fraction) * RoomView.look_scale(_view_size))
 	camera.force_update_scroll()
+
+
+## How much of the world the camera shows in `room`, in world px.
+func _view_size_for(room: Room) -> Vector2:
+	return RoomView.size(DevSession.view_for(room.info.id))
+
+
+## Shows `size` world px, zoomed to fit the viewport.
+func _apply_view(size: Vector2) -> void:
+	_view_size = size
+	camera.zoom = RoomView.zoom_for(size)
+
+
+## Applies the view the dev tools just changed, now. Not mid-slide.
+func refresh_view() -> void:
+	if current == null or is_busy():
+		return
+	_apply_view(_view_size_for(current))
+	_update_camera(Engine.get_physics_interpolation_fraction())
 
 
 func _make_room(id: String) -> Room:
@@ -495,9 +520,15 @@ func _on_exit(door: Door) -> void:
 	tween.set_trans(Tween.TRANS_SINE)
 	tween.set_ease(Tween.EASE_IN_OUT)
 	# Stepped onto whole world pixels, as the 320 x 180 picture drew a fractional camera.
+	# The view's size glides from one room's to the other's along with the
+	# position, so its edges move steadily and it never swings wider than either.
 	var from := camera.position
-	var to := _camera_focus(_pending, player.global_position)
-	tween.tween_method(func(t: float) -> void: camera.position = from.lerp(to, t).round(), 0.0, 1.0, TRANSITION_TIME)
+	var from_size := _view_size
+	var to_size := _view_size_for(_pending)
+	var to := RoomView.camera_focus(_pending.position, _pending.info.pixel_size, to_size, player.global_position)
+	tween.tween_method(func(t: float) -> void:
+		camera.zoom = RoomView.zoom_for(from_size.lerp(to_size, t))
+		camera.position = from.lerp(to, t).round(), 0.0, 1.0, TRANSITION_TIME)
 	tween.finished.connect(_finish_transition)
 
 
@@ -507,6 +538,7 @@ func _finish_transition() -> void:
 	current = _pending
 	_pending = null
 	if current != null:
+		_apply_view(_view_size_for(current))
 		current.set_exits_active(true)
 	player.velocity = _carried
 	player.input_enabled = true
@@ -543,7 +575,7 @@ func leave_to_menu() -> void:
 
 
 func _camera_focus(room: Room, focus: Vector2, look_y := 0.0) -> Vector2:
-	return Grid.camera_focus(room.position, room.info.pixel_size, focus, look_y)
+	return RoomView.camera_focus(room.position, room.info.pixel_size, _view_size, focus, look_y)
 
 
 ## Only the owner that paused may release the tree. Map fade-outs cannot

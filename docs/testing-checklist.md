@@ -410,3 +410,14 @@ Nobody has played these yet. Normal play (no `?dev=1`).
 - [ ] **Zoom.** The red and green gaps stay visible at Out, Middle and In.
 - [ ] **Dev mode** (`?dev=1`) shows the plain white map with every connector.
 - [ ] **An old save** shows green doors between rooms it had visited.
+
+## Zoomed-out rooms (18 and 19) and Camera view
+
+Nobody has played these yet. Release web build, in an ordinary browser window.
+
+- [ ] **Walk 16 into 18.** The view widens over the door slide, then room 18 shows top to bottom and scrolls only sideways. Is the glide acceptable (uneven pixels for half a second)?
+- [ ] **Room 18 into 19 and on.** Room 19 scrolls vertically; hold look down: the view moves a quarter of the view (90 px). Back out to 16: it zooms in again.
+- [ ] **Is the zoomed room playable?** Freddy is half the size on screen. Can you read the jumps, spikes and platforms in 18 and 19 at your usual window size and fullscreen?
+- [ ] **Die in 18 or 19**, and use the game over Continue: you come back at the zoomed view, no glide.
+- [ ] **Camera view (dev).** `?dev=1&room=3`: F8 shows 1 screen, then 2 screens (room 3 centred with black around it), then the room's own again, each with a toast. F2, Debug view: the same three buttons. It does nothing with F2 open. Retry keeps it; End playtest clears it.
+- [ ] **Resize the window while zoomed.** The picture still scales by whole numbers and stays sharp.
