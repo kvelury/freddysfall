@@ -411,7 +411,7 @@ Nobody has played these yet. Normal play (no `?dev=1`).
 - [ ] **Dev mode** (`?dev=1`) shows the plain white map with every connector.
 - [ ] **An old save** shows green doors between rooms it had visited.
 
-## Zoomed-out rooms (18 and 19) and Camera view
+## Zoomed-out rooms (16, 18 and 19) and Camera view
 
 Nobody has played these yet. Release web build, in an ordinary browser window.
 

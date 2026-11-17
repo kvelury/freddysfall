@@ -64,7 +64,7 @@ func _data() -> bool:
 	var data: Node = root.get_node("WorldData")
 	data.ensure_loaded()
 	ok = check(data.errors.is_empty(), "the world loads clean (%s)" % [data.errors]) and ok
-	ok = check(data.view_of("18") == 2 and data.view_of("19") == 2, "rooms 18 and 19 show two screens") and ok
+	ok = check(data.view_of("16") == 2 and data.view_of("18") == 2 and data.view_of("19") == 2, "rooms 16, 18 and 19 show two screens") and ok
 	ok = check(data.view_of("2") == 1 and data.view_of("nothing") == 1, "every other room shows one") and ok
 	var small = preload("res://src/autoload/world_data.gd").new()
 	var problems: Array[String] = []
@@ -91,25 +91,26 @@ func _world() -> bool:
 	var player: Player = world.player
 	player.scripted = true
 	var camera: Camera2D = world.camera
-	ok = check(camera.zoom == Vector2(2, 2), "room 16 is drawn at the render scale") and ok
+	ok = check(camera.zoom == Vector2.ONE, "room 16 is drawn two screens wide") and ok
 	var door: Door = null
 	for candidate in world.current.info.exits:
-		if candidate.dest_id == "18":
+		if candidate.dest_id == "17":
 			door = candidate
-	ok = check(door != null, "room 16 has a door into 18") and ok
+	ok = check(door != null, "room 16 has a door into 17, a one-screen room") and ok
 	if door == null:
 		world.queue_free()
 		return false
 	world._on_exit(door)
 	await ticks(4)
-	ok = check(camera.zoom.x < 2.0 and camera.zoom.x > 1.0, "crossing into 18 glides the zoom (%s)" % camera.zoom) and ok
+	ok = check(camera.zoom.x > 1.0 and camera.zoom.x < 2.0, "crossing into 17 glides the zoom in (%s)" % camera.zoom) and ok
 	var early := camera.zoom.x
 	await ticks(8)
-	ok = check(camera.zoom.x < early, "and keeps going (%s -> %s)" % [early, camera.zoom.x]) and ok
+	ok = check(camera.zoom.x > early, "and keeps going (%s -> %s)" % [early, camera.zoom.x]) and ok
 	await until(func() -> bool: return not world.is_busy(), 120)
-	ok = check(world.current.info.id == "18" and camera.zoom == Vector2.ONE, "it ends at zoom 1 in room 18 (%s)" % camera.zoom) and ok
-	var want := RoomView.camera_focus(world.current.position, world.current.info.pixel_size, TWO, player.global_position)
-	ok = check(camera.position == want, "with the camera where a two-screen view puts it (%s, wanted %s)" % [camera.position, want]) and ok
+	ok = check(world.current.info.id == "17" and camera.zoom == Vector2(2, 2), "it ends at zoom 2 in room 17 (%s)" % camera.zoom) and ok
+	var want := RoomView.camera_focus(world.current.position, world.current.info.pixel_size, ONE, player.global_position)
+	ok = check(camera.position == want, "with the camera where a one-screen view puts it (%s, wanted %s)" % [camera.position, want]) and ok
+	world.warp_to("18")
 	var shown := get_root_view_rect(camera)
 	ok = check(shown.size == TWO and shown.position.y == world.current.position.y, "18 shows two screens, top to bottom (%s)" % shown) and ok
 	# A placement is a cut.

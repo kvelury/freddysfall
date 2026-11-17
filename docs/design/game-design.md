@@ -479,7 +479,7 @@ Threads were tried first and are not used: GDScript's simulation only runs about
 
 ## Camera
 
-The camera shows the room's **view**, and it stays inside the room. A room's view is one screen (320×180 world px) unless its entry in `data/world.json` has `"view": 2`, which shows 2×2 screens (640×360 world px, the camera zoomed out from 2 to 1). Only whole-pixel views are allowed (`RoomView.allowed`: the divisors of `Display.RENDER_SCALE`, so 1 and 2): a zoomed room has no new art and is still drawn on whole world pixels, each one a single screen pixel. A room with a view must be at least that many screens across and down, or `world.json` is an error, so normal play never shows the void beyond a room. Rooms 18 and 19 have `view: 2`, because one screen of them is too little to plan a route.
+The camera shows the room's **view**, and it stays inside the room. A room's view is one screen (320×180 world px) unless its entry in `data/world.json` has `"view": 2`, which shows 2×2 screens (640×360 world px, the camera zoomed out from 2 to 1). Only whole-pixel views are allowed (`RoomView.allowed`: the divisors of `Display.RENDER_SCALE`, so 1 and 2): a zoomed room has no new art and is still drawn on whole world pixels, each one a single screen pixel. A room with a view must be at least that many screens across and down, or `world.json` is an error, so normal play never shows the void beyond a room. Rooms 16, 18 and 19 have `view: 2`, because one screen of them is too little to plan a route.
 
 - A room no bigger than the view (on an axis) locks the camera to the room's center on that axis. A one-screen room never scrolls.
 - A bigger room follows the player, clamped so the view never leaves the room, then rounded to whole world pixels.
