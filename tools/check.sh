@@ -3,9 +3,13 @@ set -eu
 cd "$(dirname "$0")/.."
 # tools/check.sh               the whole gate: tests, strict validation, web export
 # tools/check.sh --tests-only  just the tests
-# tools/check.sh --quick       everything, but validation reads build/solver-cache
-#                              (unchanged rooms are not re-solved); run the
-#                              full gate before opening a pull request
+#                              (validation reads the committed data/solver-cache:
+#                              only a room that changed, or whose neighbour's
+#                              door did, or every room after a solver change, is
+#                              solved again; a cache left out of date fails in CI)
+# tools/check.sh --quick       the same, but an out-of-date cache only warns
+# tools/check.sh --fresh       the same, with validation worked out from scratch
+#                              (ignores the committed cache; slow)
 
 echo "==> import"
 godot --headless --path . --import
@@ -83,12 +87,22 @@ if [ "${1:-}" = "--tests-only" ]; then
 	exit 0
 fi
 
-if [ "${1:-}" = "--quick" ]; then
-	echo "==> validate (cached, every ledge reachable)"
-	./tools/validate.sh --strict-ledges
-else
+if [ "${1:-}" = "--fresh" ]; then
 	echo "==> validate (no cache, every ledge reachable)"
 	./tools/validate.sh --jobs "$CORES" --fresh --strict-ledges
+else
+	echo "==> validate (committed solver cache, every ledge reachable)"
+	./tools/validate.sh --jobs "$CORES" --strict-ledges
+	# The cache is committed so CI only solves what changed. If this run had to
+	# write any of it, the commit did not carry the cache for its rooms or solver.
+	stale=$(git status --porcelain -- data/solver-cache)
+	if [ -n "$stale" ]; then
+		echo "$stale"
+		echo "data/solver-cache is out of date for these rooms: commit it (git add data/solver-cache)."
+		if [ "${1:-}" != "--quick" ] && [ "${CI:-}" = "true" ]; then
+			exit 1
+		fi
+	fi
 fi
 
 echo "==> web export"

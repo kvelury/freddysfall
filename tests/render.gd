@@ -63,7 +63,11 @@ func _initialize() -> void:
 	var report: ReachGraph.Report = null
 	if data.errors.is_empty():
 		var cfg := load("res://src/player/movement.tres") as MovementConfig
-		report = ReachGraph.new(data.rooms, cfg).solve(data.start_room)
+		var graph := ReachGraph.new(data.rooms, cfg)
+		# The committed solver cache, as validate.sh reads it: only rooms that
+		# changed are solved. It is not written back here.
+		graph.cache = SolverCache.new("res://data/solver-cache")
+		report = graph.solve(data.start_room)
 	var only := OS.get_cmdline_user_args()
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(OUT_DIR))
 	var ids: Array = data.rooms.keys()

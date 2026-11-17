@@ -18,6 +18,8 @@ func _initialize() -> void:
 	ok = _lash() and ok
 	ok = _climb() and ok
 	ok = _ceiling() and ok
+	ok = _climb_movers() and ok
+	ok = _climb_breakable() and ok
 	ok = _progression() and ok
 	ok = _many_rounds() and ok
 	ok = _locks() and ok
@@ -218,6 +220,176 @@ func _ceiling() -> bool:
 	var plain := ReachGraph.new(rooms, _cfg, no_climb).analyze("1")
 	ok = check(_has(plain.errors, "pickup gem"), "and so it is without Tongue Climb %s" % [plain.errors]) and ok
 	return ok
+
+
+## Tongue Climb meets moving platforms. (a) A ferry over spikes, too high to
+## jump to from the floor: a hang's drop or jump, tried at every moment of the
+## ferry's trip, lands on it. (b) A rider jumps straight up off a ferry, lashes
+## up into a ceiling hang, and from there climbs to a high shelf. (c) The same
+## with spikes over the ferry: the rising rider dies on them, so no hang is found
+## through them. The provider is asked directly, since in rooms this small other
+## climbs (the outer walls and ceiling) also reach the pickups.
+func _climb_movers() -> bool:
+	var ok := true
+	var armed := Abilities.new()
+	armed.tongue_unlocked = true
+	armed.tongue_climb = true
+
+	var header := "trap: allowed\nlegend:\n  U = pickup id=gem upgrade=tongue_cooldown value=0.5\n  L = platform id=ferry speed=40 pause=0.3\n---\n"
+	var marks := {}
+	for x in range(5, 13):
+		for y in range(1, 7):
+			marks[Vector2i(x, y)] = "#"
+	for x in range(9, 31):
+		marks[Vector2i(x, 16)] = "^"
+	for x in range(14, 18):
+		marks[Vector2i(x, 10)] = "L"
+	for x in range(18, 28):
+		marks[Vector2i(x, 10)] = "-"
+	marks[Vector2i(29, 10)] = "#"
+	marks[Vector2i(30, 10)] = "#"
+	marks[Vector2i(30, 9)] = "U"
+	var rooms := _world(marks, header)
+	var graph := ReachGraph.new(rooms, _cfg, armed)
+	var report := graph.analyze("1")
+	ok = check(_reached(report, "gem"), "the ledge the ferry carries to is reached %s" % [report.errors]) and ok
+	var climb := _climb_of(graph)
+	var ferry := _mover_ledge_of(graph)
+	var lands_on_ferry := false
+	for hang: ClimbMoves.Hang in climb._store(rooms["1"]).hangs.values():
+		if hang.land != null and hang.land.to_ledges.has(ferry.index):
+			lands_on_ferry = true
+	ok = check(lands_on_ferry, "a drop or jump from a hang, tried at every moment of the ferry's trip, lands on it") and ok
+	var plain := Abilities.new()
+	plain.tongue_unlocked = true
+	report = ReachGraph.new(rooms, _cfg, plain).analyze("1")
+	ok = check(not _reached(report, "gem"), "without Tongue Climb it is out of reach") and ok
+
+	marks = {}
+	for x in range(18, 23):
+		for y in range(1, 8):
+			marks[Vector2i(x, y)] = "#"
+	for x in range(9, 31):
+		marks[Vector2i(x, 16)] = "^"
+	for x in range(9, 13):
+		marks[Vector2i(x, 15)] = "L"
+	for x in range(13, 26):
+		marks[Vector2i(x, 15)] = "-"
+	for x in range(26, 31):
+		marks[Vector2i(x, 7)] = "#"
+	marks[Vector2i(28, 6)] = "U"
+	rooms = _world(marks, header)
+	graph = ReachGraph.new(rooms, _cfg, armed)
+	report = graph.analyze("1")
+	ok = check(_reached(report, "gem"), "the high shelf is reached %s" % [report.errors]) and ok
+	ferry = _mover_ledge_of(graph)
+	var from_rider := _climb_of(graph)._moves_of(ferry, rooms["1"])
+	var shelf_ok := from_rider.ledges.any(func(l: ReachGraph.Ledge) -> bool: return not l.moving and l.row == 6)
+	ok = check(shelf_ok, "a rider jumps straight up off the ferry, hangs from the ceiling and climbs to the high shelf") and ok
+	for x in range(16, 27):
+		marks[Vector2i(x, 11)] = "^"
+	rooms = _world(marks, header)
+	graph = ReachGraph.new(rooms, _cfg, armed)
+	graph.analyze("1")
+	ferry = _mover_ledge_of(graph)
+	from_rider = _climb_of(graph)._moves_of(ferry, rooms["1"])
+	shelf_ok = from_rider.ledges.any(func(l: ReachGraph.Ledge) -> bool: return not l.moving and l.row == 6)
+	ok = check(not shelf_ok, "with spikes over the ferry the rider dies rising, and no hang is found through them") and ok
+	return ok
+
+
+## Tongue Climb on a breakable wall. A breakable column stands between a low
+## ceiling and a ledge with a pickup, out of a plain lash's reach from the floor.
+## Hanging from the ceiling and dropping, a lash sideways sticks to the column
+## (its first hit); a jump off it and a lash back is the second, which breaks
+## it, and the drop from there in the room with it broken reaches the ledge.
+## With `climb_breakable` off, or spikes on the column's face (so the pull and
+## the hang are unsafe), it stays out of reach.
+func _climb_breakable() -> bool:
+	var ok := true
+	var armed := Abilities.new()
+	armed.tongue_unlocked = true
+	armed.tongue_climb = true
+	armed.air_jumps = 1
+	var rooms := _breakable_room(false)
+	var report := ReachGraph.new(rooms, _cfg, armed).analyze("1")
+	ok = check(_reached(report, "gem"), "sticking to a breakable column and lashing it again breaks it, and the ledge past it is reached %s" % [report.errors]) and ok
+	var broken_reached := report.reached.keys().any(func(l: ReachGraph.Ledge) -> bool: return l.room_id == "1~col" and not l.moving and l.x0 >= 19)
+	ok = check(broken_reached, "in the copy of the room with the column broken") and ok
+	# What breaking it reaches comes back from the cache.
+	var directory := "user://climb_break_cache_test"
+	var cache := SolverCache.new(directory)
+	var cold_graph := ReachGraph.new(rooms, _cfg, armed)
+	cold_graph.cache = cache
+	var cold := cold_graph.analyze("1")
+	cache.save()
+	var again_cache := SolverCache.new(directory)
+	var again := ReachGraph.new(_breakable_room(false), _cfg, armed)
+	again.cache = again_cache
+	var warm := again.analyze("1")
+	ok = check(_reached(cold, "gem") and _reached(warm, "gem") and again_cache.stats["climb_hangs_solved"] == 0 and again_cache.stats["climb_hangs_cached"] > 0, "the break comes back from the cache (%s then %s)" % [cache.stats, again_cache.stats]) and ok
+	for file in DirAccess.get_files_at(directory):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(directory).path_join(file))
+	var plain := Abilities.new()
+	plain.tongue_unlocked = true
+	plain.air_jumps = 1
+	report = ReachGraph.new(rooms, _cfg, plain).analyze("1")
+	ok = check(not _reached(report, "gem"), "the column is out of a plain lash's reach from the floor") and ok
+	armed.climb_breakable = false
+	report = ReachGraph.new(rooms, _cfg, armed).analyze("1")
+	ok = check(not _reached(report, "gem"), "with climb_breakable off the column is not stuck to, so it stays") and ok
+	armed.climb_breakable = true
+	report = ReachGraph.new(_breakable_room(true), _cfg, armed).analyze("1")
+	ok = check(not _reached(report, "gem"), "with spikes on the column's face the pull is unsafe, and no hang is found there") and ok
+	return ok
+
+
+func _breakable_room(spiked: bool) -> Dictionary:
+	var rows: Array[String] = []
+	for y in 18:
+		var row := ""
+		for x in 32:
+			var c := "#" if x == 0 or y == 0 or x == 31 or y == 17 else "."
+			if y >= 1 and y <= 7 and x >= 3 and x <= 12:
+				c = "#"
+			if y >= 1 and y <= 15 and (x == 15 or x == 16):
+				c = "B"
+			if spiked and y >= 8 and y <= 15 and x == 14:
+				c = "^"
+			if y == 16 and x >= 7 and x <= 30:
+				c = "^"
+			if y == 15 and x >= 19 and x <= 22:
+				c = "#"
+			if y == 14 and x == 21:
+				c = "U"
+			if y == 16 and x == 2:
+				c = "P"
+			row += c
+		rows.append(row)
+	var text := "trap: allowed\nlegend:\n  U = pickup id=gem upgrade=tongue_cooldown value=0.5\n  B = breakable id=col\n---\n" + "\n".join(rows) + "\n"
+	var errors: Array[String] = []
+	var built := RoomParser.build([{"id": "1", "grid_pos": Vector2i.ZERO, "text": text}], "1", errors)
+	if not errors.is_empty():
+		print("  room did not load: ", errors)
+	return built["rooms"]
+
+
+func _climb_of(graph: ReachGraph) -> ClimbMoves:
+	for provider in graph._providers:
+		if provider is ClimbMoves:
+			return provider
+	return null
+
+
+func _mover_ledge_of(graph: ReachGraph) -> ReachGraph.Ledge:
+	for ledge in graph.ledges_in("1"):
+		if ledge.moving:
+			return ledge
+	return null
+
+
+func _reached(report: ReachGraph.Report, id: String) -> bool:
+	return report.pickups.any(func(p: ReachGraph.PickupReport) -> bool: return p.id == id and p.reached)
 
 
 func _progression() -> bool:

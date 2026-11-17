@@ -20,7 +20,11 @@ extends RefCounted
 ## with one set of movement stats is never reused for another.
 ## 4: what each Tongue Climb hang reaches is kept too (`climb`).
 ## 5: ceiling hangs, and where a body let go from one lashes again (`climb` "l").
-const FORMAT := 5
+## 6: where a rider's straight-up jump lashes into a hang (`climb` "r<ledge>"),
+## and a hang's jumps tried with the movers.
+## 7: hangs on breakable walls (keys "w<wall>|..."), and what breaking the wall
+## from one reaches (`climb` "b").
+const FORMAT := 7
 
 ## Everything a jump's result depends on.
 const SOLVER_FILES: Array[String] = [
@@ -237,10 +241,20 @@ class Entry extends RefCounted:
 		air_edges[key] = _pack_ledges(ledges, true)
 		dirty = true
 
-	func store_climb(signature: String, hang_key: String, land: ReachGraph.Ledge, links: Array = []) -> void:
+	func store_climb(signature: String, hang_key: String, land: ReachGraph.Ledge, links: Array = [], broken_land: ReachGraph.Ledge = null) -> void:
 		if not climb.has(signature):
 			climb[signature] = {}
-		climb[signature][hang_key] = {"n": SolverCache.pack(land, false), "a": SolverCache.pack(land, true), "l": links}
+		var kept := {"n": SolverCache.pack(land, false), "a": SolverCache.pack(land, true), "l": links}
+		if broken_land != null:
+			kept["b"] = {"v": broken_land.room_id, "x": broken_land.lo, "y": broken_land.top - float(Grid.CELL) * 0.5, "n": SolverCache.pack(broken_land, false), "a": SolverCache.pack(broken_land, true)}
+		climb[signature][hang_key] = kept
+		dirty = true
+
+	## Where a rider's lashes from moving ledge `key` ("r" and its index) stick.
+	func store_climb_points(signature: String, key: String, points: Array) -> void:
+		if not climb.has(signature):
+			climb[signature] = {}
+		climb[signature][key] = {"l": points}
 		dirty = true
 
 	func _pack_ledges(ledges: Array, air: bool) -> Dictionary:

@@ -453,7 +453,7 @@ func _lash_ledges(ledge: Ledge, info: RoomInfo) -> Array[Ledge]:
 			if vinfo == null:
 				continue
 			for other: Ledge in _ledges[vinfo.id]:
-				if other.moving and other.path == ledge.path and not out.has(other):
+				if other.moving and other.path == ledge.path and other.seg_lo < ledge.seg_hi and other.seg_hi > ledge.seg_lo and not out.has(other):
 					out.append(other)
 		return out
 	for lash in _lashes_from(ledge, info):
@@ -490,6 +490,8 @@ func _lashes_up_from_rider(ledge: Ledge, info: RoomInfo) -> Array[String]:
 		return out
 	var swept := mover.swept_cells()
 	for cx in range(swept.position.x, swept.end.x):
+		if not in_segment(ledge, (float(cx) + 0.5) * float(Grid.CELL)):
+			continue
 		var wall := _wall_above(info, cx, ledge.row)
 		if not wall.is_empty() and not out.has(wall):
 			out.append(wall)
@@ -724,7 +726,7 @@ func _reached_in_a_state(run: Run, ledge: Ledge) -> bool:
 		# A mover is the same mover in every copy of the room.
 		for key in _variant_keys.get(ledge.room_id, []):
 			for other: Ledge in _ledges[key]:
-				if other.moving and other.path == ledge.path and run.reached.has(other):
+				if other.moving and other.path == ledge.path and other.seg_lo < ledge.seg_hi and other.seg_hi > ledge.seg_lo and run.reached.has(other):
 					return true
 		return false
 	for key in _variant_keys.get(ledge.room_id, []):
@@ -783,6 +785,29 @@ func _find_ledges(info: RoomInfo) -> Array[Ledge]:
 			out.append(ledge)
 	for i in info.movers.size():
 		var mover := info.movers[i]
+		if mover is PlatformPath and (mover as PlatformPath).scrape:
+			# A scraping platform is one ledge per stretch of its rider row
+			# between walls: a rider cannot ride from one to the next.
+			var scraper: PlatformPath = mover
+			for seg in band_segments(info, scraper):
+				var part := Ledge.new()
+				part.room_id = info.id
+				part.base_id = info.base()
+				part.index = out.size()
+				part.moving = true
+				part.path = i
+				part.platform_id = mover.id
+				part.row = scraper.start_cells.position.y - 1
+				part.x0 = roundi(seg.x / float(Grid.CELL))
+				part.x1 = roundi(seg.y / float(Grid.CELL)) - 1
+				part.top = scraper.rect_at(0).position.y
+				part.lo = seg.x
+				part.hi = seg.y
+				part.seg_lo = seg.x
+				part.seg_hi = seg.y
+				part.segmented = true
+				out.append(part)
+			continue
 		var ledge := Ledge.new()
 		ledge.room_id = info.id
 		ledge.base_id = info.base()
@@ -810,6 +835,29 @@ func _find_ledges(info: RoomInfo) -> Array[Ledge]:
 			ledge.hi = start.end.x + float(Grid.CELL) * 0.5 - 0.01
 		out.append(ledge)
 	return out
+
+
+## The stretches of a scraping platform's rider row that are free of walls, as
+## (left, right) in room pixels, for the room as it is (a broken wall is gone).
+## A rider is always within one of them.
+static func band_segments(info: RoomInfo, path: PlatformPath) -> Array[Vector2]:
+	var band := path.band_cells()
+	var out: Array[Vector2] = []
+	var start := -1
+	for x in range(band.position.x, band.end.x + 1):
+		var open := x < band.end.x and not info.is_solid(x, band.position.y)
+		if open and start < 0:
+			start = x
+		elif not open and start >= 0:
+			out.append(Vector2(float(start * Grid.CELL), float(x * Grid.CELL)))
+			start = -1
+	return out
+
+
+## Whether a body centred at `x` is wholly within moving ledge `ledge`'s stretch
+## of a scraping platform (always true for any other mover).
+static func in_segment(ledge: Ledge, x: float) -> bool:
+	return x - MovementSim.HALF.x >= ledge.seg_lo - 0.01 and x + MovementSim.HALF.x <= ledge.seg_hi + 0.01
 
 
 ## Air with a floor under it. The floor has to be in the room: below the
@@ -1345,7 +1393,7 @@ func try_plan(info: RoomInfo, geo: Geometry, ledge: Ledge, near: Array[Rect2], x
 	elif result["landed"]:
 		var target: Ledge = null
 		if int(result["riding"]) >= 0:
-			target = mover_ledge(info, geo, int(result["riding"]))
+			target = mover_ledge(info, geo, int(result["riding"]), (result["position"] as Vector2).x)
 		else:
 			target = ledge_at_position(info, result["position"])
 		if target != null and target != ledge:
@@ -1393,10 +1441,13 @@ func phases(info: RoomInfo) -> Array[int]:
 
 ## The ledge that stands for the mover that body `body` of the room's movers
 ## belongs to.
-func mover_ledge(info: RoomInfo, geo: Geometry, body: int) -> Ledge:
+func mover_ledge(info: RoomInfo, geo: Geometry, body: int, x := NAN) -> Ledge:
 	var index := geo.movers.mover_of(body)
 	for ledge: Ledge in _ledges[info.id]:
 		if ledge.moving and ledge.path == index:
+			if ledge.segmented and (is_nan(x) or x < ledge.seg_lo or x > ledge.seg_hi):
+				# On a scraping platform the stretch it landed in is the ledge.
+				continue
 			return ledge
 	return null
 
@@ -1429,6 +1480,8 @@ func _rideable(geo: Geometry, m: int, tick: int) -> Array[int]:
 func _ride(info: RoomInfo, geo: Geometry, ledge: Ledge) -> void:
 	var mover := info.movers[ledge.path]
 	var band := Grid.cell_rect(mover.band_cells())
+	if ledge.segmented:
+		band = Rect2(ledge.seg_lo, band.position.y, ledge.seg_hi - ledge.seg_lo, band.size.y)
 	for i in geo.things.size():
 		if band.intersects(geo.things[i]):
 			ledge.add_pickup(i)
@@ -1440,6 +1493,8 @@ func _ride(info: RoomInfo, geo: Geometry, ledge: Ledge) -> void:
 			var lo := rect.position.x - float(Grid.CELL) * 0.5 + 0.01
 			var hi := rect.end.x + float(Grid.CELL) * 0.5 - 0.01
 			for spot in geo.movers.stand_spots(body, tick):
+				if not in_segment(ledge, spot.x):
+					continue
 				for input in [-1.0, 0.0, 1.0]:
 					var speed := 0.0
 					# A run-up is only along a flat top; a turning bar is started from rest.
@@ -1453,6 +1508,8 @@ func _ride(info: RoomInfo, geo: Geometry, ledge: Ledge) -> void:
 				continue
 			for side in [-1.0, 1.0]:
 				var edge := rect.end.x - 1.0 if side > 0.0 else rect.position.x + 1.0
+				if not in_segment(ledge, edge):
+					continue
 				try_plan(info, geo, ledge, near, edge, side * _cfg.run_speed, side, 0, false, -1, tick, rect.position.y, body)
 				try_plan(info, geo, ledge, near, edge, side * _cfg.run_speed, 0.0, 0, false, -1, tick, rect.position.y, body)
 
@@ -1469,6 +1526,8 @@ func _ride_air(info: RoomInfo, geo: Geometry, ledge: Ledge) -> void:
 			var lo := rect.position.x - float(Grid.CELL) * 0.5 + 0.01
 			var hi := rect.end.x + float(Grid.CELL) * 0.5 - 0.01
 			for spot in geo.movers.stand_spots(body, tick):
+				if not in_segment(ledge, spot.x):
+					continue
 				for input in [-1.0, 0.0, 1.0]:
 					var speed := 0.0
 					if not smooth and input > 0.0 and spot.x - lo >= RUN_UP:
@@ -1545,6 +1604,12 @@ class Ledge extends RefCounted:
 	var moving := false
 	var path := -1
 	var platform_id := ""
+	## A scraping platform (`scrape=true`) is one ledge per stretch of its rider
+	## row between walls: the room-pixel x range a rider's body stays within.
+	## Any other mover has the whole line.
+	var segmented := false
+	var seg_lo := -INF
+	var seg_hi := INF
 	var to_ledges: Array[int] = []
 	var touches: Array[Touch] = []
 	## Indices of the room's pickups that some path from here touches.
@@ -1578,6 +1643,8 @@ class Ledge extends RefCounted:
 		return base_id if not base_id.is_empty() else room_id
 
 	func describe() -> String:
+		if moving and segmented:
+			return "Room %s: the moving platform %s (cells %d-%d of its rider row)" % [base(), platform_id, x0, x1]
 		if moving:
 			return "Room %s: the moving platform %s" % [base(), platform_id]
 		return "Room %s: the ledge on row %d, cells %d-%d" % [base(), row, x0, x1]

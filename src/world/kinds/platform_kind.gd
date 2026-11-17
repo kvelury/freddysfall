@@ -11,7 +11,7 @@ func required() -> Array[String]:
 
 
 func optional() -> Array[String]:
-	return ["pause"]
+	return ["pause", "scrape"]
 
 
 func structural() -> bool:
@@ -23,7 +23,10 @@ func allowed_in_save_room() -> bool:
 
 
 func problems(def: EntityDef) -> Array[String]:
-	return _speed(def, "platform")
+	var out := _speed(def, "platform")
+	if def.props.has("scrape") and String(def.props["scrape"]) != "true":
+		out.append("platform %s: scrape= is true (leave it out for a platform whose rider row stays open), not \"%s\"" % [def.id, def.props["scrape"]])
+	return out
 
 
 static func _speed(def: EntityDef, label: String) -> Array[String]:

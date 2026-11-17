@@ -4,15 +4,28 @@ extends SceneTree
 ## reachable from the start, and no place you cannot get back from.
 ## Exits non-zero on any error. Warnings (ledges nobody reached) do not fail.
 ## tools/validate.sh runs this. What the solver works out about each room is
-## kept in build/solver-cache/ between runs, so a run after editing one room
-## only redoes that room. `--no-cache` ignores and does not write it.
+## kept in data/solver-cache/, which is committed with the rooms, so a run (and
+## CI) only redoes a room whose file, neighbours' doors or the solver changed.
+## `--no-cache` ignores and does not write it.
 ##
 ## `--dump=<path>` also writes everything the solver worked out, sorted, for
 ## tools/solver_diff.sh. `--strict-ledges` makes a ledge nobody reaches an
-## error, as CI runs it. `--cache-dir=<path>` chooses the cache folder.
-## `--warm=<id,id>` works out those rooms' jumps (and each set of their walls
-## broken) into the cache and exits, so tools/validate.sh --jobs can share it
-## across processes.
+## error, as CI runs it (not one that is all doorway: StrictLedges). `--cache-dir=<path>` chooses the cache folder.
+##
+## tools/validate.sh --jobs fills the cache in pieces, so one big room is spread
+## over several processes instead of holding one up for hours:
+## - `--plan` prints the pieces the cache in `--cache-dir` lacks, one a line.
+## - `--warm-piece=<piece>` works out one piece into `--cache-dir` and exits.
+##   A piece is `<room>:jumps0` or `<room>:jumps1` (the room's jumps, and those
+##   of each set of its walls broken, without or with an air jump), or `<key>:climb0` and
+##   `<key>:climb1` (every Tongue Climb hang of the room or one copy with walls
+##   broken, `<key>` being RoomInfo.key_for, without and with an air jump). A
+##   climb piece reads its room's jumps from the cache, so jumps0 goes first.
+## - `--merge=<dir>` joins the cache folders under `<dir>` (one per piece) into
+##   `--cache-dir`. Every piece starts from a copy of that folder, so a file
+##   joins only files worked out with the same solver and the same room.
+## `--warm=<id,id>` is the older whole-room warm (ReachGraph.warm), kept for a
+## caller that still uses it.
 
 ## How many room keys the timing table lists, slowest first.
 const SLOWEST_SHOWN := 10
@@ -37,11 +50,26 @@ func _initialize() -> void:
 	var graph := ReachGraph.new(data.rooms, cfg)
 	var cache_dir := _flag_value("--cache-dir")
 	if cache_dir.is_empty():
-		cache_dir = "res://build/solver-cache"
+		cache_dir = "res://data/solver-cache"
 	var cache: SolverCache = null
 	if not _has_flag("--no-cache"):
 		cache = SolverCache.new(cache_dir)
 		graph.cache = cache
+	var piece := _flag_value("--warm-piece")
+	if _has_flag("--plan") or not piece.is_empty() or not _flag_value("--merge").is_empty():
+		var warm := CacheWarm.new(graph, data.rooms)
+		var code := 0
+		if _has_flag("--plan"):
+			for line in warm.plan():
+				print("piece ", line)
+		elif not piece.is_empty():
+			code = warm.work(piece)
+			var files := cache.save() if cache != null else 0
+			print("warm %s %.1f s (%d files)" % [piece, float(Time.get_ticks_msec() - started) / 1000.0, files])
+		else:
+			code = warm.merge(_flag_value("--merge"), cache_dir)
+		quit(code)
+		return
 	var warm_ids := _flag_value("--warm")
 	if not warm_ids.is_empty():
 		for id in warm_ids.split(",", false):
@@ -54,7 +82,8 @@ func _initialize() -> void:
 	var written := cache.save() if cache != null else 0
 	if _has_flag("--strict-ledges"):
 		for ledge in report.unreached:
-			report.errors.append("%s cannot be reached (--strict-ledges)" % ledge.describe())
+			if StrictLedges.counted(data.rooms.get(ledge.base_id, data.rooms.get(ledge.room_id)), ledge):
+				report.errors.append("%s cannot be reached (--strict-ledges)" % ledge.describe())
 	var dump_path := _flag_value("--dump")
 	if not dump_path.is_empty():
 		_write_dump(dump_path, graph, report)

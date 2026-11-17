@@ -127,17 +127,19 @@ Limits: a 1 GB site, about 100 GB of bandwidth a month (soft), a 10-minute deplo
 
 ## Checking your work
 
-Run `tools/check.sh` before opening a pull request. It imports the project once, runs every `tests/*_test.gd` in parallel (one Godot process each, `JOBS` at a time, the machine's cores unless set, found with `nproc` or `sysctl -n hw.ncpu`; each test's output is in `build/test-logs/<name>.log`, and the logs of the ones that failed are printed), validates the whole world with every ledge reachable (a fresh solver cache, warmed by one process per core), builds the release web export, and checks that the room data and cache-tagged browser files are present. CI runs the same command. After it passes, serve that build and play the affected route yourself; the automated checks do not judge movement feel, room readability or visual feedback.
+Run `tools/check.sh` before opening a pull request. It imports the project once, runs every `tests/*_test.gd` in parallel (one Godot process each, `JOBS` at a time, the machine's cores unless set, found with `nproc` or `sysctl -n hw.ncpu`; each test's output is in `build/test-logs/<name>.log`, and the logs of the ones that failed are printed), validates the whole world with every ledge reachable (reading the committed solver cache in `data/solver-cache/`, so only rooms that changed, or every room after a solver change, are solved, by one process per core; CI fails if the commit left that cache out of date, so commit it with any room or solver change), builds the release web export, and checks that the room data and cache-tagged browser files are present. CI runs the same command. After it passes, serve that build and play the affected route yourself; the automated checks do not judge movement feel, room readability or visual feedback.
 
 ```sh
 tools/check.sh                 # the complete automated gate and a fresh web build
-tools/check.sh --quick         # while iterating: same, but validation uses the solver cache (full gate before a PR)
+tools/check.sh --quick         # while iterating: same, but an out-of-date solver cache only warns
+tools/check.sh --fresh         # same, with validation worked out from scratch (slow; run it now and then)
 tools/check.sh --tests-only    # just the tests, in parallel (JOBS=n to choose how many at once)
 tools/serve.sh                 # serve that build at http://localhost:8060 for the playthrough
 tools/validate.sh              # the whole world, solved: a room is not done until this exits 0
 tools/validate.sh --no-cache   # the same, without the solver's cache
-tools/validate.sh --jobs 4 --fresh  # warm a fresh cache in 4 processes, then solve from it
-tools/validate.sh --strict-ledges  # a ledge nobody reaches is an error too (check.sh runs it this way)
+tools/validate.sh --jobs 4      # work out the pieces the committed cache lacks in 4 processes, then solve from it
+tools/validate.sh --jobs 4 --fresh  # the same into a fresh cache in build/
+tools/validate.sh --strict-ledges  # a ledge nobody reaches is an error too, unless it is all doorway (check.sh runs it this way)
 tools/solver_diff.sh <ref>     # what the solver works out at <ref> against the working tree; empty when they agree
 tools/render.sh [ids]          # PNGs of rooms and the world map in build/renders/
 godot --headless --path . --script tools/make_icon.gd   # rewrite icon.svg (the favicon) from Freddy's standing picture
@@ -189,7 +191,7 @@ After adding a script with a `class_name`, run `godot --headless --path . --impo
 | `tests/pillar_test.gd` | Breakable emitters (pillars, fixture `tests/fixtures/worlds/pillars`): the parser's rules for a tall emitter, a body broken for the rest of its trip and whole when its slot comes round again, and play: lashes break one in wall-strength hits, and one not lashed pushes the player. Prints `PILLAR pass`. |
 | `tests/mover_test.gd` | What the solver assumes about every mover the rooms place (platforms, emitters, spinners): each repeats exactly after its `period()`, no body ever leaves its `keep_out()`, and every body stays inside `ReachGraph.Geometry.mover_space`, the box the solver uses to run a jump once for every moment of a trip. Prints `MOVER pass`. |
 | `tests/solver_test.gd` | The solver, on strings: an air jump crosses a 10-cell pit and a 24-cell one is too wide, a double jump pickup opens the way and is what the room needs (and the air edges come back from the cache); Tongue Climb (a pillar past a double jump's reach is shut without it and open with it, needs the lash, and a pickup that gives it is what the pillar's pickup needs); Tongue Lash (a pickup behind a breakable wall out of reach without it and taken with it, needing the pickup that gives it, a solid in the way keeping it shut, a plain solid box shut, and each wall state cached by its own key); a room reports the pickup it needs, nine upgrades in a row need more than eight rounds, a room that holds its doors shut waits for its token or its save machine, three tokens and a 3TM give an upgrade, a `trap: allowed` room is a warning and not an error, and a fall four screens tall lands. Prints `SOLVER pass`. |
-| `tests/validate.gd` | Loads the whole world, then solves it: every room and door reachable from the start, nowhere to get stuck. Lists every problem and exits 1 if there is one, and says where the time went, with the slowest room keys. `--strict-ledges` makes a ledge nobody reaches an error (as `check.sh` runs it); `--dump=<path>` writes what it worked out for `tools/solver_diff.sh`. Keeps what it works out about each room in `build/solver-cache/` (`--no-cache` skips it). Run through `tools/validate.sh`. |
+| `tests/validate.gd` | Loads the whole world, then solves it: every room and door reachable from the start, nowhere to get stuck. Lists every problem and exits 1 if there is one, and says where the time went, with the slowest room keys. `--strict-ledges` makes a ledge nobody reaches an error (as `check.sh` runs it); `--dump=<path>` writes what it worked out for `tools/solver_diff.sh`. Keeps what it works out about each room in `data/solver-cache/`, which is committed (`--no-cache` skips it). Run through `tools/validate.sh`. |
 | `tests/render.gd` | Draws each room and the world map as PNGs in `build/renders/`, marking unreachable ledges, traps, one-way ledges, sealed doors, blocked doors, 3TMs, and moving platforms with their tracks. Run through `tools/render.sh`. |
 
 Two kinds of test, and which to write:
