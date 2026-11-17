@@ -1,6 +1,6 @@
 # Faster room iteration and solver execution
 
-Status: implementation specification; no gameplay or solver changes implemented.
+Status: implementation specification. PR 1 (preview before solve) and PR 2 (dump, diff and benchmark tools; stage counters and the event trace still to do) are implemented; no solver changes yet.
 
 Prepared 2026-11-16 against commit `b2bf4c1d7e11dbcabb87f2774e4dacb1bc0cc05e`.
 Reconcile this specification with the current branch before implementation. The
