@@ -145,7 +145,7 @@ tools/validate.sh --jobs 4      # work out the pieces the committed cache lacks 
 tools/validate.sh --jobs 4 --fresh  # the same into a fresh cache in build/
 tools/validate.sh --strict-ledges  # a ledge nobody reaches is an error too, unless it is all doorway (check.sh runs it this way)
 tools/solver_diff.sh <ref>     # what the solver works out at <ref> against the working tree; empty when they agree
-tools/render.sh [ids]          # PNGs of rooms and the world map in build/renders/
+tools/render.sh [--preview] [ids]  # PNGs of rooms and the world map in build/renders/; --preview is geometry only, no solve (labelled, not validation)
 godot --headless --path . --script tools/make_icon.gd   # rewrite icon.svg (the favicon) from Freddy's standing picture
 tools/snap.sh <id>             # a real in-game frame of a room (opens a window; run on your own machine)
 tools/pixel_check.sh           # draws scenarios with a renderer: every world pixel on the grid, equal to the 320x180 baseline
@@ -197,7 +197,8 @@ After adding a script with a `class_name`, run `godot --headless --path . --impo
 | `tests/mover_test.gd` | What the solver assumes about every mover the rooms place (platforms, emitters, spinners): each repeats exactly after its `period()`, no body ever leaves its `keep_out()`, and every body stays inside `ReachGraph.Geometry.mover_space`, the box the solver uses to run a jump once for every moment of a trip. Prints `MOVER pass`. |
 | `tests/solver_test.gd` | The solver, on strings: an air jump crosses a 10-cell pit and a 24-cell one is too wide, a double jump pickup opens the way and is what the room needs (and the air edges come back from the cache); Tongue Climb (a pillar past a double jump's reach is shut without it and open with it, needs the lash, and a pickup that gives it is what the pillar's pickup needs); Tongue Lash (a pickup behind a breakable wall out of reach without it and taken with it, needing the pickup that gives it, a solid in the way keeping it shut, a plain solid box shut, and each wall state cached by its own key); a room reports the pickup it needs, nine upgrades in a row need more than eight rounds, a room that holds its doors shut waits for its token or its save machine, three tokens and a 3TM give an upgrade, a `trap: allowed` room is a warning and not an error, and a fall four screens tall lands. Prints `SOLVER pass`. |
 | `tests/validate.gd` | Loads the whole world, then solves it: every room and door reachable from the start, nowhere to get stuck. Lists every problem and exits 1 if there is one, and says where the time went, with the slowest room keys. `--strict-ledges` makes a ledge nobody reaches an error (as `check.sh` runs it); `--dump=<path>` writes what it worked out for `tools/solver_diff.sh`. Keeps what it works out about each room in `data/solver-cache/`, which is committed (`--no-cache` skips it). Run through `tools/validate.sh`. |
-| `tests/render.gd` | Draws each room and the world map as PNGs in `build/renders/`, marking unreachable ledges, traps, one-way ledges, sealed doors, blocked doors, 3TMs, and moving platforms with their tracks. Run through `tools/render.sh`. |
+| `tests/render.gd` | Draws each room and the world map as PNGs in `build/renders/`, marking unreachable ledges, traps, one-way ledges, sealed doors, blocked doors, 3TMs, and moving platforms with their tracks. Run through `tools/render.sh`. `--preview` skips the solver and cache and writes `*_preview.png` files carrying `PREVIEW - REACHABILITY NOT CHECKED`. The work is in `tests/lib/render_args.gd` (arguments; an unknown flag or id exits 2), `render_run.gd` (the run; a loader error exits 1 and a preview writes nothing) and `room_renderer.gd` (the drawing). |
+| `tests/render_test.gd` | The render arguments; a preview never calls the solver, leaves `data/solver-cache/` bytes and mtimes alone, uses preview file names, draws the analysed render's geometry pixel for pixel below its header, and writes nothing when the world fails to load. Prints `RENDER pass`. |
 
 Two kinds of test, and which to write:
 
@@ -299,7 +300,7 @@ What the existing code does, so new code reads the same:
 
 ### Recipes
 
-- **A new room.** Add `data/rooms/<id>.txt` and its entry in `data/world.json`; follow `AGENTS.md`; run `tools/validate.sh` and `tools/render.sh <id>`; add a test only if the room has behaviour of its own.
+- **A new room.** Add `data/rooms/<id>.txt` and its entry in `data/world.json`; follow `AGENTS.md`; `tools/render.sh --preview <id>` shows the geometry at once (no solve) and `tools/build_web.sh` + `tools/serve.sh` with `?dev=1&room=<id>` lets the author try it before validation; then run `tools/validate.sh` and `tools/render.sh <id>` (analysed); a preview is not validation; add a test only if the room has behaviour of its own.
 - **A new glyph.** One line in `Tiles.TABLE` with its flags; then whatever reads that flag (`RoomInfo`, `RoomParser`, `Room`, the renderer, the solver). The glyph table in `data/rooms/AGENTS.md` and the design doc.
 - **A new legend kind** (like `token`). A subclass of `EntityKind` in `src/world/kinds/` and a line in `Entities._ensure`: it says its keys, its flag, when it is still in the room, the node it builds, the rect a body touches and what the solver does on reaching it. A kind drawn across many cells also needs the room parser's placement. Then `entity_test`.
 - **A new exit rule.** A line in `ExitRules.RULES` and a case in `ExitRules.met` (taking flags, never `GameState`), and `problem` if some rooms cannot use it.
