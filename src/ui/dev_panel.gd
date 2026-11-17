@@ -22,6 +22,7 @@ var _token_marks: CheckButton
 var _slow: CheckButton
 var _lash_log: CheckButton
 var _wall: LineEdit
+var _view_label: Label
 var _names: ItemList
 var _name: LineEdit
 var _store := DevLoadouts.new()
@@ -72,6 +73,8 @@ func _input(event: InputEvent) -> void:
 		open_panel(1)
 	elif event.keycode == KEY_F7:
 		_slow_hotkey()
+	elif event.keycode == KEY_F8:
+		_view_hotkey()
 	elif event.keycode == KEY_ESCAPE and (opened or _pending >= 0):
 		_pending = -1
 		close_panel()
@@ -88,6 +91,15 @@ func _slow_hotkey() -> void:
 		return
 	if DevSession.set_slow_motion(_world, not DevSession.slow_motion).is_empty():
 		_world.toast.show_text("Slow motion: %s" % ("1/4 speed" if DevSession.slow_motion else "off"))
+
+
+## F8 cycles the camera view (the room's own, then each allowed one) and says so
+## in the toast line. Under the same guards as F7.
+func _view_hotkey() -> void:
+	if DevSession.mode != DevSession.Mode.DEV_TEST or opened or _pending >= 0 or not _world.modal_owner.is_empty():
+		return
+	if DevSession.set_view_override(_world, DevSession.next_view()).is_empty():
+		_world.toast.show_text("Camera view: %s" % DevSession.view_text(DevSession.view_override))
 
 
 func open_panel(tab := 0) -> void:
@@ -112,6 +124,7 @@ func open_panel(tab := 0) -> void:
 		_slow.set_pressed_no_signal(DevSession.slow_motion)
 		_lash_log.set_pressed_no_signal(DevSession.lash_log)
 		_wall.text = str(DevSession.wall_strength())
+		_show_view()
 		_status.text = _store.error
 	_tabs.current_tab = tab
 	if tab == 1:
@@ -224,6 +237,15 @@ func _build_player(body: VBoxContainer) -> void:
 	_classic = _switch(_sections["imprint"], "Classic Imprint (no shrinking)", func(on: bool) -> String: return DevSession.set_classic_imprint(_world, on), func() -> bool: return DevSession.classic_imprint)
 	_token_marks = _switch(_sections["debug"], "Show token marks on Freddy", func(on: bool) -> String: return DevSession.set_token_marks(_world, on), func() -> bool: return DevSession.token_marks)
 	_slow = _switch(_sections["debug"], "Slow motion (F7)", func(on: bool) -> String: return DevSession.set_slow_motion(_world, on), func() -> bool: return DevSession.slow_motion)
+	var view_row := HBoxContainer.new()
+	_sections["debug"].add_child(view_row)
+	_view_label = Label.new()
+	_view_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	view_row.add_child(_view_label)
+	_button(view_row, "Room's own", func() -> void: _set_view(0))
+	for view in RoomView.allowed():
+		_button(view_row, "%d screen%s" % [view, "" if view == 1 else "s"], func() -> void: _set_view(view))
+	_show_view()
 	_lash_log = _switch(_sections["debug"], "Show lash input", func(on: bool) -> String: return DevSession.set_lash_log(_world, on), func() -> bool: return DevSession.lash_log)
 
 
@@ -252,6 +274,17 @@ func _switch(parent: Node, text: String, set: Callable, current: Callable) -> Ch
 	)
 	parent.add_child(check)
 	return check
+
+
+## Applies a camera view at once; like the wall strength it is a session setting
+## and not part of the staged loadout.
+func _set_view(view: int) -> void:
+	_report(DevSession.set_view_override(_world, view), "Camera view set.")
+	_show_view()
+
+
+func _show_view() -> void:
+	_view_label.text = "Camera view (F8): %s" % DevSession.view_text(DevSession.view_override)
 
 
 ## Applies the wall strength typed or nudged. It takes effect at once, since it

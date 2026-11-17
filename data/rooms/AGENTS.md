@@ -4,7 +4,7 @@ Loaded when you work under `data/rooms/`. The rest of the agent guide is in the 
 
 ## Room files
 
-A room is `data/rooms/<id>.txt`, and is listed in `data/world.json` as `{"id": "<id>", "grid_pos": [x, y]}`. The id is a number, or `s` and a number for a save room (`s1`, `s2`, …). `grid_pos` is the screen cell of the room's top-left corner, so a room one screen to the right of `s1` is `[1, 0]`. The file name is always the id.
+A room is `data/rooms/<id>.txt`, and is listed in `data/world.json` as `{"id": "<id>", "grid_pos": [x, y]}`. The id is a number, or `s` and a number for a save room (`s1`, `s2`, …). `grid_pos` is the screen cell of the room's top-left corner, so a room one screen to the right of `s1` is `[1, 0]`. The file name is always the id. An entry may also have `"view": 2` to zoom the camera out to 2×2 screens in that room (rooms 16, 18 and 19 do); the room must be at least 2 screens across and down, and 2 is the only value besides the default 1. It is display-only and the solver never reads it, so adding or removing it does not re-solve anything.
 
 A screen is **32 columns by 18 rows**, one cell being 10 px. A room is a whole number of screens in each direction: 32 or 64 columns, 18 or 36 rows. Two rooms may not occupy the same screen cell.
 

@@ -105,14 +105,16 @@ func _frames(count: int) -> void:
 
 ## Takes the frame as the screen shows it. The halos are on the wall clock and
 ## the fine group is meant to be finer, so both are hidden.
-func _grab(name: String) -> void:
+## `base` is how many world pixels the frame shows: one screen, or more in a room
+## whose camera is zoomed out (`RoomView`), where a world pixel is one screen pixel.
+func _grab(name: String, base := BASE) -> void:
 	_hide_unchecked(root)
 	await RenderingServer.frame_post_draw
 	var image := root.get_texture().get_image()
 	image.convert(Image.FORMAT_RGB8)
 	captured += 1
-	var scale := image.get_width() / BASE.x
-	if image.get_size() != BASE * scale:
+	var scale := image.get_width() / base.x
+	if image.get_size() != base * scale:
 		failures.append("%s: frame is %s" % [name, image.get_size()])
 		return
 	if mode == "baseline":
@@ -120,7 +122,7 @@ func _grab(name: String) -> void:
 		var bad_baseline := _on_grid(image, scale)
 		if not bad_baseline.is_empty():
 			failures.append("%s: %s" % [name, bad_baseline])
-		_world_pixels(image, scale).save_png("%s/%s.png" % [BASELINE, name])
+		_world_pixels(image, scale, base).save_png("%s/%s.png" % [BASELINE, name])
 		return
 	image.save_png("%s/%s.png" % [CHECK, name])
 	var bad := _on_grid(image, scale)
@@ -131,7 +133,7 @@ func _grab(name: String) -> void:
 		failures.append("%s: no baseline (run tools/pixel_check.sh --baseline first)" % name)
 		return
 	compared += 1
-	var diff := _differs(image, want, scale)
+	var diff := _differs(image, want, scale, base)
 	if not diff.is_empty():
 		failures.append("%s: %s" % [name, diff])
 
@@ -163,20 +165,20 @@ func _on_grid(image: Image, scale: int) -> String:
 
 
 ## The frame as world pixels: the top-left screen pixel of each block.
-func _world_pixels(image: Image, scale: int) -> Image:
-	var out := Image.create(BASE.x, BASE.y, false, Image.FORMAT_RGB8)
-	for y in BASE.y:
-		for x in BASE.x:
+func _world_pixels(image: Image, scale: int, base: Vector2i) -> Image:
+	var out := Image.create(base.x, base.y, false, Image.FORMAT_RGB8)
+	for y in base.y:
+		for x in base.x:
 			out.set_pixel(x, y, image.get_pixel(x * scale, y * scale))
 	return out
 
 
 ## The frame, taken at its top-left pixel of each block, equals the baseline.
-func _differs(image: Image, want: Image, scale: int) -> String:
+func _differs(image: Image, want: Image, scale: int, base: Vector2i) -> String:
 	var count := 0
 	var first := ""
-	for y in BASE.y:
-		for x in BASE.x:
+	for y in base.y:
+		for x in base.x:
 			if image.get_pixel(x * scale, y * scale) != want.get_pixel(x, y):
 				count += 1
 				if first.is_empty():
@@ -192,7 +194,7 @@ func _rooms() -> void:
 	for id in root.get_node("WorldData").rooms.keys():
 		world.warp_to(id)
 		await _frames(2)
-		await _grab("room_%s" % id)
+		await _grab("room_%s" % id, Vector2i(RoomView.size(root.get_node("WorldData").view_of(id))))
 
 
 func _idle() -> void:
