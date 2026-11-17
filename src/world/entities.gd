@@ -73,6 +73,8 @@ static func problems(def: EntityDef) -> Array[String]:
 	for key in def.props:
 		if not spec["required"].has(key) and not spec["optional"].has(key):
 			out.append("%s %s has %s=, which %s does not use" % [def.type, def.id, key, def.type])
+	if def.props.has("hint") and not Hints.has(String(def.props["hint"])):
+		out.append("%s %s has hint=%s, which is not in data/hints.json" % [def.type, def.id, def.props["hint"]])
 	if out.is_empty():
 		out.append_array(kind(def.type).problems(def))
 	if out.is_empty() and (def.type == "pickup" or (def.type == "machine" and def.props.has("upgrade"))):

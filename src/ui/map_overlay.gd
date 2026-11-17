@@ -253,6 +253,8 @@ class MapLayer extends Node2D:
 				draw_rect(box, Color(0.42, 0.42, 0.42, 1), true)
 			_outline(rect, box, info)
 			_connectors(rect, box, info)
+			if not DevSession.available:
+				_door_marks(rect, box, info)
 			if shows_labels():
 				_label(String(room_id), box)
 
@@ -281,6 +283,9 @@ class MapLayer extends Node2D:
 			var dest := ex.dest_id
 			if dest.is_empty() or not shown_rooms().has(dest):
 				continue
+			# In play a connector joins two doors the player has been through.
+			if not DevSession.available and not GameState.door_used(info.id, ex):
+				continue
 			var span := _edge_span(ex.rect, edge)
 			var gap := STRIDE - ROOM_PX
 			var mid := (span.x + span.y) * 0.5
@@ -299,6 +304,27 @@ class MapLayer extends Node2D:
 					var x := _px(rect.position.x + mid)
 					var y := _px(rect.position.y - gap.y)
 					draw_rect(Rect2(x, y, 1, box.position.y - y), Color.WHITE)
+
+	## The door gaps in play: green where the player has been through, red where
+	## not. Dev mode shows the whole map, so its gaps stay plain.
+	func _door_marks(rect: Rect2, box: Rect2, info: RoomInfo) -> void:
+		for ex in info.exits:
+			if ex.dest_id.is_empty():
+				continue
+			var used := GameState.door_used(info.id, ex)
+			var colour := Palette.GREEN if used else Palette.RED
+			var span := _edge_span(ex.rect, ex.edge)
+			match ex.edge:
+				"left", "right":
+					var x := box.end.x - 1.0 if ex.edge == "right" else box.position.x
+					var y0 := _px(rect.position.y + span.x)
+					var y1 := maxf(_px(rect.position.y + span.y), y0 + 1.0)
+					draw_rect(Rect2(x, y0, 1, y1 - y0), colour)
+				_:
+					var y := box.end.y - 1.0 if ex.edge == "down" else box.position.y
+					var x0 := _px(rect.position.x + span.x)
+					var x1 := maxf(_px(rect.position.x + span.y), x0 + 1.0)
+					draw_rect(Rect2(x0, y, x1 - x0, 1), colour)
 
 	func _gaps(info: RoomInfo, edge: String) -> Array:
 		var gaps: Array = []

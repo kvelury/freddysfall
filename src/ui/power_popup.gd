@@ -11,6 +11,7 @@ const OWNER := "power"
 
 var opened := false
 var _world: Node
+var _title: Label
 var _name: Label
 var _prompt: Label
 var _view: ControlsView
@@ -42,7 +43,8 @@ func _ready() -> void:
 	column.custom_minimum_size.x = 220
 	column.add_theme_constant_override("separation", 6)
 	margin.add_child(column)
-	column.add_child(_text("NEW POWER", 8))
+	_title = _text("NEW POWER", 8)
+	column.add_child(_title)
 	_name = _text("", 16)
 	column.add_child(_name)
 	_view = ControlsView.new()
@@ -60,16 +62,32 @@ func open(id: String) -> bool:
 	if opened or not _world.acquire_modal(OWNER):
 		return false
 	var def := Upgrades.get_def(id)
-	_name.text = def.title
-	_prompt.text = Controls.press_any()
 	var rows: Array = []
 	for row_id in def.controls:
 		rows.append(Controls.get_row(String(row_id)))
+	_show("NEW POWER", def.title, rows)
+	return true
+
+
+## Shows the popup for hint `id` (data/hints.json): its title over the keys it
+## names, with no power name line. False, and nothing shown, if another modal
+## holds the game.
+func open_hint(id: String) -> bool:
+	if opened or not _world.acquire_modal(OWNER):
+		return false
+	_show(Hints.title(id), "", Hints.rows(id))
+	return true
+
+
+func _show(title: String, name_text: String, rows: Array) -> void:
+	_title.text = title
+	_name.text = name_text
+	_name.visible = not name_text.is_empty()
+	_prompt.text = Controls.press_any()
 	_view.show_rows(rows)
 	_open_for = 0.0
 	opened = true
 	show()
-	return true
 
 
 func dismiss() -> void:

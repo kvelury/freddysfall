@@ -1,6 +1,6 @@
 exits: pickups
 legend:
-  T = token id=r2_token
+  T = token id=r2_token hint=map
 ---
 ################################
 #..............................#

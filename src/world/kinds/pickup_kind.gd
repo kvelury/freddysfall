@@ -11,7 +11,7 @@ func required() -> Array[String]:
 
 
 func optional() -> Array[String]:
-	return ["value"]
+	return ["value", "hint"]
 
 
 func touchable() -> bool:

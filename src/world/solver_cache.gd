@@ -76,6 +76,7 @@ const FINGERPRINT_EXEMPT := {
 	"res://src/core/upgrades.gd": "names which stat a pickup raises; the jumps themselves do not read it",
 	"res://src/core/upgrade_def.gd": "the fields of an upgrade; the jumps themselves do not read it",
 	"res://src/core/progression.gd": "the saved snapshot; a jump does not read it",
+	"res://src/core/hints.gd": "the popup a collectible shows; the room parser only checks a hint id exists",
 	"res://src/core/controls.gd": "the controls page; upgrades.gd only checks that a row id exists",
 	"res://src/core/pad_labels.gd": "what a controller's buttons are called on screen; controls.gd only names them",
 	"res://src/core/palette.gd": "colours for drawing, which a jump never reads",
