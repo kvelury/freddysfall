@@ -1,15 +1,29 @@
 #!/bin/sh
 set -eu
 cd "$(dirname "$0")/.."
-# tools/check.sh               the whole gate: tests, strict validation, web export
+# tools/check.sh               the gate: tests, the world loads, web export. No solver.
 # tools/check.sh --tests-only  just the tests
-#                              (validation reads the committed data/solver-cache:
-#                              only a room that changed, or whose neighbour's
-#                              door did, or every room after a solver change, is
-#                              solved again; a cache left out of date fails in CI)
-# tools/check.sh --quick       the same, but an out-of-date cache only warns
-# tools/check.sh --fresh       the same, with validation worked out from scratch
-#                              (ignores the committed cache; slow)
+# tools/check.sh --quick       the same as no flag (kept so old habits still work)
+# tools/check.sh --solver      also the solver tests and the whole-world solve
+#                              (reachability). OPTIONAL: run it at milestones, not
+#                              while iterating on a room or power. Reads the
+#                              committed data/solver-cache; a stale cache only warns.
+# tools/check.sh --fresh       --solver with the solve worked out from scratch
+#                              (ignores the committed cache; slow, hours with rooms 18 and 19)
+# The solver is advisory: the author playtests rooms. CI runs this without a
+# flag; the solver runs in the manual "Solver" workflow (.github/workflows/solver.yml).
+SOLVER=0
+FRESH=0
+TESTS_ONLY=0
+for arg in "$@"; do
+	case "$arg" in
+		--solver) SOLVER=1 ;;
+		--fresh) SOLVER=1; FRESH=1 ;;
+		--tests-only) TESTS_ONLY=1 ;;
+		--quick) ;;
+		*) echo "unknown flag: $arg" >&2; exit 2 ;;
+	esac
+done
 
 echo "==> import"
 godot --headless --path . --import
@@ -29,14 +43,24 @@ JOBS="${JOBS:-$CORES}"
 LOGS=build/test-logs
 rm -rf "$LOGS"
 mkdir -p "$LOGS"
-SLOW="shaft_test emitter_test solver_test cache_test game_over_test hazard_test save_room_test platform_test title_card_test"
+# A test that builds a ReachGraph or reads the solver cache is a tests/solver_*_test.gd
+# file and runs only with --solver, so editing a room or a power never breaks the
+# default gate through the solver.
+leaks=$(grep -l -E 'ReachGraph|SolverCache|StrictLedges|CacheWarm' tests/*_test.gd | grep -v '^tests/solver_' || true)
+if [ -n "$leaks" ]; then
+	echo "these tests use the solver but are not named tests/solver_*_test.gd: $leaks"
+	exit 1
+fi
+SLOW="shaft_test emitter_test solver_test solver_cache_test solver_emitter_test game_over_test hazard_test save_room_test platform_test title_card_test"
 for name in $SLOW; do
+	case "$name" in solver_*) [ "$SOLVER" = 1 ] || continue ;; esac
 	if [ -f "tests/$name.gd" ]; then
 		echo "$name"
 	fi
 done > "$LOGS/order.txt"
 for path in tests/*_test.gd; do
 	name=$(basename "$path" .gd)
+	case "$name" in solver_*) [ "$SOLVER" = 1 ] || continue ;; esac
 	grep -qx "$name" "$LOGS/order.txt" || echo "$name"
 done >> "$LOGS/order.txt"
 COUNT=$(wc -l < "$LOGS/order.txt" | tr -d ' ')
@@ -82,25 +106,28 @@ fi
 if [ "$failed" != 0 ]; then
 	exit 1
 fi
-if [ "${1:-}" = "--tests-only" ]; then
+if [ "$TESTS_ONLY" = 1 ]; then
 	echo "TESTS pass: $COUNT tests"
 	exit 0
 fi
 
-if [ "${1:-}" = "--fresh" ]; then
-	echo "==> validate (no cache, every ledge reachable)"
-	./tools/validate.sh --jobs "$CORES" --fresh --strict-ledges
-else
-	echo "==> validate (committed solver cache, every ledge reachable)"
-	./tools/validate.sh --jobs "$CORES" --strict-ledges
-	# The cache is committed so CI only solves what changed. If this run had to
-	# write any of it, the commit did not carry the cache for its rooms or solver.
-	stale=$(git status --porcelain -- data/solver-cache)
-	if [ -n "$stale" ]; then
-		echo "$stale"
-		echo "data/solver-cache is out of date for these rooms: commit it (git add data/solver-cache)."
-		if [ "${1:-}" != "--quick" ] && [ "${CI:-}" = "true" ]; then
-			exit 1
+echo "==> world loads (no solver)"
+./tools/validate.sh --load-only
+
+if [ "$SOLVER" = 1 ]; then
+	if [ "$FRESH" = 1 ]; then
+		echo "==> solver (no cache, every ledge reachable)"
+		./tools/validate.sh --jobs "$CORES" --fresh --strict-ledges
+	else
+		echo "==> solver (committed solver cache, every ledge reachable)"
+		./tools/validate.sh --jobs "$CORES" --strict-ledges
+		# The cache is committed so a later solve only redoes what changed. If this
+		# run had to write any of it, commit it to save the next run the work. It is
+		# never an error: the solver is optional.
+		stale=$(git status --porcelain -- data/solver-cache)
+		if [ -n "$stale" ]; then
+			echo "$stale"
+			echo "note: data/solver-cache was refreshed by this solve; commit it (git add data/solver-cache) if you want to keep it."
 		fi
 	fi
 fi
@@ -177,8 +204,8 @@ for suffix in (".pck", ".wasm", ".audio.worklet.js", ".audio.position.worklet.js
 print(f"web export ok ({tag})")
 PY
 
-if [ "${1:-}" = "--quick" ]; then
-	echo "CHECK pass (quick, cached validation): $COUNT tests and web export. Run tools/check.sh in full before a pull request."
+if [ "$SOLVER" = 1 ]; then
+	echo "CHECK pass: $COUNT tests, world loaded and solved, and web export"
 else
-	echo "CHECK pass: $COUNT tests, uncached world validation, and web export"
+	echo "CHECK pass: $COUNT tests, world loads, and web export. Solver not run (optional: tools/check.sh --solver)."
 fi

@@ -162,7 +162,7 @@ Nobody has played these yet. Headless tests prove the rules, not the feel. Use `
 - [ ] **Room 9's 3TM** gives Tongue Lash with the "NEW POWER" popup, "Tongue Lash" and the rows "Lash your tongue" and "Destroy breakable walls" (`?dev=1&room=9` with three tokens set in F2). Both rows are on the Controls page too.
 - [ ] **Room 14's 3TM** gives Tongue Climb with the popup "Tongue Climb" and the row "Hold the button to stick to a wall" (the lash key, held), which is also on the Controls page once Tongue Climb is owned (`?dev=1&room=14` with three tokens set in F2).
 - [ ] **F2.** Tongue Lash on/off, cooldown, speed and length apply and survive a retry and a named loadout. Wall strength (Player tab, below Classic Imprint): 1 breaks in one lash, 5 in five, takes effect at once, survives a retry, and End playtest resets it to 2.
-- [ ] **The solver agrees.** `tools/validate.sh` lists room 7's pip as needing Tongue Lash (via room 9's 3TM and its tokens) and passes. Nobody has played the whole route to the pip without dev tools.
+- [ ] **The solver agrees (optional).** `tools/validate.sh` lists room 7's pip as needing Tongue Lash (via room 9's 3TM and its tokens) and passes. Nobody has played the whole route to the pip without dev tools.
 - [ ] **Nothing odd:** lashing during a door slide, the map, the F2 panel or a save does nothing, and the tongue does not follow you into the next room.
 
 ## Double jump
@@ -317,7 +317,7 @@ panel render is a layout check, not a completed human browser playthrough.
 
 - [ ] **A room that the validator calls shut but that a person can open.** The search tries a fixed set of jumps (Imprint is not modelled). If you find a way across it did not try, we know which one to add. Room 5's pit is the best place to try: it might be crossable from the floor with two platforms in a row.
 - [ ] **A room that the validator opens but a person cannot.** The search ignores the limit of three tokens, and does not treat a blocked doorway as a wall for a body falling through a chain of doors.
-- [ ] **Validator time.** On 2026-10-22, `tools/validate.sh --no-cache` took 13.5 seconds for 7 rooms and a warm cached run took 1.5 seconds. Before the room merge, with 9 rooms and room 8's moving platform it took about 32 seconds cold and 8 warm (main was already at 28 and 8 before the platform). It keeps what it works out about each room in `build/solver-cache/`. Check the numbers again as the world grows. Edit one room and run it again: only that room should be redone (the `cache:` line says how many). If an answer ever looks stale, `tools/validate.sh --no-cache` or deleting `build/solver-cache` gives the answer from scratch.
+- [ ] **Validator time (optional; the solver is run only at milestones).** On 2026-10-22, `tools/validate.sh --no-cache` took 13.5 seconds for 7 rooms and a warm cached run took 1.5 seconds. Before the room merge, with 9 rooms and room 8's moving platform it took about 32 seconds cold and 8 warm (main was already at 28 and 8 before the platform). It keeps what it works out about each room in `build/solver-cache/`. Check the numbers again as the world grows. Edit one room and run it again: only that room should be redone (the `cache:` line says how many). If an answer ever looks stale, `tools/validate.sh --no-cache` or deleting `build/solver-cache` gives the answer from scratch.
 
 ## Movement and doors
 
@@ -421,3 +421,5 @@ Nobody has played these yet. Release web build, in an ordinary browser window.
 - [ ] **Die in 18 or 19**, and use the game over Continue: you come back at the zoomed view, no glide.
 - [ ] **Camera view (dev).** `?dev=1&room=3`: F8 shows 1 screen, then 2 screens (room 3 centred with black around it), then the room's own again, each with a toast. F2, Debug view: the same three buttons. It does nothing with F2 open. Retry keeps it; End playtest clears it.
 - [ ] **Resize the window while zoomed.** The picture still scales by whole numbers and stays sharp.
+
+- [ ] **Every room is reachable and escapable in a fresh save.** The author plays each room (`?dev=1&room=<id>` for a quick look, then the real route); the solver is optional and does not stand in for this.

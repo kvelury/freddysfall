@@ -40,12 +40,12 @@ For worked examples, open `data/rooms/s1.txt` (a save room: the machine on the m
 
 ## Movement envelope
 
-Design to what the player can do, then let `tools/validate.sh` decide.
+Design to what the player can do, then playtest it. The solver (`tools/validate.sh`) is optional and never decides; run it only when asked or at a milestone (see the root `AGENTS.md`).
 
 - A full jump rises about 5 cells (51 px). A platform 4 cells above where the player stands is comfortable. 5 is not reliable.
 - A running jump on flat ground crosses about 7 cells.
 - A tap rises about 1.5 cells.
 - With double jump (the first power-up, from room 4's 3TM), a second jump in the air at the top of the first rises about 10 cells in all (102 px). The solver tries one air press at fixed moments after a ground jump or a walk off a ledge, so it can be a little pessimistic. Rooms 5 and 6 were drawn for Imprint (a legacy dev-tools feature) and are `trap: allowed`, because a double jump crosses room 5's pit only one way; they await a redesign around the movement powers.
-- With Tongue Lash, a standing lash goes straight along the row the player's centre is on, and a jump lets them lash any row up to the jump's top. The tongue reaches 6 cells (60 px) past the front of the body until a `tongue_length` upgrade lengthens it, so a breakable wall has to be within 6 empty cells of where the player can stand. The solver checks this.
+- With Tongue Lash, a standing lash goes straight along the row the player's centre is on, and a jump lets them lash any row up to the jump's top. The tongue reaches 6 cells (60 px) past the front of the body until a `tongue_length` upgrade lengthens it, so a breakable wall has to be within 6 empty cells of where the player can stand. The solver, if you run it, checks this.
 - The player is one cell wide and one cell tall.
 - Touching a ceiling door, a player leaves at least 180 px/s upward. That rises about 2 cells, so a hole in the floor above should be narrow enough, or have floor close enough, for the player to steer onto.

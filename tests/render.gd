@@ -60,23 +60,33 @@ func _initialize() -> void:
 	data.ensure_loaded()
 	for message in data.errors:
 		print("load problem: ", message)
+	var args := OS.get_cmdline_user_args()
+	# The solver is optional: by default only the geometry is drawn, which takes
+	# seconds and reads no cache. `--solve` solves the world first (the committed
+	# cache is read, not written) and marks what it finds.
+	var solve := args.has("--solve")
+	var only: Array = []
+	for arg in args:
+		if not arg.begins_with("--"):
+			only.append(arg)
 	var report: ReachGraph.Report = null
-	if data.errors.is_empty():
+	if solve and data.errors.is_empty():
 		var cfg := load("res://src/player/movement.tres") as MovementConfig
 		var graph := ReachGraph.new(data.rooms, cfg)
-		# The committed solver cache, as validate.sh reads it: only rooms that
-		# changed are solved. It is not written back here.
 		graph.cache = SolverCache.new("res://data/solver-cache")
 		report = graph.solve(data.start_room)
-	var only := OS.get_cmdline_user_args()
+	# A geometry-only picture says so in its name: it proves nothing about reach.
+	var suffix := "" if solve else "_preview"
+	if not solve:
+		print("PREVIEW: geometry only, reachability NOT checked (tools/render.sh --solve marks what the solver reaches)")
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(OUT_DIR))
 	var ids: Array = data.rooms.keys()
 	ids.sort()
 	for id in ids:
 		if only.is_empty() or only.has(String(id)):
-			_save(_room_image(data.rooms[id], report), "room_%s.png" % id)
+			_save(_room_image(data.rooms[id], report), "room_%s%s.png" % [id, suffix])
 	if only.is_empty():
-		_save(_world_image(data.rooms), "world.png")
+		_save(_world_image(data.rooms), "world%s.png" % suffix)
 	quit(0 if data.errors.is_empty() else 1)
 
 

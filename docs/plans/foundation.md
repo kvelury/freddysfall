@@ -99,7 +99,7 @@ Goal: you can start handing over notebook photos after this chunk.
   1. Read the room number from the photo, and where it sits (your note, e.g. "right of 4, bottom screen", or an overview sheet). Set `grid_pos`.
   2. Count the drawn room's squares. Pick the whole-screen size W×H whose 32W:18H ratio best matches. Scale = cells per square. Round features to the nearest cell.
   3. Snap doors to line up with the neighbour's existing door. Never move an existing room unless you say so.
-  4. Run the validator. Fix unreachable jumps with nudges of at most 2 cells. Anything bigger is a question to you, not a silent redesign.
+  4. (Historical; since 2026-11-17 the solver is optional and the user playtests: see AGENTS.md.) Run the validator. Fix unreachable jumps with nudges of at most 2 cells. Anything bigger is a question to you, not a silent redesign.
   5. Render the room. Reply with the PNG and a **translation report**: size chosen, scale, and every rounding or nudge, as a list.
   6. Commit only after you approve.
 - Add a drawing cheat-sheet section to `AGENTS.md` for your side: mark doors clearly, write the room number, optionally write the size in screens ("2×1") to remove guesswork, and use a key for pickups/hazards.

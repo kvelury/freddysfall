@@ -24,7 +24,6 @@ func _run() -> void:
 	ok = _parser() and ok
 	ok = _path() and ok
 	ok = _crush() and ok
-	ok = _solver() and ok
 	ok = await _play() and ok
 	ok = await _dying_while_riding() and ok
 	finish("PLATFORM", ok)
@@ -154,52 +153,6 @@ func _crush() -> bool:
 		MovementSim.step(cfg, s, rects, 0.0, false, false, DT, movers, tick)
 		rode = rode or s.riding == 0
 	ok = check(rode and is_equal_approx(s.position.y + MovementSim.HALF.y, movers.rect(0, 60).position.y), "a body on a rising platform rides it up (feet at %.1f, platform at %.1f)" % [s.position.y + 5.0, movers.rect(0, 60).position.y]) and ok
-	return ok
-
-
-# --- the solver ------------------------------------------------------------
-
-
-func _solver() -> bool:
-	var ok := true
-	var cfg := load("res://src/player/movement.tres") as MovementConfig
-	# A ledge 8 cells up on the right is too high to jump to, but a platform
-	# that rises beside it brings it within a jump.
-	var marks := {Vector2i(0, 9): "#........................#######", Vector2i(0, 15): "#.................LLL..........#"}
-	for y in range(10, 15):
-		marks[Vector2i(0, y)] = "#.................|||..........#"
-	var rooms := _rooms(marks, "  L = platform id=lift speed=40\n")
-	var graph := ReachGraph.new(rooms, cfg)
-	var report := graph.analyze("1")
-	var high: ReachGraph.Ledge = null
-	var lift: ReachGraph.Ledge = null
-	for ledge in graph.ledges_in("1"):
-		if ledge.row == 8 and not ledge.moving:
-			high = ledge
-		if ledge.moving:
-			lift = ledge
-	ok = check(lift != null and report.reached.has(lift), "the rising platform is reached from the floor") and ok
-	ok = check(high != null and report.reached.has(high), "and the high ledge is reached by riding it") and ok
-	ok = check(report.errors.is_empty(), "with no errors, so there is a way back down from both %s" % [report.errors]) and ok
-	var plain := {Vector2i(0, 9): "#........................#######"}
-	rooms = _rooms(plain, "")
-	graph = ReachGraph.new(rooms, cfg)
-	report = graph.analyze("1")
-	var reached_high := false
-	for ledge in graph.ledges_in("1"):
-		if ledge.row == 8 and report.reached.has(ledge):
-			reached_high = true
-	ok = check(not reached_high, "without the platform the high ledge is out of reach") and ok
-	# A platform nine cells up cannot be reached.
-	rooms = _rooms({Vector2i(0, 8): "#.........LLL--------..........#"}, "  L = platform id=sky speed=60\n")
-	graph = ReachGraph.new(rooms, cfg)
-	report = graph.analyze("1")
-	ok = check(_has(report.warnings, "the moving platform sky cannot be reached"), "a platform out of reach is a warning %s" % [report.warnings]) and ok
-	# Imprint is refused on a track and in the row above it.
-	var info: RoomInfo = rooms["1"]
-	var body := Rect2(20, 160, 10, 10)
-	ok = check(ImprintRules.check(info, Vector2i(15, 8), 2, body) == "platform" and ImprintRules.check(info, Vector2i(15, 7), 2, body) == "platform", "an Imprint cannot go on a track or in the row above it") and ok
-	ok = check(ImprintRules.check(info, Vector2i(15, 10), 2, body).is_empty(), "but can go below it") and ok
 	return ok
 
 

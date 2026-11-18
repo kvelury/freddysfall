@@ -3,7 +3,9 @@
 # tools/validate.sh --jobs N                N processes warm the pieces data/solver-cache lacks, then one solve reads it
 # tools/validate.sh --no-cache              the same, worked out from scratch in one process
 # tools/validate.sh --jobs N --fresh        the same into a fresh cache in build/
+# tools/validate.sh --load-only             only load the world (no solve, no cache): seconds
 # --strict-ledges and --dump=<path> are passed through to the solve.
+# The solve is optional: nothing else in the repo requires it (see tools/check.sh --solver).
 set -eu
 cd "$(dirname "$0")/.."
 # A new class_name is not visible to a script run until the project is imported.
@@ -37,6 +39,10 @@ done
 # --no-cache is one process and ignores the cache: there is nothing to share.
 case " $rest " in
 	*" --no-cache "*) jobs=1; fresh=0 ;;
+esac
+
+case " $rest " in
+	*" --load-only "*) jobs=1; fresh=0 ;;
 esac
 
 if [ "$jobs" -le 1 ] && [ "$fresh" -eq 0 ]; then

@@ -8,13 +8,13 @@ Run from the repo root.
 
 | Command | What it does |
 | --- | --- |
-| `tools/check.sh` | The complete automated gate before a pull request: imports once, runs every `tests/*_test.gd` in parallel (one Godot process each, `JOBS` at a time, logs in `build/test-logs/`), validates the world with every ledge reachable (reading the committed solver cache, `data/solver-cache/`, so only rooms that changed are solved, by one process per core), builds the release web export, and checks its room data and cache-tagged files. CI runs this command too, and fails if the commit did not carry an up-to-date cache: after changing a room or the solver, run it (or `tools/validate.sh --jobs N`) and commit `data/solver-cache/` with the change. It leaves `build/web/` ready for `tools/serve.sh` and the user's playthrough. |
-| `tools/check.sh --quick` | The same gate while iterating, but an out-of-date cache only warns. |
-| `tools/check.sh --fresh` | The same gate with validation worked out from scratch, ignoring the committed cache (slow: an hour or more with rooms 18 and 19). Run it after a solver change and from time to time, so a cache that disagrees with the solver is caught. |
-| `tools/validate.sh` | Loads every room and solves the world, taking pickups and tokens as it goes. A room is not done until this exits 0. It also prints what each room, ledge and pickup needs, and where the time went. What it works out about each room is kept in `data/solver-cache/`, which is committed, so a run (and CI) after editing one room only redoes that room (landing checks are not cached; timings depend on the layout); `--jobs N` first works out the pieces of rooms it lacks (each room's jumps, then its Tongue Climb hangs, without and with an air jump), N processes at a time, slowest and new rooms first, and merges them; `--no-cache` ignores it. A room's file is used only while the room, its neighbours' doors and the solver are unchanged, so a stale file is never trusted, only solved again. |
+| `tools/check.sh` | The gate before a pull request, and what CI runs (minutes): imports once, runs every `tests/*_test.gd` that is not a solver test in parallel (one Godot process each, `JOBS` at a time, logs in `build/test-logs/`), loads the whole world (`tools/validate.sh --load-only`: rooms parse, doors pair up, the legend and upgrades are valid; **no solving**), builds the release web export, and checks its room data and cache-tagged files. It leaves `build/web/` ready for `tools/serve.sh` and the user's playthrough. A test that builds a `ReachGraph` or reads the solver cache must be named `tests/solver_*_test.gd`; `check.sh` fails if any other test uses the solver. |
+| `tools/check.sh --solver` | **Optional.** The same gate plus the solver tests and the whole-world solve with every ledge reachable (reads the committed solver cache in `data/solver-cache/`; a stale cache only warns, and the solve rewrites it so you can commit it). Run it at milestones (see "The solver is optional"), never while iterating on a room or power. |
+| `tools/check.sh --fresh` | **Optional.** `--solver` with the solve worked out from scratch, ignoring the committed cache (slow: hours with rooms 18 and 19). Run it after a solver change and rarely otherwise. `--quick` is an alias of the default gate. |
+| `tools/validate.sh` | **Optional** (except `--load-only`, which `check.sh` runs: it only loads the world, in seconds). Loads every room and solves the world, taking pickups and tokens as it goes; nothing requires it to exit 0 for a room to be done. It also prints what each room, ledge and pickup needs, and where the time went. What it works out about each room is kept in `data/solver-cache/`, which is committed, so a later run after editing one room only redoes that room (landing checks are not cached; timings depend on the layout); `--jobs N` first works out the pieces of rooms it lacks (each room's jumps, then its Tongue Climb hangs, without and with an air jump), N processes at a time, slowest and new rooms first, and merges them; `--no-cache` ignores it. A room's file is used only while the room, its neighbours' doors and the solver are unchanged, so a stale file is never trusted, only solved again. |
 | `tools/solver_diff.sh <ref>` | Solves the world at `<ref>` and in the working tree without the cache, and diffs everything the solver worked out. Empty output means the two agree. A solver change meant to be exact (a speed-up, a refactor) must leave it empty; paste `validate.sh`'s slowest-rooms table from before and after into the pull request. |
 | `tools/pixel_check.sh` | Draws scripted scenarios with a renderer (it uses `xvfb-run` with no display) and checks the world is on whole world pixels and equal to the baseline (kept as 320×180 world pixels). Run it after any change to how something is drawn. When the look is meant to change, record a new baseline with `--baseline` on the commit that changes it and say so in the pull request. Not part of `check.sh`. |
-| `tools/render.sh [ids]` | PNGs of rooms and the world map in `build/renders/`, with what the solver reaches marked (it reads the committed solver cache, so only rooms that changed are solved). Read them to see what you built. |
+| `tools/render.sh [--solve] [ids]` | PNGs of rooms and the world map in `build/renders/`. By default the geometry only, with no solve and no cache read: `room_<id>_preview.png` and `world_preview.png` (seconds; a preview proves nothing about reachability). `--solve` is optional: it solves first (reading the committed solver cache, which can take very long for a new large room) and marks what the solver reaches in `room_<id>.png` and `world.png`. Read the PNGs to see what you built. |
 | `tools/snap.sh <id>` | A real in-game frame of a room in `build/snaps/`. Opens a window for a second, so run it on the user's machine. |
 | `godot --headless --path . --script tests/<name>.gd` | Run one test; each file in `tests/` is one (`tools/check.sh` runs every `tests/*_test.gd`; `tools/check.sh --tests-only` runs just them). Prints a pass line and exits 0. |
 | `godot --path . -- --room=<id>` | Play starting in a room. In the browser, `?room=<id>`. A `--room` or `--dev` launch skips the main menu and boots straight into the world, as does `?dev=1`. Use `--dev --room=<id>` or `?dev=1&room=<id>` for tools; F2 opens the panel, F4 the protected room picker and F7 slows the game (dev tests only). |
@@ -22,6 +22,14 @@ Run from the repo root.
 | `tools/stage_site.sh` | Turns `build/web` into `build/site`, the folder published to GitHub Pages (real files instead of symlinks, no unused untagged copies). `deploy.yml` runs it after `tools/check.sh` on every merge to `main`. `tools/serve.sh site` serves it. |
 
 After adding a script with a `class_name`, run `godot --headless --path . --import` once. A headless script cannot see the new class until then. `validate.sh` and `render.sh` do this for you.
+
+## The solver is optional
+
+The reachability solver (`ReachGraph`, `tools/validate.sh`) is advisory. It never blocks rendering, playing, building, a pull request, a merge or a deploy, and nothing in `tools/check.sh` runs it unless you pass `--solver` or `--fresh`. The author plays every room and confirms it is reachable. Do not run it, wait on it or report on it unless the user asks or a milestone calls for it.
+
+- **Run it when the user asks, or at milestones**: after a change to movement physics (`movement_sim.gd`, `movement.tres`, tongue or climb numbers), before a release, after a batch of new rooms. It is *recommended* then, because it can catch a jump broken in a room nobody is replaying. It is not recommended while iterating on a room or a power.
+- **Where it runs**: locally with `tools/check.sh --solver` (or `tools/validate.sh --jobs N`), or in GitHub Actions through the manual **Solver** workflow (`.github/workflows/solver.yml`: Actions > Solver > Run workflow, or `gh workflow run solver.yml [-f fresh=true]`). It uploads the refreshed `data/solver-cache/` as an artifact. It never runs on pull requests.
+- **Content may use what the solver does not model.** A new room or power does not need solver support. If it needs it later, that is a separate, deliberate change.
 
 ## Playtesting
 
@@ -38,13 +46,13 @@ The user draws rooms on graph paper, numbers each one, and shares a photo. The s
 1. **Read the room number** from the photo, and where the room sits relative to rooms that exist: the user's note ("right of 4, bottom screen"), or an overview sheet. That sets `grid_pos`. If you cannot tell, ask.
 2. **Pick the size.** Count the drawn room's squares across and down. Choose the whole-screen size W x H whose 32W : 18H shape best matches the drawing. Scale is cells per square. Round each feature to the nearest cell.
 3. **Line up the doors.** Put a door on the wall that faces each neighbor, matching the neighbor's existing door in position and thickness. Do not move or edit an existing room unless the user says to.
-4. **Run `tools/validate.sh`.** Fix an unreachable jump by nudging a platform at most 2 cells. Anything bigger is a question for the user, not a redesign.
-5. **Render the room** with `tools/render.sh <id>`, read the PNG, and reply with it and a **translation report**:
+4. **Render the geometry** with `tools/render.sh <id>` (no solve), read `build/renders/room_<id>_preview.png`, and reply with it and a **translation report**:
    - the size you chose (for example "2 x 1 screens, 64 x 18 cells") and the scale ("1 drawn square = 2 cells")
-   - every rounding and every nudge, as a list ("lower platform moved 1 cell left so the jump from the floor works")
+   - every rounding, as a list ("lower platform rounded 1 cell left")
    - anything you could not read in the drawing and what you assumed
-   - validator result and any warnings
-6. **Commit only after the user approves.** One room per commit, on a branch.
+   - that reachability is **not checked**: the solver is optional and the user playtests
+5. **Let the user try it.** Run `tools/check.sh` (tests, the world loads, web export), then they play it locally: `tools/serve.sh`, then `http://localhost:8060/?dev=1&room=<id>` (isolated: it never touches the save). Do not play it yourself or record video unless asked. Revise the geometry on their feedback.
+6. **Commit only after the user approves.** One room per commit, on a branch. Run the solver (`tools/render.sh --solve <id>`, `tools/validate.sh`) only if the user asks; if it reports an unreachable jump, nudging a platform at most 2 cells is fine, anything bigger is a question for the user.
 
 ## What to draw (for the user)
 
@@ -59,7 +67,7 @@ The user draws rooms on graph paper, numbers each one, and shares a photo. The s
 ## Working on the repo
 
 - Work on a branch and open a pull request. Do not push to `main`.
-- Run `tools/validate.sh` and the tests before opening one.
+- Run `tools/check.sh` before opening one. The solver is not part of it (see "The solver is optional").
 - When behavior changes, update `docs/design/game-design.md` in the same pull request, so it stays true.
 - **Imprint is a legacy dev-tools feature, not a core mechanic.** The core mechanics are movement and attack (jumps, Tongue Lash, Tongue Climb). Do not build rooms, puzzles or power-ups on Imprint, and a new feature need not model it: the solver does not, and the room parser refuses a pickup or 3TM that gives it. Where the dev-tools Imprint is touched, it keeps its rule (never replaced or refreshed by another click; see "The Imprint rule" under Guardrails in the design doc).
 - **The mouse is only for menus.** Gameplay uses the keyboard or a controller; the cursor is never hidden (a vanishing pointer in a browser tab is confusing) but does nothing in play. Any key or button (not the mouse, not a function key, not a stick) closes a popup such as Game Over or a new power, and its text says "Press any key to continue" ("button" when a controller was used last). New input goes through an InputMap action and `InputBindings`, so it is rebindable in Settings; a stick is digital.
@@ -87,9 +95,10 @@ It also governs fixes made when addressing review comments.
   Check unlock/removal, bounds, old saves/loadouts, retry, death, warp and room
   transitions where affected. Exercise relevant combinations of movement, attack,
   solids, movers and hazards, including supported maximum speeds and values.
-  Keep runtime and solver behavior consistent for modeled mechanics; honor
-  explicitly agreed solver limitations and require support before content depends
-  on an unmodeled power. Keep pure simulation independent of scene/autoload state.
+  Keep the solver consistent with the runtime only when a change touches the
+  solver; the solver is advisory, content may use mechanics it does not model, and
+  no fix needs solver support unless the user asks for it. Keep pure simulation
+  independent of scene/autoload state.
 - Prefer the smallest robust fix that leaves clear extension points for later
   power-ups and levels. Explain material tradeoffs; do not propose speculative
   frameworks or redesign agreed gameplay. Include required dev controls, reset,
@@ -101,7 +110,7 @@ It also governs fixes made when addressing review comments.
   not require fullscreen, native-only APIs, threads or server features to play.
 - Name the checks that prove the fix: a focused regression that fails beforehand,
   relevant combination/boundary tests, and the repository gates appropriate to
-  the change (`tools/check.sh`, solver diff for exact solver changes, pixel checks
+  the change (`tools/check.sh`; a solver diff only for a change to the solver itself; pixel checks
   for drawing changes). For browser/input/export changes, include a served release
   web-build check in an ordinary browser window. Report what actually ran and any
   incomplete checks; a headless pass alone does not establish browser playability.
