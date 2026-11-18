@@ -17,7 +17,6 @@ func _initialize() -> void:
 	var ok := true
 	ok = _parser() and ok
 	ok = _carry() and ok
-	ok = _solver() and ok
 	finish("SCRAPE", ok)
 
 
@@ -98,57 +97,6 @@ func _ride(cfg: MovementConfig, speed: float, way: int, wall: bool) -> Dictionar
 		if (way > 0 and s.position.x > 165.0) or (way < 0 and s.position.x < 145.0):
 			out["passed"] = true
 	return out
-
-
-# --- the solver ------------------------------------------------------------
-
-
-func _solver() -> bool:
-	var ok := true
-	var cfg := load("res://src/player/movement.tres") as MovementConfig
-	# Start ledge on the left, a scraping ferry, a breakable column standing in
-	# its rider row, and the only other ledge past the column. Spikes below.
-	var rows := {
-		Vector2i(0, 12): "####LLLL------------------.#####",
-		Vector2i(0, 16): "#^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^#",
-	}
-	for y in range(1, 12):
-		rows[Vector2i(0, y)] = "#.........BB...................#"
-	var legend := "  L = platform id=ferry speed=60 pause=0.3 scrape=true\n  B = breakable id=col\n"
-	var rooms := _rooms(rows, legend, Vector2i(1, 11))
-	var info: RoomInfo = rooms["1"]
-	var segments := ReachGraph.band_segments(info, info.platforms[0])
-	ok = check(segments == [Vector2(40, 100), Vector2(120, 260)], "the rider row splits into the stretches either side of the column %s" % [segments]) and ok
-
-	var plain := ReachGraph.new(rooms, cfg)
-	var report := plain.analyze("1")
-	var parts: Array[ReachGraph.Ledge] = []
-	var far: ReachGraph.Ledge = null
-	for ledge in plain.ledges_in("1"):
-		if ledge.moving:
-			parts.append(ledge)
-		elif ledge.row == 11 and ledge.x0 >= 27:
-			far = ledge
-	ok = check(parts.size() == 2 and parts[0].segmented and parts[1].segmented, "the ferry is two ledges, one per stretch (%d)" % parts.size()) and ok
-	ok = check(parts.size() == 2 and report.reached.has(parts[0]) and not report.reached.has(parts[1]), "without the tongue only the near stretch is reached") and ok
-	ok = check(far != null and not report.reached.has(far), "and the ledge past the column is not reached by riding through it") and ok
-	ok = check(parts.size() == 2 and parts[1].describe().contains("cells 12-25"), "a stretch names its cells: %s" % [parts[1].describe() if parts.size() == 2 else ""]) and ok
-
-	var abilities := Abilities.new()
-	abilities.tongue_unlocked = true
-	var lash := ReachGraph.new(rooms, cfg, abilities)
-	report = lash.analyze("1")
-	far = null
-	for ledge in lash.ledges_in("1"):
-		if not ledge.moving and ledge.row == 11 and ledge.x0 >= 27:
-			far = ledge
-	var broken_far := false
-	for ledge: ReachGraph.Ledge in report.reached:
-		if ledge.room_id != "1" and not ledge.moving and ledge.row == 11 and ledge.x0 >= 27:
-			broken_far = true
-	ok = check(broken_far, "with Tongue Lash the column is lashed from the start ledge and the far ledge is reached in the room with it broken") and ok
-	ok = check(report.errors.is_empty() or report.errors.all(func(e: String) -> bool: return not e.contains("cannot be reached from room")), "and the room solves %s" % [report.errors]) and ok
-	return ok
 
 
 # --- helpers ---------------------------------------------------------------

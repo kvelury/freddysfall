@@ -4,7 +4,7 @@ extends TestCase
 ## run that does not, and a room is only taken from it while nothing the room
 ## depends on has changed. Uses a folder of its own, never the real cache.
 
-const DIR := "user://cache_test"
+const DIR := "user://solver_cache_test"
 
 var _cfg: MovementConfig
 

@@ -1,8 +1,11 @@
 extends SceneTree
 
-## Loads the whole world, then checks it can be played: every room and door
-## reachable from the start, and no place you cannot get back from.
-## Exits non-zero on any error. Warnings (ledges nobody reached) do not fail.
+## Loads the whole world, then (the solver, which is optional) checks it can be
+## played: every room and door reachable from the start, and no place you cannot
+## get back from. Exits non-zero on any error. Warnings (ledges nobody reached) do not fail.
+## `--load-only` stops after the load: rooms parse, doors pair up, the legend and
+## upgrades are valid, and nothing is solved. That is the part `tools/check.sh`
+## always runs; the solve runs only on request (`tools/check.sh --solver`).
 ## tools/validate.sh runs this. What the solver works out about each room is
 ## kept in data/solver-cache/, which is committed with the rooms, so a run (and
 ## CI) only redoes a room whose file, neighbours' doors or the solver changed.
@@ -43,6 +46,11 @@ func _initialize() -> void:
 	if not problems.is_empty():
 		print("validate fail: %d problems loading %d rooms" % [problems.size(), data.rooms.size()])
 		quit(1)
+		return
+
+	if _has_flag("--load-only"):
+		print("world loads: %d rooms" % data.rooms.size())
+		quit(0)
 		return
 
 	var started := Time.get_ticks_msec()

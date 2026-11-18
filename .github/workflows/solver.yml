@@ -1,0 +1,58 @@
+name: Solver
+
+# The reachability solver is optional. It never runs on pull requests or merges
+# and never blocks one. Start it by hand at a milestone: Actions > Solver > Run
+# workflow, or `gh workflow run solver.yml [-f fresh=true]`. It uploads the
+# refreshed solver cache so you can download and commit it if you want it kept.
+
+on:
+  workflow_dispatch:
+    inputs:
+      fresh:
+        description: "Work everything out from scratch, ignoring the committed cache (slow)"
+        type: boolean
+        default: false
+
+concurrency:
+  group: solver-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  solver:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install Godot 4.7.2 and web export templates
+        uses: solarlabyrinth/action-setup-godot@d9f6c080367bc8e35dd623433be29e9f59f53a87 # v3
+        with:
+          version: 4.7.2-stable
+          export-templates: true
+
+      - name: Confirm the Godot version
+        run: godot --version | grep -E '^4\.7\.2\.'
+
+      - name: Run the solver tests and solve the world
+        run: |
+          if [ "${{ inputs.fresh }}" = "true" ]; then
+            ./tools/check.sh --fresh
+          else
+            ./tools/check.sh --solver
+          fi
+
+      - name: Upload the solver cache and logs
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: solver-results
+          path: |
+            data/solver-cache/
+            build/solver-cache-fresh/
+            build/test-logs/
+          if-no-files-found: ignore

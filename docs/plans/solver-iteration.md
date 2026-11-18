@@ -1,6 +1,8 @@
 # Faster room iteration and solver execution
 
-Status: implementation specification; no gameplay or solver changes implemented.
+Status: **superseded on 2026-11-17.** The solver is now optional and gates nothing (see the game design's Decision log). The "final validation gate remains mandatory" rule below no longer applies; the parts about previews, batching and speed-ups are kept as a record and only matter if the solver is worked on.
+
+Original status: implementation specification; no gameplay or solver changes implemented.
 
 Prepared 2026-11-16 against commit `b2bf4c1d7e11dbcabb87f2774e4dacb1bc0cc05e`.
 Reconcile this specification with the current branch before implementation. The
