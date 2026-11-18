@@ -29,7 +29,7 @@ JOBS="${JOBS:-$CORES}"
 LOGS=build/test-logs
 rm -rf "$LOGS"
 mkdir -p "$LOGS"
-SLOW="solver_dump_test shaft_test emitter_test solver_test cache_test game_over_test hazard_test save_room_test platform_test title_card_test"
+SLOW="shaft_test emitter_test solver_test cache_test game_over_test hazard_test save_room_test platform_test title_card_test"
 for name in $SLOW; do
 	if [ -f "tests/$name.gd" ]; then
 		echo "$name"
