@@ -255,6 +255,15 @@
       "type": "bool"
     }
   },
+  "climb_hang_while_held": {
+    "name": "Hang while held",
+    "stat": "climb_hang_while_held",
+    "kind": "unlock",
+    "dev": {
+      "section": "climb",
+      "type": "bool"
+    }
+  },
   "imprint": {
     "dev_only": true,
     "name": "Imprint",

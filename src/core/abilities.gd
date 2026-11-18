@@ -81,6 +81,12 @@ var climb_breakable := true
 var climb_ceiling := true
 ## Whether, after dropping off because the time ran out, he must touch the ground before he can stick again.
 var climb_land_to_restick := false
+## Whether he hangs for as long as the lash key is held, instead of for `climb_hold`.
+## On by default: this is how Tongue Climb works. There is no timer and no wiggle;
+## letting go of the key drops him (after the pull, if it was still coming), and it is
+## not a timeout, so `climb_land_to_restick` does not apply. The dev tools can turn it
+## off to playtest the timed hang (`climb_hold`, `climb_wiggle`).
+var climb_hang_while_held := true
 ## Whether the player has found Imprint. Until they do, the cursor is just a cursor.
 var imprint_unlocked := false
 ## Imprint platform width in cells.

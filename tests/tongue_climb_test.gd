@@ -39,6 +39,8 @@ func _run() -> void:
 	ab.air_jumps = 1
 	player.air_jumps = 1
 	ok = _defaults(ab) and ok
+	# The cases below that time the hang test the dev-tools setting that turns Hang while held off.
+	ab.climb_hang_while_held = false
 	ab.tongue_length = 60.0 # the fixture's distances were laid out for the old length
 
 	# Power-up off: a lash at the pillar sticks the tip for a moment and comes back; Freddy stays put.
@@ -337,6 +339,7 @@ func _run() -> void:
 	ok = check(not player.climbing() and not tongue.active, "clearing the tongue (room change, death, warp, retry) lets him go") and ok
 
 	ok = await _hold_cases(world, player, tongue, ab) and ok
+	ok = await _hang_while_held_cases(world, player, tongue, ab) and ok
 
 	# A fast pull over spikes still kills him: the whole path is tested, not just where he ends.
 	tongue.clear()
@@ -538,9 +541,119 @@ func _hold_cases(world: Node, player: Player, tongue: Node, ab: Abilities) -> bo
 	return ok
 
 
+## Hang while held (`climb_hang_while_held`): a hang has no timer and lasts as long
+## as the lash key is down; letting go drops him, after the pull if it was coming.
+func _hang_while_held_cases(world: Node, player: Player, tongue: Node, ab: Abilities) -> bool:
+	var state: Node = root.get_node("GameState")
+	var ok := check(Abilities.new().climb_hang_while_held, "hang while held is on by default")
+	ok = check(not Abilities.from_dict({"climb_hang_while_held": false}).climb_hang_while_held and Abilities.from_dict({"climb_hang_while_held": true}).climb_hang_while_held, "it round-trips through a save, off as well as on") and ok
+	ab.tongue_climb = true
+	ab.climb_ceiling = true
+	ab.climb_land_to_restick = true
+	ab.climb_hang_while_held = true
+	tongue.scripted_held = true
+
+	# Held: still hanging after four times the hold, never wiggling.
+	_put(world, Vector2i(17, 12))
+	tongue.lash()
+	await until(func() -> bool: return player.hanging(), 60)
+	var wiggled := false
+	var still := true
+	for i in int(ab.climb_hold * 4.0 * 60.0):
+		await physics_frame
+		wiggled = wiggled or player.wiggling()
+		still = still and player.hanging()
+	ok = check(still and not wiggled, "held, he is still hanging after 4x the hold and never wiggles") and ok
+
+	# Let go: he drops, the tongue goes back, and Land before re-stick does not lock him.
+	tongue.scripted_held = false
+	await physics_frame
+	await physics_frame
+	ok = check(not player.climbing() and not player.climb_locked(), "letting go drops him and does not lock re-sticking") and ok
+	ok = check(await until(func() -> bool: return not tongue.active, 90) >= 0, "and the tongue goes back in") and ok
+	await until(func() -> bool: return tongue.cooldown_left <= 0.0, 60)
+	tongue.scripted_held = true
+	tongue.lash()
+	ok = check(await until(func() -> bool: return player.hanging(), 60) >= 0, "he can stick again in the air at once") and ok
+	tongue.clear()
+
+	# Let go while still being pulled: he arrives, then drops.
+	var old_zip := ab.climb_zip_speed
+	ab.climb_zip_speed = 60.0
+	_put(world, Vector2i(17, 12))
+	tongue.lash()
+	await until(func() -> bool: return player.climbing() and not player.hanging(), 60)
+	var wall_x := 200.0 - 5.0 - MovementSim.CLIMB_GAP # where the hang is, from the earlier cases
+	var from_x := player.global_position.x
+	tongue.scripted_held = false
+	var most_x := from_x
+	for i in 90:
+		await physics_frame
+		most_x = maxf(most_x, player.global_position.x)
+		if not player.climbing():
+			break
+	ok = check(not player.climbing() and absf(most_x - wall_x) < 1.0, "let go during the pull, he still arrives (x %.1f of %.1f) and then drops" % [most_x, wall_x]) and ok
+	ab.climb_zip_speed = old_zip
+	tongue.clear()
+
+	# A tap is still only a lash.
+	tongue.scripted_held = false
+	_put(world, Vector2i(17, 12))
+	tongue.lash()
+	var saw := await _watch(player, tongue)
+	ok = check(not saw["climbed"], "a tap does not climb with hang while held on") and ok
+
+	# Jump off while held: the tongue goes in at once.
+	tongue.scripted_held = true
+	_put(world, Vector2i(17, 12))
+	tongue.lash()
+	await until(func() -> bool: return player.hanging(), 60)
+	player.scripted_jump_pressed = true
+	await physics_frame
+	await physics_frame
+	ok = check(not player.climbing() and not tongue.active, "a jump off a held hang pulls the tongue in at once") and ok
+	tongue.clear()
+
+	# Ceiling hang by an up-lash, held until let go.
+	_put(world, Vector2i(7, 16))
+	tongue.lash(true)
+	await until(func() -> bool: return player.hanging(), 60)
+	for i in 120:
+		await physics_frame
+	ok = check(player.climbing_ceiling(), "an up-lash held at a ceiling hangs him until the key is let go") and ok
+	tongue.scripted_held = false
+	await physics_frame
+	await physics_frame
+	ok = check(not player.climbing(), "and letting go drops him from it") and ok
+	tongue.clear()
+
+	# Turned off in the panel mid-hang: he must not stay stuck.
+	tongue.scripted_held = true
+	_put(world, Vector2i(17, 12))
+	tongue.lash()
+	await until(func() -> bool: return player.hanging(), 60)
+	ab.climb_hang_while_held = false
+	state.abilities_changed.emit()
+	await physics_frame
+	await physics_frame
+	ok = check(not player.climbing(), "turning the switch off mid-hang drops him") and ok
+	tongue.clear()
+
+	# Off again: the timed hang is as it was.
+	ab.climb_land_to_restick = false
+	_put(world, Vector2i(17, 12))
+	tongue.lash()
+	await until(func() -> bool: return player.hanging(), 60)
+	ok = check(await until(func() -> bool: return not player.climbing(), 90) >= 0, "with the switch off a held hang still runs out") and ok
+	tongue.scripted_held = true
+	tongue.clear()
+	return ok
+
+
 func _defaults(ab: Abilities) -> bool:
 	var ok := check(not ab.tongue_climb and ab.climb_hold == 0.5 and ab.climb_wiggle == 0.2 and ab.climb_zip_speed == 400.0, "the starting values are 0.5 s, a 0.2 s wiggle and a 400 px/s pull, off")
 	ok = check(ab.climb_breakable and ab.climb_ceiling and not ab.climb_land_to_restick, "breakable and ceilings on, land before re-stick off") and ok
+	ok = check(ab.climb_hang_while_held, "Hang while held starts on") and ok
 	var round_trip := Abilities.from_dict(ab.to_dict())
 	return check(round_trip.climb_hold == ab.climb_hold and round_trip.climb_breakable == ab.climb_breakable, "they round-trip through a save") and ok
 

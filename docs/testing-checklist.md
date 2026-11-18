@@ -138,6 +138,17 @@ Nobody has played this yet. Room 14's 3TM gives it (see "Rooms 12 to 14"). `?dev
 - [ ] **Dangers.** A pull through spikes still kills him. Being pushed by a moving platform lets go. Leaving the room, dying and retry (F2) all clear the hang.
 - [ ] **Loadouts and retry.** Save the settings in a named loadout and load them; a retry keeps them. Ending the playtest leaves the normal game without Tongue Climb.
 
+## Hang while held (the default hang)
+
+Nobody has played this yet. `?dev=1&room=13` (or 14), F2, **Tongue Climb** section: turn on Tongue Lash and Tongue Climb, Apply. Hang while held is on by default; untick it to try the timed hang.
+
+- [ ] **Hold to hang.** Tap X at a wall: only a lash. Hold X: he is pulled to the wall and hangs, with no drop and no wiggle, for as long as you hold. Let go: he drops. Does it feel like holding on to the wall?
+- [ ] **Let go early.** Hold X and let go before he reaches the wall: he arrives and drops. Does that feel right, or should it cancel the pull?
+- [ ] **Wall climbs.** With the switch on, climb room 13's left wall (hang, jump, double jump, hang). Is an unlimited hang too easy, so the wall needs no timing?
+- [ ] **Ceilings.** Hold C at a ceiling: he hangs until C is let go, then has the spare jump.
+- [ ] **Re-stick.** With Land before re-stick on, a drop from letting go still lets him stick again in the air at once.
+- [ ] **Loadouts.** Save a named loadout with the switch on, change it, load it: the switch comes back. Retry after death keeps it.
+
 ## Tongue Lash and breakable walls
 
 Nobody has played these yet. Headless tests prove the rules, not the feel. Use `?dev=1&room=7`, open F2, turn Tongue Lash on and Apply (add Air jumps 1 if you want to climb), or play to room 9's 3TM, which gives it. This replaced the gun, so nothing here was tested as a tongue.

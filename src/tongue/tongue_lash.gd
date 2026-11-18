@@ -135,6 +135,9 @@ var _intent := Intent.ATTACK
 ## Whether the tip is stuck to something Freddy can hang from and waits, in the
 ## STICK phase, for the key to be let go (a plain lash) or held long enough (a climb).
 var _awaiting_climb := false
+## Whether the hang now going (or coming) lasts as long as the key is held
+## (`Abilities.climb_hang_while_held`), fixed when the climb starts.
+var _hang_until_release := false
 ## The last line the lash input readout said (the dev tools' Show lash input).
 var last_log := ""
 
@@ -410,6 +413,7 @@ func _reset_phase() -> void:
 	_climbable = false
 	_struck_wall = false
 	_awaiting_climb = false
+	_hang_until_release = false
 
 
 ## The tip has stopped going out. If it hit something and the tongue sticks, it
@@ -459,8 +463,14 @@ func _try_climb(at := tip()) -> bool:
 	if up and not abilities.climb_ceiling:
 		return false
 	var dir := Vector2(0.0, -1.0) if up else Vector2(float(direction), 0.0)
-	if not _player.begin_climb(at, dir, abilities.climb_hold, abilities.climb_wiggle, abilities.climb_zip_speed, abilities.climb_land_to_restick):
+	var until_release := abilities.climb_hang_while_held
+	# Held: no timer and no wiggle, so the hang never runs out and never relocks.
+	var hold := INF if until_release else abilities.climb_hold
+	var wiggle := 0.0 if until_release else abilities.climb_wiggle
+	var relock := abilities.climb_land_to_restick and not until_release
+	if not _player.begin_climb(at, dir, hold, wiggle, abilities.climb_zip_speed, relock):
 		return false
+	_hang_until_release = until_release
 	phase = Phase.CLIMB
 	_time = 0.0
 	_stuck_tip = at
@@ -491,6 +501,12 @@ func _move(delta: float) -> void:
 				# A jump off the hang pulls the tongue in at once, so the next
 				# lash is only the cooldown away.
 				end()
+				return
+			if _hang_until_release and _player.hanging() and not _held_now():
+				# The key is let go: he drops (a release during the pull waits until
+				# he has arrived), with coyote time or the spare jump as any drop.
+				_player.end_climb()
+				_start_back()
 				return
 			if not _player.climbing() or not _surface_holds():
 				_player.end_climb()
@@ -616,6 +632,11 @@ func _reconcile_abilities() -> void:
 		return
 	if not abilities.tongue_climb or (up and not abilities.climb_ceiling) or (_stuck_breakable and not abilities.climb_breakable):
 		_player.cancel_climb()
+		_start_back()
+		return
+	if _hang_until_release and not abilities.climb_hang_while_held:
+		# Switched off mid-hang: with no timer, he must not stay stuck.
+		_player.end_climb()
 		_start_back()
 
 

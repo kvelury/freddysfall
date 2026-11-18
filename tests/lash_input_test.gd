@@ -182,6 +182,7 @@ func _late_up(world: Node, player: Player, tongue: Node) -> bool:
 func _climb_chain(world: Node, player: Player, tongue: Node, ab: Abilities) -> bool:
 	var ok := true
 	ab.tongue_climb = true
+	ab.climb_hang_while_held = false # these cases time the hang (the dev-tools setting)
 	# Wall: lash pressed (with look-up) the tick before the jump off.
 	_put(world, Vector2i(17, 12), 1)
 	await _press(tongue)
