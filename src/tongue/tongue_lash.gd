@@ -105,6 +105,9 @@ var _climbable := false
 ## Whether the strike was on a breakable wall, and whether the hang is on one.
 var _struck_wall := false
 var _stuck_breakable := false
+## The breakable wall the tongue is stuck to whose breaking hit has landed: it
+## stands, fully cracked, until the tongue lets go (`_release_wall`).
+var _doomed_wall: BreakableWall = null
 ## Where the tip stuck, for a climb, in world pixels.
 var _stuck_tip := Vector2.ZERO
 ## Where the tip stuck, as a world coordinate along the tongue: x going sideways,
@@ -201,6 +204,7 @@ func end() -> void:
 		cooldown_left = GameState.abilities.tongue_cooldown
 	if _player != null:
 		_player.end_climb()
+	_release_wall()
 	active = false
 	up = false
 	_player.lashing_up = false
@@ -218,6 +222,7 @@ func drop_buffer() -> void:
 
 ## Removes the tongue, the wait for the next lash and any kept press.
 func clear() -> void:
+	_doomed_wall = null
 	drop_buffer()
 	active = false
 	up = false
@@ -479,9 +484,19 @@ func _try_climb(at := tip()) -> bool:
 	return true
 
 
+## The tongue has let go of a wall whose breaking hit it was holding back: the
+## wall breaks now. Nothing happens if there is none, or it is in another room.
+func _release_wall() -> void:
+	var wall := _doomed_wall
+	_doomed_wall = null
+	if wall != null and is_instance_valid(wall) and _world.current != null:
+		_world.current.break_wall(wall)
+
+
 ## Sets up the return from where the tip is: it takes `extension / (snap * speed)`
 ## seconds, along the curve `TongueMotion.remaining` gives.
 func _start_back() -> void:
+	_release_wall()
 	phase = Phase.BACK
 	_time = 0.0
 	_back_from = extension
@@ -523,6 +538,7 @@ func _move(delta: float) -> void:
 			if _awaiting_climb and _intent == Intent.ATTACK:
 				# Let go: an ordinary lash, its stick counted from the strike.
 				_awaiting_climb = false
+				_release_wall()
 			# The tip stays where it hit even if the player moves.
 			if up:
 				extension = maxf(0.0, _player.global_position.y - _stuck_at - FRONT)
@@ -582,11 +598,22 @@ func _hit() -> bool:
 		return true
 	var wall := room.wall_at(box)
 	if wall != null:
-		var broke := room.hit_wall(wall, DevSession.wall_strength())
+		var due := room.strike_wall(wall, DevSession.wall_strength())
 		_puff(at)
 		_struck = true
 		_struck_wall = true
-		_climbable = GameState.abilities.climb_breakable and not broke
+		var abilities := GameState.abilities
+		# A stick that can become a hang holds the breaking hit back until the
+		# tongue lets go; a tap, or a lash that cannot stick, breaks it now.
+		var can_hang := abilities.tongue_climb and abilities.climb_breakable and _intent != Intent.ATTACK and not (up and not abilities.climb_ceiling)
+		if due and can_hang:
+			_doomed_wall = wall
+			_climbable = true
+		elif due:
+			room.break_wall(wall)
+			_climbable = false
+		else:
+			_climbable = abilities.climb_breakable
 		return true
 	var extra: Array[Rect2] = []
 	var origin := room.position

@@ -163,8 +163,26 @@ func _run() -> void:
 	await until(func() -> bool: return not tongue.active and tongue.cooldown_left <= 0.0, 90)
 	player.facing = 1
 	tongue.lash()
-	saw = await _watch(player, tongue)
-	ok = check(not saw["climbed"] and room.info.broken.has(WALL), "the hit that breaks the wall does not stick") and ok
+	ok = check(await until(func() -> bool: return player.hanging(), 60) >= 0, "the breaking hit sticks too") and ok
+	ok = check(not room.info.broken.has(WALL) and _damage(room) == 2, "and the wall still stands, fully cracked, while he hangs (%d)" % _damage(room)) and ok
+	player.scripted_jump_pressed = true
+	await physics_frame
+	await physics_frame
+	ok = check(room.info.broken.has(WALL) and _damage(room) == -1, "the wall breaks when he lets go") and ok
+	await until(func() -> bool: return player.is_on_floor(), 120)
+	await until(func() -> bool: return not tongue.active and tongue.cooldown_left <= 0.0, 90)
+
+	# The breaking hit as a tap: no stick, so it breaks at once.
+	world._place_in("1")
+	room = world.current
+	player = world.get_node("Player")
+	room.strike_wall(room.wall_at(Rect2(Vector2(262.0, 142.0), Vector2(2, 2))), 2)
+	tongue.scripted_held = false
+	_put(world, Vector2i(23, 16))
+	tongue.lash()
+	await until(func() -> bool: return not tongue.active, 120)
+	ok = check(room.info.broken.has(WALL), "a tap that lands the breaking hit breaks the wall at once") and ok
+	tongue.scripted_held = true
 	world._place_in("1")
 	room = world.current
 	player = world.get_node("Player")

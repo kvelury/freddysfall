@@ -365,14 +365,31 @@ func wall_at(box: Rect2) -> BreakableWall:
 ## A lash lands on `wall`. If that breaks it, it stops colliding and
 ## `wall_broken` is emitted. Returns whether it broke.
 func hit_wall(wall: BreakableWall, strength: int) -> bool:
-	if not wall.hit(strength):
+	if not strike_wall(wall, strength):
 		return false
+	break_wall(wall)
+	return true
+
+
+## A lash lands on `wall` and it takes the damage, but it is not broken even if
+## that was the breaking hit: returns whether it is now due to break. The caller
+## breaks it with `break_wall` (a tongue stuck to it waits until it lets go).
+func strike_wall(wall: BreakableWall, strength: int) -> bool:
+	return wall.strike(strength)
+
+
+## Breaks `wall` (one that `strike_wall` said is due): it shatters and stops
+## colliding, and `wall_broken` is emitted. Nothing happens to a wall that has
+## already gone.
+func break_wall(wall: BreakableWall) -> void:
+	if wall == null or not _walls.has(wall):
+		return
+	wall.shatter()
 	_walls.erase(wall)
 	info.broken.append(wall.def.id)
 	_floor_rects = _solid_rects()
 	_world_rects_dirty = true
 	wall_broken.emit()
-	return true
 
 
 func _solid_rects() -> Array[Rect2]:
