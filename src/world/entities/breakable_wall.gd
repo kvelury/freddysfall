@@ -51,19 +51,33 @@ func world_rects() -> Array[Rect2]:
 ## A lash lands. `strength` is how many it takes. Returns whether the wall
 ## broke, in which case it has already shattered and left the scene.
 func hit(strength: int) -> bool:
+	if not strike(strength):
+		return false
+	shatter()
+	return true
+
+
+## A lash lands but the wall is not yet broken: it takes the damage and flashes.
+## Returns whether that was the breaking hit (the wall stands, fully cracked,
+## until `shatter` is called; a stuck tongue holds it back, see `TongueLash`).
+func strike(strength: int) -> bool:
 	_strength = maxi(1, strength)
 	damage += 1
 	_flash = 0.07
-	if damage >= _strength:
-		broken = true
-		for cell in cells:
-			var burst := Shatter.new()
-			burst.position = Grid.cell_center(cell)
-			get_parent().add_child(burst)
-		queue_free()
-		return true
 	queue_redraw()
-	return false
+	return damage >= _strength
+
+
+## Breaks the wall: it bursts cell by cell and leaves the scene.
+func shatter() -> void:
+	if broken:
+		return
+	broken = true
+	for cell in cells:
+		var burst := Shatter.new()
+		burst.position = Grid.cell_center(cell)
+		get_parent().add_child(burst)
+	queue_free()
 
 
 ## How cracked the wall looks, from 0 (the cracks it always has) to STAGES.
