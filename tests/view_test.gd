@@ -85,29 +85,29 @@ func _world() -> bool:
 	root.get_node("Save").enabled = false
 	var session: Node = root.get_node("DevSession")
 	var world := (load("res://src/world/world.tscn") as PackedScene).instantiate()
-	world.start_override = "16"
+	world.start_override = "18"
 	root.add_child(world)
 	await process_frame
 	var player: Player = world.player
 	player.scripted = true
 	var camera: Camera2D = world.camera
-	ok = check(camera.zoom == Vector2.ONE, "room 16 is drawn two screens wide") and ok
+	ok = check(camera.zoom == Vector2.ONE, "room 18 is drawn two screens") and ok
 	var door: Door = null
 	for candidate in world.current.info.exits:
-		if candidate.dest_id == "17":
+		if candidate.dest_id == "s4":
 			door = candidate
-	ok = check(door != null, "room 16 has a door into 17, a one-screen room") and ok
+	ok = check(door != null, "room 18 has a door into s4, a one-screen room") and ok
 	if door == null:
 		world.queue_free()
 		return false
 	world._on_exit(door)
 	await ticks(4)
-	ok = check(camera.zoom.x > 1.0 and camera.zoom.x < 2.0, "crossing into 17 glides the zoom in (%s)" % camera.zoom) and ok
+	ok = check(camera.zoom.x > 1.0 and camera.zoom.x < 2.0, "crossing into s4 glides the zoom in (%s)" % camera.zoom) and ok
 	var early := camera.zoom.x
 	await ticks(8)
 	ok = check(camera.zoom.x > early, "and keeps going (%s -> %s)" % [early, camera.zoom.x]) and ok
 	await until(func() -> bool: return not world.is_busy(), 120)
-	ok = check(world.current.info.id == "17" and camera.zoom == Vector2(2, 2), "it ends at zoom 2 in room 17 (%s)" % camera.zoom) and ok
+	ok = check(world.current.info.id == "s4" and camera.zoom == Vector2(2, 2), "it ends at zoom 2 in room s4 (%s)" % camera.zoom) and ok
 	var want := RoomView.camera_focus(world.current.position, world.current.info.pixel_size, ONE, player.global_position)
 	ok = check(camera.position == want, "with the camera where a one-screen view puts it (%s, wanted %s)" % [camera.position, want]) and ok
 	world.warp_to("18")
