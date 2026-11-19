@@ -44,9 +44,9 @@ Nobody has played this yet. `?dev=1&room=12`, then F2 for Tongue Lash, double ju
 - [ ] **A rider is scraped off.** Ride a `scrape=true` platform into the wall in its rider row (room 19's ferry into its column, once that room exists): Freddy stops at the wall's face, is not crushed, stays on the platform while it slides under the wall, and falls when it has gone. Both directions, and at the platform's ends.
 - [ ] **A broken wall lets the ride through.** Break the column, then ride: carried straight past where it stood. Leave and come back: the column is back and scrapes again.
 
-## Rooms 18 and 19 (west of room 16)
+## Rooms 18, 16 and 19 (west of s4)
 
-- [ ] **Into 18.** From room 16's left door (row 19), jump through: a running entry lands on the slab under the door; a slow one drops by the wall, and a held lash onto the wall catches you.
+- [ ] **Into 18.** From s4's left door (rows 10–12), walk through: a running entry lands on the slab under the door; a slow one drops by the wall, and a held lash onto the wall catches you.
 - [ ] **The ferry.** From the wall hang, time a jump onto room 18's ferry, ride it left, and break the column by climbing onto it twice (or lash it twice from the ferry). Is the hang long enough to wait for the ferry?
 - [ ] **The lift and the exit.** Past the column, drop onto the lift, ride up, and jump to the exit ledge. Is the jump from the lift's top fair?
 - [ ] **Into 19 and across the cross.** Hang from the ceiling across the turning cross and drop onto the lift. Do the spiked leading edges read, and is the timing fair?
@@ -63,7 +63,7 @@ Nobody has played this yet. `?dev=1&room=12`, then F2 for Tongue Lash and double
 - [ ] **The first plug.** Riding it, hold Up or W and press X twice: the lash breaks the plug in the slab over the track. Is there time to do it before the platform runs out, and is it fair that a jump off the platform leaves its speed behind?
 - [ ] **The second plug.** From the ledge you reach, lash up again, then climb to the long ledge on top.
 - [ ] **The spinner.** It turns counter-clockwise once every 8 s. Its bottom row and top-left half are spikes (they kill); the top-right half is safe and carries you. Can you land on the safe half, ride it up, and jump off to the upper-left ledge? Is 8 s right? It is one straight bar at every angle now, not steps: does the safe half read as a flat surface next to the teeth? Stand still on it for a full turn and walk along it up and down: nothing safe should ever kill you. Past 60° of tilt (and turned over) you should be pushed off and fall, not killed. Does a rider look right standing on a slope (the box rests on the uphill corner)? Is the spinner's frame time fine in the browser (`?dev=1&room=12`, F7 for slow motion)?
-- [ ] **The doors.** The upper-left door leads to room 13. The bottom-left door to room 14 can be reached from inside room 12: the solver finds the drop from the end of the platform down the clear col 2 to the door strip (it has not found the drop down the left wall from the upper-left shelf, so try that too). Room 14 is also reached by dropping through room 13's floor door.
+- [ ] **The doors.** The upper-left door leads to s4. The bottom-left door to room 14 can be reached from inside room 12: the solver finds the drop from the end of the platform down the clear col 2 to the door strip (it has not found the drop down the left wall from the upper-left shelf, so try that too). Room 14 is also reached by dropping through s4's floor door.
 - [ ] **The long ride.** The platform now runs the whole way to the left end (col 2) over a spike floor with no island in it, and breaks on the wall spikes. Riding to the end and dropping to room 14's door (col 2 is clear) is allowed: is it too easy?
 - [ ] **The pillar.** It is 2 cells further left and 3 higher at its top, so the slab and the token on it cannot be reached by a double jump from the platform: try it from the platform's whole track (F2 for double jump). Is the pillar's spiked face (beside the corridor) still readable, and is the corridor wide enough?
 - [ ] **The two tokens.** One on the long ledge's left end, one on the shelf before the door to 13. (The token at the top right moved to room 15.)
@@ -81,13 +81,13 @@ Nobody has played this yet. `?dev=1&room=15`, then F2 for Tongue Lash and double
 
 ## Rooms 12 to 14: the Tongue Climb route
 
-Nobody has played this yet. The real route: s2, room 15 (take the token), room 12 (take both tokens), the upper-left door into room 13 and its floor door down into room 14, the 3TM, up room 14's left wall, up room 13. For a shortcut `?dev=1&room=14`, F2, Tongue Lash, double jump and tokens 3.
+Nobody has played this yet. The real route: s2, room 15 (take the token), room 12 (take both tokens), the upper-left door into room 13 and its floor door down into room 14, the 3TM, up room 14's left wall to s4. For a shortcut `?dev=1&room=14`, F2, Tongue Lash, double jump and tokens 3.
 
 - [ ] **Three tokens, one 3TM.** Take the token in room 15 and the two in room 12, drop into room 14 and use the 3TM. Does the Tongue Climb popup show, and are the tokens gone?
-- [ ] **Leaving room 14.** With Tongue Climb, hold X at room 14's left wall (hold, not tap) and hop up it: lash, jump, double jump, lash again. Does the ceiling door at the top come up into room 13's floor? Is the climb up the wall fair, or is the wall too long?
-- [ ] **Room 13.** The three ledges up the left wall: each needs a hang and a hop. Is the gap between them right? Does the climb feel too easy, since the wall is the whole room's left edge?
+- [ ] **Leaving room 14.** With Tongue Climb, hold X at room 14's left wall (hold, not tap) and hop up it: lash, jump, double jump, lash again. Does the ceiling door at the top come up into s4's floor? Is the climb up the wall fair, or is the wall too long?
+- [ ] **s4.** The save machine is on the middle platform (7 cells up, so a double jump): can you reach it? All three doors (to 12, 14 and 18) stay shut until you save, and open after.
 - [ ] **Without enough tokens.** Drop into room 14 with fewer than three tokens: the spikes are the only way out. Dying sends you to s2 and the tokens you took stay taken.
-- [ ] **Coming in from room 12.** The door in room 12's upper-left comes into room 13 on a shelf; the bottom-left one into room 14 at the floor.
+- [ ] **Coming in from room 12.** The door in room 12's upper-left comes into s4 on a shelf; the bottom-left one into room 14 at the floor.
 
 ## Room 7 step, room 9 floor door and s3
 
@@ -144,7 +144,7 @@ Nobody has played this yet. `?dev=1&room=13` (or 14), F2, **Tongue Climb** secti
 
 - [ ] **Hold to hang.** Tap X at a wall: only a lash. Hold X: he is pulled to the wall and hangs, with no drop and no wiggle, for as long as you hold. Let go: he drops. Does it feel like holding on to the wall?
 - [ ] **Let go early.** Hold X and let go before he reaches the wall: he arrives and drops. Does that feel right, or should it cancel the pull?
-- [ ] **Wall climbs.** With the switch on, climb room 13's left wall (hang, jump, double jump, hang). Is an unlimited hang too easy, so the wall needs no timing?
+- [ ] **Wall climbs.** With the switch on, climb room 14's left wall (hang, jump, double jump, hang). Is an unlimited hang too easy, so the wall needs no timing?
 - [ ] **Ceilings.** Hold C at a ceiling: he hangs until C is let go, then has the spare jump.
 - [ ] **Re-stick.** With Land before re-stick on, a drop from letting go still lets him stick again in the air at once.
 - [ ] **Loadouts.** Save a named loadout with the switch on, change it, load it: the switch comes back. Retry after death keeps it.
@@ -434,3 +434,11 @@ Nobody has played these yet. Release web build, in an ordinary browser window.
 - [ ] **Resize the window while zoomed.** The picture still scales by whole numbers and stays sharp.
 
 - [ ] **Every room is reachable and escapable in a fresh save.** The author plays each room (`?dev=1&room=<id>` for a quick look, then the real route); the solver is optional and does not stand in for this.
+
+## West wing reroute (s4 → 18 → 16 → 19)
+
+- [ ] **Walk it.** `?dev=1&room=s4`, save, take the left door into 18: you land on the entry slab with no gap beside the wall. Cross 18, take its lower-left door into room 16's top-right, cross 16, take its bottom-right door into 19 (now mirrored, spinners turn clockwise).
+- [ ] **Room 18's lowered exit.** The exit ledge and door are 13 cells lower than before: is the lift ride to it still fair?
+- [ ] **Room 19 mirrored.** Is every hazard on the side you expect (cross arms, bar, shelf spikes, ferry running right toward the column)?
+- [ ] **Room 17 and 16's left door are gone.** The map shows no room above s4 and no door on 16's left wall.
+- [ ] **Room 19 into 20.** From 19's exit ledge on the right wall, walk through the door into the empty room 20 and back.
